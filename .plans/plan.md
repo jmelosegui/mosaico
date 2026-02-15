@@ -20,7 +20,7 @@ Mosaico is structured as a Cargo workspace with multiple crates:
 | [3a](phase-03a.md) | Restructure into Cargo Workspace | Complete |
 | [3b](phase-03b.md) | Window Enumeration (`mosaico debug list`) | Complete |
 | [4](phase-04.md) | Daemon + IPC | Complete |
-| [5](phase-05.md) | Event-Driven Window Discovery | Pending |
+| [5](phase-05.md) | Event-Driven Window Discovery | Complete |
 | [6](phase-06.md) | Window Positioning | Pending |
 
 ## Future Phases (not yet planned in detail)
