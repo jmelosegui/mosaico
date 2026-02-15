@@ -49,5 +49,45 @@ pub fn execute() {
     // We call try_wait() to acknowledge the child without blocking.
     let _ = child.try_wait();
 
-    println!("Mosaico started (PID: {pid})");
+    print_banner(pid);
+}
+
+fn print_banner(pid: u32) {
+    let b = "\x1b[94m"; // Bright blue — tile 1 (largest)
+    let g = "\x1b[92m"; // Bright green — tile 2
+    let y = "\x1b[93m"; // Bright yellow — tile 3
+    let re = "\x1b[91m"; // Bright red — tile 4
+    let d = "\x1b[90m"; // Dim gray — frame and labels
+    let w = "\x1b[1;97m"; // Bold bright white — name
+    let r = "\x1b[0m"; // Reset
+    let v = env!("CARGO_PKG_VERSION");
+    let pid_len = pid.to_string().len();
+
+    const W: usize = 60;
+    let pad = |n: usize| " ".repeat(W.saturating_sub(n));
+    let rule: String = "─".repeat(W);
+
+    println!();
+    println!("  {d}╭{rule}╮{r}");
+    println!("  {d}│  ┌────────────────┐{s}│{r}", s = pad(20));
+    println!(
+        "  {d}│  │{b}████████{g}████████{d}│  {w}mosaico{r} {d}v{v}{s}│{r}",
+        s = pad(31 + v.len())
+    );
+    println!(
+        "  {d}│  │{b}████████{g}████████{d}│  Tiling window manager{s}│{r}",
+        s = pad(43)
+    );
+    println!("  {d}│  │{b}████████{g}████████{d}│{s}│{r}", s = pad(20));
+    println!(
+        "  {d}│  │{b}████████{y}████{re}████{d}│  Daemon started (PID: {pid}){s}│{r}",
+        s = pad(44 + pid_len)
+    );
+    println!(
+        "  {d}│  │{b}████████{y}████{re}████{d}│  Config: ~/.config/mosaico/{s}│{r}",
+        s = pad(48)
+    );
+    println!("  {d}│  └────────────────┘{s}│{r}", s = pad(20));
+    println!("  {d}╰{rule}╯{r}");
+    println!();
 }
