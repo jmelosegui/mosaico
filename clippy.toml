@@ -1,0 +1,26 @@
+# Clippy configuration for Mosaico
+# Full lint list: https://rust-lang.github.io/rust-clippy/master/index.html
+#
+# This file configures threshold-based lints. Uncomment and modify as needed.
+# For enabling/disabling lint groups, use [workspace.lints.clippy] in Cargo.toml.
+
+# Max number of function arguments before triggering a warning
+# too-many-arguments-threshold = 7
+
+# Max cognitive complexity of a function before triggering a warning
+# cognitive-complexity-threshold = 25
+
+# Max number of lines in a function body before triggering a warning
+# too-many-lines-threshold = 100
+
+# Max number of variants in an enum before triggering a warning
+# enum-variant-size-threshold = 200
+
+# Max number of struct fields before triggering a warning
+# too-many-struct-fields-threshold = 8
+
+# Max nesting depth of types like Vec<Vec<Vec<T>>> before triggering a warning
+# type-complexity-threshold = 250
+
+# Minimum number of characters in a variable name (single_char_binding_names)
+# min-ident-chars-threshold = 1

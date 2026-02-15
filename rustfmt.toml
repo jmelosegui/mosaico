@@ -1,0 +1,48 @@
+# Rustfmt configuration for Mosaico
+# Full options: https://rust-lang.github.io/rustfmt/
+#
+# Most options below are set to their defaults. Uncomment and modify as needed.
+# Note: options marked (unstable) require nightly Rust to use.
+
+# Maximum width of each line
+# max_width = 100
+
+# Number of spaces per indent level
+# tab_spaces = 4
+
+# Use tabs instead of spaces
+# hard_tabs = false
+
+# Maximum width of a function call before it wraps to multiple lines
+# fn_call_width = 60
+
+# Maximum width of a single-line struct literal
+# struct_lit_width = 18
+
+# Maximum width of a chain of method calls before it wraps
+# chain_width = 60
+
+# Controls how imports are grouped (unstable)
+# Options: "Preserve", "Crate", "Module", "Item", "One"
+# imports_granularity = "Preserve"
+
+# Controls blank lines between import groups (unstable)
+# Options: "Preserve", "StdExternalCrate", "One"
+# group_imports = "Preserve"
+
+# Use field init shorthand where possible (e.g. Foo { x } instead of Foo { x: x })
+# use_field_init_shorthand = false
+
+# How to handle trailing commas
+# Options: "Vertical", "Never", "Always"
+# trailing_comma = "Vertical"
+
+# Put single-expression functions on one line
+# Options: "Always", "Never", "Preserve"
+# fn_single_line = false
+
+# Format string literals to fit within max_width
+# format_strings = false
+
+# Edition to use for parsing
+edition = "2024"

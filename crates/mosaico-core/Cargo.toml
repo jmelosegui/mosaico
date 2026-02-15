@@ -6,3 +6,6 @@ description = "Platform-agnostic core types and traits for Mosaico"
 license = "MIT"
 
 [dependencies]
+
+[lints]
+workspace = true
