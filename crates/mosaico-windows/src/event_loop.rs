@@ -1,6 +1,7 @@
 use std::sync::mpsc::Sender;
 use std::thread;
 
+use mosaico_core::config::Keybinding;
 use mosaico_core::{Action, WindowEvent, WindowResult};
 use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
 use windows::Win32::UI::Accessibility::{HWINEVENTHOOK, SetWinEventHook, UnhookWinEvent};
@@ -26,11 +27,13 @@ thread_local! {
 
 /// Starts the Win32 event loop on a new thread.
 ///
-/// Registers window event hooks and global hotkeys. Events and actions
-/// are sent through the provided channels.
+/// Registers window event hooks and global hotkeys from the provided
+/// keybinding configuration. Events and actions are sent through the
+/// provided channels.
 pub fn start(
     event_tx: Sender<WindowEvent>,
     action_tx: Sender<Action>,
+    keybindings: Vec<Keybinding>,
 ) -> WindowResult<EventLoopHandle> {
     let (ready_tx, ready_rx) = std::sync::mpsc::channel::<Result<u32, String>>();
 
@@ -63,7 +66,7 @@ pub fn start(
 
         // Register hotkeys on this thread's message queue.
         let mut hotkeys = HotkeyManager::new(action_tx);
-        hotkeys.register_defaults();
+        hotkeys.register_from_config(&keybindings);
 
         let _ = ready_tx.send(Ok(thread_id));
 
