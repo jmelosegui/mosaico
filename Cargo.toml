@@ -5,3 +5,17 @@ members = [
     "crates/mosaico-windows",
 ]
 resolver = "3"
+
+# Workspace-wide lint configuration
+# Each crate must opt in with: [lints] workspace = true
+# Full lint list: https://rust-lang.github.io/rust-clippy/master/index.html
+[workspace.lints.clippy]
+# pedantic = "warn"                  # Stricter style lints (uncomment to enable)
+# nursery = "warn"                   # Experimental lints (uncomment to enable)
+# module_name_repetitions = "allow"  # Allow types like WindowWindow (off by default)
+# missing_errors_doc = "allow"       # Allow missing # Errors doc section
+# must_use_candidate = "allow"       # Allow missing #[must_use]
+
+[workspace.lints.rust]
+# missing_docs = "warn"              # Warn on missing doc comments (uncomment to enable)
+# unsafe_code = "forbid"             # Forbid unsafe code workspace-wide (uncomment to enable)
