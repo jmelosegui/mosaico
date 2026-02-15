@@ -1,3 +1,6 @@
+/// Border overlay windows for visual focus indicators.
+pub mod border;
+
 /// Daemon main loop.
 pub mod daemon;
 
