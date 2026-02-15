@@ -19,8 +19,14 @@ pub mod event_loop;
 /// IPC via Named Pipes.
 pub mod ipc;
 
+/// Monitor work area queries.
+pub mod monitor;
+
 /// Process utilities (alive check).
 pub mod process;
+
+/// Tiling manager that applies layouts to managed windows.
+pub mod tiling;
 
 /// Window type wrapping a Win32 `HWND`.
 pub mod window;
