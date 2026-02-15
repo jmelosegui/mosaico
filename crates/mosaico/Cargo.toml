@@ -1,0 +1,11 @@
+[package]
+name = "mosaico"
+version = "0.1.0"
+edition = "2024"
+description = "A cross-platform tiling window manager"
+license = "MIT"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+mosaico-core = { path = "../mosaico-core" }
+mosaico-windows = { path = "../mosaico-windows" }

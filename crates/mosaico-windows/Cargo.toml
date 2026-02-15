@@ -1,0 +1,9 @@
+[package]
+name = "mosaico-windows"
+version = "0.1.0"
+edition = "2024"
+description = "Windows platform implementation for Mosaico"
+license = "MIT"
+
+[dependencies]
+mosaico-core = { path = "../mosaico-core" }

@@ -1,9 +1,7 @@
-[package]
-name = "mosaico"
-version = "0.1.0"
-edition = "2024"
-description = "A tiling window manager for Windows"
-license = "MIT"
-
-[dependencies]
-clap = { version = "4", features = ["derive"] }
+[workspace]
+members = [
+    "crates/mosaico",
+    "crates/mosaico-core",
+    "crates/mosaico-windows",
+]
+resolver = "3"
