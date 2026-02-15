@@ -27,10 +27,8 @@ Mosaico is structured as a Cargo workspace with multiple crates:
 | [8](phase-08.md) | Hotkey System | Complete |
 | [9](phase-09.md) | Configuration | Complete |
 | [10](phase-10.md) | Multi-Monitor Support | Complete |
-
-## Future Phases (not yet planned in detail)
-
-11. **Window rules** — Per-application tiling behavior
+| [11](phase-11.md) | Window Rules | Complete |
+| [12](phase-12.md) | Focus Borders, Monocle Mode, Vim Motions | Complete |
 
 ## Design Principles
 

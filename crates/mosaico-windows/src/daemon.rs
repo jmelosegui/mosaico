@@ -54,7 +54,7 @@ fn daemon_loop() -> WindowResult<()> {
 
     let (tx, rx) = mpsc::channel::<DaemonMsg>();
 
-    let mut manager = TilingManager::new(layout)?;
+    let mut manager = TilingManager::new(layout, config.rules, config.borders)?;
     eprintln!("Managing {} windows.", manager.window_count());
 
     // Start the Win32 event loop + hotkeys on its own thread.
