@@ -21,6 +21,17 @@ enum Commands {
     Stop,
     /// Show current status
     Status,
+    /// Debugging and inspection tools
+    Debug {
+        #[command(subcommand)]
+        command: DebugCommands,
+    },
+}
+
+#[derive(Subcommand)]
+enum DebugCommands {
+    /// List all visible windows
+    List,
 }
 
 fn main() {
@@ -30,5 +41,8 @@ fn main() {
         Commands::Start => commands::start::execute(),
         Commands::Stop => commands::stop::execute(),
         Commands::Status => commands::status::execute(),
+        Commands::Debug { command } => match command {
+            DebugCommands::List => commands::debug::list::execute(),
+        },
     }
 }

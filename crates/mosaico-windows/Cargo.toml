@@ -8,5 +8,13 @@ license = "MIT"
 [dependencies]
 mosaico-core = { path = "../mosaico-core" }
 
+[dependencies.windows]
+version = "0.61"
+features = [
+    "Win32_UI_WindowsAndMessaging",  # EnumWindows, GetWindowTextW, IsWindowVisible, etc.
+    "Win32_Foundation",               # HWND, BOOL, RECT, LPARAM
+    "Win32_System_Threading",         # GetWindowThreadProcessId
+]
+
 [lints]
 workspace = true
