@@ -7,13 +7,18 @@ license = "MIT"
 
 [dependencies]
 mosaico-core = { path = "../mosaico-core" }
+serde_json = "1"
 
 [dependencies.windows]
 version = "0.61"
 features = [
     "Win32_UI_WindowsAndMessaging",  # EnumWindows, GetWindowTextW, IsWindowVisible, etc.
-    "Win32_Foundation",               # HWND, BOOL, RECT, LPARAM
-    "Win32_System_Threading",         # GetWindowThreadProcessId
+    "Win32_Foundation",               # HWND, BOOL, RECT, LPARAM, DuplicateHandle
+    "Win32_System_Threading",         # GetWindowThreadProcessId, GetCurrentProcess
+    "Win32_System_Pipes",             # CreateNamedPipeW, DisconnectNamedPipe
+    "Win32_System_IO",                # ConnectNamedPipe (requires overlapped IO module)
+    "Win32_Storage_FileSystem",       # CreateFileW (pipe client)
+    "Win32_Security",                 # Required by CreateFileW and CreateNamedPipeW
 ]
 
 [lints]

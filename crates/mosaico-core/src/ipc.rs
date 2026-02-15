@@ -1,0 +1,62 @@
+use serde::{Deserialize, Serialize};
+
+/// The named pipe path used for IPC between CLI and daemon.
+pub const PIPE_NAME: &str = r"\\.\pipe\mosaico";
+
+/// A command sent from the CLI to the daemon.
+///
+/// These are serialized as JSON and sent over the named pipe.
+/// New commands will be added as Mosaico gains features (e.g. FocusLeft,
+/// MoveToWorkspace, etc.).
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(tag = "command")]
+pub enum Command {
+    /// Request the daemon to stop.
+    Stop,
+    /// Request the daemon's current status.
+    Status,
+}
+
+/// A response sent from the daemon back to the CLI.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Response {
+    /// Whether the command succeeded.
+    pub status: ResponseStatus,
+    /// Optional human-readable message.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+}
+
+/// Status of a daemon response.
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum ResponseStatus {
+    Ok,
+    Error,
+}
+
+impl Response {
+    /// Creates a successful response with no message.
+    pub fn ok() -> Self {
+        Self {
+            status: ResponseStatus::Ok,
+            message: None,
+        }
+    }
+
+    /// Creates a successful response with a message.
+    pub fn ok_with_message(message: impl Into<String>) -> Self {
+        Self {
+            status: ResponseStatus::Ok,
+            message: Some(message.into()),
+        }
+    }
+
+    /// Creates an error response.
+    pub fn error(message: impl Into<String>) -> Self {
+        Self {
+            status: ResponseStatus::Error,
+            message: Some(message.into()),
+        }
+    }
+}

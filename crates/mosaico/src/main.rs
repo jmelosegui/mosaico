@@ -15,17 +15,20 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Start the window manager
+    /// Start the window manager daemon
     Start,
-    /// Stop the window manager
+    /// Stop the window manager daemon
     Stop,
-    /// Show current status
+    /// Show whether the daemon is running
     Status,
     /// Debugging and inspection tools
     Debug {
         #[command(subcommand)]
         command: DebugCommands,
     },
+    /// Run the daemon (internal — not for direct use)
+    #[command(hide = true)]
+    Daemon,
 }
 
 #[derive(Subcommand)]
@@ -41,6 +44,7 @@ fn main() {
         Commands::Start => commands::start::execute(),
         Commands::Stop => commands::stop::execute(),
         Commands::Status => commands::status::execute(),
+        Commands::Daemon => commands::daemon::execute(),
         Commands::Debug { command } => match command {
             DebugCommands::List => commands::debug::list::execute(),
         },
