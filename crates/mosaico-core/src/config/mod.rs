@@ -1,11 +1,13 @@
 pub mod keybinding;
+mod loader;
 pub mod template;
-
-use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
 pub use keybinding::{Keybinding, Modifier};
+pub use loader::{
+    config_dir, config_path, keybindings_path, load, load_keybindings, load_rules, rules_path,
+};
 
 /// Top-level configuration for Mosaico.
 ///
@@ -86,99 +88,15 @@ impl Default for BorderConfig {
     }
 }
 
-/// Returns the config directory: `~/.config/mosaico/`.
-pub fn config_dir() -> Option<PathBuf> {
-    dirs::home_dir().map(|h| h.join(".config").join("mosaico"))
-}
-
-/// Returns the config file path: `~/.config/mosaico/config.toml`.
-pub fn config_path() -> Option<PathBuf> {
-    config_dir().map(|d| d.join("config.toml"))
-}
-
-/// Returns the keybindings file path: `~/.config/mosaico/keybindings.toml`.
-pub fn keybindings_path() -> Option<PathBuf> {
-    config_dir().map(|d| d.join("keybindings.toml"))
-}
-
-/// Returns the rules file path: `~/.config/mosaico/rules.toml`.
-pub fn rules_path() -> Option<PathBuf> {
-    config_dir().map(|d| d.join("rules.toml"))
-}
-
-/// Loads the configuration from disk, falling back to defaults.
-pub fn load() -> Config {
-    let Some(path) = config_path() else {
-        return Config::default();
-    };
-    let content = match std::fs::read_to_string(&path) {
-        Ok(c) => c,
-        Err(_) => return Config::default(),
-    };
-    match toml::from_str(&content) {
-        Ok(config) => config,
-        Err(e) => {
-            eprintln!("Warning: failed to parse {}: {e}", path.display());
-            Config::default()
-        }
-    }
-}
-
-/// Wrapper for deserializing the keybindings file.
-///
-/// The file contains a top-level `[[keybinding]]` array of tables.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct KeybindingsFile {
-    #[serde(default = "keybinding::defaults")]
-    keybinding: Vec<Keybinding>,
-}
-
-/// Loads keybindings from `~/.config/mosaico/keybindings.toml`.
-///
-/// Falls back to the built-in defaults if the file is missing or invalid.
-pub fn load_keybindings() -> Vec<Keybinding> {
-    let Some(path) = keybindings_path() else {
-        return keybinding::defaults();
-    };
-    let content = match std::fs::read_to_string(&path) {
-        Ok(c) => c,
-        Err(_) => return keybinding::defaults(),
-    };
-    match toml::from_str::<KeybindingsFile>(&content) {
-        Ok(file) => file.keybinding,
-        Err(e) => {
-            eprintln!("Warning: failed to parse {}: {e}", path.display());
-            keybinding::defaults()
-        }
-    }
-}
-
-/// Wrapper for deserializing the rules file.
-///
-/// The file contains a top-level `[[rule]]` array of tables.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct RulesFile {
-    #[serde(default = "default_rules")]
-    rule: Vec<WindowRule>,
-}
-
-/// Loads window rules from `~/.config/mosaico/rules.toml`.
-///
-/// Falls back to the built-in defaults if the file is missing or invalid.
-pub fn load_rules() -> Vec<WindowRule> {
-    let Some(path) = rules_path() else {
-        return default_rules();
-    };
-    let content = match std::fs::read_to_string(&path) {
-        Ok(c) => c,
-        Err(_) => return default_rules(),
-    };
-    match toml::from_str::<RulesFile>(&content) {
-        Ok(file) => file.rule,
-        Err(e) => {
-            eprintln!("Warning: failed to parse {}: {e}", path.display());
-            default_rules()
-        }
+impl Config {
+    /// Clamps layout and border values to safe ranges.
+    ///
+    /// Prevents negative gaps, out-of-range ratios, and excessively
+    /// large border widths that could cause rendering artifacts.
+    pub fn validate(&mut self) {
+        self.layout.gap = self.layout.gap.clamp(0, 200);
+        self.layout.ratio = self.layout.ratio.clamp(0.1, 0.9);
+        self.borders.width = self.borders.width.clamp(0, 32);
     }
 }
 
@@ -209,6 +127,24 @@ fn matches_rule(class: &str, title: &str, rule: &WindowRule) -> bool {
         return false;
     }
     rule.match_class.is_some() || rule.match_title.is_some()
+}
+
+/// Wrapper for deserializing the keybindings file.
+///
+/// The file contains a top-level `[[keybinding]]` array of tables.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct KeybindingsFile {
+    #[serde(default = "keybinding::defaults")]
+    keybinding: Vec<Keybinding>,
+}
+
+/// Wrapper for deserializing the rules file.
+///
+/// The file contains a top-level `[[rule]]` array of tables.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct RulesFile {
+    #[serde(default = "default_rules")]
+    rule: Vec<WindowRule>,
 }
 
 #[cfg(test)]
@@ -299,6 +235,29 @@ mod tests {
     fn no_rules_defaults_to_manage() {
         // Act / Assert
         assert!(should_manage("Any", "Window", &[]));
+    }
+
+    #[test]
+    fn validate_clamps_extreme_values() {
+        // Arrange
+        let mut config = Config {
+            layout: LayoutConfig {
+                gap: -50,
+                ratio: 2.0,
+            },
+            borders: BorderConfig {
+                width: 999,
+                ..Default::default()
+            },
+        };
+
+        // Act
+        config.validate();
+
+        // Assert
+        assert_eq!(config.layout.gap, 0);
+        assert!((config.layout.ratio - 0.9).abs() < f64::EPSILON);
+        assert_eq!(config.borders.width, 32);
     }
 
     #[test]

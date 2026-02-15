@@ -13,8 +13,8 @@
 - [x] `git init` + initial commit
 - [x] Add README.md and MIT LICENSE
 - [x] Add Windows installer script (`docs/install.ps1`)
-- [ ] Create remote repo on GitHub (manual)
-- [ ] Push initial commit
+- [x] Create remote repo on GitHub (manual)
+- [x] Push initial commit
 
 ## Notes
 

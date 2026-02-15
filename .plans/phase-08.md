@@ -47,4 +47,4 @@ crates/
 - [x] Update daemon with `DaemonMsg::Action` and action bridge thread
 - [x] Add CLI `action` subcommand group (focus-next, focus-prev, swap-next, swap-prev, retile)
 - [x] Build, lint, test — all passing
-- [ ] Commit
+- [x] Commit
