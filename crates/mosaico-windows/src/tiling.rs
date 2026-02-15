@@ -19,11 +19,14 @@ pub struct TilingManager {
 
 impl TilingManager {
     /// Creates a new tiling manager and populates it with existing windows.
-    pub fn new() -> WindowResult<Self> {
+    ///
+    /// Uses the provided layout for window positioning. Call with
+    /// `BspLayout::default()` if no configuration is loaded.
+    pub fn new(layout: BspLayout) -> WindowResult<Self> {
         let work_area = monitor::primary_work_area()?;
         let mut manager = Self {
             workspace: Workspace::new(),
-            layout: BspLayout::default(),
+            layout,
             work_area,
             focused: None,
         };

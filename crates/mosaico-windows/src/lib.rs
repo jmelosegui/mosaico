@@ -13,6 +13,9 @@ pub mod frame;
 /// Global hotkey registration.
 pub mod hotkey;
 
+/// Key name to virtual key code mapping.
+pub mod keys;
+
 /// Win32 event translation.
 pub mod event;
 

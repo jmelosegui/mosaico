@@ -5,10 +5,10 @@ pub fn execute() {
     println!("Watching window events (press Ctrl+C to stop)...\n");
 
     let (tx, rx) = mpsc::channel();
-    // Action channel is unused in debug mode — hotkeys aren't registered.
+    // Action channel is unused in debug mode — no hotkeys needed.
     let (action_tx, _action_rx) = mpsc::channel();
 
-    let event_loop = match mosaico_windows::event_loop::start(tx, action_tx) {
+    let event_loop = match mosaico_windows::event_loop::start(tx, action_tx, Vec::new()) {
         Ok(handle) => handle,
         Err(e) => {
             eprintln!("Failed to start event loop: {e}");

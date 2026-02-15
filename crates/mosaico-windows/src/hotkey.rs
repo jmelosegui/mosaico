@@ -1,9 +1,13 @@
 use std::sync::mpsc::Sender;
 
 use mosaico_core::Action;
+use mosaico_core::config::{Keybinding, Modifier};
 use windows::Win32::UI::Input::KeyboardAndMouse::{
-    MOD_ALT, MOD_CONTROL, MOD_NOREPEAT, MOD_SHIFT, RegisterHotKey, UnregisterHotKey,
+    HOT_KEY_MODIFIERS, MOD_ALT, MOD_CONTROL, MOD_NOREPEAT, MOD_SHIFT, MOD_WIN, RegisterHotKey,
+    UnregisterHotKey,
 };
+
+use crate::keys;
 
 /// A registered global hotkey.
 struct Hotkey {
@@ -32,23 +36,27 @@ impl HotkeyManager {
         }
     }
 
-    /// Registers default keybindings.
+    /// Registers keybindings from configuration.
     ///
-    /// Default bindings use Alt+Shift as the modifier prefix:
-    /// - Alt+Shift+J: Focus next
-    /// - Alt+Shift+K: Focus previous
-    /// - Alt+Shift+Enter: Swap next
-    /// - Alt+Shift+Shift+Enter: Swap previous (Alt+Ctrl+Enter)
-    /// - Alt+Shift+R: Retile
-    pub fn register_defaults(&mut self) {
-        let alt_shift = MOD_ALT | MOD_SHIFT | MOD_NOREPEAT;
-        let alt_ctrl = MOD_ALT | MOD_CONTROL | MOD_NOREPEAT;
+    /// Each keybinding's key name is resolved to a virtual key code
+    /// and its modifiers are converted to Win32 flags. Invalid key
+    /// names are logged and skipped.
+    pub fn register_from_config(&mut self, bindings: &[Keybinding]) {
+        for (i, binding) in bindings.iter().enumerate() {
+            let id = (i + 1) as i32;
 
-        self.register(1, alt_shift, 0x4A, Action::FocusNext); // J
-        self.register(2, alt_shift, 0x4B, Action::FocusPrev); // K
-        self.register(3, alt_shift, 0x0D, Action::SwapNext); // Enter
-        self.register(4, alt_ctrl, 0x0D, Action::SwapPrev); // Enter
-        self.register(5, alt_shift, 0x52, Action::Retile); // R
+            let Some(vk) = keys::vk_from_name(&binding.key) else {
+                eprintln!("Unknown key name: {:?}", binding.key);
+                continue;
+            };
+
+            let mut modifiers = MOD_NOREPEAT;
+            for m in &binding.modifiers {
+                modifiers |= modifier_to_flag(m);
+            }
+
+            self.register(id, modifiers, vk, binding.action.clone());
+        }
     }
 
     /// Returns a reference to the action sender.
@@ -66,13 +74,7 @@ impl HotkeyManager {
     }
 
     /// Registers a single hotkey.
-    fn register(
-        &mut self,
-        id: i32,
-        modifiers: windows::Win32::UI::Input::KeyboardAndMouse::HOT_KEY_MODIFIERS,
-        vk: u32,
-        action: Action,
-    ) {
+    fn register(&mut self, id: i32, modifiers: HOT_KEY_MODIFIERS, vk: u32, action: Action) {
         // SAFETY: RegisterHotKey registers a system-wide hotkey on the
         // current thread's message queue. We use unique IDs to avoid
         // collisions.
@@ -95,5 +97,15 @@ impl Drop for HotkeyManager {
                 let _ = UnregisterHotKey(None, hotkey.id);
             }
         }
+    }
+}
+
+/// Converts a platform-agnostic modifier to a Win32 hotkey flag.
+fn modifier_to_flag(modifier: &Modifier) -> HOT_KEY_MODIFIERS {
+    match modifier {
+        Modifier::Alt => MOD_ALT,
+        Modifier::Shift => MOD_SHIFT,
+        Modifier::Ctrl => MOD_CONTROL,
+        Modifier::Win => MOD_WIN,
     }
 }

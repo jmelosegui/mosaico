@@ -3,7 +3,7 @@ use std::thread;
 use std::time::Duration;
 
 use mosaico_core::ipc::{Command, Response};
-use mosaico_core::{Action, WindowResult, pid};
+use mosaico_core::{Action, BspLayout, WindowResult, config, pid};
 
 use crate::dpi;
 use crate::event_loop;
@@ -42,9 +42,19 @@ type ResponseSender = mpsc::Sender<Response>;
 
 /// The inner daemon loop, separated so cleanup always runs in `run()`.
 fn daemon_loop() -> WindowResult<()> {
+    let config = config::load();
+    if let Some(path) = config::config_path() {
+        eprintln!("Config: {}", path.display());
+    }
+
+    let layout = BspLayout {
+        gap: config.layout.gap,
+        ratio: config.layout.ratio,
+    };
+
     let (tx, rx) = mpsc::channel::<DaemonMsg>();
 
-    let mut manager = TilingManager::new()?;
+    let mut manager = TilingManager::new(layout)?;
     eprintln!("Managing {} windows.", manager.window_count());
 
     // Start the Win32 event loop + hotkeys on its own thread.
@@ -52,7 +62,7 @@ fn daemon_loop() -> WindowResult<()> {
     let action_tx = tx.clone();
     let (event_channel_tx, event_channel_rx) = mpsc::channel();
     let (action_channel_tx, action_channel_rx) = mpsc::channel();
-    let event_loop = event_loop::start(event_channel_tx, action_channel_tx)?;
+    let event_loop = event_loop::start(event_channel_tx, action_channel_tx, config.keybindings)?;
 
     // Bridge: forward window events into the unified channel.
     let event_bridge = thread::spawn(move || {

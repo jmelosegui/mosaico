@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 /// Actions represent user-initiated operations on the tiling manager.
 /// They are distinct from window events (which come from the OS).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum Action {
     /// Move focus to the next window in the workspace.
     FocusNext,
