@@ -88,6 +88,9 @@ impl TilingManager {
                     self.apply_layout_on(idx);
                 }
             }
+            WindowEvent::Moved { hwnd } => {
+                self.reassign_monitor(*hwnd);
+            }
             WindowEvent::Focused { hwnd } => {
                 self.focused_window = Some(*hwnd);
                 if let Some(idx) = self.owning_monitor(*hwnd) {
@@ -266,6 +269,35 @@ impl TilingManager {
     fn hide_border(&self) {
         if let Some(border) = &self.border {
             border.hide();
+        }
+    }
+
+    /// Re-assigns a window to the correct monitor after it was moved.
+    ///
+    /// If the window moved to a different monitor, it is removed from
+    /// the old workspace and added to the new one, then both monitors
+    /// are re-tiled.
+    fn reassign_monitor(&mut self, hwnd: usize) {
+        let old = self.owning_monitor(hwnd);
+        let new = self.monitor_index_for(hwnd);
+
+        match (old, new) {
+            (Some(from), Some(to)) if from != to => {
+                self.monitors[from].workspace.remove(hwnd);
+                self.monitors[to].workspace.add(hwnd);
+                self.apply_layout_on(from);
+                self.apply_layout_on(to);
+            }
+            (Some(idx), Some(_)) => {
+                // Same monitor — just re-tile to snap it back.
+                self.apply_layout_on(idx);
+            }
+            (None, Some(to)) if self.is_tileable(hwnd) => {
+                // Window wasn't tracked but appeared on a monitor.
+                self.monitors[to].workspace.add(hwnd);
+                self.apply_layout_on(to);
+            }
+            _ => {}
         }
     }
 
