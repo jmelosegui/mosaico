@@ -35,6 +35,8 @@ enum Commands {
 enum DebugCommands {
     /// List all visible windows
     List,
+    /// Watch window events in real time
+    Events,
 }
 
 fn main() {
@@ -47,6 +49,7 @@ fn main() {
         Commands::Daemon => commands::daemon::execute(),
         Commands::Debug { command } => match command {
             DebugCommands::List => commands::debug::list::execute(),
+            DebugCommands::Events => commands::debug::events::execute(),
         },
     }
 }

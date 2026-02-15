@@ -1,6 +1,6 @@
 # Phase 5: Event-Driven Window Discovery
 
-**Status:** Pending
+**Status:** Complete
 
 **Goal:** Hook into Windows event system so the daemon can react to windows being
 opened, closed, moved, focused, minimized, and restored in real time.
@@ -27,15 +27,15 @@ crates/
 
 ## Tasks
 
-- [ ] Define `WindowEvent` enum in `mosaico-core` (Created, Destroyed, Focused,
+- [x] Define `WindowEvent` enum in `mosaico-core` (Created, Destroyed, Focused,
       Moved, Minimized, Restored, TitleChanged)
-- [ ] Implement `SetWinEventHook` wrapper in `mosaico-windows`
-- [ ] Implement Win32 message pump (`GetMessageW` / `DispatchMessageW`)
-- [ ] Map raw Win32 event codes to `WindowEvent` variants
-- [ ] Integrate event loop into the daemon main loop
-- [ ] Log events to stdout/stderr for debugging
-- [ ] Add `mosaico debug events` subcommand to watch events in real time
-- [ ] Commit
+- [x] Implement `SetWinEventHook` wrapper in `mosaico-windows`
+- [x] Implement Win32 message pump (`GetMessageW` / `DispatchMessageW`)
+- [x] Map raw Win32 event codes to `WindowEvent` variants
+- [x] Integrate event loop into the daemon main loop
+- [x] Log events to stderr for debugging
+- [x] Add `mosaico debug events` subcommand to watch events in real time
+- [x] Commit
 
 ## Win32 APIs used
 

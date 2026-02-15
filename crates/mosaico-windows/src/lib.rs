@@ -4,6 +4,12 @@ pub mod daemon;
 /// Win32 window enumeration.
 pub mod enumerate;
 
+/// Win32 event translation.
+pub mod event;
+
+/// Win32 event loop (SetWinEventHook + message pump).
+pub mod event_loop;
+
 /// IPC via Named Pipes.
 pub mod ipc;
 
