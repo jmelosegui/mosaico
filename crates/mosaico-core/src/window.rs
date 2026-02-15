@@ -19,6 +19,12 @@ pub trait Window {
     /// Returns the window bounding rectangle.
     fn rect(&self) -> WindowResult<Rect>;
 
+    /// Moves and resizes the window to the given rectangle.
+    ///
+    /// Takes `&self` because the mutation happens on the OS side via the
+    /// window handle — the Rust struct itself doesn't change.
+    fn set_rect(&self, rect: &Rect) -> WindowResult<()>;
+
     /// Returns whether the window is currently visible.
     fn is_visible(&self) -> bool;
 }

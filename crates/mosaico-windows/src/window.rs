@@ -2,8 +2,11 @@ use mosaico_core::{Rect, WindowResult};
 
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::{
-    GetWindowRect, GetWindowTextLengthW, GetWindowTextW, IsWindowVisible, RealGetWindowClassW,
+    GetWindowTextLengthW, GetWindowTextW, IsWindowVisible, RealGetWindowClassW, SWP_NOACTIVATE,
+    SWP_NOZORDER, SetWindowPos,
 };
+
+use crate::frame;
 
 /// A window on the Windows platform, wrapping a Win32 `HWND`.
 ///
@@ -18,6 +21,16 @@ impl Window {
     /// Creates a new `Window` from a raw `HWND`.
     pub fn new(hwnd: HWND) -> Self {
         Self { hwnd }
+    }
+
+    /// Creates a new `Window` from a raw handle value (pointer-sized integer).
+    ///
+    /// This allows callers to construct a `Window` without depending on the
+    /// `windows` crate directly.
+    pub fn from_raw(handle: usize) -> Self {
+        Self {
+            hwnd: HWND(handle as *mut _),
+        }
     }
 
     /// Returns the raw window handle.
@@ -54,20 +67,36 @@ impl mosaico_core::Window for Window {
     }
 
     fn rect(&self) -> WindowResult<Rect> {
-        let mut rect = windows::Win32::Foundation::RECT::default();
-
-        // SAFETY: GetWindowRect writes the window's bounding rectangle
-        // into the provided RECT pointer. We pass a valid mutable reference.
-        unsafe {
-            GetWindowRect(self.hwnd, &mut rect)?;
-        }
+        let frame = frame::visible_rect(self.hwnd)?;
 
         Ok(Rect::new(
-            rect.left,
-            rect.top,
-            rect.right - rect.left,
-            rect.bottom - rect.top,
+            frame.left,
+            frame.top,
+            frame.right - frame.left,
+            frame.bottom - frame.top,
         ))
+    }
+
+    fn set_rect(&self, rect: &mosaico_core::Rect) -> WindowResult<()> {
+        // Compensate for invisible borders so the visible portion
+        // lands exactly at the requested position and size.
+        let border = frame::border_offset(self.hwnd)?;
+
+        // SAFETY: SetWindowPos moves and resizes the window.
+        // SWP_NOZORDER — don't change the Z-order (stacking position).
+        // SWP_NOACTIVATE — don't steal focus from the current window.
+        unsafe {
+            SetWindowPos(
+                self.hwnd,
+                None,
+                rect.x - border.left,
+                rect.y - border.top,
+                rect.width + border.left + border.right,
+                rect.height + border.top + border.bottom,
+                SWP_NOZORDER | SWP_NOACTIVATE,
+            )?;
+        }
+        Ok(())
     }
 
     fn is_visible(&self) -> bool {
