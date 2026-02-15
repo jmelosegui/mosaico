@@ -50,8 +50,8 @@ impl Layout for BspLayout {
         let padded = Rect::new(
             work_area.x + self.gap,
             work_area.y + self.gap,
-            work_area.width - self.gap * 2,
-            work_area.height - self.gap * 2,
+            (work_area.width - self.gap * 2).max(1),
+            (work_area.height - self.gap * 2).max(1),
         );
         self.split(handles, &padded, true, &mut results);
         results
@@ -74,22 +74,22 @@ impl BspLayout {
         let half = self.gap / 2;
         let (first_area, rest_area) = if horizontal {
             let split = (area.width as f64 * self.ratio) as i32;
-            let first = Rect::new(area.x, area.y, split - half, area.height);
+            let first = Rect::new(area.x, area.y, (split - half).max(1), area.height);
             let rest = Rect::new(
                 area.x + split + half,
                 area.y,
-                area.width - split - half,
+                (area.width - split - half).max(1),
                 area.height,
             );
             (first, rest)
         } else {
             let split = (area.height as f64 * self.ratio) as i32;
-            let first = Rect::new(area.x, area.y, area.width, split - half);
+            let first = Rect::new(area.x, area.y, area.width, (split - half).max(1));
             let rest = Rect::new(
                 area.x,
                 area.y + split + half,
                 area.width,
-                area.height - split - half,
+                (area.height - split - half).max(1),
             );
             (first, rest)
         };
@@ -159,5 +159,24 @@ mod tests {
 
         // Assert
         assert!(result.is_empty());
+    }
+
+    #[test]
+    fn large_gap_never_produces_negative_dimensions() {
+        // Arrange — gap is larger than the work area
+        let layout = BspLayout {
+            gap: 500,
+            ratio: 0.5,
+        };
+        let area = Rect::new(0, 0, 200, 200);
+
+        // Act
+        let result = layout.apply(&[1, 2], &area);
+
+        // Assert — all dimensions must be positive
+        for (_hwnd, rect) in &result {
+            assert!(rect.width > 0, "width was {}", rect.width);
+            assert!(rect.height > 0, "height was {}", rect.height);
+        }
     }
 }

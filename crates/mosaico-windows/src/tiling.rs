@@ -136,6 +136,9 @@ impl TilingManager {
     }
 
     fn focus_adjacent(&mut self, direction: i32) {
+        if self.monitors.is_empty() {
+            return;
+        }
         let ws = &self.monitors[self.focused_monitor].workspace;
         let Some(idx) = self.focused_window.and_then(|h| ws.index_of(h)) else {
             return;
@@ -150,6 +153,9 @@ impl TilingManager {
     }
 
     fn swap_adjacent(&mut self, direction: i32) {
+        if self.monitors.is_empty() {
+            return;
+        }
         let ws = &self.monitors[self.focused_monitor].workspace;
         let Some(idx) = self.focused_window.and_then(|h| ws.index_of(h)) else {
             return;
@@ -198,6 +204,9 @@ impl TilingManager {
     }
 
     fn toggle_monocle(&mut self) {
+        if self.monitors.is_empty() {
+            return;
+        }
         let idx = self.focused_monitor;
         self.monitors[idx].monocle = !self.monitors[idx].monocle;
         self.apply_layout_on(idx);
@@ -211,7 +220,9 @@ impl TilingManager {
     }
 
     fn apply_layout_on(&self, monitor_idx: usize) {
-        let state = &self.monitors[monitor_idx];
+        let Some(state) = self.monitors.get(monitor_idx) else {
+            return;
+        };
         if state.monocle {
             // In monocle mode, the focused window fills the work area.
             if let Some(hwnd) = self.focused_window
@@ -221,11 +232,13 @@ impl TilingManager {
                 let area = Rect::new(
                     state.work_area.x + gap,
                     state.work_area.y + gap,
-                    state.work_area.width - gap * 2,
-                    state.work_area.height - gap * 2,
+                    (state.work_area.width - gap * 2).max(1),
+                    (state.work_area.height - gap * 2).max(1),
                 );
                 let window = Window::from_raw(hwnd);
-                let _ = window.set_rect(&area);
+                if let Err(e) = window.set_rect(&area) {
+                    eprintln!("Failed to position window 0x{hwnd:X}: {e}");
+                }
                 return;
             }
         }
@@ -252,7 +265,10 @@ impl TilingManager {
         let Ok(rect) = window.rect() else {
             return;
         };
-        let is_monocle = self.monitors[self.focused_monitor].monocle;
+        let Some(mon) = self.monitors.get(self.focused_monitor) else {
+            return;
+        };
+        let is_monocle = mon.monocle;
         let hex = if is_monocle {
             &self.border_config.monocle
         } else {

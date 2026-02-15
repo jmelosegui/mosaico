@@ -169,9 +169,17 @@ impl Border {
                 let _ = ReleaseDC(None, screen_dc);
                 return;
             };
+            if bits.is_null() {
+                let _ = DeleteObject(bmp.into());
+                let _ = DeleteDC(mem_dc);
+                let _ = ReleaseDC(None, screen_dc);
+                return;
+            }
+
             let old = SelectObject(mem_dc, bmp.into());
 
-            // Fill border pixels (premultiplied ARGB).
+            // SAFETY: `bits` is non-null (checked above) and points to
+            // `w * h` pixels allocated by CreateDIBSection.
             let pixel = 0xFF00_0000
                 | (u32::from(color.r) << 16)
                 | (u32::from(color.g) << 8)

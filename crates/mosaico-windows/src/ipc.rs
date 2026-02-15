@@ -105,9 +105,23 @@ impl Drop for PipeServer {
     }
 }
 
+/// RAII guard that closes a HANDLE on drop.
+struct HandleGuard(HANDLE);
+
+impl Drop for HandleGuard {
+    fn drop(&mut self) {
+        // SAFETY: CloseHandle releases the handle. The guard owns
+        // this handle exclusively.
+        unsafe {
+            let _ = CloseHandle(self.0);
+        }
+    }
+}
+
 /// Sends a command to the daemon over the named pipe and returns the response.
 ///
-/// This is used by the CLI (client side).
+/// This is used by the CLI (client side). The pipe handle is closed
+/// automatically when the guard goes out of scope, even on error paths.
 pub fn send_command(command: &Command) -> WindowResult<Response> {
     let pipe_name = HSTRING::from(PIPE_NAME);
 
@@ -124,6 +138,8 @@ pub fn send_command(command: &Command) -> WindowResult<Response> {
         )?
     };
 
+    let _guard = HandleGuard(handle);
+
     let json = serde_json::to_string(command)?;
 
     // Write the command
@@ -136,11 +152,6 @@ pub fn send_command(command: &Command) -> WindowResult<Response> {
     let mut buf_reader = BufReader::new(reader);
     let mut response_line = String::new();
     buf_reader.read_line(&mut response_line)?;
-
-    // SAFETY: Close the original pipe handle after we're done.
-    unsafe {
-        let _ = CloseHandle(handle);
-    }
 
     let response: Response = serde_json::from_str(response_line.trim())?;
     Ok(response)

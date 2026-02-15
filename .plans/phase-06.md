@@ -27,7 +27,7 @@ crates/
       have invisible borders that affect sizing)
 - [x] Add a `mosaico debug move` command for manual testing (e.g.
       `mosaico debug move --hwnd 0x1234 --x 0 --y 0 --w 960 --h 1080`)
-- [ ] React to window events from Phase 5 — when a new window appears, position
+- [x] React to window events from Phase 5 — when a new window appears, position
       it according to a simple rule (moved to Phase 7)
 - [x] Commit
 
