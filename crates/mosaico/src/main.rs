@@ -50,6 +50,14 @@ enum ActionCommands {
     SwapPrev,
     /// Re-apply the current layout
     Retile,
+    /// Move focus to a window on the next monitor
+    FocusMonitorNext,
+    /// Move focus to a window on the previous monitor
+    FocusMonitorPrev,
+    /// Move the focused window to the next monitor
+    MoveToMonitorNext,
+    /// Move the focused window to the previous monitor
+    MoveToMonitorPrev,
 }
 
 #[derive(Subcommand)]
@@ -77,6 +85,10 @@ fn main() {
                 ActionCommands::SwapNext => Action::SwapNext,
                 ActionCommands::SwapPrev => Action::SwapPrev,
                 ActionCommands::Retile => Action::Retile,
+                ActionCommands::FocusMonitorNext => Action::FocusMonitorNext,
+                ActionCommands::FocusMonitorPrev => Action::FocusMonitorPrev,
+                ActionCommands::MoveToMonitorNext => Action::MoveToMonitorNext,
+                ActionCommands::MoveToMonitorPrev => Action::MoveToMonitorPrev,
             };
             commands::action::execute(action);
         }
