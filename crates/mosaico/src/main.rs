@@ -37,6 +37,8 @@ enum DebugCommands {
     List,
     /// Watch window events in real time
     Events,
+    /// Move a window to a specific position and size
+    Move(commands::debug::move_window::MoveArgs),
 }
 
 fn main() {
@@ -50,6 +52,7 @@ fn main() {
         Commands::Debug { command } => match command {
             DebugCommands::List => commands::debug::list::execute(),
             DebugCommands::Events => commands::debug::events::execute(),
+            DebugCommands::Move(args) => commands::debug::move_window::execute(&args),
         },
     }
 }

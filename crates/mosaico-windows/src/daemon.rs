@@ -5,6 +5,7 @@ use std::time::Duration;
 use mosaico_core::ipc::{Command, Response};
 use mosaico_core::{WindowResult, pid};
 
+use crate::dpi;
 use crate::event_loop;
 use crate::ipc::PipeServer;
 
@@ -17,6 +18,7 @@ use crate::ipc::PipeServer;
 /// The main thread processes both event and command channels until
 /// a Stop command is received.
 pub fn run() -> WindowResult<()> {
+    dpi::enable_dpi_awareness();
     pid::write_pid_file()?;
     eprintln!("Mosaico daemon started.");
 

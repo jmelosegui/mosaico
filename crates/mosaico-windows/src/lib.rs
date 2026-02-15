@@ -1,8 +1,14 @@
 /// Daemon main loop.
 pub mod daemon;
 
+/// DPI awareness setup.
+pub mod dpi;
+
 /// Win32 window enumeration.
 pub mod enumerate;
+
+/// Window frame and border offset helpers.
+pub mod frame;
 
 /// Win32 event translation.
 pub mod event;
