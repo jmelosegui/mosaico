@@ -1,6 +1,6 @@
 # Mosaico
 
-A tiling window manager for Windows, written in Rust.
+A cross-platform tiling window manager, written in Rust.
 
 ## Installation
 
