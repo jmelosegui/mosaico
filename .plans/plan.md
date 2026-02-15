@@ -19,17 +19,17 @@ Mosaico is structured as a Cargo workspace with multiple crates:
 | [2](phase-02.md) | CLI with clap | Complete |
 | [3a](phase-03a.md) | Restructure into Cargo Workspace | Complete |
 | [3b](phase-03b.md) | Window Enumeration (`mosaico debug list`) | Complete |
+| [4](phase-04.md) | Daemon + IPC | Complete |
+| [5](phase-05.md) | Event-Driven Window Discovery | Pending |
+| [6](phase-06.md) | Window Positioning | Pending |
 
 ## Future Phases (not yet planned in detail)
 
-4. **Event-driven window discovery** — `SetWinEventHook` for runtime window events
-5. **Window positioning** — Move/resize windows using Win32 API
-6. **Tiling layouts** — BSP or master-stack layout algorithms
-7. **Hotkey system** — Global hotkey registration for keyboard-driven control
-8. **Configuration** — TOML/YAML config file for user preferences
-9. **Multi-monitor support**
-10. **Window rules** — Per-application tiling behavior
-11. **IPC** — Named pipe or socket for daemon communication
+7. **Tiling layouts** — BSP or master-stack layout algorithms
+8. **Hotkey system** — Global hotkey registration for keyboard-driven control
+9. **Configuration** — TOML/YAML config file for user preferences
+10. **Multi-monitor support**
+11. **Window rules** — Per-application tiling behavior
 
 ## Design Principles
 
