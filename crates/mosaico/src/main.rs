@@ -2,6 +2,8 @@ mod commands;
 
 use clap::{Parser, Subcommand};
 
+use mosaico_core::Action;
+
 #[derive(Parser)]
 #[command(
     name = "mosaico",
@@ -21,6 +23,11 @@ enum Commands {
     Stop,
     /// Show whether the daemon is running
     Status,
+    /// Send an action to the running daemon
+    Action {
+        #[command(subcommand)]
+        action: ActionCommands,
+    },
     /// Debugging and inspection tools
     Debug {
         #[command(subcommand)]
@@ -29,6 +36,20 @@ enum Commands {
     /// Run the daemon (internal — not for direct use)
     #[command(hide = true)]
     Daemon,
+}
+
+#[derive(Subcommand)]
+enum ActionCommands {
+    /// Move focus to the next window
+    FocusNext,
+    /// Move focus to the previous window
+    FocusPrev,
+    /// Swap the focused window with the next one
+    SwapNext,
+    /// Swap the focused window with the previous one
+    SwapPrev,
+    /// Re-apply the current layout
+    Retile,
 }
 
 #[derive(Subcommand)]
@@ -49,6 +70,16 @@ fn main() {
         Commands::Stop => commands::stop::execute(),
         Commands::Status => commands::status::execute(),
         Commands::Daemon => commands::daemon::execute(),
+        Commands::Action { action } => {
+            let action = match action {
+                ActionCommands::FocusNext => Action::FocusNext,
+                ActionCommands::FocusPrev => Action::FocusPrev,
+                ActionCommands::SwapNext => Action::SwapNext,
+                ActionCommands::SwapPrev => Action::SwapPrev,
+                ActionCommands::Retile => Action::Retile,
+            };
+            commands::action::execute(action);
+        }
         Commands::Debug { command } => match command {
             DebugCommands::List => commands::debug::list::execute(),
             DebugCommands::Events => commands::debug::events::execute(),

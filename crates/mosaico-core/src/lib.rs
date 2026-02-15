@@ -1,3 +1,4 @@
+pub mod action;
 pub mod event;
 pub mod ipc;
 pub mod layout;
@@ -6,6 +7,7 @@ pub mod rect;
 pub mod window;
 pub mod workspace;
 
+pub use action::Action;
 pub use event::WindowEvent;
 pub use ipc::{Command, PIPE_NAME, Response};
 pub use layout::{BspLayout, Layout};
