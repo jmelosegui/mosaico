@@ -17,6 +17,8 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Create the default configuration file
+    Init,
     /// Start the window manager daemon
     Start,
     /// Stop the window manager daemon
@@ -76,6 +78,7 @@ fn main() {
     let cli = Cli::parse();
 
     match cli.command {
+        Commands::Init => commands::init::execute(),
         Commands::Start => commands::start::execute(),
         Commands::Stop => commands::stop::execute(),
         Commands::Status => commands::status::execute(),

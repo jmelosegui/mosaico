@@ -1,4 +1,5 @@
 pub mod keybinding;
+pub mod template;
 
 use std::path::PathBuf;
 
@@ -10,18 +11,13 @@ pub use keybinding::{Keybinding, Modifier};
 ///
 /// Loaded from `~/.config/mosaico/config.toml`. Missing sections
 /// fall back to defaults thanks to `#[serde(default)]`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
     /// Layout algorithm parameters.
     pub layout: LayoutConfig,
     /// Border appearance settings.
     pub borders: BorderConfig,
-    /// Global keybindings.
-    pub keybindings: Vec<Keybinding>,
-    /// Window rules that control which windows are managed.
-    #[serde(default)]
-    pub rules: Vec<WindowRule>,
 }
 
 /// Layout algorithm settings.
@@ -62,15 +58,16 @@ pub struct WindowRule {
     pub manage: bool,
 }
 
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            layout: LayoutConfig::default(),
-            borders: BorderConfig::default(),
-            keybindings: keybinding::defaults(),
-            rules: Vec::new(),
-        }
-    }
+/// Returns the default window rules.
+///
+/// These exclude window classes that don't behave well when tiled,
+/// such as UWP app frames that enforce their own size constraints.
+pub fn default_rules() -> Vec<WindowRule> {
+    vec![WindowRule {
+        match_class: Some("ApplicationFrameWindow".into()),
+        match_title: None,
+        manage: false,
+    }]
 }
 
 impl Default for LayoutConfig {
@@ -99,6 +96,16 @@ pub fn config_path() -> Option<PathBuf> {
     config_dir().map(|d| d.join("config.toml"))
 }
 
+/// Returns the keybindings file path: `~/.config/mosaico/keybindings.toml`.
+pub fn keybindings_path() -> Option<PathBuf> {
+    config_dir().map(|d| d.join("keybindings.toml"))
+}
+
+/// Returns the rules file path: `~/.config/mosaico/rules.toml`.
+pub fn rules_path() -> Option<PathBuf> {
+    config_dir().map(|d| d.join("rules.toml"))
+}
+
 /// Loads the configuration from disk, falling back to defaults.
 pub fn load() -> Config {
     let Some(path) = config_path() else {
@@ -113,6 +120,64 @@ pub fn load() -> Config {
         Err(e) => {
             eprintln!("Warning: failed to parse {}: {e}", path.display());
             Config::default()
+        }
+    }
+}
+
+/// Wrapper for deserializing the keybindings file.
+///
+/// The file contains a top-level `[[keybinding]]` array of tables.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct KeybindingsFile {
+    #[serde(default = "keybinding::defaults")]
+    keybinding: Vec<Keybinding>,
+}
+
+/// Loads keybindings from `~/.config/mosaico/keybindings.toml`.
+///
+/// Falls back to the built-in defaults if the file is missing or invalid.
+pub fn load_keybindings() -> Vec<Keybinding> {
+    let Some(path) = keybindings_path() else {
+        return keybinding::defaults();
+    };
+    let content = match std::fs::read_to_string(&path) {
+        Ok(c) => c,
+        Err(_) => return keybinding::defaults(),
+    };
+    match toml::from_str::<KeybindingsFile>(&content) {
+        Ok(file) => file.keybinding,
+        Err(e) => {
+            eprintln!("Warning: failed to parse {}: {e}", path.display());
+            keybinding::defaults()
+        }
+    }
+}
+
+/// Wrapper for deserializing the rules file.
+///
+/// The file contains a top-level `[[rule]]` array of tables.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct RulesFile {
+    #[serde(default = "default_rules")]
+    rule: Vec<WindowRule>,
+}
+
+/// Loads window rules from `~/.config/mosaico/rules.toml`.
+///
+/// Falls back to the built-in defaults if the file is missing or invalid.
+pub fn load_rules() -> Vec<WindowRule> {
+    let Some(path) = rules_path() else {
+        return default_rules();
+    };
+    let content = match std::fs::read_to_string(&path) {
+        Ok(c) => c,
+        Err(_) => return default_rules(),
+    };
+    match toml::from_str::<RulesFile>(&content) {
+        Ok(file) => file.rule,
+        Err(e) => {
+            eprintln!("Warning: failed to parse {}: {e}", path.display());
+            default_rules()
         }
     }
 }
@@ -151,14 +216,22 @@ mod tests {
     use super::*;
 
     #[test]
-    fn default_config_has_expected_keybindings() {
+    fn default_config_has_expected_values() {
         // Arrange / Act
         let config = Config::default();
 
         // Assert
         assert_eq!(config.layout.gap, 8);
         assert_eq!(config.borders.width, 4);
-        assert!(!config.keybindings.is_empty());
+    }
+
+    #[test]
+    fn default_keybindings_are_not_empty() {
+        // Act
+        let bindings = keybinding::defaults();
+
+        // Assert
+        assert!(!bindings.is_empty());
     }
 
     #[test]
@@ -226,5 +299,14 @@ mod tests {
     fn no_rules_defaults_to_manage() {
         // Act / Assert
         assert!(should_manage("Any", "Window", &[]));
+    }
+
+    #[test]
+    fn default_rules_exclude_uwp_frame() {
+        // Arrange
+        let rules = default_rules();
+
+        // Act / Assert
+        assert!(!should_manage("ApplicationFrameWindow", "Settings", &rules));
     }
 }

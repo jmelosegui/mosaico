@@ -43,8 +43,16 @@ type ResponseSender = mpsc::Sender<Response>;
 /// The inner daemon loop, separated so cleanup always runs in `run()`.
 fn daemon_loop() -> WindowResult<()> {
     let config = config::load();
+    let keybindings = config::load_keybindings();
+    let rules = config::load_rules();
     if let Some(path) = config::config_path() {
         eprintln!("Config: {}", path.display());
+    }
+    if let Some(path) = config::keybindings_path() {
+        eprintln!("Keybindings: {}", path.display());
+    }
+    if let Some(path) = config::rules_path() {
+        eprintln!("Rules: {}", path.display());
     }
 
     let layout = BspLayout {
@@ -54,7 +62,7 @@ fn daemon_loop() -> WindowResult<()> {
 
     let (tx, rx) = mpsc::channel::<DaemonMsg>();
 
-    let mut manager = TilingManager::new(layout, config.rules, config.borders)?;
+    let mut manager = TilingManager::new(layout, rules, config.borders)?;
     eprintln!("Managing {} windows.", manager.window_count());
 
     // Start the Win32 event loop + hotkeys on its own thread.
@@ -62,7 +70,7 @@ fn daemon_loop() -> WindowResult<()> {
     let action_tx = tx.clone();
     let (event_channel_tx, event_channel_rx) = mpsc::channel();
     let (action_channel_tx, action_channel_rx) = mpsc::channel();
-    let event_loop = event_loop::start(event_channel_tx, action_channel_tx, config.keybindings)?;
+    let event_loop = event_loop::start(event_channel_tx, action_channel_tx, keybindings)?;
 
     // Bridge: forward window events into the unified channel.
     let event_bridge = thread::spawn(move || {
