@@ -7,6 +7,7 @@ license = "MIT"
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
+comfy-table = "7"
 mosaico-core = { path = "../mosaico-core" }
 mosaico-windows = { path = "../mosaico-windows" }
 

@@ -44,3 +44,18 @@ fn start_subcommand_runs() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("Starting Mosaico"));
 }
+
+#[test]
+fn debug_list_subcommand_runs() {
+    // Arrange
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_mosaico"));
+    cmd.args(["debug", "list"]);
+
+    // Act
+    let output = cmd.output().expect("failed to execute mosaico");
+
+    // Assert
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("windows found"));
+}

@@ -1,6 +1,6 @@
 # Phase 3b: Window Enumeration (`mosaico list`)
 
-**Status:** Pending
+**Status:** Complete
 
 **Goal:** Enumerate visible top-level windows on Windows and display their info
 via a new `mosaico list` subcommand.
@@ -27,14 +27,14 @@ crates/
 
 ## Tasks
 
-- [ ] Add the `windows` crate to `mosaico-windows` with required Win32 features
-- [ ] Define the `Window` trait in `mosaico-core` (title, class, rect, is_visible)
-- [ ] Implement `Window` struct in `mosaico-windows` wrapping an `HWND`
-- [ ] Implement `enumerate_windows()` in `mosaico-windows/src/enumerate.rs`
-- [ ] Filter to visible, non-minimized, standard application windows
-- [ ] Add `list` subcommand to the CLI that prints a table of windows
-- [ ] Add integration test for `mosaico list`
-- [ ] Commit
+- [x] Add the `windows` crate to `mosaico-windows` with required Win32 features
+- [x] Define the `Window` trait in `mosaico-core` (title, class, rect, is_visible)
+- [x] Implement `Window` struct in `mosaico-windows` wrapping an `HWND`
+- [x] Implement `enumerate_windows()` in `mosaico-windows/src/enumerate.rs`
+- [x] Filter to visible, non-minimized, standard application windows
+- [x] Add `list` subcommand to the CLI under `debug` subgroup
+- [x] Add integration test for `mosaico debug list`
+- [x] Commit
 
 ## Win32 APIs used
 
