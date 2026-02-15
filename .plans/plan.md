@@ -25,7 +25,7 @@ Mosaico is structured as a Cargo workspace with multiple crates:
 
 | [7](phase-07.md) | Tiling Layouts | Complete |
 | [8](phase-08.md) | Hotkey System | Complete |
-| 9 | Configuration | Pending |
+| [9](phase-09.md) | Configuration | Complete |
 
 ## Future Phases (not yet planned in detail)
 
