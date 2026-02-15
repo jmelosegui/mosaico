@@ -115,6 +115,19 @@ name = "mosaico"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "mosaico-core",
+ "mosaico-windows",
+]
+
+[[package]]
+name = "mosaico-core"
+version = "0.1.0"
+
+[[package]]
+name = "mosaico-windows"
+version = "0.1.0"
+dependencies = [
+ "mosaico-core",
 ]
 
 [[package]]

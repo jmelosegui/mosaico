@@ -1,10 +1,12 @@
+mod commands;
+
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
 #[command(
     name = "mosaico",
     version,
-    about = "A tiling window manager for Windows"
+    about = "A cross-platform tiling window manager"
 )]
 struct Cli {
     #[command(subcommand)]
@@ -25,8 +27,8 @@ fn main() {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Start => println!("Starting Mosaico..."),
-        Commands::Stop => println!("Stopping Mosaico..."),
-        Commands::Status => println!("Mosaico status: not running"),
+        Commands::Start => commands::start::execute(),
+        Commands::Stop => commands::stop::execute(),
+        Commands::Status => commands::status::execute(),
     }
 }
