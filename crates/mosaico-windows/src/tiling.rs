@@ -1,52 +1,65 @@
+use mosaico_core::config::{BorderConfig, WindowRule};
 use mosaico_core::window::Window as WindowTrait;
 use mosaico_core::{Action, BspLayout, Rect, WindowEvent, WindowResult, Workspace};
 
+use crate::border::{Border, Color};
 use crate::enumerate;
 use crate::monitor;
 use crate::window::Window;
 
-/// Per-monitor state: workspace and cached work area.
+/// Per-monitor state: workspace, work area, and monocle flag.
 struct MonitorState {
     id: usize,
     work_area: Rect,
     workspace: Workspace,
+    monocle: bool,
 }
 
 /// Manages tiled windows across all connected monitors.
-///
-/// Each monitor gets its own workspace. Focus and swap actions operate
-/// within the focused monitor; additional actions move focus or windows
-/// between monitors.
 pub struct TilingManager {
     monitors: Vec<MonitorState>,
     layout: BspLayout,
+    rules: Vec<WindowRule>,
+    border: Option<Border>,
+    border_config: BorderConfig,
     focused_monitor: usize,
     focused_window: Option<usize>,
 }
 
 impl TilingManager {
-    /// Creates a new tiling manager, discovers monitors, and populates
-    /// workspaces with existing windows.
-    pub fn new(layout: BspLayout) -> WindowResult<Self> {
+    /// Creates a new tiling manager with the given layout, rules, and borders.
+    pub fn new(
+        layout: BspLayout,
+        rules: Vec<WindowRule>,
+        border_config: BorderConfig,
+    ) -> WindowResult<Self> {
         let monitors: Vec<MonitorState> = monitor::enumerate_monitors()?
             .into_iter()
             .map(|info| MonitorState {
                 id: info.id,
                 work_area: info.work_area,
                 workspace: Workspace::new(),
+                monocle: false,
             })
             .collect();
+
+        let border = Border::new().ok();
 
         let mut manager = Self {
             monitors,
             layout,
+            rules,
+            border,
+            border_config,
             focused_monitor: 0,
             focused_window: None,
         };
 
         for win in enumerate::enumerate_windows()? {
             let hwnd = win.hwnd().0 as usize;
-            if let Some(idx) = manager.monitor_index_for(hwnd) {
+            if manager.is_tileable(hwnd)
+                && let Some(idx) = manager.monitor_index_for(hwnd)
+            {
                 manager.monitors[idx].workspace.add(hwnd);
             }
         }
@@ -59,8 +72,7 @@ impl TilingManager {
     pub fn handle_event(&mut self, event: &WindowEvent) {
         match event {
             WindowEvent::Created { hwnd } | WindowEvent::Restored { hwnd } => {
-                let window = Window::from_raw(*hwnd);
-                if !window.is_visible() {
+                if !self.is_tileable(*hwnd) {
                     return;
                 }
                 if let Some(idx) = self.monitor_index_for(*hwnd)
@@ -80,6 +92,9 @@ impl TilingManager {
                 self.focused_window = Some(*hwnd);
                 if let Some(idx) = self.owning_monitor(*hwnd) {
                     self.focused_monitor = idx;
+                    self.update_border();
+                } else {
+                    self.hide_border();
                 }
             }
             _ => {}
@@ -98,15 +113,25 @@ impl TilingManager {
             Action::FocusMonitorPrev => self.focus_monitor(-1),
             Action::MoveToMonitorNext => self.move_to_monitor(1),
             Action::MoveToMonitorPrev => self.move_to_monitor(-1),
+            Action::ToggleMonocle => self.toggle_monocle(),
         }
     }
 
-    /// Returns the total number of managed windows across all monitors.
+    /// Returns the total number of managed windows.
     pub fn window_count(&self) -> usize {
         self.monitors.iter().map(|m| m.workspace.len()).sum()
     }
 
-    /// Moves focus to an adjacent window on the focused monitor.
+    fn is_tileable(&self, hwnd: usize) -> bool {
+        let window = Window::from_raw(hwnd);
+        if !window.is_visible() {
+            return false;
+        }
+        let class = window.class().unwrap_or_default();
+        let title = window.title().unwrap_or_default();
+        mosaico_core::config::should_manage(&class, &title, &self.rules)
+    }
+
     fn focus_adjacent(&mut self, direction: i32) {
         let ws = &self.monitors[self.focused_monitor].workspace;
         let Some(idx) = self.focused_window.and_then(|h| ws.index_of(h)) else {
@@ -117,10 +142,10 @@ impl TilingManager {
         if let Some(&hwnd) = ws.handles().get(next) {
             self.focused_window = Some(hwnd);
             Window::from_raw(hwnd).set_foreground();
+            self.update_border();
         }
     }
 
-    /// Swaps the focused window with an adjacent one and re-tiles.
     fn swap_adjacent(&mut self, direction: i32) {
         let ws = &self.monitors[self.focused_monitor].workspace;
         let Some(idx) = self.focused_window.and_then(|h| ws.index_of(h)) else {
@@ -134,7 +159,6 @@ impl TilingManager {
         self.apply_layout_on(self.focused_monitor);
     }
 
-    /// Switches focus to the first window on the next/previous monitor.
     fn focus_monitor(&mut self, direction: i32) {
         if self.monitors.len() <= 1 {
             return;
@@ -145,10 +169,10 @@ impl TilingManager {
         if let Some(&hwnd) = self.monitors[next].workspace.handles().first() {
             self.focused_window = Some(hwnd);
             Window::from_raw(hwnd).set_foreground();
+            self.update_border();
         }
     }
 
-    /// Moves the focused window to the next/previous monitor and re-tiles both.
     fn move_to_monitor(&mut self, direction: i32) {
         let Some(hwnd) = self.focused_window else {
             return;
@@ -167,18 +191,41 @@ impl TilingManager {
         self.apply_layout_on(source);
         self.apply_layout_on(target);
         self.focused_monitor = target;
+        self.update_border();
     }
 
-    /// Re-tiles all monitors.
+    fn toggle_monocle(&mut self) {
+        let idx = self.focused_monitor;
+        self.monitors[idx].monocle = !self.monitors[idx].monocle;
+        self.apply_layout_on(idx);
+        self.update_border();
+    }
+
     fn retile_all(&self) {
         for i in 0..self.monitors.len() {
             self.apply_layout_on(i);
         }
     }
 
-    /// Applies the layout to a single monitor's workspace.
     fn apply_layout_on(&self, monitor_idx: usize) {
         let state = &self.monitors[monitor_idx];
+        if state.monocle {
+            // In monocle mode, the focused window fills the work area.
+            if let Some(hwnd) = self.focused_window
+                && state.workspace.contains(hwnd)
+            {
+                let gap = self.layout.gap;
+                let area = Rect::new(
+                    state.work_area.x + gap,
+                    state.work_area.y + gap,
+                    state.work_area.width - gap * 2,
+                    state.work_area.height - gap * 2,
+                );
+                let window = Window::from_raw(hwnd);
+                let _ = window.set_rect(&area);
+                return;
+            }
+        }
         let positions = state
             .workspace
             .compute_layout(&self.layout, &state.work_area);
@@ -190,13 +237,43 @@ impl TilingManager {
         }
     }
 
-    /// Finds which monitor a window belongs to (via `MonitorFromWindow`).
+    fn update_border(&self) {
+        let Some(border) = &self.border else {
+            return;
+        };
+        let Some(hwnd) = self.focused_window else {
+            border.hide();
+            return;
+        };
+        let window = Window::from_raw(hwnd);
+        let Ok(rect) = window.rect() else {
+            return;
+        };
+        let is_monocle = self.monitors[self.focused_monitor].monocle;
+        let hex = if is_monocle {
+            &self.border_config.monocle
+        } else {
+            &self.border_config.focused
+        };
+        let color = Color::from_hex(hex).unwrap_or(Color {
+            r: 0,
+            g: 0xB4,
+            b: 0xD8,
+        });
+        border.show(&rect, color, self.border_config.width);
+    }
+
+    fn hide_border(&self) {
+        if let Some(border) = &self.border {
+            border.hide();
+        }
+    }
+
     fn monitor_index_for(&self, hwnd: usize) -> Option<usize> {
         let mid = monitor::monitor_id_for_window(hwnd);
         self.monitors.iter().position(|m| m.id == mid)
     }
 
-    /// Finds which monitor currently has the window in its workspace.
     fn owning_monitor(&self, hwnd: usize) -> Option<usize> {
         self.monitors
             .iter()

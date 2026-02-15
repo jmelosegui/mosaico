@@ -58,6 +58,8 @@ enum ActionCommands {
     MoveToMonitorNext,
     /// Move the focused window to the previous monitor
     MoveToMonitorPrev,
+    /// Toggle monocle mode (focused window fills the monitor)
+    ToggleMonocle,
 }
 
 #[derive(Subcommand)]
@@ -89,6 +91,7 @@ fn main() {
                 ActionCommands::FocusMonitorPrev => Action::FocusMonitorPrev,
                 ActionCommands::MoveToMonitorNext => Action::MoveToMonitorNext,
                 ActionCommands::MoveToMonitorPrev => Action::MoveToMonitorPrev,
+                ActionCommands::ToggleMonocle => Action::ToggleMonocle,
             };
             commands::action::execute(action);
         }
