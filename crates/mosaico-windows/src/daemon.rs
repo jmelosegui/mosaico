@@ -8,6 +8,7 @@ use mosaico_core::{WindowResult, pid};
 use crate::dpi;
 use crate::event_loop;
 use crate::ipc::PipeServer;
+use crate::tiling::TilingManager;
 
 /// Runs the Mosaico daemon.
 ///
@@ -15,8 +16,8 @@ use crate::ipc::PipeServer;
 /// - **Event loop**: hooks into Win32 window events and sends them over a channel
 /// - **IPC listener**: accepts CLI commands over a named pipe
 ///
-/// The main thread processes both event and command channels until
-/// a Stop command is received.
+/// The main thread manages the tiling workspace, processing both window
+/// events and CLI commands until a Stop command is received.
 pub fn run() -> WindowResult<()> {
     dpi::enable_dpi_awareness();
     pid::write_pid_file()?;
@@ -45,6 +46,10 @@ type ResponseSender = mpsc::Sender<Response>;
 fn daemon_loop() -> WindowResult<()> {
     let (tx, rx) = mpsc::channel::<DaemonMsg>();
 
+    // Initialize the tiling manager with existing windows.
+    let mut manager = TilingManager::new()?;
+    eprintln!("Managing {} windows.", manager.window_count());
+
     // Start the Win32 event loop on its own thread.
     let event_tx = tx.clone();
     let (event_channel_tx, event_channel_rx) = mpsc::channel();
@@ -67,7 +72,7 @@ fn daemon_loop() -> WindowResult<()> {
     loop {
         match rx.recv_timeout(Duration::from_millis(100)) {
             Ok(DaemonMsg::Event(event)) => {
-                eprintln!("Event: {event:?}");
+                manager.handle_event(&event);
             }
             Ok(DaemonMsg::Command(Command::Stop, reply_tx)) => {
                 let response = Response::ok_with_message("Daemon stopping");
@@ -76,7 +81,11 @@ fn daemon_loop() -> WindowResult<()> {
                 break;
             }
             Ok(DaemonMsg::Command(Command::Status, reply_tx)) => {
-                let response = Response::ok_with_message("Daemon is running");
+                let msg = format!(
+                    "Daemon is running, managing {} windows",
+                    manager.window_count()
+                );
+                let response = Response::ok_with_message(msg);
                 let _ = reply_tx.send(response);
             }
             Err(RecvTimeoutError::Timeout) => continue,
