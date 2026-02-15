@@ -1,4 +1,8 @@
-// Windows platform implementation for Mosaico.
-//
-// This crate will provide Win32 API wrappers for window enumeration,
-// positioning, and event handling.
+/// Win32 window enumeration.
+pub mod enumerate;
+
+/// Window type wrapping a Win32 `HWND`.
+pub mod window;
+
+pub use enumerate::enumerate_windows;
+pub use window::Window;

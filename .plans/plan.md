@@ -18,7 +18,7 @@ Mosaico is structured as a Cargo workspace with multiple crates:
 | [1](phase-01.md) | Project Initialization | In Progress |
 | [2](phase-02.md) | CLI with clap | Complete |
 | [3a](phase-03a.md) | Restructure into Cargo Workspace | Complete |
-| [3b](phase-03b.md) | Window Enumeration (`mosaico list`) | Pending |
+| [3b](phase-03b.md) | Window Enumeration (`mosaico debug list`) | Complete |
 
 ## Future Phases (not yet planned in detail)
 
