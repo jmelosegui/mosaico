@@ -1,13 +1,13 @@
 use serde::{Deserialize, Serialize};
 
+use crate::Action;
+
 /// The named pipe path used for IPC between CLI and daemon.
 pub const PIPE_NAME: &str = r"\\.\pipe\mosaico";
 
 /// A command sent from the CLI to the daemon.
 ///
 /// These are serialized as JSON and sent over the named pipe.
-/// New commands will be added as Mosaico gains features (e.g. FocusLeft,
-/// MoveToWorkspace, etc.).
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "command")]
 pub enum Command {
@@ -15,6 +15,8 @@ pub enum Command {
     Stop,
     /// Request the daemon's current status.
     Status,
+    /// Execute a tiling action (focus, swap, retile, etc.).
+    Action { action: Action },
 }
 
 /// A response sent from the daemon back to the CLI.

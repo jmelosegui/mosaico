@@ -16,6 +16,7 @@ features = [
     "Win32_Graphics_Gdi",              # MonitorFromWindow, GetMonitorInfoW
     "Win32_UI_WindowsAndMessaging",   # EnumWindows, GetWindowTextW, GetMessageW, etc.
     "Win32_UI_Accessibility",          # SetWinEventHook, UnhookWinEvent
+    "Win32_UI_Input_KeyboardAndMouse", # RegisterHotKey, UnregisterHotKey
     "Win32_UI_HiDpi",                  # SetProcessDpiAwarenessContext
     "Win32_Foundation",                # HWND, BOOL, RECT, LPARAM, DuplicateHandle
     "Win32_System_Threading",          # GetWindowThreadProcessId, GetCurrentProcess

@@ -10,6 +10,9 @@ pub mod enumerate;
 /// Window frame and border offset helpers.
 pub mod frame;
 
+/// Global hotkey registration.
+pub mod hotkey;
+
 /// Win32 event translation.
 pub mod event;
 
