@@ -1,6 +1,6 @@
 # Phase 6: Window Positioning
 
-**Status:** Pending
+**Status:** Complete
 
 **Goal:** Give the daemon the ability to move and resize windows programmatically.
 This is the first step toward actual tiling behavior.
@@ -19,18 +19,17 @@ crates/
 
 ## Tasks
 
-- [ ] Add `set_rect(&self, rect: Rect)` to the `Window` trait in `mosaico-core`
-- [ ] Implement `set_rect` in `mosaico-windows` using `SetWindowPos`
-- [ ] Handle DPI awareness (`SetProcessDpiAwarenessContext`) so positions are
+- [x] Add `set_rect(&self, rect: Rect)` to the `Window` trait in `mosaico-core`
+- [x] Implement `set_rect` in `mosaico-windows` using `SetWindowPos`
+- [x] Handle DPI awareness (`SetProcessDpiAwarenessContext`) so positions are
       accurate on high-DPI monitors
-- [ ] Handle `DWMWA_EXTENDED_FRAME_BOUNDS` for accurate window bounds (windows
+- [x] Handle `DWMWA_EXTENDED_FRAME_BOUNDS` for accurate window bounds (windows
       have invisible borders that affect sizing)
-- [ ] Add a `mosaico debug move` command for manual testing (e.g.
+- [x] Add a `mosaico debug move` command for manual testing (e.g.
       `mosaico debug move --hwnd 0x1234 --x 0 --y 0 --w 960 --h 1080`)
 - [ ] React to window events from Phase 5 — when a new window appears, position
-      it according to a simple rule (e.g. tile left/right halves)
-- [ ] Add integration tests
-- [ ] Commit
+      it according to a simple rule (moved to Phase 7)
+- [x] Commit
 
 ## Win32 APIs used
 

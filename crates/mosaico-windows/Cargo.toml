@@ -12,14 +12,16 @@ serde_json = "1"
 [dependencies.windows]
 version = "0.61"
 features = [
-    "Win32_UI_WindowsAndMessaging",  # EnumWindows, GetWindowTextW, GetMessageW, etc.
-    "Win32_UI_Accessibility",         # SetWinEventHook, UnhookWinEvent, EVENT_* constants
-    "Win32_Foundation",               # HWND, BOOL, RECT, LPARAM, DuplicateHandle
-    "Win32_System_Threading",         # GetWindowThreadProcessId, GetCurrentProcess
-    "Win32_System_Pipes",             # CreateNamedPipeW, DisconnectNamedPipe
-    "Win32_System_IO",                # ConnectNamedPipe (requires overlapped IO module)
-    "Win32_Storage_FileSystem",       # CreateFileW (pipe client)
-    "Win32_Security",                 # Required by CreateFileW and CreateNamedPipeW
+    "Win32_Graphics_Dwm",              # DwmGetWindowAttribute (extended frame bounds)
+    "Win32_UI_WindowsAndMessaging",   # EnumWindows, GetWindowTextW, GetMessageW, etc.
+    "Win32_UI_Accessibility",          # SetWinEventHook, UnhookWinEvent
+    "Win32_UI_HiDpi",                  # SetProcessDpiAwarenessContext
+    "Win32_Foundation",                # HWND, BOOL, RECT, LPARAM, DuplicateHandle
+    "Win32_System_Threading",          # GetWindowThreadProcessId, GetCurrentProcess
+    "Win32_System_Pipes",              # CreateNamedPipeW, DisconnectNamedPipe
+    "Win32_System_IO",                 # ConnectNamedPipe (requires overlapped IO module)
+    "Win32_Storage_FileSystem",        # CreateFileW (pipe client)
+    "Win32_Security",                  # Required by CreateFileW and CreateNamedPipeW
 ]
 
 [lints]
