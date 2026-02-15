@@ -23,11 +23,12 @@ Mosaico is structured as a Cargo workspace with multiple crates:
 | [5](phase-05.md) | Event-Driven Window Discovery | Complete |
 | [6](phase-06.md) | Window Positioning | Complete |
 
+| [7](phase-07.md) | Tiling Layouts | Complete |
+| 8 | Hotkey System | Pending |
+| 9 | Configuration | Pending |
+
 ## Future Phases (not yet planned in detail)
 
-7. **Tiling layouts** — BSP or master-stack layout algorithms
-8. **Hotkey system** — Global hotkey registration for keyboard-driven control
-9. **Configuration** — TOML/YAML config file for user preferences
 10. **Multi-monitor support**
 11. **Window rules** — Per-application tiling behavior
 
