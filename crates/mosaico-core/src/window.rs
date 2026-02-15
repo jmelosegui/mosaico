@@ -2,7 +2,6 @@ use crate::Rect;
 
 /// A boxed error type for window operations.
 ///
-/// `Box<dyn std::error::Error>` is Rust's equivalent of C#'s base `Exception`.
 /// Any error type that implements the `Error` trait can be boxed into this.
 /// We'll replace this with a custom error type as the project matures.
 pub type WindowResult<T> = Result<T, Box<dyn std::error::Error>>;
