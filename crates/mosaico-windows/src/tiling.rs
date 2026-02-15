@@ -5,71 +5,84 @@ use crate::enumerate;
 use crate::monitor;
 use crate::window::Window;
 
-/// Manages tiled windows on the primary monitor.
-///
-/// Holds the workspace (window list), layout algorithm, and cached
-/// work area. Processes window events and actions.
-pub struct TilingManager {
-    workspace: Workspace,
-    layout: BspLayout,
+/// Per-monitor state: workspace and cached work area.
+struct MonitorState {
+    id: usize,
     work_area: Rect,
-    /// The currently focused window handle, if any.
-    focused: Option<usize>,
+    workspace: Workspace,
+}
+
+/// Manages tiled windows across all connected monitors.
+///
+/// Each monitor gets its own workspace. Focus and swap actions operate
+/// within the focused monitor; additional actions move focus or windows
+/// between monitors.
+pub struct TilingManager {
+    monitors: Vec<MonitorState>,
+    layout: BspLayout,
+    focused_monitor: usize,
+    focused_window: Option<usize>,
 }
 
 impl TilingManager {
-    /// Creates a new tiling manager and populates it with existing windows.
-    ///
-    /// Uses the provided layout for window positioning. Call with
-    /// `BspLayout::default()` if no configuration is loaded.
+    /// Creates a new tiling manager, discovers monitors, and populates
+    /// workspaces with existing windows.
     pub fn new(layout: BspLayout) -> WindowResult<Self> {
-        let work_area = monitor::primary_work_area()?;
+        let monitors: Vec<MonitorState> = monitor::enumerate_monitors()?
+            .into_iter()
+            .map(|info| MonitorState {
+                id: info.id,
+                work_area: info.work_area,
+                workspace: Workspace::new(),
+            })
+            .collect();
+
         let mut manager = Self {
-            workspace: Workspace::new(),
+            monitors,
             layout,
-            work_area,
-            focused: None,
+            focused_monitor: 0,
+            focused_window: None,
         };
 
-        // Add all currently visible windows.
         for win in enumerate::enumerate_windows()? {
-            manager.workspace.add(win.hwnd().0 as usize);
+            let hwnd = win.hwnd().0 as usize;
+            if let Some(idx) = manager.monitor_index_for(hwnd) {
+                manager.monitors[idx].workspace.add(hwnd);
+            }
         }
 
-        manager.apply_layout();
+        manager.retile_all();
         Ok(manager)
     }
 
-    /// Handles a window event and re-tiles if needed.
+    /// Handles a window event and re-tiles the affected monitor.
     pub fn handle_event(&mut self, event: &WindowEvent) {
-        let changed = match event {
-            WindowEvent::Created { hwnd } => {
+        match event {
+            WindowEvent::Created { hwnd } | WindowEvent::Restored { hwnd } => {
                 let window = Window::from_raw(*hwnd);
-                if is_tileable(&window) {
-                    self.workspace.add(*hwnd)
-                } else {
-                    false
+                if !window.is_visible() {
+                    return;
+                }
+                if let Some(idx) = self.monitor_index_for(*hwnd)
+                    && self.monitors[idx].workspace.add(*hwnd)
+                {
+                    self.apply_layout_on(idx);
                 }
             }
-            WindowEvent::Destroyed { hwnd } => self.workspace.remove(*hwnd),
-            WindowEvent::Minimized { hwnd } => self.workspace.remove(*hwnd),
-            WindowEvent::Restored { hwnd } => {
-                let window = Window::from_raw(*hwnd);
-                if is_tileable(&window) {
-                    self.workspace.add(*hwnd)
-                } else {
-                    false
+            WindowEvent::Destroyed { hwnd } | WindowEvent::Minimized { hwnd } => {
+                if let Some(idx) = self.owning_monitor(*hwnd)
+                    && self.monitors[idx].workspace.remove(*hwnd)
+                {
+                    self.apply_layout_on(idx);
                 }
             }
             WindowEvent::Focused { hwnd } => {
-                self.focused = Some(*hwnd);
-                false
+                self.focused_window = Some(*hwnd);
+                if let Some(idx) = self.owning_monitor(*hwnd) {
+                    self.focused_monitor = idx;
+                }
             }
-            _ => false,
-        };
-
-        if changed {
-            self.apply_layout();
+            _ => {}
         }
     }
 
@@ -80,47 +93,95 @@ impl TilingManager {
             Action::FocusPrev => self.focus_adjacent(-1),
             Action::SwapNext => self.swap_adjacent(1),
             Action::SwapPrev => self.swap_adjacent(-1),
-            Action::Retile => self.apply_layout(),
+            Action::Retile => self.retile_all(),
+            Action::FocusMonitorNext => self.focus_monitor(1),
+            Action::FocusMonitorPrev => self.focus_monitor(-1),
+            Action::MoveToMonitorNext => self.move_to_monitor(1),
+            Action::MoveToMonitorPrev => self.move_to_monitor(-1),
         }
     }
 
-    /// Moves focus to an adjacent window in the workspace.
+    /// Returns the total number of managed windows across all monitors.
+    pub fn window_count(&self) -> usize {
+        self.monitors.iter().map(|m| m.workspace.len()).sum()
+    }
+
+    /// Moves focus to an adjacent window on the focused monitor.
     fn focus_adjacent(&mut self, direction: i32) {
-        let Some(idx) = self.focused_index() else {
+        let ws = &self.monitors[self.focused_monitor].workspace;
+        let Some(idx) = self.focused_window.and_then(|h| ws.index_of(h)) else {
             return;
         };
-
-        let len = self.workspace.len() as i32;
+        let len = ws.len() as i32;
         let next = ((idx as i32 + direction).rem_euclid(len)) as usize;
-
-        if let Some(&hwnd) = self.workspace.handles().get(next) {
-            self.focused = Some(hwnd);
-            set_foreground(hwnd);
+        if let Some(&hwnd) = ws.handles().get(next) {
+            self.focused_window = Some(hwnd);
+            Window::from_raw(hwnd).set_foreground();
         }
     }
 
     /// Swaps the focused window with an adjacent one and re-tiles.
     fn swap_adjacent(&mut self, direction: i32) {
-        let Some(idx) = self.focused_index() else {
+        let ws = &self.monitors[self.focused_monitor].workspace;
+        let Some(idx) = self.focused_window.and_then(|h| ws.index_of(h)) else {
             return;
         };
-
-        let len = self.workspace.len() as i32;
+        let len = ws.len() as i32;
         let other = ((idx as i32 + direction).rem_euclid(len)) as usize;
-
-        self.workspace.swap(idx, other);
-        self.apply_layout();
+        self.monitors[self.focused_monitor]
+            .workspace
+            .swap(idx, other);
+        self.apply_layout_on(self.focused_monitor);
     }
 
-    /// Returns the workspace index of the currently focused window.
-    fn focused_index(&self) -> Option<usize> {
-        self.focused.and_then(|hwnd| self.workspace.index_of(hwnd))
+    /// Switches focus to the first window on the next/previous monitor.
+    fn focus_monitor(&mut self, direction: i32) {
+        if self.monitors.len() <= 1 {
+            return;
+        }
+        let len = self.monitors.len() as i32;
+        let next = ((self.focused_monitor as i32 + direction).rem_euclid(len)) as usize;
+        self.focused_monitor = next;
+        if let Some(&hwnd) = self.monitors[next].workspace.handles().first() {
+            self.focused_window = Some(hwnd);
+            Window::from_raw(hwnd).set_foreground();
+        }
     }
 
-    /// Applies the current layout to all managed windows.
-    fn apply_layout(&self) {
-        let positions = self.workspace.compute_layout(&self.layout, &self.work_area);
+    /// Moves the focused window to the next/previous monitor and re-tiles both.
+    fn move_to_monitor(&mut self, direction: i32) {
+        let Some(hwnd) = self.focused_window else {
+            return;
+        };
+        if self.monitors.len() <= 1 {
+            return;
+        }
+        let source = self.focused_monitor;
+        let len = self.monitors.len() as i32;
+        let target = ((source as i32 + direction).rem_euclid(len)) as usize;
+        if source == target {
+            return;
+        }
+        self.monitors[source].workspace.remove(hwnd);
+        self.monitors[target].workspace.add(hwnd);
+        self.apply_layout_on(source);
+        self.apply_layout_on(target);
+        self.focused_monitor = target;
+    }
 
+    /// Re-tiles all monitors.
+    fn retile_all(&self) {
+        for i in 0..self.monitors.len() {
+            self.apply_layout_on(i);
+        }
+    }
+
+    /// Applies the layout to a single monitor's workspace.
+    fn apply_layout_on(&self, monitor_idx: usize) {
+        let state = &self.monitors[monitor_idx];
+        let positions = state
+            .workspace
+            .compute_layout(&self.layout, &state.work_area);
         for (hwnd, rect) in &positions {
             let window = Window::from_raw(*hwnd);
             if let Err(e) = window.set_rect(rect) {
@@ -129,25 +190,16 @@ impl TilingManager {
         }
     }
 
-    /// Returns the number of managed windows.
-    pub fn window_count(&self) -> usize {
-        self.workspace.len()
+    /// Finds which monitor a window belongs to (via `MonitorFromWindow`).
+    fn monitor_index_for(&self, hwnd: usize) -> Option<usize> {
+        let mid = monitor::monitor_id_for_window(hwnd);
+        self.monitors.iter().position(|m| m.id == mid)
     }
-}
 
-/// Determines whether a window should be tiled.
-fn is_tileable(window: &Window) -> bool {
-    window.is_visible()
-}
-
-/// Sets the given window as the foreground (focused) window.
-fn set_foreground(hwnd: usize) {
-    use windows::Win32::Foundation::HWND;
-    use windows::Win32::UI::WindowsAndMessaging::SetForegroundWindow;
-
-    let hwnd = HWND(hwnd as *mut _);
-    // SAFETY: SetForegroundWindow is safe to call with a valid HWND.
-    unsafe {
-        let _ = SetForegroundWindow(hwnd);
+    /// Finds which monitor currently has the window in its workspace.
+    fn owning_monitor(&self, hwnd: usize) -> Option<usize> {
+        self.monitors
+            .iter()
+            .position(|m| m.workspace.contains(hwnd))
     }
 }

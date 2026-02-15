@@ -17,4 +17,12 @@ pub enum Action {
     SwapPrev,
     /// Re-apply the current layout to all managed windows.
     Retile,
+    /// Move focus to a window on the next monitor.
+    FocusMonitorNext,
+    /// Move focus to a window on the previous monitor.
+    FocusMonitorPrev,
+    /// Move the focused window to the next monitor.
+    MoveToMonitorNext,
+    /// Move the focused window to the previous monitor.
+    MoveToMonitorPrev,
 }

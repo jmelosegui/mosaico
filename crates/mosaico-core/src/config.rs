@@ -96,7 +96,7 @@ pub fn load() -> Config {
     }
 }
 
-/// Default keybindings matching the Phase 8 hardcoded bindings.
+/// Default keybindings for all actions.
 fn default_keybindings() -> Vec<Keybinding> {
     use Modifier::{Alt, Ctrl, Shift};
 
@@ -126,6 +126,26 @@ fn default_keybindings() -> Vec<Keybinding> {
             key: "R".into(),
             modifiers: vec![Alt, Shift],
         },
+        Keybinding {
+            action: Action::FocusMonitorNext,
+            key: "L".into(),
+            modifiers: vec![Alt, Shift],
+        },
+        Keybinding {
+            action: Action::FocusMonitorPrev,
+            key: "H".into(),
+            modifiers: vec![Alt, Shift],
+        },
+        Keybinding {
+            action: Action::MoveToMonitorNext,
+            key: "L".into(),
+            modifiers: vec![Alt, Ctrl],
+        },
+        Keybinding {
+            action: Action::MoveToMonitorPrev,
+            key: "H".into(),
+            modifiers: vec![Alt, Ctrl],
+        },
     ]
 }
 
@@ -134,12 +154,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn default_config_has_five_keybindings() {
+    fn default_config_has_nine_keybindings() {
         // Arrange / Act
         let config = Config::default();
 
         // Assert
-        assert_eq!(config.keybindings.len(), 5);
+        assert_eq!(config.keybindings.len(), 9);
         assert_eq!(config.layout.gap, 8);
         assert_eq!(config.layout.ratio, 0.5);
     }
@@ -155,7 +175,7 @@ mod tests {
         // Assert
         assert_eq!(config.layout.gap, 16);
         assert_eq!(config.layout.ratio, 0.5); // default
-        assert_eq!(config.keybindings.len(), 5); // defaults
+        assert_eq!(config.keybindings.len(), 9); // defaults
     }
 
     #[test]

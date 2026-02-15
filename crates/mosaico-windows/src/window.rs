@@ -37,6 +37,16 @@ impl Window {
     pub fn hwnd(&self) -> HWND {
         self.hwnd
     }
+
+    /// Sets this window as the foreground (focused) window.
+    pub fn set_foreground(&self) {
+        use windows::Win32::UI::WindowsAndMessaging::SetForegroundWindow;
+
+        // SAFETY: SetForegroundWindow is safe to call with a valid HWND.
+        unsafe {
+            let _ = SetForegroundWindow(self.hwnd);
+        }
+    }
 }
 
 impl mosaico_core::Window for Window {
