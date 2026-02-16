@@ -27,4 +27,6 @@ pub enum Action {
     MoveToMonitorPrev,
     /// Toggle monocle mode (focused window fills the monitor).
     ToggleMonocle,
+    /// Close the currently focused window.
+    CloseFocused,
 }

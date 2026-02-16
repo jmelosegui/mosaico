@@ -48,6 +48,8 @@ pub fn defaults() -> Vec<Keybinding> {
         // Layout
         bind(Action::Retile, "R", &[Alt, Shift]),
         bind(Action::ToggleMonocle, "T", &[Alt]),
+        // Close window
+        bind(Action::CloseFocused, "Q", &[Alt]),
     ]
 }
 
