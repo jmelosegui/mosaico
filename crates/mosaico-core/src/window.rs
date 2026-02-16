@@ -25,6 +25,12 @@ pub trait Window {
     /// window handle — the Rust struct itself doesn't change.
     fn set_rect(&self, rect: &Rect) -> WindowResult<()>;
 
+    /// Forces the window to repaint.
+    ///
+    /// Some applications (e.g. Chromium-based browsers) need an explicit
+    /// redraw after being repositioned programmatically.
+    fn invalidate(&self);
+
     /// Returns whether the window is currently visible.
     fn is_visible(&self) -> bool;
 }

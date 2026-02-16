@@ -35,7 +35,8 @@ pub fn generate_keybindings() -> String {
 # Available actions:
 #   focus-next, focus-prev, swap-next, swap-prev, retile,
 #   focus-monitor-next, focus-monitor-prev,
-#   move-to-monitor-next, move-to-monitor-prev, toggle-monocle
+#   move-to-monitor-next, move-to-monitor-prev, toggle-monocle,
+#   close-focused
 #
 # Available modifiers: alt, shift, ctrl, win
 #
@@ -96,6 +97,12 @@ modifiers = ["alt", "shift"]
 [[keybinding]]
 action = "toggle-monocle"
 key = "T"
+modifiers = ["alt"]
+
+# Close focused window: Alt + Q
+[[keybinding]]
+action = "close-focused"
+key = "Q"
 modifiers = ["alt"]
 "##
     .to_string()

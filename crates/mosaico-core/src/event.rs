@@ -1,3 +1,5 @@
+use std::fmt;
+
 /// A platform-agnostic window event.
 ///
 /// These represent meaningful state changes that the tiling manager
@@ -39,5 +41,24 @@ impl WindowEvent {
             | Self::Restored { hwnd }
             | Self::TitleChanged { hwnd } => *hwnd,
         }
+    }
+
+    /// Returns the event name without the handle.
+    pub fn name(&self) -> &'static str {
+        match self {
+            Self::Created { .. } => "Created",
+            Self::Destroyed { .. } => "Destroyed",
+            Self::Focused { .. } => "Focused",
+            Self::Moved { .. } => "Moved",
+            Self::Minimized { .. } => "Minimized",
+            Self::Restored { .. } => "Restored",
+            Self::TitleChanged { .. } => "TitleChanged",
+        }
+    }
+}
+
+impl fmt::Display for WindowEvent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} 0x{:X}", self.name(), self.hwnd())
     }
 }

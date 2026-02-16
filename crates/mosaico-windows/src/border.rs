@@ -113,10 +113,20 @@ impl Border {
     }
 
     /// Shows the border around the given rectangle with the specified color.
+    ///
+    /// Renders the bitmap before making the window visible to avoid
+    /// flickering caused by a stale bitmap being shown at the new size.
     pub fn show(&self, rect: &Rect, color: Color, width: i32) {
         let w = rect.width + width * 2;
         let h = rect.height + width * 2;
 
+        // Render the new bitmap first so `UpdateLayeredWindow` atomically
+        // sets position, size, and pixel content in one
+        //
+        // call.
+        self.render(rect.x - width, rect.y - width, w, h, color, width);
+
+        // Then ensure the overlay is on top and visible.
         unsafe {
             let _ = SetWindowPos(
                 self.hwnd,
@@ -128,8 +138,6 @@ impl Border {
                 SWP_NOACTIVATE | SWP_SHOWWINDOW,
             );
         }
-
-        self.render(rect.x - width, rect.y - width, w, h, color, width);
     }
 
     /// Hides the border.

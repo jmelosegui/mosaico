@@ -1,5 +1,8 @@
 use std::sync::mpsc;
 
+use mosaico_core::Window;
+use mosaico_windows::Window as WinWindow;
+
 /// Watches window events in real time. Press Ctrl+C to stop.
 pub fn execute() {
     println!("Watching window events (press Ctrl+C to stop)...\n");
@@ -31,7 +34,11 @@ pub fn execute() {
 
         // Drain available events
         match rx.recv_timeout(std::time::Duration::from_millis(100)) {
-            Ok(event) => println!("{event:?}"),
+            Ok(event) => {
+                let window = WinWindow::from_raw(event.hwnd());
+                let title = window.title().unwrap_or_default();
+                println!("{event} \"{title}\"");
+            }
             Err(mpsc::RecvTimeoutError::Timeout) => continue,
             Err(mpsc::RecvTimeoutError::Disconnected) => break,
         }
