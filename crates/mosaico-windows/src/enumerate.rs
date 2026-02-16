@@ -1,10 +1,7 @@
 use mosaico_core::WindowResult;
 
 use windows::Win32::Foundation::{HWND, LPARAM};
-use windows::Win32::UI::WindowsAndMessaging::{
-    EnumWindows, GWL_EXSTYLE, GWL_STYLE, GetWindowLongPtrW, IsIconic, IsWindowVisible, WS_CAPTION,
-    WS_EX_TOOLWINDOW, WS_VISIBLE,
-};
+use windows::Win32::UI::WindowsAndMessaging::{EnumWindows, IsIconic, IsWindowVisible};
 use windows::core::BOOL;
 
 use crate::window::Window;
@@ -54,34 +51,17 @@ unsafe extern "system" fn enum_window_callback(hwnd: HWND, lparam: LPARAM) -> BO
 
 /// Determines whether a window should be included in the enumeration.
 ///
-/// Filters out invisible, minimized, tool windows, and windows without
-/// a caption bar (which are typically not "real" application windows).
+/// Filters out invisible, minimized, and non-application windows.
 fn should_include_window(hwnd: HWND) -> bool {
     // SAFETY: These are simple query functions that read window state.
     unsafe {
-        // Must be visible
         if !IsWindowVisible(hwnd).as_bool() {
             return false;
         }
-
-        // Must not be minimized
         if IsIconic(hwnd).as_bool() {
             return false;
         }
-
-        // Read window styles
-        let style = GetWindowLongPtrW(hwnd, GWL_STYLE) as u32;
-        let ex_style = GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32;
-
-        // Must have a caption bar (WS_CAPTION) — standard app windows have this
-        let has_caption = (style & WS_CAPTION.0) == WS_CAPTION.0;
-
-        // Must be visible (WS_VISIBLE style flag)
-        let is_visible_style = (style & WS_VISIBLE.0) == WS_VISIBLE.0;
-
-        // Must NOT be a tool window (floating toolbars, etc.)
-        let is_tool_window = (ex_style & WS_EX_TOOLWINDOW.0) == WS_EX_TOOLWINDOW.0;
-
-        has_caption && is_visible_style && !is_tool_window
     }
+
+    Window::new(hwnd).is_app_window()
 }

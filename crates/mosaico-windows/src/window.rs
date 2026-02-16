@@ -2,8 +2,8 @@ use mosaico_core::{Rect, WindowResult};
 
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::{
-    GetWindowTextLengthW, GetWindowTextW, IsWindowVisible, RealGetWindowClassW, SWP_NOACTIVATE,
-    SWP_NOZORDER, SetWindowPos,
+    GetWindowTextLengthW, GetWindowTextW, IsWindowVisible, RealGetWindowClassW, SWP_FRAMECHANGED,
+    SWP_NOACTIVATE, SWP_NOCOPYBITS, SWP_NOSENDCHANGING, SWP_NOZORDER, SetWindowPos,
 };
 
 use crate::frame;
@@ -45,6 +45,28 @@ impl Window {
         // SAFETY: SetForegroundWindow is safe to call with a valid HWND.
         unsafe {
             let _ = SetForegroundWindow(self.hwnd);
+        }
+    }
+
+    /// Returns whether this looks like a real application window.
+    ///
+    /// Checks for a caption bar (`WS_CAPTION`) and rejects tool windows
+    /// (`WS_EX_TOOLWINDOW`). This filters out internal helper windows,
+    /// tooltips, floating toolbars, and other non-application surfaces
+    /// that should never be tiled.
+    pub fn is_app_window(&self) -> bool {
+        use windows::Win32::UI::WindowsAndMessaging::{
+            GWL_EXSTYLE, GWL_STYLE, GetWindowLongPtrW, WS_CAPTION, WS_EX_TOOLWINDOW,
+        };
+
+        unsafe {
+            let style = GetWindowLongPtrW(self.hwnd, GWL_STYLE) as u32;
+            let ex_style = GetWindowLongPtrW(self.hwnd, GWL_EXSTYLE) as u32;
+
+            let has_caption = (style & WS_CAPTION.0) == WS_CAPTION.0;
+            let is_tool = (ex_style & WS_EX_TOOLWINDOW.0) == WS_EX_TOOLWINDOW.0;
+
+            has_caption && !is_tool
         }
     }
 }
@@ -92,21 +114,43 @@ impl mosaico_core::Window for Window {
         // lands exactly at the requested position and size.
         let border = frame::border_offset(self.hwnd)?;
 
-        // SAFETY: SetWindowPos moves and resizes the window.
-        // SWP_NOZORDER — don't change the Z-order (stacking position).
-        // SWP_NOACTIVATE — don't steal focus from the current window.
-        unsafe {
-            SetWindowPos(
-                self.hwnd,
-                None,
-                rect.x - border.left,
-                rect.y - border.top,
-                rect.width + border.left + border.right,
-                rect.height + border.top + border.bottom,
-                SWP_NOZORDER | SWP_NOACTIVATE,
-            )?;
-        }
+        let x = rect.x - border.left;
+        let y = rect.y - border.top;
+        let cx = rect.width + border.left + border.right;
+        let cy = rect.height + border.top + border.bottom;
+
+        // SWP_NOSENDCHANGING — suppresses WM_WINDOWPOSCHANGING so the
+        //   window cannot reject or modify the requested dimensions.
+        // SWP_FRAMECHANGED — forces WM_NCCALCSIZE so GPU-composited
+        //   apps (Chrome, Electron) recalculate their client area and
+        //   update the rendering surface.
+        // SWP_NOCOPYBITS — discards old client-area contents instead
+        //   of blitting them, avoiding stale surfaces.
+        let flags =
+            SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOSENDCHANGING | SWP_FRAMECHANGED | SWP_NOCOPYBITS;
+
+        // SAFETY: SetWindowPos with a valid HWND is safe.
+        unsafe { SetWindowPos(self.hwnd, None, x, y, cx, cy, flags)? };
         Ok(())
+    }
+
+    fn invalidate(&self) {
+        use windows::Win32::Graphics::Gdi::{
+            RDW_ALLCHILDREN, RDW_ERASE, RDW_FRAME, RDW_INVALIDATE, RDW_UPDATENOW, RedrawWindow,
+        };
+
+        // SAFETY: RedrawWindow forces a complete repaint of the window,
+        // its frame, and all child windows. The aggressive flag
+        // combination ensures GPU-composited apps (Chrome, Electron)
+        // refresh their rendering surface after a programmatic resize.
+        unsafe {
+            let _ = RedrawWindow(
+                Some(self.hwnd),
+                None,
+                None,
+                RDW_INVALIDATE | RDW_UPDATENOW | RDW_FRAME | RDW_ERASE | RDW_ALLCHILDREN,
+            );
+        }
     }
 
     fn is_visible(&self) -> bool {
