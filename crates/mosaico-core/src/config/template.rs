@@ -41,57 +41,54 @@ pub fn generate_keybindings() -> String {
 # Each [[keybinding]] entry maps a key combination to an action.
 #
 # Available actions:
-#   focus-next, focus-prev, swap-next, swap-prev, retile,
-#   focus-monitor-next, focus-monitor-prev,
-#   move-to-monitor-next, move-to-monitor-prev, toggle-monocle,
-#   close-focused
+#   focus-left, focus-right, focus-up, focus-down,
+#   move-left, move-right, move-up, move-down,
+#   retile, toggle-monocle, close-focused
 #
 # Available modifiers: alt, shift, ctrl, win
 #
 # Key names: A-Z, 0-9, F1-F24, Enter, Space, Tab, Escape,
 #            Left, Right, Up, Down, Minus, Plus, Comma, Period
 
-# Focus: Alt + J/K (next/prev window)
+# Focus: Alt + H/J/K/L (vim-style spatial navigation)
 [[keybinding]]
-action = "focus-next"
+action = "focus-down"
 key = "J"
 modifiers = ["alt"]
 
 [[keybinding]]
-action = "focus-prev"
+action = "focus-up"
 key = "K"
 modifiers = ["alt"]
 
-# Focus across monitors: Alt + L/H (next/prev monitor)
 [[keybinding]]
-action = "focus-monitor-next"
+action = "focus-right"
 key = "L"
 modifiers = ["alt"]
 
 [[keybinding]]
-action = "focus-monitor-prev"
+action = "focus-left"
 key = "H"
 modifiers = ["alt"]
 
-# Swap windows: Alt + Shift + J/K
+# Move: Alt + Shift + H/J/K/L (swap or cross-monitor)
 [[keybinding]]
-action = "swap-next"
+action = "move-down"
 key = "J"
 modifiers = ["alt", "shift"]
 
 [[keybinding]]
-action = "swap-prev"
+action = "move-up"
 key = "K"
 modifiers = ["alt", "shift"]
 
-# Move window across monitors: Alt + Shift + L/H
 [[keybinding]]
-action = "move-to-monitor-next"
+action = "move-right"
 key = "L"
 modifiers = ["alt", "shift"]
 
 [[keybinding]]
-action = "move-to-monitor-prev"
+action = "move-left"
 key = "H"
 modifiers = ["alt", "shift"]
 
