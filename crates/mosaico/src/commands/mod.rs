@@ -1,6 +1,8 @@
 pub mod action;
+mod banner;
 pub mod daemon;
 pub mod debug;
+pub mod doctor;
 pub mod init;
 pub mod start;
 pub mod status;

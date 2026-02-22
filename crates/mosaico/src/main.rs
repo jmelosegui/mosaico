@@ -26,6 +26,8 @@ enum Commands {
     Stop,
     /// Show whether the daemon is running
     Status,
+    /// Check your setup for common issues
+    Doctor,
     /// Send an action to the running daemon
     Action {
         #[command(subcommand)]
@@ -100,6 +102,7 @@ fn main() {
         Commands::Start => commands::start::execute(),
         Commands::Stop => commands::stop::execute(),
         Commands::Status => commands::status::execute(),
+        Commands::Doctor => commands::doctor::execute(),
         Commands::Daemon => commands::daemon::execute(),
         Commands::Action { action } => {
             let action = match action {

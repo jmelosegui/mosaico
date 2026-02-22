@@ -23,78 +23,85 @@ pub fn rules_path() -> Option<PathBuf> {
     config_dir().map(|d| d.join("rules.toml"))
 }
 
+/// Tries to load and parse `config.toml`.
+///
+/// Returns `Ok(Config)` on success, or an error string describing
+/// what went wrong (IO error, parse error, etc.).
+pub fn try_load() -> Result<Config, String> {
+    let path = config_path().ok_or("could not determine config path")?;
+    let content = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+    let mut config: Config =
+        toml::from_str(&content).map_err(|e| format!("{}: {e}", path.display()))?;
+    config.validate();
+    Ok(config)
+}
+
 /// Loads the configuration from disk, falling back to defaults.
 ///
 /// After loading, values are clamped to safe ranges via [`Config::validate`].
 /// Non-existent files silently return defaults; other IO errors are logged.
 pub fn load() -> Config {
-    let Some(path) = config_path() else {
-        return Config::default();
-    };
-    let content = match std::fs::read_to_string(&path) {
-        Ok(c) => c,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Config::default(),
-        Err(e) => {
-            eprintln!("Warning: could not read {}: {e}", path.display());
-            return Config::default();
-        }
-    };
-    let mut config: Config = match toml::from_str(&content) {
-        Ok(c) => c,
-        Err(e) => {
-            eprintln!("Warning: failed to parse {}: {e}", path.display());
+    match try_load() {
+        Ok(config) => config,
+        Err(e) if e.contains("cannot find the path") || e.contains("The system cannot find") => {
             Config::default()
         }
-    };
-    config.validate();
-    config
+        Err(e) => {
+            eprintln!("Warning: {e}");
+            Config::default()
+        }
+    }
+}
+
+/// Tries to load and parse `keybindings.toml`.
+///
+/// Returns the parsed keybindings or an error string.
+pub fn try_load_keybindings() -> Result<Vec<Keybinding>, String> {
+    let path = keybindings_path().ok_or("could not determine keybindings path")?;
+    let content = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+    let file: KeybindingsFile =
+        toml::from_str(&content).map_err(|e| format!("{}: {e}", path.display()))?;
+    Ok(file.keybinding)
 }
 
 /// Loads keybindings from `~/.config/mosaico/keybindings.toml`.
 ///
 /// Falls back to the built-in defaults if the file is missing or invalid.
-/// Non-existent files silently return defaults; other IO errors are logged.
 pub fn load_keybindings() -> Vec<Keybinding> {
-    let Some(path) = keybindings_path() else {
-        return keybinding::defaults();
-    };
-    let content = match std::fs::read_to_string(&path) {
-        Ok(c) => c,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return keybinding::defaults(),
-        Err(e) => {
-            eprintln!("Warning: could not read {}: {e}", path.display());
-            return keybinding::defaults();
+    match try_load_keybindings() {
+        Ok(bindings) => bindings,
+        Err(e) if e.contains("cannot find the path") || e.contains("The system cannot find") => {
+            keybinding::defaults()
         }
-    };
-    match toml::from_str::<KeybindingsFile>(&content) {
-        Ok(file) => file.keybinding,
         Err(e) => {
-            eprintln!("Warning: failed to parse {}: {e}", path.display());
+            eprintln!("Warning: {e}");
             keybinding::defaults()
         }
     }
 }
 
+/// Tries to load and parse `rules.toml`.
+///
+/// Returns the parsed rules or an error string.
+pub fn try_load_rules() -> Result<Vec<WindowRule>, String> {
+    let path = rules_path().ok_or("could not determine rules path")?;
+    let content = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+    let file: RulesFile =
+        toml::from_str(&content).map_err(|e| format!("{}: {e}", path.display()))?;
+    Ok(file.rule)
+}
+
 /// Loads window rules from `~/.config/mosaico/rules.toml`.
 ///
 /// Falls back to the built-in defaults if the file is missing or invalid.
-/// Non-existent files silently return defaults; other IO errors are logged.
 pub fn load_rules() -> Vec<WindowRule> {
-    let Some(path) = rules_path() else {
-        return default_rules();
-    };
-    let content = match std::fs::read_to_string(&path) {
-        Ok(c) => c,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return default_rules(),
-        Err(e) => {
-            eprintln!("Warning: could not read {}: {e}", path.display());
-            return default_rules();
+    match try_load_rules() {
+        Ok(rules) => rules,
+        Err(e) if e.contains("cannot find the path") || e.contains("The system cannot find") => {
+            default_rules()
         }
-    };
-    match toml::from_str::<RulesFile>(&content) {
-        Ok(file) => file.rule,
         Err(e) => {
-            eprintln!("Warning: failed to parse {}: {e}", path.display());
+            eprintln!("Warning: {e}");
             default_rules()
         }
     }
