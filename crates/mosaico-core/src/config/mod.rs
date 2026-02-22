@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 pub use keybinding::{Keybinding, Modifier};
 pub use loader::{
     config_dir, config_path, keybindings_path, load, load_keybindings, load_rules, rules_path,
+    try_load, try_load_keybindings, try_load_rules,
 };
 
 /// Top-level configuration for Mosaico.
