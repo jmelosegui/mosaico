@@ -48,6 +48,17 @@ impl Window {
         }
     }
 
+    /// Returns whether this window needs `SWP_FRAMECHANGED` to update
+    /// its rendering surface after a programmatic resize.
+    ///
+    /// Chromium-based apps (Chrome, Edge, Electron) use a GPU compositor
+    /// that only repaints when `WM_NCCALCSIZE` fires. Without
+    /// `SWP_FRAMECHANGED`, they render a blank/stale surface.
+    fn needs_frame_changed(&self) -> bool {
+        let class = mosaico_core::Window::class(self).unwrap_or_default();
+        class == "Chrome_WidgetWin_1" || class == "MozillaWindowClass"
+    }
+
     /// Returns whether this looks like a real application window.
     ///
     /// Checks for a caption bar (`WS_CAPTION`) and rejects tool windows
@@ -119,15 +130,38 @@ impl mosaico_core::Window for Window {
         let cx = rect.width + border.left + border.right;
         let cy = rect.height + border.top + border.bottom;
 
-        // SWP_NOSENDCHANGING — suppresses WM_WINDOWPOSCHANGING so the
-        //   window cannot reject or modify the requested dimensions.
-        // SWP_FRAMECHANGED — forces WM_NCCALCSIZE so GPU-composited
-        //   apps (Chrome, Electron) recalculate their client area and
-        //   update the rendering surface.
-        // SWP_NOCOPYBITS — discards old client-area contents instead
-        //   of blitting them, avoiding stale surfaces.
-        let flags =
-            SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOSENDCHANGING | SWP_FRAMECHANGED | SWP_NOCOPYBITS;
+        // SWP_NOSENDCHANGING suppresses WM_WINDOWPOSCHANGING so the
+        // window cannot reject or modify the requested dimensions.
+        //
+        // SWP_NOCOPYBITS discards old client-area contents instead
+        // of blitting them, avoiding stale surfaces.
+        let mut flags = SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOSENDCHANGING | SWP_NOCOPYBITS;
+
+        // GPU-composited apps (Chrome, Electron) need SWP_FRAMECHANGED
+        // to trigger WM_NCCALCSIZE, which makes them recalculate their
+        // client area and update the rendering surface. However,
+        // SWP_FRAMECHANGED also lets windows enforce size constraints
+        // via WM_NCCALCSIZE, so we only add it for Chromium-based
+        // windows that are known to need it.
+        if self.needs_frame_changed() {
+            flags |= SWP_FRAMECHANGED;
+        }
+
+        let hwnd_val = self.hwnd.0 as usize;
+        let frame_changed = self.needs_frame_changed();
+        mosaico_core::log_debug!(
+            "set_rect 0x{:X}: target({},{} {}x{}) border(L:{} T:{} R:{} B:{}) frame_changed={}",
+            hwnd_val,
+            rect.x,
+            rect.y,
+            rect.width,
+            rect.height,
+            border.left,
+            border.top,
+            border.right,
+            border.bottom,
+            frame_changed
+        );
 
         // SAFETY: SetWindowPos with a valid HWND is safe.
         unsafe { SetWindowPos(self.hwnd, None, x, y, cx, cy, flags)? };

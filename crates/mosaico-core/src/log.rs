@@ -105,6 +105,13 @@ pub fn init(config: &LogConfig) {
     };
 
     let _ = LOGGER.set(Mutex::new(logger));
+    write(
+        Level::Info,
+        format_args!(
+            "Logger initialized (level={}, max_mb={})",
+            config.level, config.max_file_mb
+        ),
+    );
 }
 
 /// Writes a log line if the level is at or above the configured minimum.
@@ -123,6 +130,7 @@ pub fn write(level: Level, args: fmt::Arguments<'_>) {
     let bytes = line.len() as u64;
 
     let _ = logger.file.write_all(line.as_bytes());
+    let _ = logger.file.flush();
     logger.written += bytes;
 
     if logger.max_bytes > 0 && logger.written >= logger.max_bytes {
