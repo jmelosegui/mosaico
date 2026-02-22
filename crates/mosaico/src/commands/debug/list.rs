@@ -1,6 +1,3 @@
-use comfy_table::presets::UTF8_FULL;
-use comfy_table::{Cell, CellAlignment, ContentArrangement, Table};
-
 use mosaico_core::Window;
 use mosaico_core::config::{load_rules, should_manage};
 use mosaico_windows::{frame, monitor};
@@ -11,37 +8,18 @@ pub fn execute() {
     let monitors = monitor::enumerate_monitors().unwrap_or_default();
     let rules = load_rules();
 
-    let mut table = Table::new();
-    table
-        .load_preset(UTF8_FULL)
-        .set_content_arrangement(ContentArrangement::Dynamic)
-        .set_header(vec![
-            Cell::new("HWND"),
-            Cell::new("Managed"),
-            Cell::new("Monitor").set_alignment(CellAlignment::Right),
-            Cell::new("Title"),
-            Cell::new("Class"),
-            Cell::new("X").set_alignment(CellAlignment::Right),
-            Cell::new("Y").set_alignment(CellAlignment::Right),
-            Cell::new("Width").set_alignment(CellAlignment::Right),
-            Cell::new("Height").set_alignment(CellAlignment::Right),
-            Cell::new("Border Offset"),
-        ]);
-
-    let mut count = 0;
     for window in &windows {
         let title = window.title().unwrap_or_default();
         let title = if title.is_empty() {
-            "<untitled>".to_string()
+            "<untitled>"
         } else {
-            title
+            &title
         };
-
         let class = window.class().unwrap_or_default();
         let rect = window.rect().unwrap_or(mosaico_core::Rect::new(0, 0, 0, 0));
         let hwnd = window.hwnd().0 as usize;
         let monitor_num = monitor_index_for(&monitors, hwnd);
-        let managed = if should_manage(&class, &title, &rules) {
+        let managed = if should_manage(&class, title, &rules) {
             "yes"
         } else {
             "no"
@@ -50,23 +28,17 @@ pub fn execute() {
             .map(|b| format!("L:{} T:{} R:{} B:{}", b.left, b.top, b.right, b.bottom))
             .unwrap_or_else(|_| "?".into());
 
-        table.add_row(vec![
-            Cell::new(format!("0x{hwnd:X}")),
-            Cell::new(managed),
-            Cell::new(monitor_num).set_alignment(CellAlignment::Right),
-            Cell::new(&title),
-            Cell::new(class),
-            Cell::new(rect.x).set_alignment(CellAlignment::Right),
-            Cell::new(rect.y).set_alignment(CellAlignment::Right),
-            Cell::new(rect.width).set_alignment(CellAlignment::Right),
-            Cell::new(rect.height).set_alignment(CellAlignment::Right),
-            Cell::new(border),
-        ]);
-        count += 1;
+        println!("  0x{hwnd:X}  {title}");
+        println!("       Class: {class}");
+        println!("       Managed: {managed}  Monitor: {monitor_num}");
+        println!(
+            "       Rect: {}x{} at ({}, {})  Border: {border}",
+            rect.width, rect.height, rect.x, rect.y
+        );
+        println!();
     }
 
-    println!("{table}");
-    println!("\n{count} windows found");
+    println!("{} windows found", windows.len());
 }
 
 /// Returns the 1-based monitor number for a window, or "?" if unknown.
