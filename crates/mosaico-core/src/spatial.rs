@@ -24,7 +24,7 @@ pub fn find_neighbor(
     let horizontal = matches!(direction, Direction::Left | Direction::Right);
     let positive = matches!(direction, Direction::Right | Direction::Down);
 
-    let candidates: Vec<_> = positions
+    positions
         .iter()
         .filter(|(_, r)| {
             if horizontal {
@@ -46,14 +46,6 @@ pub fn find_neighbor(
                 focused.horizontal_overlap(r) > 0
             }
         })
-        .collect();
-
-    if candidates.is_empty() {
-        return None;
-    }
-
-    candidates
-        .iter()
         .min_by_key(|(_, r)| {
             let edge_dist = if horizontal {
                 if positive {

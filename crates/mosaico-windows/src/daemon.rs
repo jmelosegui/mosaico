@@ -1,8 +1,7 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::{self, RecvTimeoutError};
+use std::sync::mpsc;
 use std::thread;
-use std::time::Duration;
 
 use mosaico_core::ipc::{Command, Response};
 use mosaico_core::{Action, BspLayout, WindowResult, config, pid};
@@ -117,22 +116,22 @@ fn daemon_loop() -> WindowResult<()> {
         }
     });
 
-    // Main processing loop.
-    loop {
-        match rx.recv_timeout(Duration::from_millis(100)) {
-            Ok(DaemonMsg::Event(event)) => {
+    // Main processing loop — blocks until a message arrives.
+    while let Ok(msg) = rx.recv() {
+        match msg {
+            DaemonMsg::Event(event) => {
                 manager.handle_event(&event);
             }
-            Ok(DaemonMsg::Action(action)) => {
+            DaemonMsg::Action(action) => {
                 manager.handle_action(&action);
             }
-            Ok(DaemonMsg::Command(Command::Stop, reply_tx)) => {
+            DaemonMsg::Command(Command::Stop, reply_tx) => {
                 let response = Response::ok_with_message("Daemon stopping");
                 let _ = reply_tx.send(response);
                 mosaico_core::log_info!("Stop command received, shutting down");
                 break;
             }
-            Ok(DaemonMsg::Command(Command::Status, reply_tx)) => {
+            DaemonMsg::Command(Command::Status, reply_tx) => {
                 let msg = format!(
                     "Daemon is running, managing {} windows",
                     manager.window_count()
@@ -140,19 +139,17 @@ fn daemon_loop() -> WindowResult<()> {
                 let response = Response::ok_with_message(msg);
                 let _ = reply_tx.send(response);
             }
-            Ok(DaemonMsg::Command(Command::Action { action }, reply_tx)) => {
+            DaemonMsg::Command(Command::Action { action }, reply_tx) => {
                 manager.handle_action(&action);
                 let response = Response::ok();
                 let _ = reply_tx.send(response);
             }
-            Ok(DaemonMsg::Reload(ConfigReload::Config(cfg))) => {
+            DaemonMsg::Reload(ConfigReload::Config(cfg)) => {
                 manager.reload_config(&cfg);
             }
-            Ok(DaemonMsg::Reload(ConfigReload::Rules(rules))) => {
+            DaemonMsg::Reload(ConfigReload::Rules(rules)) => {
                 manager.reload_rules(rules);
             }
-            Err(RecvTimeoutError::Timeout) => continue,
-            Err(RecvTimeoutError::Disconnected) => break,
         }
     }
 

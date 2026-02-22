@@ -42,7 +42,7 @@ impl fmt::Display for Direction {
 /// Focus and Move each take a spatial [`Direction`], keeping the
 /// direction logic in one place instead of duplicating it across
 /// separate Next/Prev variants.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub enum Action {
     /// Move focus in the given direction.
