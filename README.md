@@ -7,7 +7,7 @@ A cross-platform tiling window manager, written in Rust.
 ### Windows
 
 ```powershell
-irm https://mosaico.dev/install.ps1 | iex
+irm https://raw.githubusercontent.com/jmelosegui/mosaico/main/docs/install.ps1 | iex
 ```
 
 ### From source

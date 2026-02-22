@@ -19,3 +19,9 @@ resolver = "3"
 [workspace.lints.rust]
 # missing_docs = "warn"              # Warn on missing doc comments (uncomment to enable)
 # unsafe_code = "forbid"             # Forbid unsafe code workspace-wide (uncomment to enable)
+
+# Optimized release builds (used by CI, not local dev)
+[profile.release]
+strip = true          # Remove symbols and debug info
+lto = true            # Link-time optimization across all crates
+codegen-units = 1     # Better optimization (slower compile)
