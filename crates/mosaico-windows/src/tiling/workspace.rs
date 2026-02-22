@@ -56,9 +56,10 @@ impl TilingManager {
     }
 
     /// Sends the focused window to workspace `n` (1-indexed) on the
-    /// same monitor.
+    /// same monitor, then follows it there.
     ///
-    /// The window is hidden if the target workspace is not active.
+    /// Moves the window to the target workspace, switches to that
+    /// workspace, and focuses the moved window.
     pub(super) fn send_to_workspace(&mut self, n: u8) {
         let target_ws = (n - 1) as usize;
         let Some(hwnd) = self.focused_window else {
@@ -80,12 +81,23 @@ impl TilingManager {
         self.monitors[mon_idx].active_ws_mut().remove(hwnd);
         self.monitors[mon_idx].workspaces[target_ws].add(hwnd);
 
-        // Hide the window since it's moving to a non-visible workspace.
-        self.hidden_by_switch.insert(hwnd);
-        Window::from_raw(hwnd).hide();
+        // Hide remaining windows on the source workspace.
+        for &h in self.monitors[mon_idx].active_ws().handles() {
+            self.hidden_by_switch.insert(h);
+            Window::from_raw(h).hide();
+        }
+
+        // Switch to the target workspace.
+        self.monitors[mon_idx].active_workspace = target_ws;
+
+        // Show all windows on the target workspace.
+        for &h in self.monitors[mon_idx].active_ws().handles() {
+            self.hidden_by_switch.remove(&h);
+            Window::from_raw(h).show();
+        }
 
         mosaico_core::log_info!(
-            "send-to-workspace {} 0x{:X} on mon {} (src ws {} -> dst ws {})",
+            "send-to-workspace {} 0x{:X} on mon {} (ws {} -> ws {})",
             n,
             hwnd,
             mon_idx,
@@ -94,13 +106,6 @@ impl TilingManager {
         );
 
         self.apply_layout_on(mon_idx);
-
-        // Focus the next window on the current workspace, or clear focus.
-        if let Some(&next) = self.monitors[mon_idx].active_ws().handles().first() {
-            self.focus_and_update_border(next);
-        } else {
-            self.focused_window = None;
-            self.update_border();
-        }
+        self.focus_and_update_border(hwnd);
     }
 }
