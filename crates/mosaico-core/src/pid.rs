@@ -5,15 +5,12 @@ use crate::WindowResult;
 
 /// Returns the path to the Mosaico data directory.
 ///
-/// On Windows: `%LOCALAPPDATA%\mosaico`
-/// Creates the directory if it doesn't exist.
+/// Uses the platform's local data directory (e.g.
+/// `%LOCALAPPDATA%\mosaico` on Windows, `~/.local/share/mosaico`
+/// on Linux). Creates the directory if it doesn't exist.
 fn data_dir() -> WindowResult<PathBuf> {
-    // LOCALAPPDATA is the standard location for per-user application data
-    // on Windows (e.g. C:\Users\username\AppData\Local).
-    let base =
-        std::env::var("LOCALAPPDATA").map_err(|_| "LOCALAPPDATA environment variable not set")?;
-
-    let dir = PathBuf::from(base).join("mosaico");
+    let base = dirs::data_local_dir().ok_or("could not determine local data directory")?;
+    let dir = base.join("mosaico");
     fs::create_dir_all(&dir)?;
     Ok(dir)
 }
@@ -26,7 +23,7 @@ pub fn pid_path() -> WindowResult<PathBuf> {
 /// Writes the current process's PID to the PID file.
 ///
 /// Called when the daemon starts. The PID file allows the CLI to detect
-/// a running daemon even if the named pipe check fails, and to forcibly
+/// a running daemon even if the IPC check fails, and to forcibly
 /// kill a stuck daemon process.
 pub fn write_pid_file() -> WindowResult<()> {
     let path = pid_path()?;

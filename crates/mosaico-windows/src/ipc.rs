@@ -2,7 +2,10 @@ use std::io::{BufRead, BufReader, Write};
 use std::os::windows::io::FromRawHandle;
 
 use mosaico_core::WindowResult;
-use mosaico_core::ipc::{Command, PIPE_NAME, Response};
+use mosaico_core::ipc::{Command, Response};
+
+/// The named pipe path used for IPC between CLI and daemon.
+const PIPE_NAME: &str = r"\\.\pipe\mosaico";
 use windows::Win32::Foundation::{
     CloseHandle, DUPLICATE_SAME_ACCESS, DuplicateHandle, HANDLE, INVALID_HANDLE_VALUE,
 };

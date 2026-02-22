@@ -41,7 +41,7 @@ pub fn try_load() -> Result<Config, String> {
 /// After loading, values are clamped to safe ranges via [`Config::validate`].
 /// Non-existent files silently return defaults; other IO errors are logged.
 pub fn load() -> Config {
-    load_or_default(try_load, Config::default)
+    load_or_default(config_path(), try_load, Config::default)
 }
 
 /// Tries to load and parse `keybindings.toml`.
@@ -59,7 +59,11 @@ pub fn try_load_keybindings() -> Result<Vec<Keybinding>, String> {
 ///
 /// Falls back to the built-in defaults if the file is missing or invalid.
 pub fn load_keybindings() -> Vec<Keybinding> {
-    load_or_default(try_load_keybindings, keybinding::defaults)
+    load_or_default(
+        keybindings_path(),
+        try_load_keybindings,
+        keybinding::defaults,
+    )
 }
 
 /// Tries to load and parse `rules.toml`.
@@ -77,24 +81,26 @@ pub fn try_load_rules() -> Result<Vec<WindowRule>, String> {
 ///
 /// Falls back to the built-in defaults if the file is missing or invalid.
 pub fn load_rules() -> Vec<WindowRule> {
-    load_or_default(try_load_rules, default_rules)
+    load_or_default(rules_path(), try_load_rules, default_rules)
 }
 
 /// Loads a config value from disk, falling back to defaults.
 ///
 /// Non-existent files silently return defaults; other IO errors are logged.
-fn load_or_default<T>(try_load: impl FnOnce() -> Result<T, String>, default: impl Fn() -> T) -> T {
-    match try_load() {
-        Ok(val) => val,
-        Err(e) if is_file_not_found(&e) => default(),
-        Err(e) => {
-            eprintln!("Warning: {e}");
-            default()
-        }
+fn load_or_default<T>(
+    path: Option<PathBuf>,
+    try_load: impl FnOnce() -> Result<T, String>,
+    default: impl Fn() -> T,
+) -> T {
+    match path {
+        Some(p) if !p.exists() => default(),
+        None => default(),
+        _ => match try_load() {
+            Ok(val) => val,
+            Err(e) => {
+                eprintln!("Warning: {e}");
+                default()
+            }
+        },
     }
-}
-
-/// Returns true if the error message indicates a missing file.
-fn is_file_not_found(e: &str) -> bool {
-    e.contains("cannot find the path") || e.contains("The system cannot find")
 }

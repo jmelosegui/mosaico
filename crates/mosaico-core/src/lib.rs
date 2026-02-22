@@ -13,7 +13,7 @@ pub mod workspace;
 pub use action::{Action, Direction};
 pub use config::Config;
 pub use event::WindowEvent;
-pub use ipc::{Command, PIPE_NAME, Response};
+pub use ipc::{Command, Response};
 pub use layout::{BspLayout, Layout};
 pub use rect::Rect;
 pub use window::{Window, WindowResult};
