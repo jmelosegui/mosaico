@@ -315,6 +315,11 @@ pub fn generate_rules() -> String {
 match_class = "ApplicationFrameWindow"
 manage = false
 
+# GPG passphrase prompt — small modal dialog, should not be tiled.
+[[rule]]
+match_title = "pinentry"
+manage = false
+
 # Add your own rules below. Examples:
 #
 # [[rule]]
