@@ -1,8 +1,8 @@
 # Monitor Management & Spatial Navigation
 
 Mosaico enumerates all connected monitors, queries their work areas (excluding
-the taskbar), and provides spatial sorting for multi-monitor navigation using
-vim-style directional motions.
+the taskbar), and provides four-directional spatial navigation across windows
+and monitors using vim-style H/J/K/L motions.
 
 ## Architecture
 
@@ -10,23 +10,21 @@ vim-style directional motions.
 
 | File | Purpose |
 |------|---------|
+| `crates/mosaico-core/src/spatial.rs` | Pure spatial functions: `find_neighbor()`, `find_entry()` |
+| `crates/mosaico-core/src/rect.rs` | `Rect::vertical_overlap()`, `Rect::horizontal_overlap()` |
 | `crates/mosaico-windows/src/monitor.rs` | `MonitorInfo`, enumeration and query functions |
-| `crates/mosaico-windows/src/tiling.rs` | Multi-monitor focus/move logic, spatial navigation |
-| `crates/mosaico-core/src/rect.rs` | `Rect::vertical_overlap()` for spatial neighbor detection |
+| `crates/mosaico-windows/src/tiling.rs` | Multi-monitor focus/move logic, spatial target resolution |
 
 ### Key Types
 
 - `MonitorInfo` -- fields: `id: usize` (HMONITOR cast), `work_area: Rect`
 - `SpatialTarget` (enum) -- `Neighbor(hwnd)` or `AdjacentMonitor(idx)`
+- `Direction` (enum) -- `Left`, `Right`, `Up`, `Down` (from `mosaico-core`)
 
 ## Monitor Enumeration
 
 `enumerate_monitors()` uses `EnumDisplayMonitors` to discover all connected
-monitors, returning them sorted left-to-right by `work_area.x`. This
-ordering means:
-
-- "Next" = right (direction `+1`)
-- "Previous" = left (direction `-1`)
+monitors, returning them sorted left-to-right by `work_area.x`.
 
 Additional utility functions:
 
@@ -38,55 +36,88 @@ Additional utility functions:
 
 ## Spatial Navigation
 
-Focus and move operations for H/L keys use BSP-aware spatial neighbor lookup
-rather than simple list-order cycling.
+All four directions (Left, Right, Up, Down) use BSP-aware spatial neighbor
+lookup based on computed layout positions rather than workspace insertion order.
+
+### Spatial Module (`mosaico-core/src/spatial.rs`)
+
+The spatial navigation logic lives in `mosaico-core` as pure functions over
+`(handle, Rect)` slices, making them unit-testable without Win32 dependencies.
+
+#### `find_neighbor(positions, focused, direction)`
+
+The core spatial algorithm:
+
+1. **Filter by direction**: keeps candidates whose center is beyond `focused`
+   in the requested direction (e.g., `center_x() > focused.center_x()` for
+   Right)
+2. **Filter by perpendicular overlap**: for horizontal directions, requires
+   `vertical_overlap > 0`; for vertical, requires `horizontal_overlap > 0`.
+   This prevents jumping to diagonally-adjacent windows.
+3. **Pick nearest**: uses edge distance (gap between touching edges) as the
+   primary key, with perpendicular center as tiebreaker (topmost for
+   horizontal directions, leftmost for vertical)
+
+#### `find_entry(positions, direction)`
+
+Finds the best window to focus when entering a monitor from a given direction.
+Picks the topmost window first, breaking ties by the edge closest to the
+direction of travel (leftmost when entering from the left, rightmost when
+entering from the right).
+
+### Horizontal vs Vertical Behavior
+
+- **Left/Right**: spatial horizontal neighbor lookup on the current monitor.
+  If no neighbor exists, overflows to the physically adjacent monitor (no
+  wrapping -- stops at the leftmost/rightmost monitor).
+- **Up/Down**: spatial vertical neighbor lookup on the current monitor only.
+  Stops at the boundary (no cross-monitor overflow).
 
 ### Resolution Strategy
 
-`resolve_spatial_target(direction)`:
+`resolve_horizontal_target(direction)` (for Left/Right):
 
 1. Computes BSP layout positions for all windows on the current monitor
-2. Calls `find_spatial_neighbor()` to look for a window in the requested
-   direction
+2. Calls `spatial::find_neighbor()` to look for a same-monitor neighbor
 3. If a neighbor is found: returns `SpatialTarget::Neighbor(hwnd)`
-4. If no neighbor exists: returns `SpatialTarget::AdjacentMonitor(idx)`,
-   wrapping with `rem_euclid` for circular navigation
+4. If no neighbor exists: scans all other monitors for one physically in the
+   requested direction (by `center_x` comparison), picks the closest. Returns
+   `SpatialTarget::AdjacentMonitor(idx)` or `None` if at the edge.
 
-### Spatial Neighbor Algorithm
+`find_same_monitor_neighbor(direction)` (for Up/Down):
 
-`find_spatial_neighbor(positions, focused_rect, direction)`:
+1. Computes BSP layout positions
+2. Calls `spatial::find_neighbor()` for vertical lookup
+3. Returns `Some(hwnd)` or `None` at boundary
 
-1. Filters candidates strictly in the requested direction:
-   - Direction `+1` (right): candidate center X > focused center X
-   - Direction `-1` (left): candidate center X < focused center X
-2. Requires positive **vertical overlap** between the candidate and focused
-   window (prevents jumping to diagonally-adjacent windows)
-3. Selects the best match by:
-   - Maximum vertical overlap (prefers windows most aligned vertically)
-   - Minimum horizontal distance (tiebreaker)
+## Focus Actions
 
-## Focus Monitor Actions
+`focus_direction(dir)`:
 
-`focus_monitor(direction)`:
+- **Left/Right**: resolves horizontal target. If `Neighbor(hwnd)`, focuses
+  that window. If `AdjacentMonitor(idx)`, uses `find_entry()` to pick the
+  best entry window on the target monitor.
+- **Up/Down**: finds same-monitor neighbor. If found, focuses it. Otherwise
+  does nothing (stops at boundary).
 
-1. Resolves the spatial target
-2. If `Neighbor(hwnd)`: calls `set_foreground()` on the neighbor window
-3. If `AdjacentMonitor(idx)`: focuses the first window (direction > 0) or
-   last window (direction < 0) in the target monitor's workspace; updates
-   `focused_monitor` tracking
+## Move Actions
 
-## Move to Monitor Actions
+`move_direction(dir)`:
 
-`move_to_monitor(direction)`:
+- **Left/Right**: resolves horizontal target. If `Neighbor(hwnd)`, swaps the
+  two windows in the workspace and retiles. If `AdjacentMonitor(idx)`,
+  removes the window from the source workspace and inserts it into the target
+  workspace (position depends on direction), then retiles both monitors.
+- **Up/Down**: finds same-monitor neighbor. If found, swaps the two windows
+  by workspace index and retiles.
 
-1. Resolves the spatial target
-2. If `Neighbor(hwnd)`: swaps the focused window with the neighbor in the
-   workspace order, then re-tiles
-3. If `AdjacentMonitor(idx)`:
-   - Removes the window from the source monitor's workspace
-   - Adds it to the target monitor's workspace
-   - Re-tiles both monitors
-   - Focuses the moved window on the target monitor
+### Cross-Monitor Insertion
+
+When moving a window to an adjacent monitor:
+- Moving **right**: inserts at position 0 (leftmost BSP slot)
+- Moving **left**: appends to end (rightmost BSP slot)
+
+This places the window at the entry side of the target monitor.
 
 ## Monitor Reassignment
 
@@ -114,11 +145,25 @@ At startup, `daemon_loop()`:
 - `SpatialTarget` enum cleanly separates "same monitor neighbor" from
   "cross-monitor jump", allowing the same logic to handle both focus and
   move operations.
-- `find_spatial_neighbor()` uses BSP layout positions (computed rectangles)
-  rather than workspace insertion order, providing truly spatial left/right
-  navigation.
-- Vertical overlap requirement prevents unintuitive diagonal jumps.
-- Monitor indices wrap around via `rem_euclid` for circular navigation (last
-  monitor -> first monitor).
-- When moving to an adjacent monitor, focus targets the first or last window
-  depending on direction, maintaining spatial continuity.
+- Spatial navigation lives in `mosaico-core` as pure functions, keeping the
+  core crate testable and the platform crate focused on Win32 integration.
+- Horizontal overflow finds the physically nearest monitor by `center_x`
+  rather than using a fixed index offset, handling non-uniform monitor
+  arrangements correctly.
+- **No wrapping**: Left/Right stop at the edge of the monitor array rather
+  than wrapping around. This is more intuitive for physical monitor layouts.
+- Vertical overlap (for horizontal navigation) and horizontal overlap (for
+  vertical navigation) prevent unintuitive diagonal jumps.
+- Edge distance as the primary sort key ensures the nearest window wins,
+  with perpendicular center as tiebreaker for consistent ordering.
+
+## Tests
+
+The `spatial.rs` module has extensive unit tests using predefined BSP layouts
+(2, 3, 4, and 5 window configurations):
+
+- Horizontal navigation: right-from-left, left-from-right, topmost tiebreaker,
+  immediate neighbor preference over distant ones
+- Vertical navigation: up/down between BSP quadrants, correct tiebreaking
+- Boundary tests: no neighbor at edges (left/right/up/down), single window
+- Entry tests: `find_entry` from left/right for various layouts

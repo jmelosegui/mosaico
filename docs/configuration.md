@@ -10,7 +10,7 @@ All settings have sensible defaults, so configuration files are optional.
 | File | Purpose |
 |------|---------|
 | `crates/mosaico-core/src/config/mod.rs` | `Config`, `LayoutConfig`, `BorderConfig`, `WindowRule`, `should_manage()` |
-| `crates/mosaico-core/src/config/loader.rs` | `load()`, `load_keybindings()`, `load_rules()`, path helpers |
+| `crates/mosaico-core/src/config/loader.rs` | `load()`, `try_load()`, `load_keybindings()`, `try_load_keybindings()`, `load_rules()`, `try_load_rules()`, path helpers |
 | `crates/mosaico-core/src/config/keybinding.rs` | `Keybinding`, `Modifier`, `defaults()` |
 | `crates/mosaico-core/src/config/template.rs` | Template generators for `mosaico init` |
 
@@ -57,7 +57,7 @@ Maps key combinations to actions (see [keyboard-bindings.md](keyboard-bindings.m
 
 ```toml
 [[keybinding]]
-action = "focus-next"
+action = "focus-down"
 key = "J"
 modifiers = ["alt"]
 ```
@@ -84,10 +84,21 @@ Individual file paths:
 
 ## Loading Behavior
 
-All three loaders follow the same pattern:
+Each config file has two loader variants:
+
+- `load()` / `load_keybindings()` / `load_rules()` -- load with silent
+  fallback to defaults on any error
+- `try_load()` / `try_load_keybindings()` / `try_load_rules()` -- return
+  `Result<T, String>` with a descriptive error message on failure
+
+The `try_load` variants are used by the `doctor` command for validation and
+by the config file watcher for hot-reload (only valid configs are applied).
+
+All loaders follow the same pattern:
 
 1. Attempt to read the file from disk
 2. If the file is missing, unreadable, or unparsable: fall back to defaults
+   (or return an error for `try_load` variants)
 3. For `Config`: call `validate()` to clamp values to safe ranges
 
 ### Validation
@@ -151,6 +162,23 @@ tileability check, after verifying visibility and window style.
 Templates include comments explaining every option, valid ranges, and
 examples. Existing files are not overwritten.
 
+## Hot-Reload
+
+Changes to `config.toml` and `rules.toml` are automatically detected and
+applied while the daemon is running. The config file watcher (see
+[daemon.md](daemon.md)) polls for modification time changes every 2 seconds.
+
+- **config.toml**: layout gap/ratio and border settings are reloaded. The
+  tiling manager calls `reload_config()` which updates the `BspLayout` and
+  `BorderConfig`, then retiles all windows.
+- **rules.toml**: window rules are replaced via `reload_rules()`. New rules
+  apply to newly created windows; existing managed windows are not re-evaluated.
+- **keybindings.toml**: **not** hot-reloaded. Hotkey changes require a daemon
+  restart because `RegisterHotKey` binds at the Win32 thread level.
+
+Only valid configurations are applied. If a file change introduces a parse
+error, the watcher logs a warning and keeps the current config.
+
 ## Design Decisions
 
 - **Defaults everywhere**: every config field has a `#[serde(default)]` so
@@ -163,6 +191,9 @@ examples. Existing files are not overwritten.
   inconsistencies across Windows applications.
 - **Separate files**: splitting config, keybindings, and rules into separate
   files makes each concern independently manageable.
+- **try_load variants**: provide structured error reporting for the `doctor`
+  command and config watcher, while the plain `load` variants silently fall
+  back to defaults for daemon startup resilience.
 
 ## Tests
 

@@ -6,15 +6,16 @@ manager, all on separate threads unified by a single `mpsc` channel.
 
 ## Architecture
 
-The daemon uses a three-thread architecture:
+The daemon uses a multi-thread architecture:
 
 1. **Main thread** -- runs `TilingManager` logic, processes all messages
 2. **Event loop thread** -- runs `SetWinEventHook` + `GetMessageW` pump,
    handles hotkey registration and dispatch
 3. **IPC thread** -- runs blocking named pipe server, accepts CLI commands
+4. **Config watcher thread** -- polls config files for changes every 2 seconds
 
-Two additional bridge threads forward events and actions from separate `mpsc`
-channels into the unified `DaemonMsg` channel.
+Three additional bridge threads forward events, actions, and config reloads
+from separate `mpsc` channels into the unified `DaemonMsg` channel.
 
 ### Key Files
 
@@ -22,13 +23,15 @@ channels into the unified `DaemonMsg` channel.
 |------|---------|
 | `crates/mosaico-windows/src/daemon.rs` | `run()`, `daemon_loop()`, `ipc_loop()`, `DaemonMsg` |
 | `crates/mosaico-windows/src/event_loop.rs` | `start()`, `EventLoopHandle`, `run_message_pump()`, `win_event_proc()` |
+| `crates/mosaico-windows/src/config_watcher.rs` | `watch()`, `ConfigReload` -- polls config files for changes |
 
 ### Key Types
 
-- `DaemonMsg` -- unified message enum with three variants:
+- `DaemonMsg` -- unified message enum with four variants:
   - `Event(WindowEvent)` -- window state change from Win32
   - `Action(Action)` -- user action from hotkey
   - `Command(Command, ResponseSender)` -- CLI command from IPC with reply channel
+  - `Reload(ConfigReload)` -- validated config change from file watcher
 - `EventLoopHandle` -- contains the thread ID and `JoinHandle`; `.stop()`
   posts `WM_QUIT` to terminate the message pump
 
@@ -51,7 +54,9 @@ subcommand:
 5. Start the event loop thread (registers `SetWinEventHook` + hotkeys)
 6. Start bridge threads to forward events and actions into `DaemonMsg`
 7. Start the IPC thread
-8. Enter the main receive loop
+8. Start the config file watcher thread
+9. Start a reload bridge thread to forward `ConfigReload` into `DaemonMsg`
+10. Enter the main receive loop
 
 ## Main Loop
 
@@ -61,6 +66,10 @@ The main thread runs a `recv_timeout(100ms)` loop that dispatches messages:
 - `DaemonMsg::Action(action)` -- forwarded to `TilingManager::handle_action()`
 - `DaemonMsg::Command(cmd, reply)` -- handles `Stop` (breaks loop),
   `Status` (replies ok), `Action` (forwards to tiling manager)
+- `DaemonMsg::Reload(ConfigReload::Config(cfg))` -- calls
+  `TilingManager::reload_config()` to apply new layout/border settings
+- `DaemonMsg::Reload(ConfigReload::Rules(rules))` -- calls
+  `TilingManager::reload_rules()` to replace window rules
 
 The 100ms timeout prevents busy-waiting while allowing responsive shutdown.
 
@@ -98,6 +107,29 @@ since Win32 callbacks cannot capture Rust closures.
 5. Waits for the reply on `reply_rx`
 6. Sends the response back through the pipe
 
+## Config File Watcher
+
+The config watcher runs on a dedicated thread, polling `config.toml` and
+`rules.toml` for modification time changes every 2 seconds.
+
+### Key Types
+
+- `ConfigReload` (enum) -- `Config(Config)` or `Rules(Vec<WindowRule>)`
+
+### Behavior
+
+1. Records the initial modification time of each file
+2. On each poll cycle, compares current mtime with the stored value
+3. If changed, validates the new content using `try_load()` or
+   `try_load_rules()`
+4. Only valid configs are sent as `ConfigReload` -- invalid files are logged
+   and skipped
+5. The reload is forwarded via a bridge thread to `DaemonMsg::Reload`
+
+Keybindings are **not** hot-reloaded because `RegisterHotKey` requires
+unregistering and re-registering on the event loop thread. A daemon restart
+is required for keybinding changes.
+
 ## Shutdown
 
 Shutdown is triggered by:
@@ -108,6 +140,7 @@ Shutdown is triggered by:
   - `HotkeyManager::Drop` unregisters all hotkeys
   - `SetWinEventHook` is unhooked
   - PID file is removed
+  - Bridge threads (event, action, reload) are joined
 
 ## Design Decisions
 

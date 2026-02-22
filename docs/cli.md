@@ -20,8 +20,10 @@ dedicated handler module under `crates/mosaico/src/commands/`.
 | `crates/mosaico/src/commands/start.rs` | `mosaico start` handler |
 | `crates/mosaico/src/commands/stop.rs` | `mosaico stop` handler |
 | `crates/mosaico/src/commands/status.rs` | `mosaico status` handler |
+| `crates/mosaico/src/commands/doctor.rs` | `mosaico doctor` handler |
 | `crates/mosaico/src/commands/daemon.rs` | `mosaico daemon` handler (hidden) |
 | `crates/mosaico/src/commands/action.rs` | `mosaico action <verb>` handler |
+| `crates/mosaico/src/commands/banner.rs` | Shared ASCII logo used by `start` and `doctor` |
 | `crates/mosaico/src/commands/debug/list.rs` | `mosaico debug list` handler |
 | `crates/mosaico/src/commands/debug/events.rs` | `mosaico debug events` handler |
 | `crates/mosaico/src/commands/debug/move_window.rs` | `mosaico debug move` handler |
@@ -30,8 +32,10 @@ dedicated handler module under `crates/mosaico/src/commands/`.
 
 - `Cli` -- top-level `clap::Parser` struct
 - `Commands` -- enum of all subcommands: `Init`, `Start`, `Stop`, `Status`,
-  `Action`, `Debug`, `Daemon`
-- `ActionCommands` -- enum mirroring each `Action` variant as a subcommand
+  `Doctor`, `Action`, `Debug`, `Daemon`
+- `ActionCommands` -- enum: `Focus { direction }`, `Move { direction }`,
+  `Retile`, `ToggleMonocle`, `CloseFocused`
+- `DirectionCommands` -- enum: `Left`, `Right`, `Up`, `Down`
 - `DebugCommands` -- enum for debug sub-subcommands: `List`, `Events`, `Move`
 
 ## Available Commands
@@ -53,11 +57,12 @@ binary with the hidden `daemon` subcommand using Windows process creation flags
 `CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW` (constant `DETACH_FLAGS =
 0x08000200`) to fully detach from the terminal.
 
-On success, prints a colorful ANSI banner showing the Mosaico logo, PID, and
-version.
+On success, prints a startup banner showing the ASCII logo, config directory,
+PID, repository URL, and a rotating tip. Tips cycle based on the current
+timestamp so users see a different one each launch.
 
-If a daemon is already running (detected via the PID file), it reports the
-existing PID instead of starting a second instance.
+If a daemon is already running (detected via IPC pipe check), it reports the
+existing state instead of starting a second instance.
 
 ### `mosaico stop`
 
@@ -74,21 +79,47 @@ Checks whether the daemon is running by:
 
 Reports one of: running (with PID), stale PID (dead process), or not running.
 
-### `mosaico action <verb>`
+### `mosaico doctor`
 
-Sends a tiling action to the daemon over IPC. Available verbs map directly to
-`Action` enum variants:
+Runs a comprehensive health check, printing colored status tags for each
+check:
+
+| Tag | Color | Meaning |
+|-----|-------|---------|
+| `[ok]` | Green | Check passed |
+| `[warn]` | Yellow | Non-critical issue |
+| `[fail]` | Red | Critical problem |
+| `[fixed]` | Cyan | Auto-remediated |
+
+Checks performed:
+
+1. **Config directory** -- verifies `~/.config/mosaico/` exists; creates it
+   if missing
+2. **config.toml** -- validates TOML syntax via `try_load()`
+3. **keybindings.toml** -- validates syntax via `try_load_keybindings()`
+4. **Keybinding keys** -- verifies each key name resolves to a valid Win32
+   virtual key code via `vk_from_name()`
+5. **rules.toml** -- validates syntax via `try_load_rules()`
+6. **Daemon** -- checks IPC pipe, PID file, and process liveness; cleans up
+   stale PID files
+7. **Monitors** -- enumerates monitors and reports count, dimensions, and
+   positions
+
+### `mosaico action <verb> [direction]`
+
+Sends a tiling action to the daemon over IPC. Actions now use a two-level
+subcommand structure for directional actions:
 
 ```
-mosaico action focus-next
-mosaico action focus-prev
-mosaico action swap-next
-mosaico action swap-prev
+mosaico action focus left
+mosaico action focus right
+mosaico action focus up
+mosaico action focus down
+mosaico action move left
+mosaico action move right
+mosaico action move up
+mosaico action move down
 mosaico action retile
-mosaico action focus-monitor-next
-mosaico action focus-monitor-prev
-mosaico action move-to-monitor-next
-mosaico action move-to-monitor-prev
 mosaico action toggle-monocle
 mosaico action close-focused
 ```
@@ -122,7 +153,9 @@ in decimal or `0x` hex format.
   `start` handles the process lifecycle.
 - `start` uses Windows-specific detach flags rather than a service manager,
   keeping the implementation simple and dependency-free.
-- All action verbs use kebab-case (`focus-next`, not `focusNext`) matching
-  the serde serialization of the `Action` enum.
+- The `banner` module is private -- only used internally by `start` and
+  `doctor` for the shared ASCII logo.
+- Action verbs use a nested subcommand pattern (`action focus left`) rather
+  than flat kebab-case (`action focus-left`) for a clearer CLI experience.
 - Debug commands enable DPI awareness independently since they run outside the
   daemon process.
