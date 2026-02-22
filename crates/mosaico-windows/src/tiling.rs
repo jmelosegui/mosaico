@@ -539,6 +539,9 @@ impl TilingManager {
             .compute_layout(&self.layout, &state.work_area);
         for (hwnd, rect) in &positions {
             let window = Window::from_raw(*hwnd);
+            if window.rect().ok().as_ref() == Some(rect) {
+                continue;
+            }
             if let Err(e) = window.set_rect(rect) {
                 eprintln!("Failed to position window 0x{hwnd:X}: {e}");
             }

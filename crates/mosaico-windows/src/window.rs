@@ -159,12 +159,12 @@ impl mosaico_core::Window for Window {
         // SWP_FRAMECHANGED also lets windows enforce size constraints
         // via WM_NCCALCSIZE, so we only add it for Chromium-based
         // windows that are known to need it.
-        if self.needs_frame_changed() {
+        let frame_changed = self.needs_frame_changed();
+        if frame_changed {
             flags |= SWP_FRAMECHANGED;
         }
 
         let hwnd_val = self.hwnd.0 as usize;
-        let frame_changed = self.needs_frame_changed();
         mosaico_core::log_debug!(
             "set_rect 0x{:X}: target({},{} {}x{}) border(L:{} T:{} R:{} B:{}) frame_changed={}",
             hwnd_val,
