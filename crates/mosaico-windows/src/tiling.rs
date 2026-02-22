@@ -284,8 +284,12 @@ impl TilingManager {
                     if let Some(hwnd) = self.find_entry_window(idx, dir) {
                         self.focused_window = Some(hwnd);
                         Window::from_raw(hwnd).set_foreground();
-                        self.update_border();
+                    } else {
+                        // Target monitor has no windows — clear focus
+                        // so the user sees the selection leave.
+                        self.focused_window = None;
                     }
+                    self.update_border();
                 }
                 None if self.focused_window.is_none() => {
                     // No focused window (empty workspace) — jump to
