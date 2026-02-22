@@ -20,6 +20,8 @@ pub struct Config {
     pub layout: LayoutConfig,
     /// Border appearance settings.
     pub borders: BorderConfig,
+    /// Logging settings.
+    pub logging: crate::log::LogConfig,
 }
 
 /// Layout algorithm settings.
@@ -249,6 +251,7 @@ mod tests {
                 width: 999,
                 ..Default::default()
             },
+            ..Default::default()
         };
 
         // Act

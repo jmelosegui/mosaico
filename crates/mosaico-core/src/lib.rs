@@ -3,6 +3,7 @@ pub mod config;
 pub mod event;
 pub mod ipc;
 pub mod layout;
+pub mod log;
 pub mod pid;
 pub mod rect;
 pub mod window;

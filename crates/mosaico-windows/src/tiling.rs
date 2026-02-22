@@ -83,34 +83,31 @@ impl TilingManager {
                 // where the user is working, not wherever the OS spawns them.
                 let idx = self.focused_monitor;
                 if self.monitors.get(idx).is_some() && self.monitors[idx].workspace.add(*hwnd) {
-                    let title = Window::from_raw(*hwnd).title().unwrap_or_default();
-                    log(format_args!(
-                        "+add 0x{:X} \"{}\" to mon {} (now {})",
+                    let w = Window::from_raw(*hwnd);
+                    let title = w.title().unwrap_or_default();
+                    let class = w.class().unwrap_or_default();
+                    mosaico_core::log_info!(
+                        "+add 0x{:X} [{}] \"{}\" to mon {} (now {})",
                         hwnd,
+                        class,
                         title,
                         idx,
                         self.monitors[idx].workspace.len()
-                    ));
+                    );
                     self.apply_layout_on(idx);
                 }
             }
             WindowEvent::Destroyed { hwnd } | WindowEvent::Minimized { hwnd } => {
-                let owner = self.owning_monitor(*hwnd);
-                if let Some(idx) = owner
+                if let Some(idx) = self.owning_monitor(*hwnd)
                     && self.monitors[idx].workspace.remove(*hwnd)
                 {
-                    log(format_args!(
+                    mosaico_core::log_info!(
                         "-del 0x{:X} from mon {} (now {})",
                         hwnd,
                         idx,
                         self.monitors[idx].workspace.len()
-                    ));
+                    );
                     self.apply_layout_on(idx);
-                } else {
-                    log(format_args!(
-                        "-del 0x{:X} MISSED (owning_monitor={:?})",
-                        hwnd, owner
-                    ));
                 }
             }
             WindowEvent::Moved { hwnd } => {
@@ -505,20 +502,5 @@ impl TilingManager {
         self.monitors
             .iter()
             .position(|m| m.workspace.contains(hwnd))
-    }
-}
-
-/// Appends a diagnostic line to a temp log file.
-///
-/// Used to trace window add/remove operations while the daemon runs
-/// detached (no stderr). Remove once the bug is diagnosed.
-fn log(args: std::fmt::Arguments<'_>) {
-    use std::io::Write;
-    if let Ok(mut f) = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(r"C:\Users\jmelo\mosaico_debug.log")
-    {
-        let _ = writeln!(f, "{args}");
     }
 }
