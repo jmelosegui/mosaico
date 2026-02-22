@@ -24,6 +24,7 @@ dedicated handler module under `crates/mosaico/src/commands/`.
 | `crates/mosaico/src/commands/daemon.rs` | `mosaico daemon` handler (hidden) |
 | `crates/mosaico/src/commands/action.rs` | `mosaico action <verb>` handler |
 | `crates/mosaico/src/commands/banner.rs` | Shared ASCII logo used by `start` and `doctor` |
+| `crates/mosaico/src/commands/version_check.rs` | Checks GitHub releases API for updates |
 | `crates/mosaico/src/commands/debug/list.rs` | `mosaico debug list` handler |
 | `crates/mosaico/src/commands/debug/events.rs` | `mosaico debug events` handler |
 | `crates/mosaico/src/commands/debug/move_window.rs` | `mosaico debug move` handler |
@@ -34,7 +35,8 @@ dedicated handler module under `crates/mosaico/src/commands/`.
 - `Commands` -- enum of all subcommands: `Init`, `Start`, `Stop`, `Status`,
   `Doctor`, `Action`, `Debug`, `Daemon`
 - `ActionCommands` -- enum: `Focus { direction }`, `Move { direction }`,
-  `Retile`, `ToggleMonocle`, `CloseFocused`
+  `Retile`, `ToggleMonocle`, `CloseFocused`, `GoToWorkspace { n }`,
+  `SendToWorkspace { n }`
 - `DirectionCommands` -- enum: `Left`, `Right`, `Up`, `Down`
 - `DebugCommands` -- enum for debug sub-subcommands: `List`, `Events`, `Move`
 
@@ -59,14 +61,18 @@ binary with the hidden `daemon` subcommand using Windows process creation flags
 
 On success, prints a startup banner showing the ASCII logo, config directory,
 PID, repository URL, and a rotating tip. Tips cycle based on the current
-timestamp so users see a different one each launch.
+timestamp so users see a different one each launch. After the banner, a
+version check queries the GitHub releases API (via `version_check` module)
+and prints an update notice if a newer release exists.
 
 If a daemon is already running (detected via IPC pipe check), it reports the
 existing state instead of starting a second instance.
 
 ### `mosaico stop`
 
-Sends a `Stop` command to the running daemon over IPC (named pipe). Reports
+Sends a `Stop` command to the running daemon over IPC (named pipe). If the
+IPC pipe is unavailable (e.g. the IPC thread crashed), falls back to reading
+the PID file and terminating the process via `kill_process()`. Reports
 success or failure.
 
 ### `mosaico status`
@@ -98,12 +104,14 @@ Checks performed:
 2. **config.toml** -- validates TOML syntax via `try_load()`
 3. **keybindings.toml** -- validates syntax via `try_load_keybindings()`
 4. **Keybinding keys** -- verifies each key name resolves to a valid Win32
-   virtual key code via `vk_from_name()`
+   virtual key code via `vk_from_name()`; reports the total count and any
+   unresolvable key names
 5. **rules.toml** -- validates syntax via `try_load_rules()`
-6. **Daemon** -- checks IPC pipe, PID file, and process liveness; cleans up
+6. **bar.toml** -- validates syntax via `try_load_bar()`
+7. **Daemon** -- checks IPC pipe, PID file, and process liveness; cleans up
    stale PID files
-7. **Monitors** -- enumerates monitors and reports count, dimensions, and
-   positions
+8. **Monitors** -- enumerates monitors and reports count with per-monitor
+   dimensions and positions
 
 ### `mosaico action <verb> [direction]`
 
@@ -122,6 +130,8 @@ mosaico action move down
 mosaico action retile
 mosaico action toggle-monocle
 mosaico action close-focused
+mosaico action goto-workspace 3
+mosaico action send-to-workspace 5
 ```
 
 ### `mosaico daemon` (hidden)

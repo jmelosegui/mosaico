@@ -1,6 +1,6 @@
 # Configuration System & Window Rules
 
-Mosaico uses three TOML configuration files stored in `~/.config/mosaico/`.
+Mosaico uses four TOML configuration files stored in `~/.config/mosaico/`.
 All settings have sensible defaults, so configuration files are optional.
 
 ## Architecture
@@ -9,15 +9,18 @@ All settings have sensible defaults, so configuration files are optional.
 
 | File | Purpose |
 |------|---------|
-| `crates/mosaico-core/src/config/mod.rs` | `Config`, `LayoutConfig`, `BorderConfig`, `WindowRule`, `should_manage()` |
-| `crates/mosaico-core/src/config/loader.rs` | `load()`, `try_load()`, `load_keybindings()`, `try_load_keybindings()`, `load_rules()`, `try_load_rules()`, path helpers |
+| `crates/mosaico-core/src/config/mod.rs` | `Config`, `LayoutConfig`, `BorderConfig`, `ThemeConfig`, `WindowRule`, `should_manage()` |
+| `crates/mosaico-core/src/config/loader.rs` | All load/try_load functions and path helpers for all 4 config files |
 | `crates/mosaico-core/src/config/keybinding.rs` | `Keybinding`, `Modifier`, `defaults()` |
+| `crates/mosaico-core/src/config/bar.rs` | `BarConfig`, `BarColors`, `WidgetConfig` |
+| `crates/mosaico-core/src/config/theme.rs` | `ThemeConfig`, `Theme` enum |
+| `crates/mosaico-core/src/config/palette.rs` | Catppuccin color palettes (hardcoded named color data) |
 | `crates/mosaico-core/src/config/template.rs` | Template generators for `mosaico init` |
 
 ### Key Types
 
 - `Config` -- top-level config: `layout: LayoutConfig`, `borders: BorderConfig`,
-  `logging: LogConfig`
+  `logging: LogConfig`, `theme: ThemeConfig`
 - `LayoutConfig` -- `gap: i32` (default 8), `ratio: f64` (default 0.5)
 - `BorderConfig` -- `width: i32` (default 4), `focused: String` (default
   `"#00b4d8"`), `monocle: String` (default `"#2d6a4f"`)
@@ -25,6 +28,12 @@ All settings have sensible defaults, so configuration files are optional.
   `"info"`), `max_file_mb: u64` (default 10)
 - `WindowRule` -- `match_class: Option<String>`, `match_title: Option<String>`,
   `manage: bool`
+- `ThemeConfig` -- `flavor: Option<String>` (default `None`, resolves to
+  `Theme::Mocha`)
+- `Theme` (enum) -- `Latte`, `Frappe`, `Macchiato`, `Mocha`
+- `BarConfig` -- `enabled: bool`, `height: i32`, `monitor: String`,
+  `left/center/right: Vec<WidgetConfig>`, `colors: BarColors`
+- `BarColors` -- `background`, `foreground`, `accent` (support named colors)
 - `KeybindingsFile` -- wrapper for TOML deserialization of `[[keybinding]]`
   arrays
 - `RulesFile` -- wrapper for TOML deserialization of `[[rule]]` arrays
@@ -33,7 +42,7 @@ All settings have sensible defaults, so configuration files are optional.
 
 ### `config.toml`
 
-Controls layout, borders, and logging:
+Controls layout, borders, logging, and theme:
 
 ```toml
 [layout]
@@ -45,11 +54,18 @@ width = 4              # Border thickness in pixels (0-32)
 focused = "#00b4d8"    # Hex color for focused window
 monocle = "#2d6a4f"    # Hex color for monocle mode
 
+[theme]
+flavor = "mocha"   # Catppuccin flavor: latte, frappe, macchiato, mocha
+
 [logging]
 enabled = false    # Enable file logging
 level = "info"     # Log level: debug, info, warn, error
 max_file_mb = 10   # Max log file size before rotation
 ```
+
+The `[theme]` section selects the Catppuccin color palette used for resolving
+named colors in border and bar configurations. See
+[theming.md](theming.md) for details.
 
 ### `keybindings.toml`
 
@@ -60,6 +76,31 @@ Maps key combinations to actions (see [keyboard-bindings.md](keyboard-bindings.m
 action = "focus-down"
 key = "J"
 modifiers = ["alt"]
+```
+
+### `bar.toml`
+
+Configures the status bar (see [status-bar.md](status-bar.md)):
+
+```toml
+enabled = true
+height = 28
+monitor = "all"      # "all", "primary", or 0-based index
+
+[colors]
+background = "base"      # Named Catppuccin color
+foreground = "text"
+accent = "blue"
+
+[[left]]
+type = "workspaces"
+
+[[center]]
+type = "clock"
+format = "%H:%M"
+
+[[right]]
+type = "cpu"
 ```
 
 ### `rules.toml`
@@ -81,15 +122,17 @@ Individual file paths:
 - `config_path()` -> `~/.config/mosaico/config.toml`
 - `keybindings_path()` -> `~/.config/mosaico/keybindings.toml`
 - `rules_path()` -> `~/.config/mosaico/rules.toml`
+- `bar_path()` -> `~/.config/mosaico/bar.toml`
 
 ## Loading Behavior
 
 Each config file has two loader variants:
 
-- `load()` / `load_keybindings()` / `load_rules()` -- load with silent
-  fallback to defaults on any error
-- `try_load()` / `try_load_keybindings()` / `try_load_rules()` -- return
-  `Result<T, String>` with a descriptive error message on failure
+- `load()` / `load_keybindings()` / `load_rules()` / `load_bar()` -- load
+  with silent fallback to defaults on any error
+- `try_load()` / `try_load_keybindings()` / `try_load_rules()` /
+  `try_load_bar()` -- return `Result<T, String>` with a descriptive error
+  message on failure
 
 The `try_load` variants are used by the `doctor` command for validation and
 by the config file watcher for hot-reload (only valid configs are applied).
@@ -164,15 +207,20 @@ examples. Existing files are not overwritten.
 
 ## Hot-Reload
 
-Changes to `config.toml` and `rules.toml` are automatically detected and
-applied while the daemon is running. The config file watcher (see
-[daemon.md](daemon.md)) polls for modification time changes every 2 seconds.
+Changes to `config.toml`, `rules.toml`, and `bar.toml` are automatically
+detected and applied while the daemon is running. The config file watcher
+(see [daemon.md](daemon.md)) polls for modification time changes every
+2 seconds.
 
-- **config.toml**: layout gap/ratio and border settings are reloaded. The
-  tiling manager calls `reload_config()` which updates the `BspLayout` and
-  `BorderConfig`, then retiles all windows.
+- **config.toml**: layout gap/ratio, border settings, and theme are reloaded.
+  The tiling manager calls `reload_config()` which updates the `BspLayout`
+  and `BorderConfig`, then retiles all windows. If the theme changed, bar
+  colors are re-resolved.
 - **rules.toml**: window rules are replaced via `reload_rules()`. New rules
   apply to newly created windows; existing managed windows are not re-evaluated.
+- **bar.toml**: the `BarManager` is recreated with `reload()`, colors are
+  re-resolved against the current theme, work areas are reset and re-adjusted
+  for the new bar height, and all monitors are retiled.
 - **keybindings.toml**: **not** hot-reloaded. Hotkey changes require a daemon
   restart because `RegisterHotKey` binds at the Win32 thread level.
 
@@ -189,8 +237,8 @@ error, the watcher logs a warning and keeps the current config.
   default behavior (manage everything) is sensible for most users.
 - **Case-insensitive matching**: prevents frustration with class/title casing
   inconsistencies across Windows applications.
-- **Separate files**: splitting config, keybindings, and rules into separate
-  files makes each concern independently manageable.
+- **Separate files**: splitting config, keybindings, rules, and bar into
+  separate files makes each concern independently manageable.
 - **try_load variants**: provide structured error reporting for the `doctor`
   command and config watcher, while the plain `load` variants silently fall
   back to defaults for daemon startup resilience.
