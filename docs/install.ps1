@@ -13,7 +13,8 @@ Write-Info "Installing mosaico..."
 
 # Get latest release version
 try {
-    $Release = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases/latest"
+    $Headers = @{ "User-Agent" = "mosaico-installer" }
+    $Release = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases/latest" -Headers $Headers
     $Version = $Release.tag_name
     Write-Info "Latest version: $Version"
 } catch {
