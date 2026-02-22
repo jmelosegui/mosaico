@@ -18,7 +18,7 @@ impl Workspace {
         }
     }
 
-    /// Adds a window to the workspace.
+    /// Adds a window to the end of the workspace.
     ///
     /// Returns `false` if the window is already managed.
     pub fn add(&mut self, hwnd: usize) -> bool {
@@ -26,6 +26,19 @@ impl Workspace {
             return false;
         }
         self.handles.push(hwnd);
+        true
+    }
+
+    /// Inserts a window at a specific position in the workspace.
+    ///
+    /// The index is clamped to the current length.
+    /// Returns `false` if the window is already managed.
+    pub fn insert(&mut self, index: usize, hwnd: usize) -> bool {
+        if self.handles.contains(&hwnd) {
+            return false;
+        }
+        let pos = index.min(self.handles.len());
+        self.handles.insert(pos, hwnd);
         true
     }
 
@@ -108,6 +121,24 @@ mod tests {
         assert!(ws.remove(1));
         assert_eq!(ws.len(), 1);
         assert!(!ws.contains(1));
+    }
+
+    #[test]
+    fn insert_at_position() {
+        let mut ws = Workspace::new();
+        ws.add(1);
+        ws.add(2);
+
+        // Insert at front
+        assert!(ws.insert(0, 3));
+        assert_eq!(ws.handles(), &[3, 1, 2]);
+
+        // Duplicate rejected
+        assert!(!ws.insert(0, 1));
+
+        // Index clamped to len
+        assert!(ws.insert(100, 4));
+        assert_eq!(ws.handles(), &[3, 1, 2, 4]);
     }
 
     #[test]

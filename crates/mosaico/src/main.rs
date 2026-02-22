@@ -3,6 +3,7 @@ mod commands;
 use clap::{Parser, Subcommand};
 
 use mosaico_core::Action;
+use mosaico_core::action::Direction;
 
 #[derive(Parser)]
 #[command(
@@ -41,25 +42,31 @@ enum Commands {
 }
 
 #[derive(Subcommand)]
+enum DirectionCommands {
+    /// Left
+    Left,
+    /// Right
+    Right,
+    /// Up
+    Up,
+    /// Down
+    Down,
+}
+
+#[derive(Subcommand)]
 enum ActionCommands {
-    /// Move focus to the next window
-    FocusNext,
-    /// Move focus to the previous window
-    FocusPrev,
-    /// Swap the focused window with the next one
-    SwapNext,
-    /// Swap the focused window with the previous one
-    SwapPrev,
+    /// Focus a window in the given direction
+    Focus {
+        #[command(subcommand)]
+        direction: DirectionCommands,
+    },
+    /// Move the focused window in the given direction
+    Move {
+        #[command(subcommand)]
+        direction: DirectionCommands,
+    },
     /// Re-apply the current layout
     Retile,
-    /// Move focus to a window on the next monitor
-    FocusMonitorNext,
-    /// Move focus to a window on the previous monitor
-    FocusMonitorPrev,
-    /// Move the focused window to the next monitor
-    MoveToMonitorNext,
-    /// Move the focused window to the previous monitor
-    MoveToMonitorPrev,
     /// Toggle monocle mode (focused window fills the monitor)
     ToggleMonocle,
     /// Close the currently focused window
@@ -76,6 +83,15 @@ enum DebugCommands {
     Move(commands::debug::move_window::MoveArgs),
 }
 
+fn direction(d: DirectionCommands) -> Direction {
+    match d {
+        DirectionCommands::Left => Direction::Left,
+        DirectionCommands::Right => Direction::Right,
+        DirectionCommands::Up => Direction::Up,
+        DirectionCommands::Down => Direction::Down,
+    }
+}
+
 fn main() {
     let cli = Cli::parse();
 
@@ -87,15 +103,9 @@ fn main() {
         Commands::Daemon => commands::daemon::execute(),
         Commands::Action { action } => {
             let action = match action {
-                ActionCommands::FocusNext => Action::FocusNext,
-                ActionCommands::FocusPrev => Action::FocusPrev,
-                ActionCommands::SwapNext => Action::SwapNext,
-                ActionCommands::SwapPrev => Action::SwapPrev,
+                ActionCommands::Focus { direction: d } => Action::Focus(direction(d)),
+                ActionCommands::Move { direction: d } => Action::Move(direction(d)),
                 ActionCommands::Retile => Action::Retile,
-                ActionCommands::FocusMonitorNext => Action::FocusMonitorNext,
-                ActionCommands::FocusMonitorPrev => Action::FocusMonitorPrev,
-                ActionCommands::MoveToMonitorNext => Action::MoveToMonitorNext,
-                ActionCommands::MoveToMonitorPrev => Action::MoveToMonitorPrev,
                 ActionCommands::ToggleMonocle => Action::ToggleMonocle,
                 ActionCommands::CloseFocused => Action::CloseFocused,
             };

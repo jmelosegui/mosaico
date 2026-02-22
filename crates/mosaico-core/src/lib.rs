@@ -6,10 +6,11 @@ pub mod layout;
 pub mod log;
 pub mod pid;
 pub mod rect;
+pub mod spatial;
 pub mod window;
 pub mod workspace;
 
-pub use action::Action;
+pub use action::{Action, Direction};
 pub use config::Config;
 pub use event::WindowEvent;
 pub use ipc::{Command, PIPE_NAME, Response};
