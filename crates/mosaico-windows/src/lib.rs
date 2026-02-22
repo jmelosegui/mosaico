@@ -1,6 +1,9 @@
 /// Border overlay windows for visual focus indicators.
 pub mod border;
 
+/// Config file watcher for hot-reloading.
+pub mod config_watcher;
+
 /// Daemon main loop.
 pub mod daemon;
 
