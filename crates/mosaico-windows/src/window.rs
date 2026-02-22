@@ -75,6 +75,17 @@ impl Window {
         }
     }
 
+    /// Forcibly shows a hidden window, used during daemon shutdown.
+    ///
+    /// Uses `SW_SHOW` for stronger activation than `SW_SHOWNOACTIVATE`,
+    /// ensuring Windows fully restores the window's visibility state.
+    pub fn force_show(&self) {
+        use windows::Win32::UI::WindowsAndMessaging::{SW_SHOW, ShowWindow};
+        unsafe {
+            let _ = ShowWindow(self.hwnd, SW_SHOW);
+        }
+    }
+
     /// Returns whether this looks like a real application window.
     ///
     /// Checks for a caption bar (`WS_CAPTION`) and rejects tool windows

@@ -207,6 +207,7 @@ fn daemon_loop() -> WindowResult<()> {
         }
     }
 
+    manager.restore_all_windows();
     bar_mgr.hide_all();
     event_loop.stop();
     watcher_stop.store(true, Ordering::Relaxed);

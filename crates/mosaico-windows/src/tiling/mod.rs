@@ -227,6 +227,22 @@ impl TilingManager {
         self.update_border();
     }
 
+    /// Shows all windows across every workspace and monitor.
+    ///
+    /// Called on daemon shutdown so that windows hidden by workspace
+    /// switching are restored and not left invisible.
+    pub fn restore_all_windows(&mut self) {
+        self.hide_border();
+        for mon in &self.monitors {
+            for ws in &mon.workspaces {
+                for &hwnd in ws.handles() {
+                    Window::from_raw(hwnd).force_show();
+                }
+            }
+        }
+        self.hidden_by_switch.clear();
+    }
+
     /// Re-positions the focus border to match the current window rect.
     ///
     /// Call after work areas change (e.g. bar adjustment at startup) so
