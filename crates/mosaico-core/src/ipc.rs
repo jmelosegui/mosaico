@@ -2,12 +2,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::Action;
 
-/// The named pipe path used for IPC between CLI and daemon.
-pub const PIPE_NAME: &str = r"\\.\pipe\mosaico";
-
 /// A command sent from the CLI to the daemon.
 ///
-/// These are serialized as JSON and sent over the named pipe.
+/// These are serialized as JSON and sent over an IPC channel.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "command")]
 pub enum Command {
