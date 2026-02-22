@@ -182,13 +182,14 @@ impl TilingManager {
                 }
             }
             WindowEvent::Focused { hwnd } => {
-                self.focused_window = Some(*hwnd);
                 if let Some(idx) = self.owning_monitor(*hwnd) {
+                    self.focused_window = Some(*hwnd);
                     self.focused_monitor = idx;
                     self.update_border();
-                } else {
-                    self.hide_border();
                 }
+                // Unmanaged windows (Alt+Tab UI, shell, system dialogs)
+                // are ignored — the border stays on the last managed
+                // window so keyboard navigation keeps working.
             }
             _ => {}
         }
