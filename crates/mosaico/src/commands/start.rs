@@ -52,42 +52,34 @@ pub fn execute() {
     print_banner(pid);
 }
 
+/// Tips shown on startup, rotated by PID so users see a different
+/// one each time they start the daemon.
+const TIPS: &[&str] = &[
+    "Run 'mosaico doctor' to check your setup",
+    "Run 'mosaico status' to check if the daemon is running",
+    "Edit keybindings in ~/.config/mosaico/keybindings.toml",
+    "Add window rules in ~/.config/mosaico/rules.toml",
+    "Adjust gap and ratio in ~/.config/mosaico/config.toml",
+    "Run 'mosaico init' to reset config files to defaults",
+    "Run 'mosaico debug list' to see all managed windows",
+    "Run 'mosaico debug events' to watch window events live",
+];
+
 fn print_banner(pid: u32) {
-    let b = "\x1b[94m"; // Bright blue — tile 1 (largest)
-    let g = "\x1b[92m"; // Bright green — tile 2
-    let y = "\x1b[93m"; // Bright yellow — tile 3
-    let re = "\x1b[91m"; // Bright red — tile 4
-    let d = "\x1b[90m"; // Dim gray — frame and labels
-    let w = "\x1b[1;97m"; // Bold bright white — name
+    let d = "\x1b[90m"; // Dim gray — labels
+    let w = "\x1b[1;97m"; // Bold bright white — values
     let r = "\x1b[0m"; // Reset
-    let v = env!("CARGO_PKG_VERSION");
-    let pid_len = pid.to_string().len();
+    let secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let tip = TIPS[secs as usize % TIPS.len()];
 
-    const W: usize = 60;
-    let pad = |n: usize| " ".repeat(W.saturating_sub(n));
-    let rule: String = "─".repeat(W);
-
+    super::banner::print_logo();
     println!();
-    println!("  {d}╭{rule}╮{r}");
-    println!("  {d}│  ┌────────────────┐{s}│{r}", s = pad(20));
-    println!(
-        "  {d}│  │{b}████████{g}████████{d}│  {w}mosaico{r} {d}v{v}{s}│{r}",
-        s = pad(31 + v.len())
-    );
-    println!(
-        "  {d}│  │{b}████████{g}████████{d}│  Tiling window manager{s}│{r}",
-        s = pad(43)
-    );
-    println!("  {d}│  │{b}████████{g}████████{d}│{s}│{r}", s = pad(20));
-    println!(
-        "  {d}│  │{b}████████{y}████{re}████{d}│  Daemon started (PID: {pid}){s}│{r}",
-        s = pad(44 + pid_len)
-    );
-    println!(
-        "  {d}│  │{b}████████{y}████{re}████{d}│  Config: ~/.config/mosaico/{s}│{r}",
-        s = pad(48)
-    );
-    println!("  {d}│  └────────────────┘{s}│{r}", s = pad(20));
-    println!("  {d}╰{rule}╯{r}");
+    println!("  {d}Config{r}   ~/.config/mosaico/");
+    println!("  {d}Daemon{r}   Started (PID: {w}{pid}{r})");
+    println!("  {d}Repo{r}     https://github.com/jmelosegui/mosaico");
+    println!("  {d}Tip{r}      {tip}");
     println!();
 }
