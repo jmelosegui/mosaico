@@ -53,12 +53,4 @@ impl Response {
             message: Some(message.into()),
         }
     }
-
-    /// Creates an error response.
-    pub fn error(message: impl Into<String>) -> Self {
-        Self {
-            status: ResponseStatus::Error,
-            message: Some(message.into()),
-        }
-    }
 }
