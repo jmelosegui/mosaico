@@ -75,11 +75,18 @@ pub struct WindowRule {
 /// These exclude window classes that don't behave well when tiled,
 /// such as UWP app frames that enforce their own size constraints.
 pub fn default_rules() -> Vec<WindowRule> {
-    vec![WindowRule {
-        match_class: Some("ApplicationFrameWindow".into()),
-        match_title: None,
-        manage: false,
-    }]
+    vec![
+        WindowRule {
+            match_class: Some("ApplicationFrameWindow".into()),
+            match_title: None,
+            manage: false,
+        },
+        WindowRule {
+            match_title: Some("pinentry".into()),
+            match_class: None,
+            manage: false,
+        },
+    ]
 }
 
 impl Default for LayoutConfig {
@@ -345,5 +352,14 @@ mod tests {
 
         // Act / Assert
         assert!(!should_manage("ApplicationFrameWindow", "Settings", &rules));
+    }
+
+    #[test]
+    fn default_rules_exclude_pinentry() {
+        // Arrange
+        let rules = default_rules();
+
+        // Act / Assert
+        assert!(!should_manage("Qt5QWindowIcon", "Pinentry", &rules));
     }
 }
