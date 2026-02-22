@@ -1,3 +1,5 @@
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, RecvTimeoutError};
 use std::thread;
 use std::time::Duration;
@@ -101,7 +103,9 @@ fn daemon_loop() -> WindowResult<()> {
 
     // Start the config file watcher on its own thread.
     let (reload_tx, reload_rx) = mpsc::channel::<ConfigReload>();
-    let _watcher_thread = thread::spawn(move || config_watcher::watch(reload_tx));
+    let watcher_stop = Arc::new(AtomicBool::new(false));
+    let watcher_stop_flag = watcher_stop.clone();
+    let watcher_thread = thread::spawn(move || config_watcher::watch(reload_tx, watcher_stop_flag));
 
     // Bridge: forward config reloads into the unified channel.
     let reload_bridge_tx = tx.clone();
@@ -153,9 +157,11 @@ fn daemon_loop() -> WindowResult<()> {
     }
 
     event_loop.stop();
+    watcher_stop.store(true, Ordering::Relaxed);
     drop(tx);
     let _ = event_bridge.join();
     let _ = action_bridge.join();
+    let _ = watcher_thread.join();
     let _ = reload_bridge.join();
     let _ = ipc_thread.join();
 
