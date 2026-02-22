@@ -16,20 +16,6 @@ pub struct MonitorInfo {
     pub work_area: Rect,
 }
 
-/// Returns the work area of the primary monitor.
-///
-/// The work area excludes the taskbar and any docked toolbars.
-pub fn primary_work_area() -> WindowResult<Rect> {
-    let monitor = unsafe { MonitorFromWindow(HWND::default(), MONITOR_DEFAULTTOPRIMARY) };
-    work_area_for_monitor(monitor)
-}
-
-/// Returns the work area of the monitor containing the given window.
-pub fn work_area_for_window(hwnd: HWND) -> WindowResult<Rect> {
-    let monitor = unsafe { MonitorFromWindow(hwnd, MONITOR_DEFAULTTOPRIMARY) };
-    work_area_for_monitor(monitor)
-}
-
 /// Returns the monitor ID for the monitor containing the given window.
 ///
 /// Falls back to the primary monitor if the window handle is invalid.
