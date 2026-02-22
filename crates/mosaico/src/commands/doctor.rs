@@ -38,34 +38,36 @@ fn check_config_dir() {
     }
 }
 
-fn check_config_file() {
-    let Some(path) = config::config_path() else {
-        println!("  {FAIL} Could not determine config path");
+/// Checks that a TOML config file exists and parses without errors.
+fn check_toml_file(
+    name: &str,
+    path: Option<std::path::PathBuf>,
+    try_load: impl FnOnce() -> Result<(), String>,
+) {
+    let Some(path) = path else {
+        println!("  {FAIL} Could not determine {name} path");
         return;
     };
     if !path.exists() {
-        println!("  {WARN} config.toml not found (using defaults)");
+        println!("  {WARN} {name} not found (using defaults)");
         return;
     }
-    match config::try_load() {
-        Ok(_) => println!("  {OK} config.toml is valid"),
-        Err(e) => println!("  {FAIL} config.toml: {e}"),
+    match try_load() {
+        Ok(()) => println!("  {OK} {name} is valid"),
+        Err(e) => println!("  {FAIL} {name}: {e}"),
     }
 }
 
+fn check_config_file() {
+    check_toml_file("config.toml", config::config_path(), || {
+        config::try_load().map(|_| ())
+    });
+}
+
 fn check_keybindings_file() {
-    let Some(path) = config::keybindings_path() else {
-        println!("  {FAIL} Could not determine keybindings path");
-        return;
-    };
-    if !path.exists() {
-        println!("  {WARN} keybindings.toml not found (using defaults)");
-        return;
-    }
-    match config::try_load_keybindings() {
-        Ok(_) => println!("  {OK} keybindings.toml is valid"),
-        Err(e) => println!("  {FAIL} keybindings.toml: {e}"),
-    }
+    check_toml_file("keybindings.toml", config::keybindings_path(), || {
+        config::try_load_keybindings().map(|_| ())
+    });
 }
 
 fn check_keybinding_keys() {
@@ -91,18 +93,9 @@ fn check_keybinding_keys() {
 }
 
 fn check_rules_file() {
-    let Some(path) = config::rules_path() else {
-        println!("  {FAIL} Could not determine rules path");
-        return;
-    };
-    if !path.exists() {
-        println!("  {WARN} rules.toml not found (using defaults)");
-        return;
-    }
-    match config::try_load_rules() {
-        Ok(_) => println!("  {OK} rules.toml is valid"),
-        Err(e) => println!("  {FAIL} rules.toml: {e}"),
-    }
+    check_toml_file("rules.toml", config::rules_path(), || {
+        config::try_load_rules().map(|_| ())
+    });
 }
 
 fn check_daemon() {

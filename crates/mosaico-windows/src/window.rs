@@ -127,13 +127,7 @@ impl mosaico_core::Window for Window {
 
     fn rect(&self) -> WindowResult<Rect> {
         let frame = frame::visible_rect(self.hwnd)?;
-
-        Ok(Rect::new(
-            frame.left,
-            frame.top,
-            frame.right - frame.left,
-            frame.bottom - frame.top,
-        ))
+        Ok(crate::monitor::rect_from_win32(&frame))
     }
 
     fn set_rect(&self, rect: &mosaico_core::Rect) -> WindowResult<()> {

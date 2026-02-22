@@ -41,16 +41,7 @@ pub fn try_load() -> Result<Config, String> {
 /// After loading, values are clamped to safe ranges via [`Config::validate`].
 /// Non-existent files silently return defaults; other IO errors are logged.
 pub fn load() -> Config {
-    match try_load() {
-        Ok(config) => config,
-        Err(e) if e.contains("cannot find the path") || e.contains("The system cannot find") => {
-            Config::default()
-        }
-        Err(e) => {
-            eprintln!("Warning: {e}");
-            Config::default()
-        }
-    }
+    load_or_default(try_load, Config::default)
 }
 
 /// Tries to load and parse `keybindings.toml`.
@@ -68,16 +59,7 @@ pub fn try_load_keybindings() -> Result<Vec<Keybinding>, String> {
 ///
 /// Falls back to the built-in defaults if the file is missing or invalid.
 pub fn load_keybindings() -> Vec<Keybinding> {
-    match try_load_keybindings() {
-        Ok(bindings) => bindings,
-        Err(e) if e.contains("cannot find the path") || e.contains("The system cannot find") => {
-            keybinding::defaults()
-        }
-        Err(e) => {
-            eprintln!("Warning: {e}");
-            keybinding::defaults()
-        }
-    }
+    load_or_default(try_load_keybindings, keybinding::defaults)
 }
 
 /// Tries to load and parse `rules.toml`.
@@ -95,14 +77,24 @@ pub fn try_load_rules() -> Result<Vec<WindowRule>, String> {
 ///
 /// Falls back to the built-in defaults if the file is missing or invalid.
 pub fn load_rules() -> Vec<WindowRule> {
-    match try_load_rules() {
-        Ok(rules) => rules,
-        Err(e) if e.contains("cannot find the path") || e.contains("The system cannot find") => {
-            default_rules()
-        }
+    load_or_default(try_load_rules, default_rules)
+}
+
+/// Loads a config value from disk, falling back to defaults.
+///
+/// Non-existent files silently return defaults; other IO errors are logged.
+fn load_or_default<T>(try_load: impl FnOnce() -> Result<T, String>, default: impl Fn() -> T) -> T {
+    match try_load() {
+        Ok(val) => val,
+        Err(e) if is_file_not_found(&e) => default(),
         Err(e) => {
             eprintln!("Warning: {e}");
-            default_rules()
+            default()
         }
     }
+}
+
+/// Returns true if the error message indicates a missing file.
+fn is_file_not_found(e: &str) -> bool {
+    e.contains("cannot find the path") || e.contains("The system cannot find")
 }

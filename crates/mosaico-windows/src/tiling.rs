@@ -242,9 +242,7 @@ impl TilingManager {
         if let Some(mon) = self.monitors.first()
             && let Some(&hwnd) = mon.active_ws().handles().first()
         {
-            self.focused_window = Some(hwnd);
-            Window::from_raw(hwnd).set_foreground();
-            self.update_border();
+            self.focus_and_update_border(hwnd);
         }
     }
 
@@ -275,21 +273,18 @@ impl TilingManager {
         match dir {
             Direction::Left | Direction::Right => match self.resolve_horizontal_target(dir) {
                 Some(SpatialTarget::Neighbor(hwnd)) => {
-                    self.focused_window = Some(hwnd);
-                    Window::from_raw(hwnd).set_foreground();
-                    self.update_border();
+                    self.focus_and_update_border(hwnd);
                 }
                 Some(SpatialTarget::AdjacentMonitor(idx)) => {
                     self.focused_monitor = idx;
                     if let Some(hwnd) = self.find_entry_window(idx, dir) {
-                        self.focused_window = Some(hwnd);
-                        Window::from_raw(hwnd).set_foreground();
+                        self.focus_and_update_border(hwnd);
                     } else {
                         // Target monitor has no windows — clear focus
                         // so the user sees the selection leave.
                         self.focused_window = None;
+                        self.update_border();
                     }
-                    self.update_border();
                 }
                 None if self.focused_window.is_none() => {
                     // No focused window (empty workspace) — jump to
@@ -297,19 +292,15 @@ impl TilingManager {
                     if let Some(idx) = self.find_adjacent_monitor(dir) {
                         self.focused_monitor = idx;
                         if let Some(hwnd) = self.find_entry_window(idx, dir) {
-                            self.focused_window = Some(hwnd);
-                            Window::from_raw(hwnd).set_foreground();
+                            self.focus_and_update_border(hwnd);
                         }
-                        self.update_border();
                     }
                 }
                 None => {}
             },
             Direction::Up | Direction::Down => {
                 if let Some(neighbor) = self.find_same_monitor_neighbor(dir) {
-                    self.focused_window = Some(neighbor);
-                    Window::from_raw(neighbor).set_foreground();
-                    self.update_border();
+                    self.focus_and_update_border(neighbor);
                 }
             }
         }
@@ -571,6 +562,14 @@ impl TilingManager {
         }
     }
 
+    /// Sets the focused window, brings it to the foreground, and
+    /// refreshes the focus border.
+    fn focus_and_update_border(&mut self, hwnd: usize) {
+        self.focused_window = Some(hwnd);
+        Window::from_raw(hwnd).set_foreground();
+        self.update_border();
+    }
+
     fn update_border(&self) {
         let Some(border) = &self.border else {
             return;
@@ -702,12 +701,11 @@ impl TilingManager {
 
         // Focus the first window on the new workspace, or clear focus.
         if let Some(&hwnd) = self.monitors[mon_idx].active_ws().handles().first() {
-            self.focused_window = Some(hwnd);
-            Window::from_raw(hwnd).set_foreground();
+            self.focus_and_update_border(hwnd);
         } else {
             self.focused_window = None;
+            self.update_border();
         }
-        self.update_border();
     }
 
     /// Sends the focused window to workspace `n` (1-indexed) on the
@@ -752,12 +750,11 @@ impl TilingManager {
 
         // Focus the next window on the current workspace, or clear focus.
         if let Some(&next) = self.monitors[mon_idx].active_ws().handles().first() {
-            self.focused_window = Some(next);
-            Window::from_raw(next).set_foreground();
+            self.focus_and_update_border(next);
         } else {
             self.focused_window = None;
+            self.update_border();
         }
-        self.update_border();
     }
 }
 
