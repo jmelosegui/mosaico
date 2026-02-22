@@ -4,6 +4,8 @@
 //! changes. When a file changes, it validates the new content using
 //! the `try_load` variants. Only valid configs are sent for reload.
 
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
 use std::time::{Duration, SystemTime};
 
@@ -20,15 +22,16 @@ pub enum ConfigReload {
     Rules(Vec<WindowRule>),
 }
 
-/// Runs the config watcher loop. Blocks until the sender is dropped.
-pub fn watch(tx: Sender<ConfigReload>) {
+/// Runs the config watcher loop. Blocks until the stop flag is set
+/// or the sender is dropped.
+pub fn watch(tx: Sender<ConfigReload>, stop: Arc<AtomicBool>) {
     let config_path = config::config_path();
     let rules_path = config::rules_path();
 
     let mut config_mtime = mtime(config_path.as_deref());
     let mut rules_mtime = mtime(rules_path.as_deref());
 
-    loop {
+    while !stop.load(Ordering::Relaxed) {
         std::thread::sleep(POLL_INTERVAL);
 
         if let Some(ref path) = config_path {
