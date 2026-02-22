@@ -24,6 +24,7 @@ features = [
     "Win32_System_IO",                 # ConnectNamedPipe (requires overlapped IO module)
     "Win32_Storage_FileSystem",        # CreateFileW (pipe client)
     "Win32_Security",                  # Required by CreateFileW and CreateNamedPipeW
+    "Win32_Networking_WinHttp",        # WinHttpOpen, WinHttpConnect, etc.
 ]
 
 [lints]

@@ -81,5 +81,14 @@ fn print_banner(pid: u32) {
     println!("  {d}Daemon{r}   Started (PID: {w}{pid}{r})");
     println!("  {d}Repo{r}     https://github.com/jmelosegui/mosaico");
     println!("  {d}Tip{r}      {tip}");
+
+    if let Some(remote) = super::version_check::check_for_update() {
+        let y = "\x1b[33m"; // Yellow
+        let local = env!("CARGO_PKG_VERSION");
+        println!();
+        println!("  {y}Update available: v{local} -> {remote}{r}");
+        println!("  {y}Run the install script to update{r}");
+    }
+
     println!();
 }

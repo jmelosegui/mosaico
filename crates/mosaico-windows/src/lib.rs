@@ -16,6 +16,9 @@ pub mod enumerate;
 /// Window frame and border offset helpers.
 pub mod frame;
 
+/// Minimal HTTPS GET client using WinHTTP.
+pub mod http;
+
 /// Global hotkey registration.
 pub mod hotkey;
 
