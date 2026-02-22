@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use super::bar::BarConfig;
 use super::keybinding;
 use super::{Config, Keybinding, KeybindingsFile, RulesFile, WindowRule, default_rules};
 
@@ -21,6 +22,11 @@ pub fn keybindings_path() -> Option<PathBuf> {
 /// Returns the rules file path: `~/.config/mosaico/rules.toml`.
 pub fn rules_path() -> Option<PathBuf> {
     config_dir().map(|d| d.join("rules.toml"))
+}
+
+/// Returns the bar config file path: `~/.config/mosaico/bar.toml`.
+pub fn bar_path() -> Option<PathBuf> {
+    config_dir().map(|d| d.join("bar.toml"))
 }
 
 /// Tries to load and parse `config.toml`.
@@ -82,6 +88,27 @@ pub fn try_load_rules() -> Result<Vec<WindowRule>, String> {
 /// Falls back to the built-in defaults if the file is missing or invalid.
 pub fn load_rules() -> Vec<WindowRule> {
     load_or_default(rules_path(), try_load_rules, default_rules)
+}
+
+/// Tries to load and parse `bar.toml`.
+///
+/// Returns the parsed bar config or an error string. Colors are **not**
+/// resolved here — the caller must call `resolve_colors(theme)` with
+/// the global theme from `config.toml`.
+pub fn try_load_bar() -> Result<BarConfig, String> {
+    let path = bar_path().ok_or("could not determine bar config path")?;
+    let content = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+    let mut config: BarConfig =
+        toml::from_str(&content).map_err(|e| format!("{}: {e}", path.display()))?;
+    config.validate();
+    Ok(config)
+}
+
+/// Loads the bar configuration from disk, falling back to defaults.
+///
+/// Non-existent files silently return defaults; other IO errors are logged.
+pub fn load_bar() -> BarConfig {
+    load_or_default(bar_path(), try_load_bar, BarConfig::default)
 }
 
 /// Loads a config value from disk, falling back to defaults.

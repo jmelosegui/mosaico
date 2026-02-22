@@ -1,7 +1,7 @@
 //! Polls config files for changes and sends validated reloads.
 //!
-//! Watches `config.toml` and `rules.toml` for modification time
-//! changes. When a file changes, it validates the new content using
+//! Watches `config.toml`, `rules.toml`, and `bar.toml` for modification
+//! time changes. When a file changes, it validates the new content using
 //! the `try_load` variants. Only valid configs are sent for reload.
 
 use std::sync::Arc;
@@ -9,7 +9,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
 use std::time::{Duration, SystemTime};
 
-use mosaico_core::config::{self, Config, WindowRule};
+use mosaico_core::config::{self, BarConfig, Config, WindowRule};
 
 /// Polling interval for checking file changes.
 const POLL_INTERVAL: Duration = Duration::from_secs(2);
@@ -20,6 +20,8 @@ pub enum ConfigReload {
     Config(Config),
     /// Window rules changed.
     Rules(Vec<WindowRule>),
+    /// Bar configuration changed.
+    Bar(Box<BarConfig>),
 }
 
 /// Runs the config watcher loop. Blocks until the stop flag is set
@@ -27,9 +29,11 @@ pub enum ConfigReload {
 pub fn watch(tx: Sender<ConfigReload>, stop: Arc<AtomicBool>) {
     let config_path = config::config_path();
     let rules_path = config::rules_path();
+    let bar_path = config::bar_path();
 
     let mut config_mtime = mtime(config_path.as_deref());
     let mut rules_mtime = mtime(rules_path.as_deref());
+    let mut bar_mtime = mtime(bar_path.as_deref());
 
     while !stop.load(Ordering::Relaxed) {
         std::thread::sleep(POLL_INTERVAL);
@@ -65,6 +69,24 @@ pub fn watch(tx: Sender<ConfigReload>, stop: Arc<AtomicBool>) {
                     }
                     Err(e) => {
                         mosaico_core::log_info!("rules.toml changed but invalid, skipping: {e}");
+                    }
+                }
+            }
+        }
+
+        if let Some(ref path) = bar_path {
+            let new_mtime = mtime(Some(path.as_path()));
+            if new_mtime != bar_mtime {
+                bar_mtime = new_mtime;
+                match config::try_load_bar() {
+                    Ok(bar) => {
+                        mosaico_core::log_info!("bar.toml changed, reloading");
+                        if tx.send(ConfigReload::Bar(Box::new(bar))).is_err() {
+                            return;
+                        }
+                    }
+                    Err(e) => {
+                        mosaico_core::log_info!("bar.toml changed but invalid, skipping: {e}");
                     }
                 }
             }
