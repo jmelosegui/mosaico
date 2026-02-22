@@ -36,4 +36,14 @@ impl Rect {
         let bottom = (self.y + self.height).min(other.y + other.height);
         (bottom - top).max(0)
     }
+
+    /// Returns the number of overlapping pixels along the horizontal axis.
+    ///
+    /// A positive value means the rectangles share horizontal space,
+    /// which is useful for determining up/down neighbors.
+    pub fn horizontal_overlap(&self, other: &Rect) -> i32 {
+        let left = self.x.max(other.x);
+        let right = (self.x + self.width).min(other.x + other.width);
+        (right - left).max(0)
+    }
 }

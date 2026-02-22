@@ -1,3 +1,4 @@
+use mosaico_core::action::Direction;
 use mosaico_core::config::{BorderConfig, WindowRule};
 use mosaico_core::window::Window as WindowTrait;
 use mosaico_core::{Action, BspLayout, Rect, WindowEvent, WindowResult, Workspace};
@@ -13,6 +14,17 @@ struct MonitorState {
     work_area: Rect,
     workspace: Workspace,
     monocle: bool,
+}
+
+/// Result of resolving a directional (H/L) spatial action.
+///
+/// Used by both focus and move operations to share the spatial
+/// neighbor lookup and monitor-overflow logic.
+enum SpatialTarget {
+    /// A neighbor window on the same monitor.
+    Neighbor(usize),
+    /// The adjacent monitor when no same-monitor neighbor exists.
+    AdjacentMonitor(usize),
 }
 
 /// Manages tiled windows across all connected monitors.
@@ -131,15 +143,9 @@ impl TilingManager {
     /// Executes a user-triggered action.
     pub fn handle_action(&mut self, action: &Action) {
         match action {
-            Action::FocusNext => self.focus_adjacent(1),
-            Action::FocusPrev => self.focus_adjacent(-1),
-            Action::SwapNext => self.swap_adjacent(1),
-            Action::SwapPrev => self.swap_adjacent(-1),
+            Action::Focus(dir) => self.focus_direction(*dir),
+            Action::Move(dir) => self.move_direction(*dir),
             Action::Retile => self.retile_all(),
-            Action::FocusMonitorNext => self.focus_monitor(1),
-            Action::FocusMonitorPrev => self.focus_monitor(-1),
-            Action::MoveToMonitorNext => self.move_to_monitor(1),
-            Action::MoveToMonitorPrev => self.move_to_monitor(-1),
             Action::ToggleMonocle => self.toggle_monocle(),
             Action::CloseFocused => self.close_focused(),
         }
@@ -187,167 +193,209 @@ impl TilingManager {
         }
     }
 
-    fn focus_adjacent(&mut self, direction: i32) {
+    /// Focuses a window in the given spatial direction.
+    ///
+    /// Left/Right: horizontal neighbor, overflows to adjacent monitor.
+    /// Up/Down: vertical neighbor, stops at boundary.
+    fn focus_direction(&mut self, dir: Direction) {
         if self.monitors.is_empty() {
             return;
         }
-        let ws = &self.monitors[self.focused_monitor].workspace;
-        let idx = match self.focused_window.and_then(|h| ws.index_of(h)) {
-            Some(i) => i,
-            None => {
-                // Focused window is not in the workspace — recover by
-                // focusing the first available window.
-                if let Some(&hwnd) = ws.handles().first() {
+        match dir {
+            Direction::Left | Direction::Right => match self.resolve_horizontal_target(dir) {
+                Some(SpatialTarget::Neighbor(hwnd)) => {
                     self.focused_window = Some(hwnd);
                     Window::from_raw(hwnd).set_foreground();
                     self.update_border();
                 }
-                return;
+                Some(SpatialTarget::AdjacentMonitor(idx)) => {
+                    self.focused_monitor = idx;
+                    if let Some(hwnd) = self.find_entry_window(idx, dir) {
+                        self.focused_window = Some(hwnd);
+                        Window::from_raw(hwnd).set_foreground();
+                        self.update_border();
+                    }
+                }
+                None => {}
+            },
+            Direction::Up | Direction::Down => {
+                if let Some(neighbor) = self.find_same_monitor_neighbor(dir) {
+                    self.focused_window = Some(neighbor);
+                    Window::from_raw(neighbor).set_foreground();
+                    self.update_border();
+                }
             }
-        };
-        let len = ws.len() as i32;
-        let next = ((idx as i32 + direction).rem_euclid(len)) as usize;
-        if let Some(&hwnd) = ws.handles().get(next) {
-            self.focused_window = Some(hwnd);
-            Window::from_raw(hwnd).set_foreground();
-            self.update_border();
         }
     }
 
-    fn swap_adjacent(&mut self, direction: i32) {
+    /// Moves (swaps) the focused window in the given spatial direction.
+    ///
+    /// Left/Right: horizontal swap, overflows to adjacent monitor.
+    /// Up/Down: vertical swap, stops at boundary.
+    fn move_direction(&mut self, dir: Direction) {
         if self.monitors.is_empty() {
             return;
         }
-        let ws = &self.monitors[self.focused_monitor].workspace;
-        let Some(idx) = self.focused_window.and_then(|h| ws.index_of(h)) else {
+        let Some(hwnd) = self.focused_window else {
             return;
         };
-        let len = ws.len() as i32;
-        let other = ((idx as i32 + direction).rem_euclid(len)) as usize;
-        self.monitors[self.focused_monitor]
-            .workspace
-            .swap(idx, other);
+        match dir {
+            Direction::Left | Direction::Right => {
+                match self.resolve_horizontal_target(dir) {
+                    Some(SpatialTarget::Neighbor(neighbor)) => {
+                        let ws = &self.monitors[self.focused_monitor].workspace;
+                        let Some(a) = ws.index_of(hwnd) else { return };
+                        let Some(b) = ws.index_of(neighbor) else {
+                            return;
+                        };
+                        self.swap_and_retile(a, b);
+                    }
+                    Some(SpatialTarget::AdjacentMonitor(target)) => {
+                        // Insert at position 0 when entering from the left
+                        // so the window takes the leftmost BSP slot; append
+                        // when entering from the right.
+                        let source = self.focused_monitor;
+                        self.monitors[source].workspace.remove(hwnd);
+                        if dir == Direction::Right {
+                            self.monitors[target].workspace.insert(0, hwnd);
+                        } else {
+                            self.monitors[target].workspace.add(hwnd);
+                        }
+                        self.apply_layout_on(source);
+                        self.apply_layout_on(target);
+                        self.focused_monitor = target;
+                        self.update_border();
+                    }
+                    None => {}
+                }
+            }
+            Direction::Up | Direction::Down => {
+                let ws = &self.monitors[self.focused_monitor].workspace;
+                let Some(idx) = ws.index_of(hwnd) else {
+                    return;
+                };
+                if let Some(neighbor) = self.find_same_monitor_neighbor(dir)
+                    && let Some(other) = self.monitors[self.focused_monitor]
+                        .workspace
+                        .index_of(neighbor)
+                {
+                    self.swap_and_retile(idx, other);
+                }
+            }
+        }
+    }
+
+    /// Swaps two windows by workspace index, re-tiles, and updates the border.
+    fn swap_and_retile(&mut self, a: usize, b: usize) {
+        self.monitors[self.focused_monitor].workspace.swap(a, b);
         self.apply_layout_on(self.focused_monitor);
+        self.update_border();
     }
 
-    fn focus_monitor(&mut self, direction: i32) {
-        if self.monitors.is_empty() {
-            return;
-        }
+    /// Finds the spatial neighbor for the focused window on the current
+    /// monitor. Returns `None` at boundaries.
+    fn find_same_monitor_neighbor(&self, dir: Direction) -> Option<usize> {
+        let focused_hwnd = self.focused_window?;
+        let state = &self.monitors[self.focused_monitor];
+        let positions = state
+            .workspace
+            .compute_layout(&self.layout, &state.work_area);
+        let focused_rect = positions
+            .iter()
+            .find(|(h, _)| *h == focused_hwnd)
+            .map(|(_, r)| *r)?;
+        mosaico_core::spatial::find_neighbor(&positions, &focused_rect, dir)
+    }
 
-        let Some(focused_hwnd) = self.focused_window else {
-            // No focused window — recover by focusing the first window
-            // on the current monitor.
-            if let Some(&hwnd) = self.monitors[self.focused_monitor]
-                .workspace
-                .handles()
-                .first()
-            {
-                self.focused_window = Some(hwnd);
-                Window::from_raw(hwnd).set_foreground();
-                self.update_border();
-            }
-            return;
-        };
+    /// Resolves the spatial target for a left/right action.
+    ///
+    /// Looks for a neighbor on the same monitor first. If none exists,
+    /// looks for a monitor physically in the requested direction (no
+    /// wrapping).
+    fn resolve_horizontal_target(&self, dir: Direction) -> Option<SpatialTarget> {
+        let focused_hwnd = self.focused_window?;
+        let positive = matches!(dir, Direction::Right | Direction::Down);
 
-        // Compute layout to get spatial positions of all windows.
         let state = &self.monitors[self.focused_monitor];
         let positions = state
             .workspace
             .compute_layout(&self.layout, &state.work_area);
 
-        let Some(focused_rect) = positions
+        mosaico_core::log_debug!(
+            "resolve_horizontal dir={} mon={} focused=0x{:X} windows={}",
+            dir,
+            self.focused_monitor,
+            focused_hwnd,
+            positions.len()
+        );
+        for (h, r) in &positions {
+            mosaico_core::log_debug!(
+                "  pos 0x{:X}: ({},{} {}x{}) center_x={}",
+                h,
+                r.x,
+                r.y,
+                r.width,
+                r.height,
+                r.center_x()
+            );
+        }
+
+        let focused_rect = positions
             .iter()
             .find(|(h, _)| *h == focused_hwnd)
-            .map(|(_, r)| *r)
-        else {
-            // Focused window not found in workspace — recover.
-            if let Some(&hwnd) = state.workspace.handles().first() {
-                self.focused_window = Some(hwnd);
-                Window::from_raw(hwnd).set_foreground();
-                self.update_border();
-            }
-            return;
-        };
+            .map(|(_, r)| *r)?;
 
-        // Find the best spatial neighbor in the requested direction.
-        if let Some(neighbor) = self.find_spatial_neighbor(&positions, &focused_rect, direction) {
-            self.focused_window = Some(neighbor);
-            Window::from_raw(neighbor).set_foreground();
-            self.update_border();
-            return;
+        mosaico_core::log_debug!(
+            "  focused_rect: ({},{} {}x{}) center_x={}",
+            focused_rect.x,
+            focused_rect.y,
+            focused_rect.width,
+            focused_rect.height,
+            focused_rect.center_x()
+        );
+
+        if let Some(neighbor) = mosaico_core::spatial::find_neighbor(&positions, &focused_rect, dir)
+        {
+            mosaico_core::log_debug!("  -> Neighbor 0x{:X}", neighbor);
+            return Some(SpatialTarget::Neighbor(neighbor));
         }
 
-        // No neighbor on this monitor — overflow to the adjacent monitor.
-        if self.monitors.len() <= 1 {
-            return;
-        }
-        let len = self.monitors.len() as i32;
-        let next = ((self.focused_monitor as i32 + direction).rem_euclid(len)) as usize;
-        self.focused_monitor = next;
-        let handles = self.monitors[next].workspace.handles();
-        let target = if direction > 0 {
-            handles.first()
-        } else {
-            handles.last()
-        };
-        if let Some(&hwnd) = target {
-            self.focused_window = Some(hwnd);
-            Window::from_raw(hwnd).set_foreground();
-            self.update_border();
-        }
-    }
-
-    /// Finds the closest window to the left (direction = -1) or right
-    /// (direction = 1) of `focused_rect` among the given layout positions.
-    ///
-    /// Candidates must be strictly in the requested direction and share
-    /// vertical space with the focused window. Among valid candidates the
-    /// one with the most vertical overlap wins (ties broken by distance).
-    fn find_spatial_neighbor(
-        &self,
-        positions: &[(usize, Rect)],
-        focused: &Rect,
-        direction: i32,
-    ) -> Option<usize> {
-        positions
+        // No horizontal neighbor — check if a monitor exists in the
+        // requested direction (no wrapping).
+        let current_cx = state.work_area.center_x();
+        let adjacent = self
+            .monitors
             .iter()
-            .filter(|(_, r)| {
-                if direction > 0 {
-                    r.center_x() > focused.center_x()
+            .enumerate()
+            .filter(|(i, _)| *i != self.focused_monitor)
+            .filter(|(_, m)| {
+                if positive {
+                    m.work_area.center_x() > current_cx
                 } else {
-                    r.center_x() < focused.center_x()
+                    m.work_area.center_x() < current_cx
                 }
             })
-            .filter(|(_, r)| focused.vertical_overlap(r) > 0)
-            .max_by_key(|(_, r)| {
-                let overlap = focused.vertical_overlap(r);
-                let dist = (r.center_x() - focused.center_x()).abs();
-                // Prefer more overlap, then closer distance.
-                (overlap, -dist)
-            })
-            .map(|(h, _)| *h)
+            .min_by_key(|(_, m)| (m.work_area.center_x() - current_cx).abs())
+            .map(|(i, _)| i);
+
+        match adjacent {
+            Some(idx) => {
+                mosaico_core::log_debug!("  -> AdjacentMonitor {}", idx);
+                Some(SpatialTarget::AdjacentMonitor(idx))
+            }
+            None => {
+                mosaico_core::log_debug!("  -> None (no monitor in dir {})", dir);
+                None
+            }
+        }
     }
 
-    fn move_to_monitor(&mut self, direction: i32) {
-        let Some(hwnd) = self.focused_window else {
-            return;
-        };
-        if self.monitors.len() <= 1 {
-            return;
-        }
-        let source = self.focused_monitor;
-        let len = self.monitors.len() as i32;
-        let target = ((source as i32 + direction).rem_euclid(len)) as usize;
-        if source == target {
-            return;
-        }
-        self.monitors[source].workspace.remove(hwnd);
-        self.monitors[target].workspace.add(hwnd);
-        self.apply_layout_on(source);
-        self.apply_layout_on(target);
-        self.focused_monitor = target;
-        self.update_border();
+    fn find_entry_window(&self, monitor_idx: usize, dir: Direction) -> Option<usize> {
+        let state = &self.monitors[monitor_idx];
+        let positions = state
+            .workspace
+            .compute_layout(&self.layout, &state.work_area);
+        mosaico_core::spatial::find_entry(&positions, dir)
     }
 
     fn toggle_monocle(&mut self) {

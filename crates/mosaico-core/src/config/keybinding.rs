@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::Action;
+use crate::action::Direction;
 
 /// A user-configured keybinding that maps a key combination to an action.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -33,18 +34,16 @@ pub fn defaults() -> Vec<Keybinding> {
     use Modifier::{Alt, Shift};
 
     vec![
-        // Focus within workspace
-        bind(Action::FocusNext, "J", &[Alt]),
-        bind(Action::FocusPrev, "K", &[Alt]),
-        // Focus across monitors
-        bind(Action::FocusMonitorNext, "L", &[Alt]),
-        bind(Action::FocusMonitorPrev, "H", &[Alt]),
-        // Swap within workspace
-        bind(Action::SwapNext, "J", &[Alt, Shift]),
-        bind(Action::SwapPrev, "K", &[Alt, Shift]),
-        // Move across monitors
-        bind(Action::MoveToMonitorNext, "L", &[Alt, Shift]),
-        bind(Action::MoveToMonitorPrev, "H", &[Alt, Shift]),
+        // Focus: spatial navigation
+        bind(Action::Focus(Direction::Down), "J", &[Alt]),
+        bind(Action::Focus(Direction::Up), "K", &[Alt]),
+        bind(Action::Focus(Direction::Right), "L", &[Alt]),
+        bind(Action::Focus(Direction::Left), "H", &[Alt]),
+        // Move: spatial swap / cross-monitor
+        bind(Action::Move(Direction::Down), "J", &[Alt, Shift]),
+        bind(Action::Move(Direction::Up), "K", &[Alt, Shift]),
+        bind(Action::Move(Direction::Right), "L", &[Alt, Shift]),
+        bind(Action::Move(Direction::Left), "H", &[Alt, Shift]),
         // Layout
         bind(Action::Retile, "R", &[Alt, Shift]),
         bind(Action::ToggleMonocle, "T", &[Alt]),
