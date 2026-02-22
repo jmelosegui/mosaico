@@ -9,7 +9,14 @@ use mosaico_core::action::Direction;
 #[command(
     name = "mosaico",
     version,
-    about = "A cross-platform tiling window manager"
+    about = "A cross-platform tiling window manager",
+    before_help = concat!(
+        "\n",
+        "  \x1b[94m█▀▄▀█ █▀▀█ █▀▀▀ █▀▀█ ▀█▀ █▀▀▀ █▀▀█\x1b[0m\n",
+        "  \x1b[94m█ ▀ █ █  █ ▀▀▀█ █▀▀█  █  █    █  █\x1b[0m\n",
+        "  \x1b[94m▀   ▀ ▀▀▀▀ ▀▀▀▀ ▀  ▀ ▀▀▀ ▀▀▀▀ ▀▀▀▀\x1b[0m\n",
+        "                              \x1b[90mv", env!("CARGO_PKG_VERSION"), "\x1b[0m",
+    ),
 )]
 struct Cli {
     #[command(subcommand)]
@@ -73,6 +80,16 @@ enum ActionCommands {
     ToggleMonocle,
     /// Close the currently focused window
     CloseFocused,
+    /// Switch to workspace N (1-8) on the focused monitor
+    GoToWorkspace {
+        /// Workspace number (1-8)
+        n: u8,
+    },
+    /// Send the focused window to workspace N (1-8)
+    SendToWorkspace {
+        /// Workspace number (1-8)
+        n: u8,
+    },
 }
 
 #[derive(Subcommand)]
@@ -111,6 +128,8 @@ fn main() {
                 ActionCommands::Retile => Action::Retile,
                 ActionCommands::ToggleMonocle => Action::ToggleMonocle,
                 ActionCommands::CloseFocused => Action::CloseFocused,
+                ActionCommands::GoToWorkspace { n } => Action::GoToWorkspace(n),
+                ActionCommands::SendToWorkspace { n } => Action::SendToWorkspace(n),
             };
             commands::action::execute(action);
         }

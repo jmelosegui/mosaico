@@ -28,12 +28,13 @@ pub enum Modifier {
 ///
 /// Focus: Alt + H/J/K/L (left/down/up/right)
 /// Move/Swap: Alt + Shift + H/J/K/L
+/// Workspaces: Alt + 1..8 (switch), Alt + Shift + 1..8 (send)
 /// Monocle: Alt + T
 /// Retile: Alt + Shift + R
 pub fn defaults() -> Vec<Keybinding> {
     use Modifier::{Alt, Shift};
 
-    vec![
+    let mut bindings = vec![
         // Focus: spatial navigation
         bind(Action::Focus(Direction::Down), "J", &[Alt]),
         bind(Action::Focus(Direction::Up), "K", &[Alt]),
@@ -49,7 +50,16 @@ pub fn defaults() -> Vec<Keybinding> {
         bind(Action::ToggleMonocle, "T", &[Alt]),
         // Close window
         bind(Action::CloseFocused, "Q", &[Alt]),
-    ]
+    ];
+
+    // Workspaces: Alt+1..8 to switch, Alt+Shift+1..8 to send
+    for n in 1..=8u8 {
+        let key = n.to_string();
+        bindings.push(bind(Action::GoToWorkspace(n), &key, &[Alt]));
+        bindings.push(bind(Action::SendToWorkspace(n), &key, &[Alt, Shift]));
+    }
+
+    bindings
 }
 
 fn bind(action: Action, key: &str, modifiers: &[Modifier]) -> Keybinding {

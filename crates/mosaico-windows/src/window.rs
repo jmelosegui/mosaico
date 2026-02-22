@@ -59,6 +59,22 @@ impl Window {
         class == "Chrome_WidgetWin_1" || class == "MozillaWindowClass"
     }
 
+    /// Hides the window without destroying it.
+    pub fn hide(&self) {
+        use windows::Win32::UI::WindowsAndMessaging::{SW_HIDE, ShowWindow};
+        unsafe {
+            let _ = ShowWindow(self.hwnd, SW_HIDE);
+        }
+    }
+
+    /// Shows a previously hidden window.
+    pub fn show(&self) {
+        use windows::Win32::UI::WindowsAndMessaging::{SW_SHOWNOACTIVATE, ShowWindow};
+        unsafe {
+            let _ = ShowWindow(self.hwnd, SW_SHOWNOACTIVATE);
+        }
+    }
+
     /// Returns whether this looks like a real application window.
     ///
     /// Checks for a caption bar (`WS_CAPTION`) and rejects tool windows
