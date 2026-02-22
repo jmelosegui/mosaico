@@ -19,6 +19,14 @@ width = 4
 focused = "#00b4d8"
 # Hex color for the border in monocle mode.
 monocle = "#2d6a4f"
+
+[logging]
+# Enable file logging to ~/.config/mosaico/logs/mosaico.log.
+enabled = false
+# Minimum log level: "debug", "info", "warn", or "error".
+level = "info"
+# Maximum log file size in MB before rotation.
+max_file_mb = 10
 "##
     .to_string()
 }
