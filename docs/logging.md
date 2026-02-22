@@ -47,6 +47,7 @@ directory is created automatically if it does not exist.
 3. Opens or creates the log file
 4. Parses the configured level string
 5. Stores the `Logger` in a global `OnceLock<Mutex<Logger>>`
+6. Writes an initialization log message with the configured level and max size
 
 Initialization is called once in `daemon_loop()` after loading configuration.
 The `OnceLock` ensures thread-safe single initialization.
