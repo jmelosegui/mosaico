@@ -13,7 +13,8 @@ and monitors using vim-style H/J/K/L motions.
 | `crates/mosaico-core/src/spatial.rs` | Pure spatial functions: `find_neighbor()`, `find_entry()` |
 | `crates/mosaico-core/src/rect.rs` | `Rect::vertical_overlap()`, `Rect::horizontal_overlap()` |
 | `crates/mosaico-windows/src/monitor.rs` | `MonitorInfo`, enumeration and query functions |
-| `crates/mosaico-windows/src/tiling.rs` | Multi-monitor focus/move logic, spatial target resolution |
+| `crates/mosaico-windows/src/tiling/mod.rs` | `TilingManager`, `MonitorState`, `SpatialTarget` |
+| `crates/mosaico-windows/src/tiling/navigation.rs` | Multi-monitor focus/move logic, spatial target resolution |
 
 ### Key Types
 
@@ -26,11 +27,8 @@ and monitors using vim-style H/J/K/L motions.
 `enumerate_monitors()` uses `EnumDisplayMonitors` to discover all connected
 monitors, returning them sorted left-to-right by `work_area.x`.
 
-Additional utility functions:
+Additional utility function:
 
-- `primary_work_area()` -- returns the primary monitor's work area
-- `work_area_for_window(hwnd)` -- returns the work area of the monitor
-  containing a specific window
 - `monitor_id_for_window(hwnd)` -- returns the HMONITOR id for a window's
   monitor
 
@@ -75,16 +73,20 @@ entering from the right).
 
 ### Resolution Strategy
 
-`resolve_horizontal_target(direction)` (for Left/Right):
+`resolve_horizontal_target(direction)` (for Left/Right) in `navigation.rs`:
 
 1. Computes BSP layout positions for all windows on the current monitor
 2. Calls `spatial::find_neighbor()` to look for a same-monitor neighbor
 3. If a neighbor is found: returns `SpatialTarget::Neighbor(hwnd)`
-4. If no neighbor exists: scans all other monitors for one physically in the
-   requested direction (by `center_x` comparison), picks the closest. Returns
-   `SpatialTarget::AdjacentMonitor(idx)` or `None` if at the edge.
+4. If no neighbor exists: calls `find_adjacent_monitor(direction)` to find
+   the nearest monitor in the requested direction by `center_x` comparison.
+   Returns `SpatialTarget::AdjacentMonitor(idx)` or `None` if at the edge.
 
-`find_same_monitor_neighbor(direction)` (for Up/Down):
+`find_adjacent_monitor(direction)` scans all monitors and picks the one
+closest in the given horizontal direction based on work area center_x values.
+There is no wrapping -- navigation stops at the leftmost/rightmost monitor.
+
+`find_same_monitor_neighbor(direction)` (for Up/Down) in `navigation.rs`:
 
 1. Computes BSP layout positions
 2. Calls `spatial::find_neighbor()` for vertical lookup
@@ -147,9 +149,9 @@ At startup, `daemon_loop()`:
   move operations.
 - Spatial navigation lives in `mosaico-core` as pure functions, keeping the
   core crate testable and the platform crate focused on Win32 integration.
-- Horizontal overflow finds the physically nearest monitor by `center_x`
-  rather than using a fixed index offset, handling non-uniform monitor
-  arrangements correctly.
+- `find_adjacent_monitor()` finds the physically nearest monitor by
+  `center_x` comparison rather than using a fixed index offset, handling
+  non-uniform monitor arrangements correctly.
 - **No wrapping**: Left/Right stop at the edge of the monitor array rather
   than wrapping around. This is more intuitive for physical monitor layouts.
 - Vertical overlap (for horizontal navigation) and horizontal overlap (for

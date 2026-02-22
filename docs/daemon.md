@@ -1,18 +1,22 @@
 # Daemon & Event Loop
 
 The daemon is the long-running background process that manages window tiling.
-It orchestrates the Win32 event loop, hotkeys, IPC listener, and the tiling
-manager, all on separate threads unified by a single `mpsc` channel.
+It orchestrates the Win32 event loop, hotkeys, IPC listener, status bar, and
+the tiling manager, all on separate threads unified by a single `mpsc`
+channel.
 
 ## Architecture
 
 The daemon uses a multi-thread architecture:
 
-1. **Main thread** -- runs `TilingManager` logic, processes all messages
+1. **Main thread** -- runs `TilingManager` + `BarManager` logic, processes
+   all messages
 2. **Event loop thread** -- runs `SetWinEventHook` + `GetMessageW` pump,
    handles hotkey registration and dispatch
 3. **IPC thread** -- runs blocking named pipe server, accepts CLI commands
 4. **Config watcher thread** -- polls config files for changes every 2 seconds
+5. **Tick thread** -- sends a `DaemonMsg::Tick` every 1 second for bar
+   widget refresh (clock, CPU, RAM)
 
 Three additional bridge threads forward events, actions, and config reloads
 from separate `mpsc` channels into the unified `DaemonMsg` channel.
@@ -24,14 +28,16 @@ from separate `mpsc` channels into the unified `DaemonMsg` channel.
 | `crates/mosaico-windows/src/daemon.rs` | `run()`, `daemon_loop()`, `ipc_loop()`, `DaemonMsg` |
 | `crates/mosaico-windows/src/event_loop.rs` | `start()`, `EventLoopHandle`, `run_message_pump()`, `win_event_proc()` |
 | `crates/mosaico-windows/src/config_watcher.rs` | `watch()`, `ConfigReload` -- polls config files for changes |
+| `crates/mosaico-windows/src/bar_manager.rs` | `BarManager` -- manages status bar windows across monitors |
 
 ### Key Types
 
-- `DaemonMsg` -- unified message enum with four variants:
+- `DaemonMsg` -- unified message enum with five variants:
   - `Event(WindowEvent)` -- window state change from Win32
   - `Action(Action)` -- user action from hotkey
   - `Command(Command, ResponseSender)` -- CLI command from IPC with reply channel
-  - `Reload(ConfigReload)` -- validated config change from file watcher
+  - `Reload(Box<ConfigReload>)` -- validated config change from file watcher
+  - `Tick` -- 1-second timer for bar widget refresh
 - `EventLoopHandle` -- contains the thread ID and `JoinHandle`; `.stop()`
   posts `WM_QUIT` to terminate the message pump
 
@@ -49,29 +55,43 @@ subcommand:
 
 1. Load configuration (`config.toml`, `keybindings.toml`, `rules.toml`)
 2. Initialize the logger
-3. Create `TilingManager` with layout, rules, and border config
-4. Create `mpsc` channels for events, actions, and the unified daemon channel
-5. Start the event loop thread (registers `SetWinEventHook` + hotkeys)
-6. Start bridge threads to forward events and actions into `DaemonMsg`
-7. Start the IPC thread
-8. Start the config file watcher thread
-9. Start a reload bridge thread to forward `ConfigReload` into `DaemonMsg`
-10. Enter the main receive loop
+3. Resolve the current theme from `config.theme`
+4. Load `bar.toml` and create `BarManager` with monitor rects and theme
+5. Create `TilingManager` with layout, rules, and border config
+6. Adjust work areas for bar height on monitors that display a bar
+7. Perform initial bar render with `bar_mgr.update(&manager.bar_states())`
+8. Create `mpsc` channels for events, actions, and the unified daemon channel
+9. Start the event loop thread (registers `SetWinEventHook` + hotkeys)
+10. Start bridge threads to forward events and actions into `DaemonMsg`
+11. Start the IPC thread
+12. Start the config file watcher thread
+13. Start a reload bridge thread to forward `ConfigReload` into `DaemonMsg`
+14. Start the tick thread (1-second interval for bar refresh)
+15. Enter the main receive loop
 
 ## Main Loop
 
-The main thread runs a `recv_timeout(100ms)` loop that dispatches messages:
+The main thread runs a blocking `recv()` loop that dispatches messages:
 
-- `DaemonMsg::Event(event)` -- forwarded to `TilingManager::handle_event()`
-- `DaemonMsg::Action(action)` -- forwarded to `TilingManager::handle_action()`
+- `DaemonMsg::Event(event)` -- forwarded to `TilingManager::handle_event()`,
+  then bar is updated
+- `DaemonMsg::Action(action)` -- forwarded to `TilingManager::handle_action()`,
+  then bar is updated
 - `DaemonMsg::Command(cmd, reply)` -- handles `Stop` (breaks loop),
-  `Status` (replies ok), `Action` (forwards to tiling manager)
-- `DaemonMsg::Reload(ConfigReload::Config(cfg))` -- calls
-  `TilingManager::reload_config()` to apply new layout/border settings
+  `Status` (replies with window count), `Action` (forwards to tiling manager
+  and updates bar)
+- `DaemonMsg::Reload(ConfigReload::Config(cfg))` -- resolves the new theme,
+  calls `TilingManager::reload_config()`, re-resolves bar colors, updates bar
 - `DaemonMsg::Reload(ConfigReload::Rules(rules))` -- calls
   `TilingManager::reload_rules()` to replace window rules
+- `DaemonMsg::Reload(ConfigReload::Bar(bar_cfg))` -- reloads the bar with
+  `bar_mgr.reload()`, re-resolves colors, resets and adjusts work areas for
+  the new bar height, then retiles and updates
+- `DaemonMsg::Tick` -- calls `bar_mgr.update()` to refresh time-based
+  widgets (clock, CPU, RAM)
 
-The 100ms timeout prevents busy-waiting while allowing responsive shutdown.
+The blocking `recv()` is CPU-efficient (no polling) and wakes immediately
+when any message arrives.
 
 ## Event Loop Thread
 
@@ -109,12 +129,13 @@ since Win32 callbacks cannot capture Rust closures.
 
 ## Config File Watcher
 
-The config watcher runs on a dedicated thread, polling `config.toml` and
-`rules.toml` for modification time changes every 2 seconds.
+The config watcher runs on a dedicated thread, polling `config.toml`,
+`rules.toml`, and `bar.toml` for modification time changes every 2 seconds.
 
 ### Key Types
 
-- `ConfigReload` (enum) -- `Config(Config)` or `Rules(Vec<WindowRule>)`
+- `ConfigReload` (enum) -- `Config(Config)`, `Rules(Vec<WindowRule>)`, or
+  `Bar(Box<BarConfig>)`
 
 ### Behavior
 
@@ -136,19 +157,27 @@ Shutdown is triggered by:
 
 - A `Stop` command received via IPC
 - The main loop breaks, which triggers cleanup:
+  - `TilingManager::restore_all_windows()` -- shows all hidden workspace
+    windows so they are not left invisible after exit
+  - `BarManager::hide_all()` -- hides all status bar overlay windows
   - `EventLoopHandle::stop()` posts `WM_QUIT` to the event loop thread
   - `HotkeyManager::Drop` unregisters all hotkeys
   - `SetWinEventHook` is unhooked
   - PID file is removed
-  - Bridge threads (event, action, reload) are joined
+  - Bridge threads (event, action, reload) and tick thread are joined
 
 ## Design Decisions
 
-- Three-thread architecture separates concerns: Win32 APIs require a message
-  pump on the same thread, blocking pipe I/O needs its own thread, and tiling
-  logic runs on the main thread.
+- Multi-thread architecture separates concerns: Win32 APIs require a message
+  pump on the same thread, blocking pipe I/O needs its own thread, bar and
+  tiling logic run on the main thread.
 - Bridge threads exist because Win32 events and hotkeys produce different
   channel types that need to be unified into `DaemonMsg`.
-- `recv_timeout(100ms)` balances responsiveness with CPU efficiency.
+- Blocking `recv()` is more CPU-efficient than `recv_timeout()` since the
+  1-second tick thread provides the periodic wake-up needed for bar refresh.
+- The `BarManager` is updated after every event, action, and command so that
+  workspace indicators and window counts stay current.
+- Theme tracking (`current_theme`) lives in the daemon loop so that both
+  config reloads and bar reloads can re-resolve named colors.
 - Thread-local `EVENT_SENDER` is the only way to pass data from a Win32
   callback to Rust code since the callback signature is fixed by the OS.

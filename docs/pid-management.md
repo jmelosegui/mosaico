@@ -11,7 +11,8 @@ CLI commands.
 | File | Purpose |
 |------|---------|
 | `crates/mosaico-core/src/pid.rs` | `pid_path()`, `write_pid_file()`, `read_pid_file()`, `remove_pid_file()` |
-| `crates/mosaico-windows/src/process.rs` | `is_process_alive()` |
+| `crates/mosaico-windows/src/process.rs` | `is_process_alive()`, `kill_process()` |
+| `crates/mosaico/src/commands/stop.rs` | `mosaico stop` with PID-based fallback |
 
 ### Key Types
 
@@ -51,6 +52,13 @@ exists. Returns `true` if the process is alive, `false` otherwise.
 This uses the minimal permission flag to check process existence without
 requiring elevated privileges.
 
+### `kill_process(pid: u32) -> bool`
+
+Windows-specific function that opens the process with `PROCESS_TERMINATE`
+permission and calls `TerminateProcess` to forcefully kill it. Returns `true`
+if the process was successfully terminated, `false` otherwise. Used as a
+fallback when the IPC pipe is unavailable.
+
 ## Usage Across Commands
 
 ### `mosaico start`
@@ -64,9 +72,12 @@ requiring elevated privileges.
 
 ### `mosaico stop`
 
-1. Sends a `Stop` command via IPC
-2. The daemon's main loop exits, triggering PID file removal in the cleanup
-   path
+1. Attempts graceful shutdown by sending a `Stop` command via IPC
+2. If IPC succeeds: the daemon's main loop exits, and PID file is removed by
+   both the daemon cleanup path and the stop command
+3. If IPC fails (pipe unavailable): falls back to reading the PID file and
+   calling `kill_process(pid)` to forcefully terminate the daemon process,
+   then removes the PID file
 
 ### `mosaico status`
 
@@ -109,3 +120,9 @@ a new daemon instance.
 - **PID file is removed in the cleanup path of `daemon::run()`**, which
   uses a simple sequential flow (not a `Drop` guard), so cleanup runs even
   if the daemon loop returns an error.
+- **PID-based kill fallback** in `stop` ensures the daemon can be stopped
+  even when the IPC thread has crashed, covering scenarios like thread panics
+  or resource exhaustion that leave the process alive but unresponsive.
+- **`kill_process` uses `PROCESS_TERMINATE`** rather than sending a signal
+  because Windows does not have Unix-style signals; `TerminateProcess` is
+  the standard forceful shutdown mechanism.

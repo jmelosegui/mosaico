@@ -1,8 +1,9 @@
 # Debug Tools
 
-Mosaico provides three debugging subcommands for inspecting and interacting
-with the window manager's view of the desktop. These run independently of the
-daemon and are useful for troubleshooting.
+Mosaico provides debugging subcommands for inspecting and interacting with
+the window manager's view of the desktop, plus a `doctor` command for health
+checks. These run independently of the daemon and are useful for
+troubleshooting.
 
 ## Architecture
 
@@ -13,6 +14,7 @@ daemon and are useful for troubleshooting.
 | `crates/mosaico/src/commands/debug/list.rs` | `mosaico debug list` handler |
 | `crates/mosaico/src/commands/debug/events.rs` | `mosaico debug events` handler |
 | `crates/mosaico/src/commands/debug/move_window.rs` | `mosaico debug move` handler |
+| `crates/mosaico/src/commands/doctor.rs` | `mosaico doctor` handler |
 
 ## `mosaico debug list`
 
@@ -101,6 +103,34 @@ This command is useful for:
 - Testing window positioning with frame compensation
 - Verifying that `set_rect()` produces the expected visual result
 - Manually arranging a specific window for debugging
+
+## `mosaico doctor`
+
+Runs a comprehensive health check of the Mosaico installation. Prints
+colored status tags:
+
+| Tag | Color | Meaning |
+|-----|-------|---------|
+| `[ok]` | Green | Check passed |
+| `[warn]` | Yellow | Non-critical issue |
+| `[fail]` | Red | Critical problem |
+| `[fixed]` | Cyan | Auto-remediated |
+
+### Checks Performed
+
+1. **Config directory** -- verifies `~/.config/mosaico/` exists; creates it
+   if missing (`[fixed]`)
+2. **config.toml** -- validates TOML syntax via `try_load()`
+3. **keybindings.toml** -- validates syntax via `try_load_keybindings()`
+4. **Keybinding key codes** -- loads all keybindings and resolves each key
+   name through `vk_from_name()`; reports the total count of valid bindings
+   or lists any unresolvable key names
+5. **rules.toml** -- validates syntax via `try_load_rules()`
+6. **bar.toml** -- validates syntax via `try_load_bar()`
+7. **Daemon status** -- checks IPC pipe connectivity, PID file, and process
+   liveness; auto-removes stale PID files (`[fixed]`)
+8. **Monitors** -- enumerates all connected monitors via
+   `enumerate_monitors()` and prints per-monitor dimensions and positions
 
 ## Design Decisions
 
