@@ -12,7 +12,9 @@ unifying interface between hotkeys and CLI commands -- both paths produce an
 |------|---------|
 | `crates/mosaico-core/src/action.rs` | `Action` enum, `Direction` enum |
 | `crates/mosaico-core/src/spatial.rs` | Pure spatial navigation functions (`find_neighbor`, `find_entry`) |
-| `crates/mosaico-windows/src/tiling.rs` | `TilingManager::handle_action()` -- executes actions |
+| `crates/mosaico-windows/src/tiling/mod.rs` | `TilingManager::handle_action()` -- executes actions |
+| `crates/mosaico-windows/src/tiling/navigation.rs` | `focus_direction()`, `move_direction()` |
+| `crates/mosaico-windows/src/tiling/workspace.rs` | `goto_workspace()`, `send_to_workspace()` |
 | `crates/mosaico/src/main.rs` | CLI `ActionCommands` / `DirectionCommands` mapping |
 | `crates/mosaico/src/commands/action.rs` | Sends actions to the daemon over IPC |
 
@@ -55,6 +57,8 @@ Directions parse from and serialize to lowercase strings: `"left"`, `"right"`,
 | `Retile` | Re-apply layout on all monitors | Alt+Shift+R |
 | `ToggleMonocle` | Toggle monocle mode on focused monitor | Alt+T |
 | `CloseFocused` | Close the focused window via `WM_CLOSE` | Alt+Q |
+| `GoToWorkspace(1-8)` | Switch to workspace N on focused monitor | Alt+1 - Alt+8 |
+| `SendToWorkspace(1-8)` | Send focused window to workspace N | Alt+Shift+1 - Alt+Shift+8 |
 
 ### Horizontal vs Vertical Behavior
 
@@ -87,11 +91,13 @@ Both paths converge at `TilingManager::handle_action()`.
 
 | Action | Method |
 |--------|--------|
-| `Focus(dir)` | `focus_direction(dir)` |
-| `Move(dir)` | `move_direction(dir)` |
-| `Retile` | `retile_all()` |
-| `ToggleMonocle` | `toggle_monocle()` |
+| `Focus(dir)` | `focus_direction(dir)` (in `navigation.rs`) |
+| `Move(dir)` | `move_direction(dir)` (in `navigation.rs`) |
+| `Retile` | `retile_all()` (in `layout.rs`) |
+| `ToggleMonocle` | `toggle_monocle()` (in `layout.rs`) |
 | `CloseFocused` | `close_focused()` |
+| `GoToWorkspace(n)` | `goto_workspace(n)` (in `workspace.rs`) |
+| `SendToWorkspace(n)` | `send_to_workspace(n)` (in `workspace.rs`) |
 
 `focus_direction` and `move_direction` branch on horizontal vs vertical
 internally, using `resolve_horizontal_target()` for Left/Right and
@@ -106,9 +112,11 @@ Actions use custom `FromStr`/`Display` implementations for serde:
 - `Retile` -> `"retile"`
 - `ToggleMonocle` -> `"toggle-monocle"`
 - `CloseFocused` -> `"close-focused"`
+- `GoToWorkspace(3)` -> `"goto-workspace-3"`
+- `SendToWorkspace(1)` -> `"send-to-workspace-1"`
 
-This format is used in TOML configuration files (keybindings) and JSON IPC
-messages.
+Workspace numbers are validated to the range 1-8 during parsing. This format
+is used in TOML configuration files (keybindings) and JSON IPC messages.
 
 ## Design Decisions
 
@@ -129,7 +137,7 @@ messages.
 ## Tests
 
 - `roundtrip_all_actions` -- verifies `Display`/`FromStr` roundtrip for all
-  11 action variants
+  action variants (including workspace actions)
 - `unknown_action_returns_error` -- invalid action strings produce errors
 - `unknown_direction_returns_error` -- invalid direction strings produce errors
 - `serde_roundtrip` -- JSON serialization roundtrip
