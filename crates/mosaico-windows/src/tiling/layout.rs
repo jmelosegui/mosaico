@@ -15,7 +15,13 @@ impl TilingManager {
             return;
         }
         let idx = self.focused_monitor;
-        self.monitors[idx].monocle = !self.monitors[idx].monocle;
+        let enabling = !self.monitors[idx].monocle;
+        self.monitors[idx].monocle = enabling;
+        if enabling {
+            self.monitors[idx].monocle_window = self.focused_window;
+        } else {
+            self.monitors[idx].monocle_window = None;
+        }
         self.apply_layout_on(idx);
         self.update_border();
     }
