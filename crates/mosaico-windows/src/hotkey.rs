@@ -55,7 +55,7 @@ impl HotkeyManager {
                 modifiers |= modifier_to_flag(m);
             }
 
-            self.register(id, modifiers, vk, binding.action.clone());
+            self.register(id, modifiers, vk, binding.action);
         }
     }
 
@@ -64,7 +64,7 @@ impl HotkeyManager {
     /// Called from the message pump when a `WM_HOTKEY` message arrives.
     pub fn dispatch(&self, hotkey_id: i32) {
         if let Some(hotkey) = self.hotkeys.iter().find(|h| h.id == hotkey_id) {
-            let _ = self.sender.send(hotkey.action.clone());
+            let _ = self.sender.send(hotkey.action);
         }
     }
 
