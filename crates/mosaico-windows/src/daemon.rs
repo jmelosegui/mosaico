@@ -43,17 +43,19 @@ type ResponseSender = mpsc::Sender<Response>;
 /// The inner daemon loop, separated so cleanup always runs in `run()`.
 fn daemon_loop() -> WindowResult<()> {
     let config = config::load();
+    mosaico_core::log::init(&config.logging);
+
     let keybindings = config::load_keybindings();
     let rules = config::load_rules();
-    if let Some(path) = config::config_path() {
-        eprintln!("Config: {}", path.display());
-    }
-    if let Some(path) = config::keybindings_path() {
-        eprintln!("Keybindings: {}", path.display());
-    }
-    if let Some(path) = config::rules_path() {
-        eprintln!("Rules: {}", path.display());
-    }
+
+    mosaico_core::log_info!("Daemon started (PID: {})", std::process::id());
+    mosaico_core::log_info!(
+        "Config: layout(gap={}, ratio={}), borders(width={}), log_level={}",
+        config.layout.gap,
+        config.layout.ratio,
+        config.borders.width,
+        config.logging.level
+    );
 
     let layout = BspLayout {
         gap: config.layout.gap,
@@ -63,7 +65,7 @@ fn daemon_loop() -> WindowResult<()> {
     let (tx, rx) = mpsc::channel::<DaemonMsg>();
 
     let mut manager = TilingManager::new(layout, rules, config.borders)?;
-    eprintln!("Managing {} windows.", manager.window_count());
+    mosaico_core::log_info!("Managing {} windows", manager.window_count());
 
     // Start the Win32 event loop + hotkeys on its own thread.
     let event_tx = tx.clone();
@@ -106,7 +108,7 @@ fn daemon_loop() -> WindowResult<()> {
             Ok(DaemonMsg::Command(Command::Stop, reply_tx)) => {
                 let response = Response::ok_with_message("Daemon stopping");
                 let _ = reply_tx.send(response);
-                eprintln!("Stop command received. Shutting down.");
+                mosaico_core::log_info!("Stop command received, shutting down");
                 break;
             }
             Ok(DaemonMsg::Command(Command::Status, reply_tx)) => {
