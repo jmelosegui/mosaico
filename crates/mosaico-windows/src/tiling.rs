@@ -156,6 +156,22 @@ impl TilingManager {
         self.monitors.iter().map(|m| m.workspace.len()).sum()
     }
 
+    /// Applies a new layout and border config, then retiles all windows.
+    pub fn reload_config(&mut self, config: &mosaico_core::config::Config) {
+        self.layout = BspLayout {
+            gap: config.layout.gap,
+            ratio: config.layout.ratio,
+        };
+        self.border_config = config.borders.clone();
+        self.retile_all();
+        self.update_border();
+    }
+
+    /// Replaces the window rules used for managing new windows.
+    pub fn reload_rules(&mut self, rules: Vec<WindowRule>) {
+        self.rules = rules;
+    }
+
     fn is_tileable(&self, hwnd: usize) -> bool {
         let window = Window::from_raw(hwnd);
         if !window.is_visible() || !window.is_app_window() {
