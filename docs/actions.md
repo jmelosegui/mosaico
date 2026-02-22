@@ -10,31 +10,58 @@ unifying interface between hotkeys and CLI commands -- both paths produce an
 
 | File | Purpose |
 |------|---------|
-| `crates/mosaico-core/src/action.rs` | `Action` enum definition |
+| `crates/mosaico-core/src/action.rs` | `Action` enum, `Direction` enum |
+| `crates/mosaico-core/src/spatial.rs` | Pure spatial navigation functions (`find_neighbor`, `find_entry`) |
 | `crates/mosaico-windows/src/tiling.rs` | `TilingManager::handle_action()` -- executes actions |
-| `crates/mosaico/src/main.rs` | CLI `ActionCommands` enum mapping subcommands to actions |
+| `crates/mosaico/src/main.rs` | CLI `ActionCommands` / `DirectionCommands` mapping |
 | `crates/mosaico/src/commands/action.rs` | Sends actions to the daemon over IPC |
 
 ### Key Types
 
+- `Direction` (enum) -- `Left`, `Right`, `Up`, `Down`. Implements `FromStr`,
+  `Display`, and `Copy`.
 - `Action` (enum) -- derives `Debug`, `Clone`, `PartialEq`, `Serialize`,
-  `Deserialize` with `#[serde(rename_all = "kebab-case")]`
+  `Deserialize`. Uses custom `FromStr`/`Display`/`TryFrom<String>`/`Into<String>`
+  for serde instead of the older `rename_all` attribute.
+
+## Direction
+
+The `Direction` enum represents spatial directions for focus and move actions:
+
+```rust
+pub enum Direction {
+    Left,
+    Right,
+    Up,
+    Down,
+}
+```
+
+Directions parse from and serialize to lowercase strings: `"left"`, `"right"`,
+`"up"`, `"down"`.
 
 ## Available Actions
 
 | Action | Description | Default Hotkey |
 |--------|-------------|----------------|
-| `FocusNext` | Move focus to next window in workspace | Alt+J |
-| `FocusPrev` | Move focus to previous window | Alt+K |
-| `SwapNext` | Swap focused window with next in order | Alt+Shift+J |
-| `SwapPrev` | Swap focused window with previous | Alt+Shift+K |
+| `Focus(Left)` | Focus window to the left (crosses monitors) | Alt+H |
+| `Focus(Right)` | Focus window to the right (crosses monitors) | Alt+L |
+| `Focus(Up)` | Focus window above (same monitor only) | Alt+K |
+| `Focus(Down)` | Focus window below (same monitor only) | Alt+J |
+| `Move(Left)` | Swap/move window left (crosses monitors) | Alt+Shift+H |
+| `Move(Right)` | Swap/move window right (crosses monitors) | Alt+Shift+L |
+| `Move(Up)` | Swap window up (same monitor only) | Alt+Shift+K |
+| `Move(Down)` | Swap window down (same monitor only) | Alt+Shift+J |
 | `Retile` | Re-apply layout on all monitors | Alt+Shift+R |
-| `FocusMonitorNext` | Focus right spatial neighbor or next monitor | Alt+L |
-| `FocusMonitorPrev` | Focus left spatial neighbor or previous monitor | Alt+H |
-| `MoveToMonitorNext` | Move window right or to next monitor | Alt+Shift+L |
-| `MoveToMonitorPrev` | Move window left or to previous monitor | Alt+Shift+H |
 | `ToggleMonocle` | Toggle monocle mode on focused monitor | Alt+T |
 | `CloseFocused` | Close the focused window via `WM_CLOSE` | Alt+Q |
+
+### Horizontal vs Vertical Behavior
+
+- **Left/Right**: spatial horizontal neighbor lookup. If no neighbor exists on
+  the current monitor, overflows to the physically adjacent monitor.
+- **Up/Down**: spatial vertical neighbor lookup. Stops at the monitor boundary
+  (no cross-monitor overflow).
 
 ## Trigger Paths
 
@@ -48,7 +75,7 @@ Key press -> WM_HOTKEY -> HotkeyManager::dispatch() -> mpsc channel
 ### CLI Path
 
 ```
-mosaico action <verb> -> Command::Action { action } -> named pipe
+mosaico action focus left -> Command::Action { action } -> named pipe
   -> ipc_loop -> DaemonMsg::Command -> TilingManager::handle_action()
 ```
 
@@ -56,40 +83,53 @@ Both paths converge at `TilingManager::handle_action()`.
 
 ## Execution
 
-`TilingManager::handle_action()` matches each variant and calls the
-corresponding method:
+`TilingManager::handle_action()` matches each variant:
 
-| Action | Method | File:Line |
-|--------|--------|-----------|
-| `FocusNext` | `focus_adjacent(1)` | `tiling.rs:190` |
-| `FocusPrev` | `focus_adjacent(-1)` | `tiling.rs:190` |
-| `SwapNext` | `swap_adjacent(1)` | `tiling.rs:217` |
-| `SwapPrev` | `swap_adjacent(-1)` | `tiling.rs:217` |
-| `Retile` | `retile_all()` | `tiling.rs:363` |
-| `FocusMonitorNext` | `focus_monitor(1)` | `tiling.rs:233` |
-| `FocusMonitorPrev` | `focus_monitor(-1)` | `tiling.rs:233` |
-| `MoveToMonitorNext` | `move_to_monitor(1)` | `tiling.rs:332` |
-| `MoveToMonitorPrev` | `move_to_monitor(-1)` | `tiling.rs:332` |
-| `ToggleMonocle` | `toggle_monocle()` | `tiling.rs:353` |
-| `CloseFocused` | `close_focused()` | `tiling.rs:174` |
+| Action | Method |
+|--------|--------|
+| `Focus(dir)` | `focus_direction(dir)` |
+| `Move(dir)` | `move_direction(dir)` |
+| `Retile` | `retile_all()` |
+| `ToggleMonocle` | `toggle_monocle()` |
+| `CloseFocused` | `close_focused()` |
+
+`focus_direction` and `move_direction` branch on horizontal vs vertical
+internally, using `resolve_horizontal_target()` for Left/Right and
+`find_same_monitor_neighbor()` for Up/Down.
 
 ## Serialization
 
-Actions use `#[serde(rename_all = "kebab-case")]` so they serialize as
-human-readable strings:
+Actions use custom `FromStr`/`Display` implementations for serde:
 
-- `FocusNext` -> `"focus-next"`
-- `MoveToMonitorPrev` -> `"move-to-monitor-prev"`
+- `Focus(Left)` -> `"focus-left"`
+- `Move(Right)` -> `"move-right"`
+- `Retile` -> `"retile"`
+- `ToggleMonocle` -> `"toggle-monocle"`
+- `CloseFocused` -> `"close-focused"`
 
-This format is used in both TOML configuration files (keybindings) and JSON
-IPC messages.
+This format is used in TOML configuration files (keybindings) and JSON IPC
+messages.
 
 ## Design Decisions
 
-- Actions are a flat enum rather than a nested structure, keeping dispatch
-  simple and serialization straightforward.
-- Direction-based methods (`focus_adjacent`, `swap_adjacent`, `focus_monitor`,
-  `move_to_monitor`) take `+1` or `-1` to avoid duplicating logic for
-  next/prev variants.
+- `Focus` and `Move` each take a `Direction` parameter rather than having
+  separate `FocusNext`/`FocusPrev`/`FocusMonitorNext`/etc. variants. This
+  consolidates direction logic in one place and eliminates the distinction
+  between within-workspace and cross-monitor actions.
+- The spatial navigation algorithm lives in `mosaico-core/src/spatial.rs` as
+  pure functions over `(handle, Rect)` slices, making it testable without
+  Win32 dependencies.
 - `CloseFocused` sends `WM_CLOSE` rather than forcefully terminating the
   process, giving the target window a chance to save state or prompt the user.
+- Left/Right overflow to adjacent monitors because horizontal monitor
+  arrangement is the common physical layout. Up/Down stop at boundaries
+  because vertical monitor stacking is less common and overflowing would be
+  confusing.
+
+## Tests
+
+- `roundtrip_all_actions` -- verifies `Display`/`FromStr` roundtrip for all
+  11 action variants
+- `unknown_action_returns_error` -- invalid action strings produce errors
+- `unknown_direction_returns_error` -- invalid direction strings produce errors
+- `serde_roundtrip` -- JSON serialization roundtrip
