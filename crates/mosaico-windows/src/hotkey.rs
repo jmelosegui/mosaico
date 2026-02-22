@@ -59,11 +59,6 @@ impl HotkeyManager {
         }
     }
 
-    /// Returns a reference to the action sender.
-    pub fn sender(&self) -> &Sender<Action> {
-        &self.sender
-    }
-
     /// Dispatches a `WM_HOTKEY` message by hotkey ID.
     ///
     /// Called from the message pump when a `WM_HOTKEY` message arrives.
