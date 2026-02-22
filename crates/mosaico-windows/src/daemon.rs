@@ -5,6 +5,7 @@ use std::time::Duration;
 use mosaico_core::ipc::{Command, Response};
 use mosaico_core::{Action, BspLayout, WindowResult, config, pid};
 
+use crate::config_watcher::{self, ConfigReload};
 use crate::dpi;
 use crate::event_loop;
 use crate::ipc::PipeServer;
@@ -35,6 +36,8 @@ enum DaemonMsg {
     Action(Action),
     /// A CLI command with a callback to send the response.
     Command(Command, ResponseSender),
+    /// A validated config reload from the file watcher.
+    Reload(ConfigReload),
 }
 
 /// Sends a response back to the IPC thread for the connected client.
@@ -96,6 +99,20 @@ fn daemon_loop() -> WindowResult<()> {
     let ipc_tx = tx.clone();
     let ipc_thread = thread::spawn(move || ipc_loop(ipc_tx));
 
+    // Start the config file watcher on its own thread.
+    let (reload_tx, reload_rx) = mpsc::channel::<ConfigReload>();
+    let _watcher_thread = thread::spawn(move || config_watcher::watch(reload_tx));
+
+    // Bridge: forward config reloads into the unified channel.
+    let reload_bridge_tx = tx.clone();
+    let reload_bridge = thread::spawn(move || {
+        for reload in reload_rx {
+            if reload_bridge_tx.send(DaemonMsg::Reload(reload)).is_err() {
+                break;
+            }
+        }
+    });
+
     // Main processing loop.
     loop {
         match rx.recv_timeout(Duration::from_millis(100)) {
@@ -124,6 +141,12 @@ fn daemon_loop() -> WindowResult<()> {
                 let response = Response::ok();
                 let _ = reply_tx.send(response);
             }
+            Ok(DaemonMsg::Reload(ConfigReload::Config(cfg))) => {
+                manager.reload_config(&cfg);
+            }
+            Ok(DaemonMsg::Reload(ConfigReload::Rules(rules))) => {
+                manager.reload_rules(rules);
+            }
             Err(RecvTimeoutError::Timeout) => continue,
             Err(RecvTimeoutError::Disconnected) => break,
         }
@@ -133,6 +156,7 @@ fn daemon_loop() -> WindowResult<()> {
     drop(tx);
     let _ = event_bridge.join();
     let _ = action_bridge.join();
+    let _ = reload_bridge.join();
     let _ = ipc_thread.join();
 
     Ok(())
