@@ -70,6 +70,12 @@ unsafe extern "system" fn monitor_enum_callback(
     BOOL(1) // Continue enumeration
 }
 
+/// Converts a Win32 `RECT` (left/top/right/bottom) to a
+/// mosaico `Rect` (x/y/width/height).
+pub(crate) fn rect_from_win32(r: &RECT) -> Rect {
+    Rect::new(r.left, r.top, r.right - r.left, r.bottom - r.top)
+}
+
 /// Queries the work area for a given monitor handle.
 fn work_area_for_monitor(monitor: HMONITOR) -> WindowResult<Rect> {
     let mut info = MONITORINFO {
@@ -85,11 +91,5 @@ fn work_area_for_monitor(monitor: HMONITOR) -> WindowResult<Rect> {
         return Err("Failed to get monitor info".into());
     }
 
-    let rc = info.rcWork;
-    Ok(Rect::new(
-        rc.left,
-        rc.top,
-        rc.right - rc.left,
-        rc.bottom - rc.top,
-    ))
+    Ok(rect_from_win32(&info.rcWork))
 }
