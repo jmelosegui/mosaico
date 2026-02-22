@@ -1,5 +1,5 @@
 # Mosaico installer script for Windows
-# Usage: irm https://mosaico.dev/install.ps1 | iex
+# Usage: irm https://raw.githubusercontent.com/jmelosegui/mosaico/main/docs/install.ps1 | iex
 
 $ErrorActionPreference = "Stop"
 
@@ -7,7 +7,6 @@ $Repo = "jmelosegui/mosaico"
 $InstallDir = "$env:LOCALAPPDATA\mosaico"
 
 function Write-Info { param($msg) Write-Host "==> " -ForegroundColor Green -NoNewline; Write-Host $msg }
-function Write-Warn { param($msg) Write-Host "warning: " -ForegroundColor Yellow -NoNewline; Write-Host $msg }
 function Write-Err { param($msg) Write-Host "error: " -ForegroundColor Red -NoNewline; Write-Host $msg; exit 1 }
 
 Write-Info "Installing mosaico..."
@@ -37,10 +36,14 @@ Invoke-WebRequest -Uri $Url -OutFile $ZipPath
 Write-Info "Extracting..."
 Expand-Archive -Path $ZipPath -DestinationPath $TempDir -Force
 
+# Stop running daemon before replacing the binary
+Stop-Process -Name mosaico -Force -ErrorAction SilentlyContinue
+
 # Install
 Write-Info "Installing to $InstallDir..."
 New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
-Move-Item -Path (Join-Path $TempDir "mosaico.exe") -Destination (Join-Path $InstallDir "mosaico.exe") -Force
+Copy-Item -Path (Join-Path $TempDir "mosaico.exe") -Destination (Join-Path $InstallDir "mosaico.exe") -Force
+Unblock-File -Path (Join-Path $InstallDir "mosaico.exe")
 
 # Cleanup
 Remove-Item -Recurse -Force $TempDir
@@ -51,15 +54,6 @@ if ($UserPath -notlike "*$InstallDir*") {
     Write-Info "Adding $InstallDir to PATH..."
     [Environment]::SetEnvironmentVariable("Path", "$UserPath;$InstallDir", "User")
     $env:Path = "$env:Path;$InstallDir"
-}
-
-# Refresh PATH in current session
-$env:Path = [Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [Environment]::GetEnvironmentVariable("Path", "User")
-
-# Reload PowerShell profile if it exists
-if (Test-Path $PROFILE) {
-    Write-Info "Reloading PowerShell profile..."
-    . $PROFILE
 }
 
 # Verify
