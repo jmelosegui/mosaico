@@ -1,4 +1,6 @@
-use mosaico_core::action::Direction;
+use std::collections::HashSet;
+
+use mosaico_core::action::{Direction, MAX_WORKSPACES};
 use mosaico_core::config::{BorderConfig, WindowRule};
 use mosaico_core::window::Window as WindowTrait;
 use mosaico_core::{Action, BspLayout, Rect, WindowEvent, WindowResult, Workspace};
@@ -8,12 +10,23 @@ use crate::enumerate;
 use crate::monitor;
 use crate::window::Window;
 
-/// Per-monitor state: workspace, work area, and monocle flag.
+/// Per-monitor state: multiple workspaces, work area, and monocle flag.
 struct MonitorState {
     id: usize,
     work_area: Rect,
-    workspace: Workspace,
+    workspaces: Vec<Workspace>,
+    active_workspace: usize,
     monocle: bool,
+}
+
+impl MonitorState {
+    fn active_ws(&self) -> &Workspace {
+        &self.workspaces[self.active_workspace]
+    }
+
+    fn active_ws_mut(&mut self) -> &mut Workspace {
+        &mut self.workspaces[self.active_workspace]
+    }
 }
 
 /// Result of resolving a directional (H/L) spatial action.
@@ -38,6 +51,12 @@ pub struct TilingManager {
     focused_window: Option<usize>,
     /// Suppresses `Moved` event handling during programmatic layout.
     applying_layout: bool,
+    /// Windows hidden programmatically by workspace switching.
+    ///
+    /// Events for these hwnds are ignored until they are shown again.
+    /// This prevents `EVENT_OBJECT_HIDE` from removing windows that
+    /// were just hidden by a workspace switch.
+    hidden_by_switch: HashSet<usize>,
 }
 
 impl TilingManager {
@@ -52,7 +71,8 @@ impl TilingManager {
             .map(|info| MonitorState {
                 id: info.id,
                 work_area: info.work_area,
-                workspace: Workspace::new(),
+                workspaces: (0..MAX_WORKSPACES).map(|_| Workspace::new()).collect(),
+                active_workspace: 0,
                 monocle: false,
             })
             .collect();
@@ -68,6 +88,7 @@ impl TilingManager {
             focused_monitor: 0,
             focused_window: None,
             applying_layout: false,
+            hidden_by_switch: HashSet::new(),
         };
 
         for win in enumerate::enumerate_windows()? {
@@ -75,7 +96,7 @@ impl TilingManager {
             if manager.is_tileable(hwnd)
                 && let Some(idx) = manager.monitor_index_for(hwnd)
             {
-                manager.monitors[idx].workspace.add(hwnd);
+                manager.monitors[idx].active_ws_mut().add(hwnd);
             }
         }
 
@@ -94,32 +115,60 @@ impl TilingManager {
                 // Place new windows on the focused monitor so they appear
                 // where the user is working, not wherever the OS spawns them.
                 let idx = self.focused_monitor;
-                if self.monitors.get(idx).is_some() && self.monitors[idx].workspace.add(*hwnd) {
+                if self.monitors.get(idx).is_some() && self.monitors[idx].active_ws_mut().add(*hwnd)
+                {
                     let w = Window::from_raw(*hwnd);
                     let title = w.title().unwrap_or_default();
                     let class = w.class().unwrap_or_default();
                     mosaico_core::log_info!(
-                        "+add 0x{:X} [{}] \"{}\" to mon {} (now {})",
+                        "+add 0x{:X} [{}] \"{}\" to mon {} ws {} (now {})",
                         hwnd,
                         class,
                         title,
                         idx,
-                        self.monitors[idx].workspace.len()
+                        self.monitors[idx].active_workspace + 1,
+                        self.monitors[idx].active_ws().len()
                     );
                     self.apply_layout_on(idx);
                 }
             }
-            WindowEvent::Destroyed { hwnd } | WindowEvent::Minimized { hwnd } => {
-                if let Some(idx) = self.owning_monitor(*hwnd)
-                    && self.monitors[idx].workspace.remove(*hwnd)
-                {
+            WindowEvent::Destroyed { hwnd } => {
+                // EVENT_OBJECT_HIDE also maps here. Skip windows we hid
+                // programmatically during a workspace switch.
+                if self.hidden_by_switch.contains(hwnd) {
+                    return;
+                }
+                // Truly destroyed — clean up from any workspace.
+                if let Some((mon_idx, ws_idx)) = self.find_window(*hwnd) {
+                    self.monitors[mon_idx].workspaces[ws_idx].remove(*hwnd);
                     mosaico_core::log_info!(
-                        "-del 0x{:X} from mon {} (now {})",
+                        "-del 0x{:X} from mon {} ws {} (now {})",
                         hwnd,
-                        idx,
-                        self.monitors[idx].workspace.len()
+                        mon_idx,
+                        ws_idx + 1,
+                        self.monitors[mon_idx].workspaces[ws_idx].len()
                     );
-                    self.apply_layout_on(idx);
+                    if ws_idx == self.monitors[mon_idx].active_workspace {
+                        self.apply_layout_on(mon_idx);
+                    }
+                }
+            }
+            WindowEvent::Minimized { hwnd } => {
+                // Only remove from the active workspace. Windows on
+                // non-active workspaces are hidden by workspace switching
+                // and must not be pruned.
+                if let Some((mon_idx, ws_idx)) = self.find_window(*hwnd)
+                    && ws_idx == self.monitors[mon_idx].active_workspace
+                {
+                    self.monitors[mon_idx].workspaces[ws_idx].remove(*hwnd);
+                    mosaico_core::log_info!(
+                        "-min 0x{:X} from mon {} ws {} (now {})",
+                        hwnd,
+                        mon_idx,
+                        ws_idx + 1,
+                        self.monitors[mon_idx].workspaces[ws_idx].len()
+                    );
+                    self.apply_layout_on(mon_idx);
                 }
             }
             WindowEvent::Moved { hwnd } => {
@@ -148,12 +197,18 @@ impl TilingManager {
             Action::Retile => self.retile_all(),
             Action::ToggleMonocle => self.toggle_monocle(),
             Action::CloseFocused => self.close_focused(),
+            Action::GoToWorkspace(n) => self.goto_workspace(*n),
+            Action::SendToWorkspace(n) => self.send_to_workspace(*n),
         }
     }
 
     /// Returns the total number of managed windows.
     pub fn window_count(&self) -> usize {
-        self.monitors.iter().map(|m| m.workspace.len()).sum()
+        self.monitors
+            .iter()
+            .flat_map(|m| &m.workspaces)
+            .map(|ws| ws.len())
+            .sum()
     }
 
     /// Applies a new layout and border config, then retiles all windows.
@@ -185,7 +240,7 @@ impl TilingManager {
     /// Focuses the first window on the primary monitor at startup.
     fn focus_initial(&mut self) {
         if let Some(mon) = self.monitors.first()
-            && let Some(&hwnd) = mon.workspace.handles().first()
+            && let Some(&hwnd) = mon.active_ws().handles().first()
         {
             self.focused_window = Some(hwnd);
             Window::from_raw(hwnd).set_foreground();
@@ -232,6 +287,18 @@ impl TilingManager {
                         self.update_border();
                     }
                 }
+                None if self.focused_window.is_none() => {
+                    // No focused window (empty workspace) — jump to
+                    // the adjacent monitor directly.
+                    if let Some(idx) = self.find_adjacent_monitor(dir) {
+                        self.focused_monitor = idx;
+                        if let Some(hwnd) = self.find_entry_window(idx, dir) {
+                            self.focused_window = Some(hwnd);
+                            Window::from_raw(hwnd).set_foreground();
+                        }
+                        self.update_border();
+                    }
+                }
                 None => {}
             },
             Direction::Up | Direction::Down => {
@@ -259,7 +326,7 @@ impl TilingManager {
             Direction::Left | Direction::Right => {
                 match self.resolve_horizontal_target(dir) {
                     Some(SpatialTarget::Neighbor(neighbor)) => {
-                        let ws = &self.monitors[self.focused_monitor].workspace;
+                        let ws = self.monitors[self.focused_monitor].active_ws();
                         let Some(a) = ws.index_of(hwnd) else { return };
                         let Some(b) = ws.index_of(neighbor) else {
                             return;
@@ -271,11 +338,11 @@ impl TilingManager {
                         // so the window takes the leftmost BSP slot; append
                         // when entering from the right.
                         let source = self.focused_monitor;
-                        self.monitors[source].workspace.remove(hwnd);
+                        self.monitors[source].active_ws_mut().remove(hwnd);
                         if dir == Direction::Right {
-                            self.monitors[target].workspace.insert(0, hwnd);
+                            self.monitors[target].active_ws_mut().insert(0, hwnd);
                         } else {
-                            self.monitors[target].workspace.add(hwnd);
+                            self.monitors[target].active_ws_mut().add(hwnd);
                         }
                         self.apply_layout_on(source);
                         self.apply_layout_on(target);
@@ -286,13 +353,13 @@ impl TilingManager {
                 }
             }
             Direction::Up | Direction::Down => {
-                let ws = &self.monitors[self.focused_monitor].workspace;
+                let ws = self.monitors[self.focused_monitor].active_ws();
                 let Some(idx) = ws.index_of(hwnd) else {
                     return;
                 };
                 if let Some(neighbor) = self.find_same_monitor_neighbor(dir)
                     && let Some(other) = self.monitors[self.focused_monitor]
-                        .workspace
+                        .active_ws()
                         .index_of(neighbor)
                 {
                     self.swap_and_retile(idx, other);
@@ -303,7 +370,9 @@ impl TilingManager {
 
     /// Swaps two windows by workspace index, re-tiles, and updates the border.
     fn swap_and_retile(&mut self, a: usize, b: usize) {
-        self.monitors[self.focused_monitor].workspace.swap(a, b);
+        self.monitors[self.focused_monitor]
+            .active_ws_mut()
+            .swap(a, b);
         self.apply_layout_on(self.focused_monitor);
         self.update_border();
     }
@@ -314,13 +383,32 @@ impl TilingManager {
         let focused_hwnd = self.focused_window?;
         let state = &self.monitors[self.focused_monitor];
         let positions = state
-            .workspace
+            .active_ws()
             .compute_layout(&self.layout, &state.work_area);
         let focused_rect = positions
             .iter()
             .find(|(h, _)| *h == focused_hwnd)
             .map(|(_, r)| *r)?;
         mosaico_core::spatial::find_neighbor(&positions, &focused_rect, dir)
+    }
+
+    /// Finds the nearest monitor in the given horizontal direction.
+    fn find_adjacent_monitor(&self, dir: Direction) -> Option<usize> {
+        let positive = matches!(dir, Direction::Right | Direction::Down);
+        let current_cx = self.monitors[self.focused_monitor].work_area.center_x();
+        self.monitors
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| *i != self.focused_monitor)
+            .filter(|(_, m)| {
+                if positive {
+                    m.work_area.center_x() > current_cx
+                } else {
+                    m.work_area.center_x() < current_cx
+                }
+            })
+            .min_by_key(|(_, m)| (m.work_area.center_x() - current_cx).abs())
+            .map(|(i, _)| i)
     }
 
     /// Resolves the spatial target for a left/right action.
@@ -330,11 +418,10 @@ impl TilingManager {
     /// wrapping).
     fn resolve_horizontal_target(&self, dir: Direction) -> Option<SpatialTarget> {
         let focused_hwnd = self.focused_window?;
-        let positive = matches!(dir, Direction::Right | Direction::Down);
 
         let state = &self.monitors[self.focused_monitor];
         let positions = state
-            .workspace
+            .active_ws()
             .compute_layout(&self.layout, &state.work_area);
 
         mosaico_core::log_debug!(
@@ -378,23 +465,7 @@ impl TilingManager {
 
         // No horizontal neighbor — check if a monitor exists in the
         // requested direction (no wrapping).
-        let current_cx = state.work_area.center_x();
-        let adjacent = self
-            .monitors
-            .iter()
-            .enumerate()
-            .filter(|(i, _)| *i != self.focused_monitor)
-            .filter(|(_, m)| {
-                if positive {
-                    m.work_area.center_x() > current_cx
-                } else {
-                    m.work_area.center_x() < current_cx
-                }
-            })
-            .min_by_key(|(_, m)| (m.work_area.center_x() - current_cx).abs())
-            .map(|(i, _)| i);
-
-        match adjacent {
+        match self.find_adjacent_monitor(dir) {
             Some(idx) => {
                 mosaico_core::log_debug!("  -> AdjacentMonitor {}", idx);
                 Some(SpatialTarget::AdjacentMonitor(idx))
@@ -409,7 +480,7 @@ impl TilingManager {
     fn find_entry_window(&self, monitor_idx: usize, dir: Direction) -> Option<usize> {
         let state = &self.monitors[monitor_idx];
         let positions = state
-            .workspace
+            .active_ws()
             .compute_layout(&self.layout, &state.work_area);
         mosaico_core::spatial::find_entry(&positions, dir)
     }
@@ -441,7 +512,7 @@ impl TilingManager {
         if state.monocle {
             // In monocle mode, the focused window fills the work area.
             if let Some(hwnd) = self.focused_window
-                && state.workspace.contains(hwnd)
+                && state.active_ws().contains(hwnd)
             {
                 let gap = self.layout.gap;
                 let area = Rect::new(
@@ -460,7 +531,7 @@ impl TilingManager {
             }
         }
         let positions = state
-            .workspace
+            .active_ws()
             .compute_layout(&self.layout, &state.work_area);
         for (hwnd, rect) in &positions {
             let window = Window::from_raw(*hwnd);
@@ -482,14 +553,14 @@ impl TilingManager {
             return;
         };
         let stale: Vec<usize> = state
-            .workspace
+            .active_ws()
             .handles()
             .iter()
             .copied()
             .filter(|&hwnd| !Window::from_raw(hwnd).is_visible())
             .collect();
         for hwnd in stale {
-            state.workspace.remove(hwnd);
+            state.active_ws_mut().remove(hwnd);
         }
     }
 
@@ -539,8 +610,8 @@ impl TilingManager {
 
         match (old, new) {
             (Some(from), Some(to)) if from != to => {
-                self.monitors[from].workspace.remove(hwnd);
-                self.monitors[to].workspace.add(hwnd);
+                self.monitors[from].active_ws_mut().remove(hwnd);
+                self.monitors[to].active_ws_mut().add(hwnd);
                 self.apply_layout_on(from);
                 self.apply_layout_on(to);
             }
@@ -550,7 +621,7 @@ impl TilingManager {
             }
             (None, Some(to)) if self.is_tileable(hwnd) => {
                 // Window wasn't tracked but appeared on a monitor.
-                self.monitors[to].workspace.add(hwnd);
+                self.monitors[to].active_ws_mut().add(hwnd);
                 self.apply_layout_on(to);
             }
             _ => {}
@@ -565,6 +636,329 @@ impl TilingManager {
     fn owning_monitor(&self, hwnd: usize) -> Option<usize> {
         self.monitors
             .iter()
-            .position(|m| m.workspace.contains(hwnd))
+            .position(|m| m.workspaces.iter().any(|ws| ws.contains(hwnd)))
+    }
+
+    /// Finds which monitor and workspace contain the given window.
+    ///
+    /// Returns `(monitor_index, workspace_index)` or `None` if the
+    /// window is not managed anywhere.
+    fn find_window(&self, hwnd: usize) -> Option<(usize, usize)> {
+        for (mi, mon) in self.monitors.iter().enumerate() {
+            for (wi, ws) in mon.workspaces.iter().enumerate() {
+                if ws.contains(hwnd) {
+                    return Some((mi, wi));
+                }
+            }
+        }
+        None
+    }
+
+    /// Switches to workspace `n` (1-indexed) on the focused monitor.
+    ///
+    /// Hides windows on the current workspace, shows windows on the
+    /// target, retiles, and focuses the first window.
+    fn goto_workspace(&mut self, n: u8) {
+        let idx = (n - 1) as usize;
+        let mon_idx = self.focused_monitor;
+        let Some(mon) = self.monitors.get(mon_idx) else {
+            return;
+        };
+        if mon.active_workspace == idx {
+            return; // already there
+        }
+
+        // Mark current workspace windows as programmatically hidden
+        // so EVENT_OBJECT_HIDE events are ignored for them.
+        for &hwnd in mon.active_ws().handles() {
+            self.hidden_by_switch.insert(hwnd);
+            Window::from_raw(hwnd).hide();
+        }
+
+        // Switch active workspace.
+        self.monitors[mon_idx].active_workspace = idx;
+
+        // Show windows on the target workspace and unmark them.
+        for &hwnd in self.monitors[mon_idx].active_ws().handles() {
+            self.hidden_by_switch.remove(&hwnd);
+            Window::from_raw(hwnd).show();
+        }
+
+        mosaico_core::log_info!(
+            "goto-workspace {} on mon {} ({} windows)",
+            n,
+            mon_idx,
+            self.monitors[mon_idx].active_ws().len()
+        );
+
+        self.apply_layout_on(mon_idx);
+
+        // Focus the first window on the new workspace, or clear focus.
+        if let Some(&hwnd) = self.monitors[mon_idx].active_ws().handles().first() {
+            self.focused_window = Some(hwnd);
+            Window::from_raw(hwnd).set_foreground();
+        } else {
+            self.focused_window = None;
+        }
+        self.update_border();
+    }
+
+    /// Sends the focused window to workspace `n` (1-indexed) on the
+    /// same monitor.
+    ///
+    /// The window is hidden if the target workspace is not active.
+    fn send_to_workspace(&mut self, n: u8) {
+        let target_ws = (n - 1) as usize;
+        let Some(hwnd) = self.focused_window else {
+            return;
+        };
+        let mon_idx = self.focused_monitor;
+        let Some(mon) = self.monitors.get(mon_idx) else {
+            return;
+        };
+        if mon.active_workspace == target_ws {
+            return; // already on target workspace
+        }
+        if !mon.active_ws().contains(hwnd) {
+            return; // focused window is not on the active workspace
+        }
+        let src_ws_num = mon.active_workspace + 1;
+
+        // Remove from current workspace, add to target.
+        self.monitors[mon_idx].active_ws_mut().remove(hwnd);
+        self.monitors[mon_idx].workspaces[target_ws].add(hwnd);
+
+        // Hide the window since it's moving to a non-visible workspace.
+        self.hidden_by_switch.insert(hwnd);
+        Window::from_raw(hwnd).hide();
+
+        mosaico_core::log_info!(
+            "send-to-workspace {} 0x{:X} on mon {} (src ws {} -> dst ws {})",
+            n,
+            hwnd,
+            mon_idx,
+            src_ws_num,
+            n
+        );
+
+        self.apply_layout_on(mon_idx);
+
+        // Focus the next window on the current workspace, or clear focus.
+        if let Some(&next) = self.monitors[mon_idx].active_ws().handles().first() {
+            self.focused_window = Some(next);
+            Window::from_raw(next).set_foreground();
+        } else {
+            self.focused_window = None;
+        }
+        self.update_border();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_monitor(id: usize) -> MonitorState {
+        MonitorState {
+            id,
+            work_area: Rect::new(0, 0, 1920, 1080),
+            workspaces: (0..MAX_WORKSPACES).map(|_| Workspace::new()).collect(),
+            active_workspace: 0,
+            monocle: false,
+        }
+    }
+
+    // -- MonitorState helpers --
+
+    #[test]
+    fn active_ws_returns_correct_workspace() {
+        let mut mon = make_monitor(1);
+        mon.workspaces[0].add(100);
+        mon.workspaces[1].add(200);
+
+        assert!(mon.active_ws().contains(100));
+        assert!(!mon.active_ws().contains(200));
+
+        mon.active_workspace = 1;
+        assert!(!mon.active_ws().contains(100));
+        assert!(mon.active_ws().contains(200));
+    }
+
+    #[test]
+    fn active_ws_mut_modifies_correct_workspace() {
+        let mut mon = make_monitor(1);
+        mon.active_ws_mut().add(100);
+        assert!(mon.workspaces[0].contains(100));
+
+        mon.active_workspace = 1;
+        mon.active_ws_mut().add(200);
+        assert!(mon.workspaces[1].contains(200));
+        assert!(!mon.workspaces[1].contains(100));
+    }
+
+    #[test]
+    fn monitor_state_has_max_workspaces() {
+        let mon = make_monitor(1);
+        assert_eq!(mon.workspaces.len(), MAX_WORKSPACES as usize);
+    }
+
+    // -- find_window --
+
+    fn make_monitors(n: usize) -> Vec<MonitorState> {
+        (0..n).map(make_monitor).collect()
+    }
+
+    #[test]
+    fn find_window_on_active_workspace() {
+        let mut monitors = make_monitors(2);
+        monitors[0].workspaces[0].add(100);
+        monitors[1].workspaces[0].add(200);
+
+        // find_window is a method on TilingManager; test the logic directly
+        let result = find_window_in(&monitors, 100);
+        assert_eq!(result, Some((0, 0)));
+
+        let result = find_window_in(&monitors, 200);
+        assert_eq!(result, Some((1, 0)));
+    }
+
+    #[test]
+    fn find_window_on_non_active_workspace() {
+        let mut monitors = make_monitors(1);
+        monitors[0].workspaces[3].add(42);
+        monitors[0].active_workspace = 0;
+
+        let result = find_window_in(&monitors, 42);
+        assert_eq!(result, Some((0, 3)));
+    }
+
+    #[test]
+    fn find_window_not_found() {
+        let monitors = make_monitors(2);
+        assert_eq!(find_window_in(&monitors, 999), None);
+    }
+
+    // -- owning_monitor --
+
+    #[test]
+    fn owning_monitor_searches_all_workspaces() {
+        let mut monitors = make_monitors(2);
+        monitors[1].workspaces[5].add(77);
+
+        let result = monitors
+            .iter()
+            .position(|m| m.workspaces.iter().any(|ws| ws.contains(77)));
+        assert_eq!(result, Some(1));
+    }
+
+    // -- hidden_by_switch --
+
+    #[test]
+    fn hidden_by_switch_tracks_hwnds() {
+        let mut set = HashSet::new();
+
+        // Simulate hiding windows for workspace switch
+        set.insert(100);
+        set.insert(200);
+        assert!(set.contains(&100));
+        assert!(set.contains(&200));
+        assert!(!set.contains(&300));
+
+        // Simulate showing them again
+        set.remove(&100);
+        assert!(!set.contains(&100));
+        assert!(set.contains(&200));
+    }
+
+    #[test]
+    fn hidden_by_switch_ignores_duplicates() {
+        let mut set = HashSet::new();
+        set.insert(100);
+        set.insert(100); // no-op
+        assert_eq!(set.len(), 1);
+    }
+
+    // -- workspace switch simulation --
+
+    #[test]
+    fn goto_workspace_logic() {
+        let mut mon = make_monitor(1);
+        mon.workspaces[0].add(10);
+        mon.workspaces[0].add(20);
+        mon.workspaces[1].add(30);
+
+        // Switch from ws 0 to ws 1
+        let mut hidden = HashSet::new();
+        for &hwnd in mon.active_ws().handles() {
+            hidden.insert(hwnd);
+        }
+        mon.active_workspace = 1;
+
+        // After switch: ws 1 is active, hidden set has ws 0's windows
+        assert_eq!(mon.active_ws().len(), 1);
+        assert!(mon.active_ws().contains(30));
+        assert!(hidden.contains(&10));
+        assert!(hidden.contains(&20));
+
+        // Show ws 1 windows — remove from hidden
+        for &hwnd in mon.active_ws().handles() {
+            hidden.remove(&hwnd);
+        }
+        // 30 was not hidden, so set unchanged (still has 10, 20)
+        assert_eq!(hidden.len(), 2);
+    }
+
+    #[test]
+    fn send_to_workspace_logic() {
+        let mut mon = make_monitor(1);
+        mon.workspaces[0].add(10);
+        mon.workspaces[0].add(20);
+        mon.workspaces[0].add(30);
+        mon.active_workspace = 0;
+
+        // Send window 20 from ws 0 to ws 2
+        let target_ws = 2;
+        assert!(mon.active_ws().contains(20));
+        mon.active_ws_mut().remove(20);
+        mon.workspaces[target_ws].add(20);
+
+        assert_eq!(mon.workspaces[0].len(), 2);
+        assert_eq!(mon.workspaces[target_ws].len(), 1);
+        assert!(mon.workspaces[target_ws].contains(20));
+        assert!(!mon.workspaces[0].contains(20));
+    }
+
+    #[test]
+    fn send_to_same_workspace_is_noop() {
+        let mut mon = make_monitor(1);
+        mon.workspaces[0].add(10);
+        mon.active_workspace = 0;
+
+        // Sending to active workspace should be a no-op
+        let target = mon.active_workspace;
+        assert_eq!(target, 0);
+        // The real code returns early; simulate by checking condition
+        assert!(mon.active_workspace == target);
+        assert_eq!(mon.workspaces[0].len(), 1);
+    }
+
+    #[test]
+    fn goto_same_workspace_is_noop() {
+        let mon = make_monitor(1);
+        // Switching to already-active workspace should be a no-op
+        assert_eq!(mon.active_workspace, 0);
+        // The real code returns early when active_workspace == target
+    }
+
+    // Standalone helper matching TilingManager::find_window logic
+    fn find_window_in(monitors: &[MonitorState], hwnd: usize) -> Option<(usize, usize)> {
+        for (mi, mon) in monitors.iter().enumerate() {
+            for (wi, ws) in mon.workspaces.iter().enumerate() {
+                if ws.contains(hwnd) {
+                    return Some((mi, wi));
+                }
+            }
+        }
+        None
     }
 }

@@ -61,6 +61,10 @@ pub enum Action {
     ToggleMonocle,
     /// Close the currently focused window.
     CloseFocused,
+    /// Switch to workspace N (1-8) on the focused monitor.
+    GoToWorkspace(u8),
+    /// Send the focused window to workspace N (1-8) on the same monitor.
+    SendToWorkspace(u8),
 }
 
 impl FromStr for Action {
@@ -72,6 +76,12 @@ impl FromStr for Action {
         }
         if let Some(dir) = s.strip_prefix("move-") {
             return Ok(Action::Move(dir.parse()?));
+        }
+        if let Some(n) = s.strip_prefix("goto-workspace-") {
+            return Ok(Action::GoToWorkspace(parse_workspace_num(n)?));
+        }
+        if let Some(n) = s.strip_prefix("send-to-workspace-") {
+            return Ok(Action::SendToWorkspace(parse_workspace_num(n)?));
         }
         match s {
             "retile" => Ok(Action::Retile),
@@ -90,7 +100,23 @@ impl fmt::Display for Action {
             Action::Retile => write!(f, "retile"),
             Action::ToggleMonocle => write!(f, "toggle-monocle"),
             Action::CloseFocused => write!(f, "close-focused"),
+            Action::GoToWorkspace(n) => write!(f, "goto-workspace-{n}"),
+            Action::SendToWorkspace(n) => write!(f, "send-to-workspace-{n}"),
         }
+    }
+}
+
+/// Maximum number of workspaces per monitor.
+pub const MAX_WORKSPACES: u8 = 8;
+
+fn parse_workspace_num(s: &str) -> Result<u8, String> {
+    let n: u8 = s
+        .parse()
+        .map_err(|_| format!("invalid workspace number: {s}"))?;
+    if (1..=MAX_WORKSPACES).contains(&n) {
+        Ok(n)
+    } else {
+        Err(format!("workspace must be 1-{MAX_WORKSPACES}, got {n}"))
     }
 }
 
@@ -126,6 +152,10 @@ mod tests {
             Action::Retile,
             Action::ToggleMonocle,
             Action::CloseFocused,
+            Action::GoToWorkspace(1),
+            Action::GoToWorkspace(8),
+            Action::SendToWorkspace(1),
+            Action::SendToWorkspace(8),
         ];
         for action in &actions {
             let s = action.to_string();
@@ -153,5 +183,13 @@ mod tests {
         assert_eq!(json, "\"focus-left\"");
         let parsed: Action = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed, action);
+    }
+
+    #[test]
+    fn workspace_out_of_range() {
+        assert!("goto-workspace-0".parse::<Action>().is_err());
+        assert!("goto-workspace-9".parse::<Action>().is_err());
+        assert!("send-to-workspace-0".parse::<Action>().is_err());
+        assert!("send-to-workspace-9".parse::<Action>().is_err());
     }
 }
