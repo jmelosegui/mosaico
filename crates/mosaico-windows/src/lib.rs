@@ -1,3 +1,9 @@
+/// Status bar overlay windows.
+pub mod bar;
+
+/// Manages bar instances across all monitors.
+pub mod bar_manager;
+
 /// Border overlay windows for visual focus indicators.
 pub mod border;
 

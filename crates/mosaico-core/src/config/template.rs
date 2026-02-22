@@ -6,6 +6,12 @@ pub fn generate_config() -> String {
     r##"# Mosaico configuration
 # Location: ~/.config/mosaico/config.toml
 
+# Color theme. Controls border colors and status bar colors.
+# Available: name = "catppuccin", flavor = mocha | macchiato | frappe | latte
+[theme]
+name = "catppuccin"
+flavor = "mocha"
+
 [layout]
 # Gap in pixels between windows and screen edges.
 gap = 8
@@ -15,10 +21,9 @@ ratio = 0.5
 [borders]
 # Border width in pixels around the focused window.
 width = 4
-# Hex color for the focused window border.
-focused = "#00b4d8"
-# Hex color for the border in monocle mode.
-monocle = "#2d6a4f"
+# Override theme border colors (hex or named: blue, green, mauve, etc.):
+# focused = "blue"
+# monocle = "green"
 
 [logging]
 # Enable file logging to ~/.config/mosaico/logs/mosaico.log.
@@ -196,6 +201,97 @@ modifiers = ["alt", "shift"]
     .to_string()
 }
 
+/// Generates the default `bar.toml` contents with explanatory comments.
+///
+/// This is used by `mosaico init` to create a starter bar configuration file.
+pub fn generate_bar() -> String {
+    "# Mosaico status bar\n\
+# Location: ~/.config/mosaico/bar.toml\n\
+\n\
+# Whether the status bar is displayed.\n\
+enabled = true\n\
+# Bar height in pixels. Increase for high-DPI displays.\n\
+height = 32\n\
+# Font family name. A Nerd Font is required for widget icons.\n\
+# See https://www.nerdfonts.com/ for installation instructions.\n\
+font = \"CaskaydiaCove Nerd Font\"\n\
+# Font size in pixels.\n\
+font_size = 14\n\
+# Horizontal padding at the bar edges in pixels.\n\
+padding = 10\n\
+# Horizontal padding inside each widget pill in pixels.\n\
+pill_padding = 8\n\
+# Corner radius for pill backgrounds (0 = square corners).\n\
+pill_radius = 6\n\
+# Gap between pills in pixels.\n\
+item_gap = 6\n\
+# Gap between individual workspace number pills in pixels.\n\
+workspace_gap = 2\n\
+# Separator string between widget groups (empty string = no separator).\n\
+separator = \"\"\n\
+# Background opacity as a percentage (0 = fully transparent, 100 = opaque).\n\
+background_opacity = 0\n\
+# Which monitors to show the bar on (0-indexed). Empty = all monitors.\n\
+# Example: monitors = [0] shows the bar only on the primary monitor.\n\
+monitors = []\n\
+\n\
+# Override individual theme colors (hex or named: blue, green, mauve, etc.).\n\
+# [colors]\n\
+# background = \"#1e1e2e\"\n\
+# foreground = \"#cdd6f4\"\n\
+# active_workspace = \"#89b4fa\"\n\
+# active_workspace_text = \"#1e1e2e\"\n\
+# inactive_workspace = \"#6c7086\"\n\
+# separator = \"#45475a\"\n\
+# accent = \"#f38ba8\"\n\
+# widget_background = \"#313244\"\n\
+# pill_border = \"#45475a\"\n\
+\n\
+# Left-side widgets (rendered left-to-right).\n\
+# Set enabled = false to hide a widget without removing it.\n\
+# Set icon = \"\" to hide the icon, or use any Nerd Font glyph.\n\
+\n\
+[[left]]\n\
+type = \"workspaces\"\n\
+# enabled = true\n\
+\n\
+[[left]]\n\
+type = \"layout\"\n\
+# enabled = true\n\
+icon = \"\\uF009\"\n\
+\n\
+# Right-side widgets (rendered right-to-left).\n\
+# Set enabled = false to hide a widget without removing it.\n\
+\n\
+[[right]]\n\
+type = \"clock\"\n\
+# enabled = true\n\
+format = \"%H:%M:%S\"\n\
+icon = \"\\uF017\"\n\
+\n\
+[[right]]\n\
+type = \"date\"\n\
+# enabled = true\n\
+format = \"%A %d %B %Y\"\n\
+icon = \"\\uF073\"\n\
+\n\
+[[right]]\n\
+type = \"ram\"\n\
+# enabled = true\n\
+icon = \"\\uF2DB\"\n\
+\n\
+[[right]]\n\
+type = \"cpu\"\n\
+# enabled = true\n\
+icon = \"\\uF085\"\n\
+\n\
+[[right]]\n\
+type = \"update\"\n\
+# enabled = true  # auto-hidden when no update is available\n\
+icon = \"\\uF019\"\n"
+        .to_string()
+}
+
 /// Generates the default `rules.toml` contents with explanatory comments.
 ///
 /// This is used by `mosaico init` to create a starter rules file.
@@ -257,13 +353,19 @@ mod tests {
         let toml_str = generate_config();
 
         // Act
-        let config: crate::Config = toml::from_str(&toml_str).unwrap();
+        let mut config: crate::Config = toml::from_str(&toml_str).unwrap();
+        config.validate();
 
         // Assert
-        let defaults = crate::Config::default();
+        let mut defaults = crate::Config::default();
+        defaults.validate();
+        assert_eq!(config.theme, defaults.theme);
+        assert_eq!(config.theme.name, "catppuccin");
+        assert_eq!(config.theme.flavor, "mocha");
         assert_eq!(config.layout.gap, defaults.layout.gap);
         assert_eq!(config.layout.ratio, defaults.layout.ratio);
         assert_eq!(config.borders.width, defaults.borders.width);
+        // Border colors should resolve from the default Mocha theme.
         assert_eq!(config.borders.focused, defaults.borders.focused);
         assert_eq!(config.borders.monocle, defaults.borders.monocle);
     }
@@ -322,5 +424,43 @@ mod tests {
         // Assert
         let defaults = crate::config::default_rules();
         assert_eq!(file.rule.len(), defaults.len());
+    }
+
+    #[test]
+    fn bar_template_parses_as_valid_bar_config() {
+        // Arrange
+        let toml_str = generate_bar();
+
+        // Act
+        let result: Result<crate::BarConfig, _> = toml::from_str(&toml_str);
+
+        // Assert
+        assert!(result.is_ok(), "bar template is not valid TOML: {result:?}");
+    }
+
+    #[test]
+    fn bar_template_matches_default_values() {
+        // Arrange
+        let toml_str = generate_bar();
+
+        // Act
+        let mut config: crate::BarConfig = toml::from_str(&toml_str).unwrap();
+        config.validate();
+
+        // Assert
+        let mut defaults = crate::BarConfig::default();
+        defaults.validate();
+        assert_eq!(config.height, defaults.height);
+        assert_eq!(config.font, defaults.font);
+        assert_eq!(config.font_size, defaults.font_size);
+        assert_eq!(config.padding, defaults.padding);
+        assert_eq!(config.pill_padding, defaults.pill_padding);
+        assert_eq!(config.pill_radius, defaults.pill_radius);
+        assert_eq!(config.item_gap, defaults.item_gap);
+        assert_eq!(config.separator, defaults.separator);
+        assert_eq!(config.background_opacity, defaults.background_opacity);
+        assert_eq!(config.monitors, defaults.monitors);
+        assert_eq!(config.left.len(), defaults.left.len());
+        assert_eq!(config.right.len(), defaults.right.len());
     }
 }

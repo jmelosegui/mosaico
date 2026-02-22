@@ -9,6 +9,7 @@ use mosaico_core::config::{BorderConfig, WindowRule};
 use mosaico_core::window::Window as WindowTrait;
 use mosaico_core::{Action, BspLayout, Rect, WindowEvent, WindowResult, Workspace};
 
+use crate::bar::BarState;
 use crate::border::{Border, Color};
 use crate::enumerate;
 use crate::monitor;
@@ -226,9 +227,60 @@ impl TilingManager {
         self.update_border();
     }
 
+    /// Re-positions the focus border to match the current window rect.
+    ///
+    /// Call after work areas change (e.g. bar adjustment at startup) so
+    /// the border reflects the final window position, not the pre-adjustment one.
+    pub fn refresh_border(&self) {
+        self.update_border();
+    }
+
     /// Replaces the window rules used for managing new windows.
     pub fn reload_rules(&mut self, rules: Vec<WindowRule>) {
         self.rules = rules;
+    }
+
+    /// Returns a snapshot of bar state for each monitor.
+    pub fn bar_states(&self) -> Vec<BarState> {
+        self.monitors
+            .iter()
+            .map(|m| BarState {
+                active_workspace: m.active_workspace,
+                workspace_count: m.workspaces.len(),
+                layout_name: "BSP".into(),
+                monocle: m.monocle,
+                cpu_usage: 0,
+                update_text: String::new(),
+            })
+            .collect()
+    }
+
+    /// Adjusts monitor work areas by subtracting bar height from the top.
+    ///
+    /// Only monitors whose index appears in `bar_monitors` are adjusted.
+    /// An empty slice means all monitors.
+    pub fn adjust_work_areas_for_bar(&mut self, bar_height: i32, bar_monitors: &[usize]) {
+        for (i, mon) in self.monitors.iter_mut().enumerate() {
+            if bar_monitors.is_empty() || bar_monitors.contains(&i) {
+                mon.work_area.y += bar_height;
+                mon.work_area.height -= bar_height;
+            }
+        }
+        self.retile_all();
+    }
+
+    /// Resets work areas to the OS values, then applies the bar offset.
+    ///
+    /// Used when bar config changes to avoid accumulating offsets.
+    pub fn reset_and_adjust_work_areas(&mut self, bar_height: i32, bar_monitors: &[usize]) {
+        if let Ok(os_monitors) = monitor::enumerate_monitors() {
+            for mon in &mut self.monitors {
+                if let Some(os) = os_monitors.iter().find(|m| m.id == mon.id) {
+                    mon.work_area = os.work_area;
+                }
+            }
+        }
+        self.adjust_work_areas_for_bar(bar_height, bar_monitors);
     }
 
     fn is_tileable(&self, hwnd: usize) -> bool {

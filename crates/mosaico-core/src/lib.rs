@@ -11,7 +11,7 @@ pub mod window;
 pub mod workspace;
 
 pub use action::{Action, Direction};
-pub use config::Config;
+pub use config::{BarConfig, Config};
 pub use event::WindowEvent;
 pub use ipc::{Command, Response};
 pub use layout::{BspLayout, Layout};

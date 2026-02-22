@@ -1,14 +1,19 @@
+pub mod bar;
 pub mod keybinding;
 mod loader;
+mod palette;
 pub mod template;
+pub mod theme;
 
 use serde::{Deserialize, Serialize};
 
+pub use bar::{BarColors, BarConfig, WidgetConfig};
 pub use keybinding::{Keybinding, Modifier};
 pub use loader::{
-    config_dir, config_path, keybindings_path, load, load_keybindings, load_rules, rules_path,
-    try_load, try_load_keybindings, try_load_rules,
+    bar_path, config_dir, config_path, keybindings_path, load, load_bar, load_keybindings,
+    load_rules, rules_path, try_load, try_load_bar, try_load_keybindings, try_load_rules,
 };
+pub use theme::{Theme, ThemeConfig};
 
 /// Top-level configuration for Mosaico.
 ///
@@ -17,6 +22,8 @@ pub use loader::{
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
+    /// Color theme (e.g. `[theme] name = "catppuccin" flavor = "mocha"`).
+    pub theme: ThemeConfig,
     /// Layout algorithm parameters.
     pub layout: LayoutConfig,
     /// Border appearance settings.
@@ -81,25 +88,36 @@ impl Default for LayoutConfig {
     }
 }
 
+/// Default border colors are empty — resolved from the theme in `validate()`.
 impl Default for BorderConfig {
     fn default() -> Self {
         Self {
             width: 4,
-            focused: "#00b4d8".into(),
-            monocle: "#2d6a4f".into(),
+            focused: String::new(),
+            monocle: String::new(),
         }
     }
 }
 
 impl Config {
-    /// Clamps layout and border values to safe ranges.
-    ///
-    /// Prevents negative gaps, out-of-range ratios, and excessively
-    /// large border widths that could cause rendering artifacts.
+    /// Clamps layout and border values to safe ranges and resolves
+    /// theme colors for any unset border color fields.
     pub fn validate(&mut self) {
+        self.resolve_borders();
         self.layout.gap = self.layout.gap.clamp(0, 200);
         self.layout.ratio = self.layout.ratio.clamp(0.1, 0.9);
         self.borders.width = self.borders.width.clamp(0, 32);
+    }
+
+    /// Resolves border colors: empty → theme default, named → theme hex.
+    fn resolve_borders(&mut self) {
+        let theme = self.theme.resolve();
+        self.borders.focused = theme
+            .resolve_color(&self.borders.focused, theme.border_focused())
+            .to_string();
+        self.borders.monocle = theme
+            .resolve_color(&self.borders.monocle, theme.border_monocle())
+            .to_string();
     }
 }
 
@@ -156,12 +174,68 @@ mod tests {
 
     #[test]
     fn default_config_has_expected_values() {
-        // Arrange / Act
-        let config = Config::default();
+        let mut config = Config::default();
+        config.validate();
 
-        // Assert
+        assert_eq!(config.theme.resolve(), Theme::Mocha);
         assert_eq!(config.layout.gap, 8);
         assert_eq!(config.borders.width, 4);
+    }
+
+    #[test]
+    fn validate_resolves_border_colors_from_theme() {
+        let mut config = Config::default();
+        config.validate();
+
+        // Mocha defaults: Blue for focused, Green for monocle
+        assert_eq!(config.borders.focused, "#89b4fa");
+        assert_eq!(config.borders.monocle, "#a6e3a1");
+    }
+
+    #[test]
+    fn explicit_border_color_overrides_theme() {
+        let mut config = Config {
+            borders: BorderConfig {
+                focused: "#ff0000".into(),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        config.validate();
+
+        assert_eq!(config.borders.focused, "#ff0000");
+        assert_eq!(config.borders.monocle, "#a6e3a1"); // still from theme
+    }
+
+    #[test]
+    fn latte_theme_resolves_different_borders() {
+        let mut config = Config {
+            theme: ThemeConfig {
+                name: "catppuccin".into(),
+                flavor: "latte".into(),
+            },
+            ..Default::default()
+        };
+        config.validate();
+
+        assert_eq!(config.borders.focused, "#1e66f5");
+        assert_eq!(config.borders.monocle, "#40a02b");
+    }
+
+    #[test]
+    fn named_color_in_border_resolves_to_hex() {
+        let mut config = Config {
+            borders: BorderConfig {
+                focused: "mauve".into(),
+                monocle: "teal".into(),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        config.validate();
+
+        assert_eq!(config.borders.focused, "#cba6f7");
+        assert_eq!(config.borders.monocle, "#94e2d5");
     }
 
     #[test]

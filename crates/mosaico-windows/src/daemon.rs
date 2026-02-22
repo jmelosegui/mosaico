@@ -6,10 +6,12 @@ use std::thread;
 use mosaico_core::ipc::{Command, Response};
 use mosaico_core::{Action, BspLayout, WindowResult, config, pid};
 
+use crate::bar_manager::BarManager;
 use crate::config_watcher::{self, ConfigReload};
 use crate::dpi;
 use crate::event_loop;
 use crate::ipc::PipeServer;
+use crate::monitor;
 use crate::tiling::TilingManager;
 
 /// Runs the Mosaico daemon.
@@ -38,7 +40,9 @@ enum DaemonMsg {
     /// A CLI command with a callback to send the response.
     Command(Command, ResponseSender),
     /// A validated config reload from the file watcher.
-    Reload(ConfigReload),
+    Reload(Box<ConfigReload>),
+    /// 1-second tick for refreshing bar system widgets.
+    Tick,
 }
 
 /// Sends a response back to the IPC thread for the connected client.
@@ -66,9 +70,25 @@ fn daemon_loop() -> WindowResult<()> {
         ratio: config.layout.ratio,
     };
 
+    let mut current_theme = config.theme.resolve();
+
+    let bar_config = config::load_bar();
+    let monitor_rects: Vec<_> = monitor::enumerate_monitors()?
+        .iter()
+        .map(|m| m.work_area)
+        .collect();
+    let mut bar_mgr = BarManager::new(bar_config, monitor_rects, current_theme);
+
     let (tx, rx) = mpsc::channel::<DaemonMsg>();
 
     let mut manager = TilingManager::new(layout, rules, config.borders)?;
+    let bar_height = bar_mgr.bar_height();
+    if bar_height > 0 {
+        // Retile with bar-adjusted work areas so borders match final positions.
+        manager.adjust_work_areas_for_bar(bar_height, bar_mgr.bar_monitor_indices());
+    }
+    manager.refresh_border();
+    bar_mgr.update(&manager.bar_states());
     mosaico_core::log_info!("Managing {} windows", manager.window_count());
 
     // Start the Win32 event loop + hotkeys on its own thread.
@@ -110,7 +130,22 @@ fn daemon_loop() -> WindowResult<()> {
     let reload_bridge_tx = tx.clone();
     let reload_bridge = thread::spawn(move || {
         for reload in reload_rx {
-            if reload_bridge_tx.send(DaemonMsg::Reload(reload)).is_err() {
+            if reload_bridge_tx
+                .send(DaemonMsg::Reload(Box::new(reload)))
+                .is_err()
+            {
+                break;
+            }
+        }
+    });
+
+    // 1-second tick for bar system widget refresh (clock, RAM).
+    let tick_tx = tx.clone();
+    let tick_stop = watcher_stop.clone();
+    let tick_thread = thread::spawn(move || {
+        while !tick_stop.load(Ordering::Relaxed) {
+            thread::sleep(std::time::Duration::from_secs(1));
+            if tick_tx.send(DaemonMsg::Tick).is_err() {
                 break;
             }
         }
@@ -121,9 +156,11 @@ fn daemon_loop() -> WindowResult<()> {
         match msg {
             DaemonMsg::Event(event) => {
                 manager.handle_event(&event);
+                bar_mgr.update(&manager.bar_states());
             }
             DaemonMsg::Action(action) => {
                 manager.handle_action(&action);
+                bar_mgr.update(&manager.bar_states());
             }
             DaemonMsg::Command(Command::Stop, reply_tx) => {
                 let response = Response::ok_with_message("Daemon stopping");
@@ -141,18 +178,36 @@ fn daemon_loop() -> WindowResult<()> {
             }
             DaemonMsg::Command(Command::Action { action }, reply_tx) => {
                 manager.handle_action(&action);
+                bar_mgr.update(&manager.bar_states());
                 let response = Response::ok();
                 let _ = reply_tx.send(response);
             }
-            DaemonMsg::Reload(ConfigReload::Config(cfg)) => {
-                manager.reload_config(&cfg);
-            }
-            DaemonMsg::Reload(ConfigReload::Rules(rules)) => {
-                manager.reload_rules(rules);
+            DaemonMsg::Reload(reload) => match *reload {
+                ConfigReload::Config(cfg) => {
+                    current_theme = cfg.theme.resolve();
+                    manager.reload_config(&cfg);
+                    // Theme may have changed — re-resolve bar colors.
+                    bar_mgr.resolve_colors(current_theme);
+                    bar_mgr.update(&manager.bar_states());
+                }
+                ConfigReload::Rules(rules) => {
+                    manager.reload_rules(rules);
+                }
+                ConfigReload::Bar(bar_cfg) => {
+                    let new_height = bar_mgr.reload(*bar_cfg);
+                    bar_mgr.resolve_colors(current_theme);
+                    let indices = bar_mgr.bar_monitor_indices().to_vec();
+                    manager.reset_and_adjust_work_areas(new_height, &indices);
+                    bar_mgr.update(&manager.bar_states());
+                }
+            },
+            DaemonMsg::Tick => {
+                bar_mgr.update(&manager.bar_states());
             }
         }
     }
 
+    bar_mgr.hide_all();
     event_loop.stop();
     watcher_stop.store(true, Ordering::Relaxed);
     drop(tx);
@@ -160,6 +215,7 @@ fn daemon_loop() -> WindowResult<()> {
     let _ = action_bridge.join();
     let _ = watcher_thread.join();
     let _ = reload_bridge.join();
+    let _ = tick_thread.join();
     let _ = ipc_thread.join();
 
     Ok(())
