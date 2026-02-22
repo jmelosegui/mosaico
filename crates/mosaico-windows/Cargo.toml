@@ -19,6 +19,7 @@ features = [
     "Win32_UI_Input_KeyboardAndMouse", # RegisterHotKey, UnregisterHotKey
     "Win32_UI_HiDpi",                  # SetProcessDpiAwarenessContext
     "Win32_Foundation",                # HWND, BOOL, RECT, LPARAM, DuplicateHandle
+    "Win32_System_SystemInformation",  # GlobalMemoryStatusEx, GetLocalTime
     "Win32_System_Threading",          # GetWindowThreadProcessId, GetCurrentProcess
     "Win32_System_Pipes",              # CreateNamedPipeW, DisconnectNamedPipe
     "Win32_System_IO",                 # ConnectNamedPipe (requires overlapped IO module)
