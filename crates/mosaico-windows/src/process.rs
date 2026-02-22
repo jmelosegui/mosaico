@@ -1,5 +1,7 @@
 use windows::Win32::Foundation::CloseHandle;
-use windows::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION};
+use windows::Win32::System::Threading::{
+    OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_TERMINATE, TerminateProcess,
+};
 
 /// Checks whether a process with the given PID is still alive.
 ///
@@ -20,6 +22,27 @@ pub fn is_process_alive(pid: u32) -> bool {
                 let _ = CloseHandle(handle);
             }
             true
+        }
+        Err(_) => false,
+    }
+}
+
+/// Forcibly terminates a process by PID.
+///
+/// Used as a fallback when the daemon's IPC pipe is gone but the
+/// process is still alive (e.g. the IPC thread crashed).
+pub fn kill_process(pid: u32) -> bool {
+    // SAFETY: OpenProcess with PROCESS_TERMINATE grants permission to
+    // call TerminateProcess. Both handles are closed on drop/error.
+    let result = unsafe { OpenProcess(PROCESS_TERMINATE, false, pid) };
+
+    match result {
+        Ok(handle) => {
+            let killed = unsafe { TerminateProcess(handle, 1) };
+            unsafe {
+                let _ = CloseHandle(handle);
+            }
+            killed.is_ok()
         }
         Err(_) => false,
     }
