@@ -3,7 +3,9 @@
 //! Handles GDI text output onto a DIB, rounded-rect pill backgrounds,
 //! and the alpha-fix needed for `UpdateLayeredWindow` compatibility.
 
-use windows::Win32::Graphics::Gdi::{GetTextExtentPoint32W, HDC, SetTextColor, TextOutW};
+use windows::Win32::Graphics::Gdi::{
+    GetTextExtentPoint32W, HDC, HGDIOBJ, SelectObject, SetTextColor, TextOutW,
+};
 
 use crate::border::Color;
 
@@ -15,6 +17,24 @@ pub struct DrawCtx<'a> {
     pub w: i32,
     pub h: i32,
     pub bg_pixel: u32,
+    pub font: HGDIOBJ,
+    pub bold_font: HGDIOBJ,
+}
+
+impl DrawCtx<'_> {
+    /// Selects the bold font into the DC.
+    pub fn select_bold(&self) {
+        unsafe {
+            SelectObject(self.dc, self.bold_font);
+        }
+    }
+
+    /// Restores the regular font into the DC.
+    pub fn select_regular(&self) {
+        unsafe {
+            SelectObject(self.dc, self.font);
+        }
+    }
 }
 
 /// Draws a text string at (x, vertically centered) and returns the X

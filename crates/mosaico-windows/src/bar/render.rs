@@ -99,6 +99,22 @@ pub fn render_bar(
             0,
             PCWSTR(font_wide.as_ptr()),
         );
+        let bold_font = CreateFontW(
+            config.font_size,
+            0,
+            0,
+            0,
+            700,
+            0,
+            0,
+            0,
+            FONT_CHARSET(0),
+            FONT_OUTPUT_PRECISION(0),
+            FONT_CLIP_PRECISION(0),
+            FONT_QUALITY(0),
+            0,
+            PCWSTR(font_wide.as_ptr()),
+        );
         let old_font = SelectObject(mem_dc, font.into());
         let _ = SetBkMode(mem_dc, TRANSPARENT);
 
@@ -108,6 +124,8 @@ pub fn render_bar(
             w,
             h,
             bg_pixel,
+            font: font.into(),
+            bold_font: bold_font.into(),
         };
 
         // Delegate to widget renderers
@@ -120,6 +138,7 @@ pub fn render_bar(
         // Cleanup
         SelectObject(mem_dc, old_font);
         let _ = DeleteObject(font.into());
+        let _ = DeleteObject(bold_font.into());
         SelectObject(mem_dc, old_bmp);
         let _ = DeleteObject(bmp.into());
         let _ = DeleteDC(mem_dc);

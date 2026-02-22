@@ -49,6 +49,9 @@ pub mod process;
 /// Tiling manager that applies layouts to managed windows.
 pub mod tiling;
 
+/// GitHub release version check.
+pub mod version_check;
+
 /// Window type wrapping a Win32 `HWND`.
 pub mod window;
 
