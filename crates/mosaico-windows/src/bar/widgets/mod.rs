@@ -101,6 +101,11 @@ fn draw_pill_widget(
     state: &BarState,
     widget: &WidgetConfig,
 ) -> i32 {
+    let bold = matches!(widget, WidgetConfig::Update { .. });
+    if bold {
+        ctx.select_bold();
+    }
+
     let label = widget_label(state, widget);
     let fg = widget_fg(config, widget);
     let bg = &config.colors.widget_background;
@@ -121,6 +126,10 @@ fn draw_pill_widget(
         border,
     );
     draw_text(ctx, x + config.pill_padding, &label, &fg);
+
+    if bold {
+        ctx.select_regular();
+    }
     x + pill_w + config.item_gap
 }
 
@@ -132,6 +141,11 @@ fn draw_pill_right(
     state: &BarState,
     widget: &WidgetConfig,
 ) -> i32 {
+    let bold = matches!(widget, WidgetConfig::Update { .. });
+    if bold {
+        ctx.select_bold();
+    }
+
     let label = widget_label(state, widget);
     let fg = widget_fg(config, widget);
     let bg = &config.colors.widget_background;
@@ -153,6 +167,10 @@ fn draw_pill_right(
         border,
     );
     draw_text(ctx, x + config.pill_padding, &label, &fg);
+
+    if bold {
+        ctx.select_regular();
+    }
     x - config.item_gap
 }
 

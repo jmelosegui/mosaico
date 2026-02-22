@@ -257,7 +257,7 @@ impl TilingManager {
     }
 
     /// Returns a snapshot of bar state for each monitor.
-    pub fn bar_states(&self) -> Vec<BarState> {
+    pub fn bar_states(&self, update_text: &str) -> Vec<BarState> {
         self.monitors
             .iter()
             .map(|m| BarState {
@@ -266,7 +266,7 @@ impl TilingManager {
                 layout_name: "BSP".into(),
                 monocle: m.monocle,
                 cpu_usage: 0,
-                update_text: String::new(),
+                update_text: update_text.to_string(),
             })
             .collect()
     }

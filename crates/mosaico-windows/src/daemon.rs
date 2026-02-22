@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::thread;
@@ -88,7 +89,20 @@ fn daemon_loop() -> WindowResult<()> {
         manager.adjust_work_areas_for_bar(bar_height, bar_mgr.bar_monitor_indices());
     }
     manager.refresh_border();
-    bar_mgr.update(&manager.bar_states());
+
+    // Background version check — runs once, stores result for the bar.
+    let update_text: Arc<Mutex<String>> = Arc::new(Mutex::new(String::new()));
+    let update_text_writer = update_text.clone();
+    thread::spawn(move || {
+        if let Some(tag) = crate::version_check::check_for_update()
+            && let Ok(mut text) = update_text_writer.lock()
+        {
+            *text = format!("{tag} available");
+        }
+    });
+
+    let get_update = || update_text.lock().map_or(String::new(), |t| t.clone());
+    bar_mgr.update(&manager.bar_states(&get_update()));
     mosaico_core::log_info!("Managing {} windows", manager.window_count());
 
     // Start the Win32 event loop + hotkeys on its own thread.
@@ -156,11 +170,11 @@ fn daemon_loop() -> WindowResult<()> {
         match msg {
             DaemonMsg::Event(event) => {
                 manager.handle_event(&event);
-                bar_mgr.update(&manager.bar_states());
+                bar_mgr.update(&manager.bar_states(&get_update()));
             }
             DaemonMsg::Action(action) => {
                 manager.handle_action(&action);
-                bar_mgr.update(&manager.bar_states());
+                bar_mgr.update(&manager.bar_states(&get_update()));
             }
             DaemonMsg::Command(Command::Stop, reply_tx) => {
                 let response = Response::ok_with_message("Daemon stopping");
@@ -178,7 +192,7 @@ fn daemon_loop() -> WindowResult<()> {
             }
             DaemonMsg::Command(Command::Action { action }, reply_tx) => {
                 manager.handle_action(&action);
-                bar_mgr.update(&manager.bar_states());
+                bar_mgr.update(&manager.bar_states(&get_update()));
                 let response = Response::ok();
                 let _ = reply_tx.send(response);
             }
@@ -188,7 +202,7 @@ fn daemon_loop() -> WindowResult<()> {
                     manager.reload_config(&cfg);
                     // Theme may have changed — re-resolve bar colors.
                     bar_mgr.resolve_colors(current_theme);
-                    bar_mgr.update(&manager.bar_states());
+                    bar_mgr.update(&manager.bar_states(&get_update()));
                 }
                 ConfigReload::Rules(rules) => {
                     manager.reload_rules(rules);
@@ -198,11 +212,11 @@ fn daemon_loop() -> WindowResult<()> {
                     bar_mgr.resolve_colors(current_theme);
                     let indices = bar_mgr.bar_monitor_indices().to_vec();
                     manager.reset_and_adjust_work_areas(new_height, &indices);
-                    bar_mgr.update(&manager.bar_states());
+                    bar_mgr.update(&manager.bar_states(&get_update()));
                 }
             },
             DaemonMsg::Tick => {
-                bar_mgr.update(&manager.bar_states());
+                bar_mgr.update(&manager.bar_states(&get_update()));
             }
         }
     }
