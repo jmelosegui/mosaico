@@ -6,7 +6,7 @@ use super::{Config, Keybinding, KeybindingsFile, RulesFile, WindowRule, default_
 
 /// Returns the config directory: `~/.config/mosaico/`.
 pub fn config_dir() -> Option<PathBuf> {
-    dirs::home_dir().map(|h| h.join(".config").join("mosaico"))
+    std::env::var_os("USERPROFILE").map(|h| PathBuf::from(h).join(".config").join("mosaico"))
 }
 
 /// Returns the config file path: `~/.config/mosaico/config.toml`.

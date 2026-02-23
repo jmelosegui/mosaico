@@ -9,7 +9,9 @@ use crate::WindowResult;
 /// `%LOCALAPPDATA%\mosaico` on Windows, `~/.local/share/mosaico`
 /// on Linux). Creates the directory if it doesn't exist.
 fn data_dir() -> WindowResult<PathBuf> {
-    let base = dirs::data_local_dir().ok_or("could not determine local data directory")?;
+    let base = std::env::var_os("LOCALAPPDATA")
+        .map(PathBuf::from)
+        .ok_or("could not determine local data directory")?;
     let dir = base.join("mosaico");
     fs::create_dir_all(&dir)?;
     Ok(dir)

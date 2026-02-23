@@ -21,10 +21,7 @@ pub fn execute() {
 
     // Set up Ctrl+C handler to stop the event loop cleanly.
     let (stop_tx, stop_rx) = mpsc::channel();
-    ctrlc::set_handler(move || {
-        let _ = stop_tx.send(());
-    })
-    .expect("failed to set Ctrl+C handler");
+    mosaico_windows::ctrl_c::set_handler(stop_tx);
 
     loop {
         // Check for Ctrl+C
