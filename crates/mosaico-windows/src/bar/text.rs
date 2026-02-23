@@ -3,9 +3,7 @@
 //! Handles GDI text output onto a DIB, rounded-rect pill backgrounds,
 //! and the alpha-fix needed for `UpdateLayeredWindow` compatibility.
 
-use windows::Win32::Graphics::Gdi::{
-    GetTextExtentPoint32W, HDC, HGDIOBJ, SelectObject, SetTextColor, TextOutW,
-};
+use windows::Win32::Graphics::Gdi::{GetTextExtentPoint32W, HDC, SetTextColor, TextOutW};
 
 use crate::border::Color;
 
@@ -17,24 +15,6 @@ pub struct DrawCtx<'a> {
     pub w: i32,
     pub h: i32,
     pub bg_pixel: u32,
-    pub font: HGDIOBJ,
-    pub bold_font: HGDIOBJ,
-}
-
-impl DrawCtx<'_> {
-    /// Selects the bold font into the DC.
-    pub fn select_bold(&self) {
-        unsafe {
-            SelectObject(self.dc, self.bold_font);
-        }
-    }
-
-    /// Restores the regular font into the DC.
-    pub fn select_regular(&self) {
-        unsafe {
-            SelectObject(self.dc, self.font);
-        }
-    }
 }
 
 /// Draws a text string at (x, vertically centered) and returns the X
@@ -91,7 +71,7 @@ fn measure_text_wide(dc: HDC, wide: &[u16]) -> i32 {
 /// Draws a rounded-rectangle pill background with optional border.
 ///
 /// `radius` controls corner rounding (0 = sharp corners).
-/// `border_hex` draws a 1px border if non-empty.
+/// `border_hex` draws a border of `border_width` pixels if non-empty.
 #[allow(clippy::too_many_arguments)]
 pub fn draw_pill(
     ctx: &mut DrawCtx,
@@ -102,6 +82,7 @@ pub fn draw_pill(
     color_hex: &str,
     radius: i32,
     border_hex: &str,
+    border_width: i32,
 ) {
     let fill = Color::from_hex(color_hex).unwrap_or(Color {
         r: 0x31,
@@ -110,12 +91,18 @@ pub fn draw_pill(
     });
     let fill_px = pixel_from_color(fill);
     let border_px = Color::from_hex(border_hex).map(pixel_from_color);
+    let bw = border_width.max(0);
     let r = radius.min(w / 2).min(h / 2);
 
     let x0 = x.max(0);
     let y0 = y.max(0);
     let x1 = (x + w).min(ctx.w);
     let y1 = (y + h).min(ctx.h);
+
+    // Inner rect for border detection: inset by border_width on each side.
+    let iw = w - 2 * bw;
+    let ih = h - 2 * bw;
+    let ir = (r - bw).max(0);
 
     for py in y0..y1 {
         for px in x0..x1 {
@@ -128,9 +115,9 @@ pub fn draw_pill(
             if idx >= ctx.buf.len() {
                 continue;
             }
-            // Border pixel: inside the shape but on its outermost edge.
+            // Border pixel: inside outer shape but outside the inner inset.
             if let Some(bp) = border_px
-                && is_border_pixel(lx, ly, w, h, r)
+                && !in_rounded_rect(lx - bw, ly - bw, iw, ih, ir)
             {
                 ctx.buf[idx] = bp;
                 continue;
@@ -140,27 +127,12 @@ pub fn draw_pill(
     }
 }
 
-/// Returns true if a local coordinate is on the 1px border of the
-/// rounded rect (inside the shape but adjacent to the outside).
-fn is_border_pixel(lx: i32, ly: i32, w: i32, h: i32, r: i32) -> bool {
-    // Straight edges
-    if lx == 0 || lx == w - 1 || ly == 0 || ly == h - 1 {
-        return true;
-    }
-    // Corner regions: check if any 4-connected neighbor is outside
-    if r > 0 {
-        for &(dx, dy) in &[(-1, 0), (1, 0), (0, -1), (0, 1)] {
-            if !in_rounded_rect(lx + dx, ly + dy, w, h, r) {
-                return true;
-            }
-        }
-    }
-    false
-}
-
 /// Tests if a local coordinate (lx, ly) is inside a rounded rect of
 /// size (w, h) with corner radius r.
 fn in_rounded_rect(lx: i32, ly: i32, w: i32, h: i32, r: i32) -> bool {
+    if lx < 0 || lx >= w || ly < 0 || ly >= h {
+        return false;
+    }
     if r <= 0 {
         return true;
     }

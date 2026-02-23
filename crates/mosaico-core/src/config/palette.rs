@@ -106,56 +106,56 @@ const LATTE: &[(&str, &str)] = &[
 fn mocha_bar() -> BarColors {
     BarColors {
         background: "#1e1e2e".into(),
-        foreground: "#cdd6f4".into(),
-        active_workspace: "#89b4fa".into(),
-        active_workspace_text: "#1e1e2e".into(),
-        inactive_workspace: "#6c7086".into(),
+        foreground: "#89b4fa".into(),
+        active_workspace: "#435375".into(),
+        active_workspace_text: "#cdd6f4".into(),
+        inactive_workspace: "#89b4fa".into(),
         separator: "#45475a".into(),
         accent: "#f38ba8".into(),
         widget_background: "#313244".into(),
-        pill_border: "#45475a".into(),
+        pill_border: "#89b4fa".into(),
     }
 }
 
 fn macchiato_bar() -> BarColors {
     BarColors {
         background: "#24273a".into(),
-        foreground: "#cad3f5".into(),
-        active_workspace: "#8aadf4".into(),
-        active_workspace_text: "#24273a".into(),
-        inactive_workspace: "#6e738d".into(),
+        foreground: "#8aadf4".into(),
+        active_workspace: "#48567b".into(),
+        active_workspace_text: "#cad3f5".into(),
+        inactive_workspace: "#8aadf4".into(),
         separator: "#494d64".into(),
         accent: "#ed8796".into(),
         widget_background: "#363a4f".into(),
-        pill_border: "#494d64".into(),
+        pill_border: "#8aadf4".into(),
     }
 }
 
 fn frappe_bar() -> BarColors {
     BarColors {
         background: "#303446".into(),
-        foreground: "#c6d0f5".into(),
-        active_workspace: "#8caaee".into(),
-        active_workspace_text: "#303446".into(),
-        inactive_workspace: "#737994".into(),
+        foreground: "#8caaee".into(),
+        active_workspace: "#505d81".into(),
+        active_workspace_text: "#c6d0f5".into(),
+        inactive_workspace: "#8caaee".into(),
         separator: "#51576d".into(),
         accent: "#e78284".into(),
         widget_background: "#414559".into(),
-        pill_border: "#51576d".into(),
+        pill_border: "#8caaee".into(),
     }
 }
 
 fn latte_bar() -> BarColors {
     BarColors {
         background: "#eff1f5".into(),
-        foreground: "#4c4f69".into(),
-        active_workspace: "#1e66f5".into(),
+        foreground: "#1e66f5".into(),
+        active_workspace: "#7287d5".into(),
         active_workspace_text: "#eff1f5".into(),
-        inactive_workspace: "#9ca0b0".into(),
+        inactive_workspace: "#1e66f5".into(),
         separator: "#bcc0cc".into(),
         accent: "#d20f39".into(),
         widget_background: "#ccd0da".into(),
-        pill_border: "#bcc0cc".into(),
+        pill_border: "#1e66f5".into(),
     }
 }
 

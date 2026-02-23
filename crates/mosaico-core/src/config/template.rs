@@ -211,22 +211,24 @@ pub fn generate_bar() -> String {
 # Whether the status bar is displayed.\n\
 enabled = true\n\
 # Bar height in pixels. Increase for high-DPI displays.\n\
-height = 32\n\
+height = 64\n\
 # Font family name. A Nerd Font is required for widget icons.\n\
 # See https://www.nerdfonts.com/ for installation instructions.\n\
 font = \"CaskaydiaCove Nerd Font\"\n\
 # Font size in pixels.\n\
-font_size = 14\n\
+font_size = 24\n\
 # Horizontal padding at the bar edges in pixels.\n\
-padding = 10\n\
+padding = 8\n\
 # Horizontal padding inside each widget pill in pixels.\n\
-pill_padding = 8\n\
+pill_padding = 12\n\
 # Corner radius for pill backgrounds (0 = square corners).\n\
-pill_radius = 6\n\
+pill_radius = 4\n\
+# Border width for pill backgrounds in pixels. 0 = no border.\n\
+pill_border_width = 2\n\
 # Gap between pills in pixels.\n\
-item_gap = 6\n\
+item_gap = 10\n\
 # Gap between individual workspace number pills in pixels.\n\
-workspace_gap = 2\n\
+workspace_gap = 4\n\
 # Separator string between widget groups (empty string = no separator).\n\
 separator = \"\"\n\
 # Background opacity as a percentage (0 = fully transparent, 100 = opaque).\n\
@@ -238,14 +240,14 @@ monitors = []\n\
 # Override individual theme colors (hex or named: blue, green, mauve, etc.).\n\
 # [colors]\n\
 # background = \"#1e1e2e\"\n\
-# foreground = \"#cdd6f4\"\n\
-# active_workspace = \"#89b4fa\"\n\
-# active_workspace_text = \"#1e1e2e\"\n\
-# inactive_workspace = \"#6c7086\"\n\
+# foreground = \"#89b4fa\"\n\
+# active_workspace = \"#435375\"\n\
+# active_workspace_text = \"#cdd6f4\"\n\
+# inactive_workspace = \"#89b4fa\"\n\
 # separator = \"#45475a\"\n\
 # accent = \"#f38ba8\"\n\
 # widget_background = \"#313244\"\n\
-# pill_border = \"#45475a\"\n\
+# pill_border = \"#89b4fa\"\n\
 \n\
 # Left-side widgets (rendered left-to-right).\n\
 # Set enabled = false to hide a widget without removing it.\n\
@@ -253,6 +255,10 @@ monitors = []\n\
 \n\
 [[left]]\n\
 type = \"workspaces\"\n\
+# enabled = true\n\
+\n\
+[[left]]\n\
+type = \"active_window\"\n\
 # enabled = true\n\
 \n\
 [[left]]\n\

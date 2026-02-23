@@ -1,6 +1,6 @@
 [package]
 name = "mosaico-windows"
-version = "0.2.2"
+version = "0.3.0"
 edition = "2024"
 description = "Windows platform implementation for Mosaico"
 license = "MIT"
@@ -21,7 +21,9 @@ features = [
     "Win32_Foundation",                # HWND, BOOL, RECT, LPARAM, DuplicateHandle
     "Win32_System_SystemInformation",  # GlobalMemoryStatusEx, GetLocalTime
     "Win32_System_Console",            # SetConsoleCtrlHandler (Ctrl+C handling)
+    "Win32_System_ProcessStatus",      # K32GetModuleFileNameExW (exe path from PID)
     "Win32_System_Threading",          # GetWindowThreadProcessId, GetCurrentProcess
+    "Win32_UI_Shell",                  # SHGetFileInfoW (high-quality app icons)
     "Win32_System_Pipes",              # CreateNamedPipeW, DisconnectNamedPipe
     "Win32_System_IO",                 # ConnectNamedPipe (requires overlapped IO module)
     "Win32_Storage_FileSystem",        # CreateFileW (pipe client)

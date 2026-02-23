@@ -5,6 +5,7 @@
 //! which widgets appear and in what order — removing an entry hides
 //! that widget entirely.
 
+pub mod active_window;
 pub mod clock;
 pub mod cpu;
 pub mod date;
@@ -30,6 +31,8 @@ pub struct BarState {
     pub cpu_usage: u32,
     /// Set by the daemon when a newer version is available.
     pub update_text: String,
+    /// HWND of the focused window on this monitor (for icon widget).
+    pub focused_hwnd: Option<usize>,
 }
 
 impl Default for BarState {
@@ -41,6 +44,7 @@ impl Default for BarState {
             monocle: false,
             cpu_usage: 0,
             update_text: String::new(),
+            focused_hwnd: None,
         }
     }
 }
@@ -58,6 +62,9 @@ pub fn draw_left(ctx: &mut DrawCtx, config: &BarConfig, state: &BarState) -> i32
         }
         x = match widget {
             WidgetConfig::Workspaces { .. } => workspaces::draw(ctx, x, config, state),
+            WidgetConfig::ActiveWindow { .. } => {
+                active_window::draw(ctx, x, config, state.focused_hwnd)
+            }
             _ => draw_pill_widget(ctx, x, config, state, widget),
         };
         drawn += 1;
@@ -101,35 +108,25 @@ fn draw_pill_widget(
     state: &BarState,
     widget: &WidgetConfig,
 ) -> i32 {
-    let bold = matches!(widget, WidgetConfig::Update { .. });
-    if bold {
-        ctx.select_bold();
-    }
-
     let label = widget_label(state, widget);
-    let fg = widget_fg(config, widget);
-    let bg = &config.colors.widget_background;
+    let fg = &config.colors.foreground;
     let tw = measure_text(ctx.dc, &label);
     let pill_w = tw + config.pill_padding * 2;
     let pill_y = pill_top(ctx.h);
     let pill_h = ctx.h - pill_y * 2;
 
-    let border = &config.colors.pill_border;
     draw_pill(
         ctx,
         x,
         pill_y,
         pill_w,
         pill_h,
-        bg,
+        &config.colors.widget_background,
         config.pill_radius,
-        border,
+        &config.colors.pill_border,
+        config.pill_border_width,
     );
-    draw_text(ctx, x + config.pill_padding, &label, &fg);
-
-    if bold {
-        ctx.select_regular();
-    }
+    draw_text(ctx, x + config.pill_padding, &label, fg);
     x + pill_w + config.item_gap
 }
 
@@ -141,36 +138,26 @@ fn draw_pill_right(
     state: &BarState,
     widget: &WidgetConfig,
 ) -> i32 {
-    let bold = matches!(widget, WidgetConfig::Update { .. });
-    if bold {
-        ctx.select_bold();
-    }
-
     let label = widget_label(state, widget);
-    let fg = widget_fg(config, widget);
-    let bg = &config.colors.widget_background;
+    let fg = &config.colors.foreground;
     let tw = measure_text(ctx.dc, &label);
     let pill_w = tw + config.pill_padding * 2;
     let pill_y = pill_top(ctx.h);
     let pill_h = ctx.h - pill_y * 2;
     let x = rx - pill_w;
 
-    let border = &config.colors.pill_border;
     draw_pill(
         ctx,
         x,
         pill_y,
         pill_w,
         pill_h,
-        bg,
+        &config.colors.widget_background,
         config.pill_radius,
-        border,
+        &config.colors.pill_border,
+        config.pill_border_width,
     );
-    draw_text(ctx, x + config.pill_padding, &label, &fg);
-
-    if bold {
-        ctx.select_regular();
-    }
+    draw_text(ctx, x + config.pill_padding, &label, fg);
     x - config.item_gap
 }
 
@@ -211,21 +198,13 @@ fn widget_label(state: &BarState, widget: &WidgetConfig) -> String {
 /// Returns the raw text content for a widget (no icon).
 fn widget_text(state: &BarState, widget: &WidgetConfig) -> String {
     match widget {
-        WidgetConfig::Workspaces { .. } => String::new(),
+        WidgetConfig::Workspaces { .. } | WidgetConfig::ActiveWindow { .. } => String::new(),
         WidgetConfig::Layout { .. } => layout::text(state),
         WidgetConfig::Clock { format, .. } => clock::text(format),
         WidgetConfig::Date { format, .. } => date::text(format),
         WidgetConfig::Ram { .. } => ram::text(),
         WidgetConfig::Cpu { .. } => cpu::text(state.cpu_usage),
         WidgetConfig::Update { .. } => update::text(state),
-    }
-}
-
-/// Returns the foreground color hex for a widget.
-fn widget_fg(config: &BarConfig, widget: &WidgetConfig) -> String {
-    match widget {
-        WidgetConfig::Update { .. } => config.colors.accent.clone(),
-        _ => config.colors.foreground.clone(),
     }
 }
 

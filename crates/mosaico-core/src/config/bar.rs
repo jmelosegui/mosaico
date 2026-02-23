@@ -23,6 +23,8 @@ pub struct BarConfig {
     pub pill_padding: i32,
     /// Corner radius for pill backgrounds in pixels. 0 = square.
     pub pill_radius: i32,
+    /// Border width for pill backgrounds in pixels. 0 = no border.
+    pub pill_border_width: i32,
     /// Gap between pills in pixels.
     pub item_gap: i32,
     /// Gap between individual workspace number pills in pixels.
@@ -126,6 +128,14 @@ pub enum WidgetConfig {
         #[serde(default)]
         icon: String,
     },
+    /// Icon of the currently focused window.
+    #[serde(rename = "active_window")]
+    ActiveWindow {
+        #[serde(default = "default_true")]
+        enabled: bool,
+        #[serde(default)]
+        icon: String,
+    },
 }
 
 fn default_true() -> bool {
@@ -142,7 +152,8 @@ impl WidgetConfig {
             | Self::Date { icon, .. }
             | Self::Ram { icon, .. }
             | Self::Cpu { icon, .. }
-            | Self::Update { icon, .. } => icon,
+            | Self::Update { icon, .. }
+            | Self::ActiveWindow { icon, .. } => icon,
         }
     }
 
@@ -155,7 +166,8 @@ impl WidgetConfig {
             | Self::Date { enabled, .. }
             | Self::Ram { enabled, .. }
             | Self::Cpu { enabled, .. }
-            | Self::Update { enabled, .. } => *enabled,
+            | Self::Update { enabled, .. }
+            | Self::ActiveWindow { enabled, .. } => *enabled,
         }
     }
 }
@@ -171,6 +183,10 @@ fn default_date_format() -> String {
 fn default_left_widgets() -> Vec<WidgetConfig> {
     vec![
         WidgetConfig::Workspaces {
+            enabled: true,
+            icon: String::new(),
+        },
+        WidgetConfig::ActiveWindow {
             enabled: true,
             icon: String::new(),
         },
@@ -212,14 +228,15 @@ impl Default for BarConfig {
     fn default() -> Self {
         Self {
             enabled: true,
-            height: 32,
+            height: 64,
             font: "CaskaydiaCove Nerd Font".into(),
-            font_size: 14,
-            padding: 10,
-            pill_padding: 8,
-            pill_radius: 6,
-            item_gap: 6,
-            workspace_gap: 2,
+            font_size: 24,
+            padding: 8,
+            pill_padding: 12,
+            pill_radius: 4,
+            pill_border_width: 2,
+            item_gap: 10,
+            workspace_gap: 4,
             separator: String::new(),
             background_opacity: 0,
             monitors: Vec::new(),
@@ -256,6 +273,7 @@ impl BarConfig {
         self.padding = self.padding.clamp(0, 64);
         self.pill_padding = self.pill_padding.clamp(0, 32);
         self.pill_radius = self.pill_radius.clamp(0, 32);
+        self.pill_border_width = self.pill_border_width.clamp(0, 8);
         self.item_gap = self.item_gap.clamp(0, 32);
         self.workspace_gap = self.workspace_gap.clamp(0, 16);
         self.background_opacity = self.background_opacity.clamp(0, 100);
@@ -314,13 +332,14 @@ mod tests {
         let config = BarConfig::default();
 
         assert!(config.enabled);
-        assert_eq!(config.height, 32);
+        assert_eq!(config.height, 64);
         assert_eq!(config.font, "CaskaydiaCove Nerd Font");
-        assert_eq!(config.font_size, 14);
-        assert_eq!(config.pill_radius, 6);
+        assert_eq!(config.font_size, 24);
+        assert_eq!(config.pill_radius, 4);
+        assert_eq!(config.pill_border_width, 2);
         assert_eq!(config.background_opacity, 0);
         assert!(config.monitors.is_empty());
-        assert_eq!(config.left.len(), 2);
+        assert_eq!(config.left.len(), 3);
         assert_eq!(config.right.len(), 5);
     }
 
@@ -378,7 +397,7 @@ mod tests {
 
         assert_eq!(config.colors.background, "#1e1e2e");
         assert_eq!(config.colors.widget_background, "#313244");
-        assert_eq!(config.colors.active_workspace_text, "#1e1e2e");
+        assert_eq!(config.colors.active_workspace_text, "#cdd6f4");
     }
 
     #[test]
@@ -400,9 +419,9 @@ mod tests {
         let config: BarConfig = toml::from_str("").unwrap();
 
         assert!(config.enabled);
-        assert_eq!(config.height, 32);
+        assert_eq!(config.height, 64);
         assert_eq!(config.font, "CaskaydiaCove Nerd Font");
-        assert_eq!(config.left.len(), 2);
+        assert_eq!(config.left.len(), 3);
     }
 
     #[test]
@@ -411,7 +430,7 @@ mod tests {
 
         assert_eq!(config.height, 40);
         assert_eq!(config.font, "Hack");
-        assert_eq!(config.font_size, 14);
+        assert_eq!(config.font_size, 24);
     }
 
     #[test]
@@ -474,8 +493,8 @@ mod tests {
     fn validate_preserves_valid_values() {
         let mut config = BarConfig::default();
         config.validate();
-        assert_eq!(config.height, 32);
-        assert_eq!(config.pill_radius, 6);
+        assert_eq!(config.height, 64);
+        assert_eq!(config.pill_radius, 4);
     }
 
     #[test]
@@ -483,7 +502,7 @@ mod tests {
         let mut config = BarConfig::default();
         config.resolve_colors(Theme::Latte);
         assert_eq!(config.colors.background, "#eff1f5");
-        assert_eq!(config.colors.foreground, "#4c4f69");
+        assert_eq!(config.colors.foreground, "#1e66f5");
     }
 
     #[test]
@@ -495,7 +514,7 @@ mod tests {
         // Explicit override kept
         assert_eq!(config.colors.background, "#000000");
         // Unset fields resolved from latte
-        assert_eq!(config.colors.foreground, "#4c4f69");
+        assert_eq!(config.colors.foreground, "#1e66f5");
     }
 
     #[test]

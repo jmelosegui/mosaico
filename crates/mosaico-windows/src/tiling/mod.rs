@@ -264,13 +264,19 @@ impl TilingManager {
     pub fn bar_states(&self, update_text: &str) -> Vec<BarState> {
         self.monitors
             .iter()
-            .map(|m| BarState {
+            .enumerate()
+            .map(|(i, m)| BarState {
                 active_workspace: m.active_workspace,
                 workspace_count: m.workspaces.len(),
                 layout_name: "BSP".into(),
                 monocle: m.monocle,
                 cpu_usage: 0,
                 update_text: update_text.to_string(),
+                focused_hwnd: if i == self.focused_monitor {
+                    self.focused_window
+                } else {
+                    None
+                },
             })
             .collect()
     }

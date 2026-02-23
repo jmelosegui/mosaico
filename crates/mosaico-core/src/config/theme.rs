@@ -198,15 +198,16 @@ mod tests {
     fn mocha_colors_match_catppuccin() {
         let c = Theme::Mocha.bar_colors();
         assert_eq!(c.background, "#1e1e2e");
-        assert_eq!(c.foreground, "#cdd6f4");
-        assert_eq!(c.active_workspace, "#89b4fa");
+        assert_eq!(c.foreground, "#89b4fa");
+        assert_eq!(c.active_workspace, "#435375");
+        assert_eq!(c.pill_border, "#89b4fa");
     }
 
     #[test]
     fn latte_is_light_theme() {
         let c = Theme::Latte.bar_colors();
         assert_eq!(c.background, "#eff1f5");
-        assert_eq!(c.foreground, "#4c4f69");
+        assert_eq!(c.foreground, "#1e66f5");
     }
 
     #[test]
