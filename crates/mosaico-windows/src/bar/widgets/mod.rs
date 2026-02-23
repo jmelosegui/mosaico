@@ -109,7 +109,17 @@ fn draw_pill_widget(
     widget: &WidgetConfig,
 ) -> i32 {
     let label = widget_label(state, widget);
-    let fg = &config.colors.foreground;
+    let wc = widget.color();
+    let fg = if wc.is_empty() {
+        &config.colors.foreground
+    } else {
+        wc
+    };
+    let border = if wc.is_empty() {
+        &config.colors.pill_border
+    } else {
+        wc
+    };
     let tw = measure_text(ctx.dc, &label);
     let pill_w = tw + config.pill_padding * 2;
     let pill_y = pill_top(ctx.h);
@@ -123,7 +133,7 @@ fn draw_pill_widget(
         pill_h,
         &config.colors.widget_background,
         config.pill_radius,
-        &config.colors.pill_border,
+        border,
         config.pill_border_width,
     );
     draw_text(ctx, x + config.pill_padding, &label, fg);
@@ -139,7 +149,17 @@ fn draw_pill_right(
     widget: &WidgetConfig,
 ) -> i32 {
     let label = widget_label(state, widget);
-    let fg = &config.colors.foreground;
+    let wc = widget.color();
+    let fg = if wc.is_empty() {
+        &config.colors.foreground
+    } else {
+        wc
+    };
+    let border = if wc.is_empty() {
+        &config.colors.pill_border
+    } else {
+        wc
+    };
     let tw = measure_text(ctx.dc, &label);
     let pill_w = tw + config.pill_padding * 2;
     let pill_y = pill_top(ctx.h);
@@ -154,7 +174,7 @@ fn draw_pill_right(
         pill_h,
         &config.colors.widget_background,
         config.pill_radius,
-        &config.colors.pill_border,
+        border,
         config.pill_border_width,
     );
     draw_text(ctx, x + config.pill_padding, &label, fg);
