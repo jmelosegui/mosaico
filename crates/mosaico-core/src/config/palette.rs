@@ -111,7 +111,7 @@ fn mocha_bar() -> BarColors {
         active_workspace_text: "#cdd6f4".into(),
         inactive_workspace: "#89b4fa".into(),
         separator: "#45475a".into(),
-        accent: "#f38ba8".into(),
+        accent: "#a6e3a1".into(),
         widget_background: "#313244".into(),
         pill_border: "#89b4fa".into(),
     }
@@ -125,7 +125,7 @@ fn macchiato_bar() -> BarColors {
         active_workspace_text: "#cad3f5".into(),
         inactive_workspace: "#8aadf4".into(),
         separator: "#494d64".into(),
-        accent: "#ed8796".into(),
+        accent: "#a6da95".into(),
         widget_background: "#363a4f".into(),
         pill_border: "#8aadf4".into(),
     }
@@ -139,7 +139,7 @@ fn frappe_bar() -> BarColors {
         active_workspace_text: "#c6d0f5".into(),
         inactive_workspace: "#8caaee".into(),
         separator: "#51576d".into(),
-        accent: "#e78284".into(),
+        accent: "#a6d189".into(),
         widget_background: "#414559".into(),
         pill_border: "#8caaee".into(),
     }
@@ -153,7 +153,7 @@ fn latte_bar() -> BarColors {
         active_workspace_text: "#eff1f5".into(),
         inactive_workspace: "#1e66f5".into(),
         separator: "#bcc0cc".into(),
-        accent: "#d20f39".into(),
+        accent: "#40a02b".into(),
         widget_background: "#ccd0da".into(),
         pill_border: "#1e66f5".into(),
     }

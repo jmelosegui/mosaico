@@ -245,7 +245,7 @@ monitors = []\n\
 # active_workspace_text = \"#cdd6f4\"\n\
 # inactive_workspace = \"#89b4fa\"\n\
 # separator = \"#45475a\"\n\
-# accent = \"#f38ba8\"\n\
+# accent = \"#a6e3a1\"\n\
 # widget_background = \"#313244\"\n\
 # pill_border = \"#89b4fa\"\n\
 \n\
@@ -294,7 +294,8 @@ icon = \"\\uF085\"\n\
 [[right]]\n\
 type = \"update\"\n\
 # enabled = true  # auto-hidden when no update is available\n\
-icon = \"\\uF019\"\n"
+icon = \"\\uF019\"\n\
+color = \"green\"  # custom color for text and border (hex or named)\n"
         .to_string()
 }
 

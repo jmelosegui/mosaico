@@ -72,6 +72,7 @@ pub struct BarColors {
 ///
 /// Each widget has a `type` field and optional settings. Set
 /// `enabled = false` to hide a widget without removing its entry.
+/// Set `color` to override text and border color (hex or named).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum WidgetConfig {
@@ -81,6 +82,8 @@ pub enum WidgetConfig {
         enabled: bool,
         #[serde(default)]
         icon: String,
+        #[serde(default)]
+        color: String,
     },
     /// Current layout name (BSP) and monocle indicator.
     Layout {
@@ -88,6 +91,8 @@ pub enum WidgetConfig {
         enabled: bool,
         #[serde(default)]
         icon: String,
+        #[serde(default)]
+        color: String,
     },
     /// Current time with configurable strftime format.
     Clock {
@@ -97,6 +102,8 @@ pub enum WidgetConfig {
         format: String,
         #[serde(default)]
         icon: String,
+        #[serde(default)]
+        color: String,
     },
     /// Current date with configurable strftime format.
     Date {
@@ -106,6 +113,8 @@ pub enum WidgetConfig {
         format: String,
         #[serde(default)]
         icon: String,
+        #[serde(default)]
+        color: String,
     },
     /// System RAM usage percentage.
     Ram {
@@ -113,6 +122,8 @@ pub enum WidgetConfig {
         enabled: bool,
         #[serde(default)]
         icon: String,
+        #[serde(default)]
+        color: String,
     },
     /// System CPU usage percentage.
     Cpu {
@@ -120,6 +131,8 @@ pub enum WidgetConfig {
         enabled: bool,
         #[serde(default)]
         icon: String,
+        #[serde(default)]
+        color: String,
     },
     /// Update availability notification.
     Update {
@@ -127,6 +140,8 @@ pub enum WidgetConfig {
         enabled: bool,
         #[serde(default)]
         icon: String,
+        #[serde(default = "default_update_color")]
+        color: String,
     },
     /// Icon of the currently focused window.
     #[serde(rename = "active_window")]
@@ -135,11 +150,17 @@ pub enum WidgetConfig {
         enabled: bool,
         #[serde(default)]
         icon: String,
+        #[serde(default)]
+        color: String,
     },
 }
 
 fn default_true() -> bool {
     true
+}
+
+fn default_update_color() -> String {
+    "green".into()
 }
 
 impl WidgetConfig {
@@ -170,6 +191,39 @@ impl WidgetConfig {
             | Self::ActiveWindow { enabled, .. } => *enabled,
         }
     }
+
+    /// Returns the custom color override for this widget (empty = use defaults).
+    pub fn color(&self) -> &str {
+        match self {
+            Self::Workspaces { color, .. }
+            | Self::Layout { color, .. }
+            | Self::Clock { color, .. }
+            | Self::Date { color, .. }
+            | Self::Ram { color, .. }
+            | Self::Cpu { color, .. }
+            | Self::Update { color, .. }
+            | Self::ActiveWindow { color, .. } => color,
+        }
+    }
+
+    /// Resolves the widget's custom color (named color name → hex).
+    pub fn resolve_color_field(&mut self, theme: Theme) {
+        let color = match self {
+            Self::Workspaces { color, .. }
+            | Self::Layout { color, .. }
+            | Self::Clock { color, .. }
+            | Self::Date { color, .. }
+            | Self::Ram { color, .. }
+            | Self::Cpu { color, .. }
+            | Self::Update { color, .. }
+            | Self::ActiveWindow { color, .. } => color,
+        };
+        if !color.is_empty()
+            && let Some(hex) = theme.named_color(color)
+        {
+            *color = hex.to_string();
+        }
+    }
 }
 
 fn default_clock_format() -> String {
@@ -185,14 +239,17 @@ fn default_left_widgets() -> Vec<WidgetConfig> {
         WidgetConfig::Workspaces {
             enabled: true,
             icon: String::new(),
+            color: String::new(),
         },
         WidgetConfig::ActiveWindow {
             enabled: true,
             icon: String::new(),
+            color: String::new(),
         },
         WidgetConfig::Layout {
             enabled: true,
             icon: "\u{F009}".into(),
+            color: String::new(),
         },
     ]
 }
@@ -203,23 +260,28 @@ fn default_right_widgets() -> Vec<WidgetConfig> {
             enabled: true,
             format: default_clock_format(),
             icon: "\u{F017}".into(),
+            color: String::new(),
         },
         WidgetConfig::Date {
             enabled: true,
             format: default_date_format(),
             icon: "\u{F073}".into(),
+            color: String::new(),
         },
         WidgetConfig::Ram {
             enabled: true,
             icon: "\u{F2DB}".into(),
+            color: String::new(),
         },
         WidgetConfig::Cpu {
             enabled: true,
             icon: "\u{F085}".into(),
+            color: String::new(),
         },
         WidgetConfig::Update {
             enabled: true,
             icon: "\u{F019}".into(),
+            color: default_update_color(),
         },
     ]
 }
@@ -307,6 +369,13 @@ impl BarConfig {
             &palette.widget_background,
         );
         resolve(&mut self.colors.pill_border, &palette.pill_border);
+
+        for w in &mut self.left {
+            w.resolve_color_field(theme);
+        }
+        for w in &mut self.right {
+            w.resolve_color_field(theme);
+        }
     }
 
     /// Returns true if the bar should be displayed on the given monitor index.
@@ -526,5 +595,39 @@ mod tests {
         assert_eq!(config.colors.accent, "#cba6f7");
         // Unset fields still resolved from theme
         assert_eq!(config.colors.background, "#1e1e2e");
+    }
+
+    #[test]
+    fn widget_color_resolves_named_to_hex() {
+        let mut config = BarConfig::default();
+        config.resolve_colors(Theme::Mocha);
+        // Update widget defaults to "green", resolved to Mocha green hex.
+        let update = config
+            .right
+            .iter()
+            .find(|w| matches!(w, WidgetConfig::Update { .. }))
+            .unwrap();
+        assert_eq!(update.color(), "#a6e3a1");
+    }
+
+    #[test]
+    fn widget_color_empty_means_no_override() {
+        let mut config = BarConfig::default();
+        config.resolve_colors(Theme::Mocha);
+        // Clock has no custom color — stays empty.
+        let clock = config
+            .right
+            .iter()
+            .find(|w| matches!(w, WidgetConfig::Clock { .. }))
+            .unwrap();
+        assert!(clock.color().is_empty());
+    }
+
+    #[test]
+    fn widget_color_from_toml() {
+        let toml_str = "[[left]]\ntype = \"layout\"\ncolor = \"red\"\n";
+        let mut config: BarConfig = toml::from_str(toml_str).unwrap();
+        config.resolve_colors(Theme::Mocha);
+        assert_eq!(config.left[0].color(), "#f38ba8");
     }
 }
