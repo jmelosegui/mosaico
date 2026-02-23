@@ -115,7 +115,7 @@ pub fn render_bar(
             0,
             PCWSTR(font_wide.as_ptr()),
         );
-        let old_font = SelectObject(mem_dc, font.into());
+        let old_font = SelectObject(mem_dc, bold_font.into());
         let _ = SetBkMode(mem_dc, TRANSPARENT);
 
         let mut ctx = DrawCtx {
@@ -124,8 +124,6 @@ pub fn render_bar(
             w,
             h,
             bg_pixel,
-            font: font.into(),
-            bold_font: bold_font.into(),
         };
 
         // Delegate to widget renderers
