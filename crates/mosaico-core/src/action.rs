@@ -65,6 +65,8 @@ pub enum Action {
     GoToWorkspace(u8),
     /// Send the focused window to workspace N (1-8) on the same monitor.
     SendToWorkspace(u8),
+    /// Minimize the currently focused window.
+    MinimizeFocused,
 }
 
 impl FromStr for Action {
@@ -87,6 +89,7 @@ impl FromStr for Action {
             "retile" => Ok(Action::Retile),
             "toggle-monocle" => Ok(Action::ToggleMonocle),
             "close-focused" => Ok(Action::CloseFocused),
+            "minimize-focused" => Ok(Action::MinimizeFocused),
             _ => Err(format!("unknown action: {s}")),
         }
     }
@@ -100,6 +103,7 @@ impl fmt::Display for Action {
             Action::Retile => write!(f, "retile"),
             Action::ToggleMonocle => write!(f, "toggle-monocle"),
             Action::CloseFocused => write!(f, "close-focused"),
+            Action::MinimizeFocused => write!(f, "minimize-focused"),
             Action::GoToWorkspace(n) => write!(f, "goto-workspace-{n}"),
             Action::SendToWorkspace(n) => write!(f, "send-to-workspace-{n}"),
         }
@@ -152,6 +156,7 @@ mod tests {
             Action::Retile,
             Action::ToggleMonocle,
             Action::CloseFocused,
+            Action::MinimizeFocused,
             Action::GoToWorkspace(1),
             Action::GoToWorkspace(8),
             Action::SendToWorkspace(1),
