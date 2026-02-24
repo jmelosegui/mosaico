@@ -146,7 +146,7 @@ checksum = "f8ca58f447f06ed17d5fc4043ce1b10dd205e060fb3ce5b979b8ed8e59ff3f79"
 
 [[package]]
 name = "mosaico"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "clap",
  "mosaico-core",
@@ -155,7 +155,7 @@ dependencies = [
 
 [[package]]
 name = "mosaico-core"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -164,7 +164,7 @@ dependencies = [
 
 [[package]]
 name = "mosaico-windows"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "mosaico-core",
  "serde_json",

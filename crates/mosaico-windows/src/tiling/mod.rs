@@ -206,6 +206,7 @@ impl TilingManager {
             Action::Retile => self.retile_all(),
             Action::ToggleMonocle => self.toggle_monocle(),
             Action::CloseFocused => self.close_focused(),
+            Action::MinimizeFocused => self.minimize_focused(),
             Action::GoToWorkspace(n) => self.goto_workspace(*n),
             Action::SendToWorkspace(n) => self.send_to_workspace(*n),
         }
@@ -342,6 +343,16 @@ impl TilingManager {
                 windows::Win32::Foundation::LPARAM(0),
             );
         }
+    }
+
+    fn minimize_focused(&mut self) {
+        let Some(hwnd) = self.focused_window else {
+            return;
+        };
+        // ShowWindow(SW_MINIMIZE) fires EVENT_SYSTEM_MINIMIZESTART which
+        // the event loop translates to WindowEvent::Minimized. That event
+        // removes the window from the active workspace and re-tiles.
+        Window::from_raw(hwnd).minimize();
     }
 
     /// Sets the focused window, brings it to the foreground, and

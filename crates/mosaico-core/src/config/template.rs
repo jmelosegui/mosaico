@@ -50,7 +50,7 @@ pub fn generate_keybindings() -> String {
 #   move-left, move-right, move-up, move-down,
 #   goto-workspace-1 .. goto-workspace-8,
 #   send-to-workspace-1 .. send-to-workspace-8,
-#   retile, toggle-monocle, close-focused
+#   retile, toggle-monocle, close-focused, minimize-focused
 #
 # Available modifiers: alt, shift, ctrl, win
 #
@@ -115,6 +115,12 @@ modifiers = ["alt"]
 [[keybinding]]
 action = "close-focused"
 key = "Q"
+modifiers = ["alt"]
+
+# Minimize focused window: Alt + M
+[[keybinding]]
+action = "minimize-focused"
+key = "M"
 modifiers = ["alt"]
 
 # Workspaces: Alt + 1..8 (switch), Alt + Shift + 1..8 (send window)

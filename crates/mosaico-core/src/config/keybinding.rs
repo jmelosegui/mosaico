@@ -50,6 +50,8 @@ pub fn defaults() -> Vec<Keybinding> {
         bind(Action::ToggleMonocle, "T", &[Alt]),
         // Close window
         bind(Action::CloseFocused, "Q", &[Alt]),
+        // Minimize window
+        bind(Action::MinimizeFocused, "M", &[Alt]),
     ];
 
     // Workspaces: Alt+1..8 to switch, Alt+Shift+1..8 to send

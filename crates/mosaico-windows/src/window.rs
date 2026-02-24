@@ -75,6 +75,14 @@ impl Window {
         }
     }
 
+    /// Minimizes the window.
+    pub fn minimize(&self) {
+        use windows::Win32::UI::WindowsAndMessaging::{SW_MINIMIZE, ShowWindow};
+        unsafe {
+            let _ = ShowWindow(self.hwnd, SW_MINIMIZE);
+        }
+    }
+
     /// Forcibly shows a hidden window, used during daemon shutdown.
     ///
     /// Uses `SW_SHOW` for stronger activation than `SW_SHOWNOACTIVATE`,
