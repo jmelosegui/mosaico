@@ -181,7 +181,13 @@ impl TilingManager {
             }
             WindowEvent::Moved { hwnd } => {
                 if !self.applying_layout {
-                    self.reassign_monitor(*hwnd);
+                    // Don't retile a window that the user just maximized —
+                    // reassign_monitor would snap it back to BSP layout.
+                    if Window::from_raw(*hwnd).is_maximized() {
+                        self.update_border();
+                    } else {
+                        self.reassign_monitor(*hwnd);
+                    }
                 }
             }
             WindowEvent::Focused { hwnd } => {
@@ -372,6 +378,13 @@ impl TilingManager {
             return;
         };
         let window = Window::from_raw(hwnd);
+        // Hide the border when the focused window is maximized —
+        // the border would be behind the maximized window anyway and
+        // trying to keep it topmost causes z-order flickering.
+        if window.is_maximized() {
+            border.hide();
+            return;
+        }
         let Ok(rect) = window.rect() else {
             return;
         };

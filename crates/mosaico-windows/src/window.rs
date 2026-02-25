@@ -94,6 +94,12 @@ impl Window {
         }
     }
 
+    /// Returns whether this window is maximized.
+    pub fn is_maximized(&self) -> bool {
+        use windows::Win32::UI::WindowsAndMessaging::IsZoomed;
+        unsafe { IsZoomed(self.hwnd).as_bool() }
+    }
+
     /// Returns whether this looks like a real application window.
     ///
     /// Checks for a caption bar (`WS_CAPTION`) and rejects tool windows
