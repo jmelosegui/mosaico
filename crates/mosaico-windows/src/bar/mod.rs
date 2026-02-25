@@ -13,9 +13,9 @@ use mosaico_core::Rect;
 use mosaico_core::config::bar::BarConfig;
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
 use windows::Win32::UI::WindowsAndMessaging::{
-    CW_USEDEFAULT, CreateWindowExW, DefWindowProcW, DestroyWindow, HWND_TOPMOST, RegisterClassW,
+    CW_USEDEFAULT, CreateWindowExW, DefWindowProcW, DestroyWindow, HWND_TOP, RegisterClassW,
     SW_HIDE, SWP_NOACTIVATE, SWP_SHOWWINDOW, SetWindowPos, ShowWindow, WNDCLASSW, WS_EX_LAYERED,
-    WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_EX_TRANSPARENT, WS_POPUP,
+    WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT, WS_POPUP,
 };
 use windows::core::PCWSTR;
 
@@ -71,7 +71,7 @@ impl Bar {
     pub fn new(monitor_work_area: Rect) -> Result<Self, Box<dyn std::error::Error>> {
         ensure_class_registered();
 
-        let ex = WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_TOPMOST | WS_EX_TRANSPARENT;
+        let ex = WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT;
         let hwnd = unsafe {
             CreateWindowExW(
                 ex,
@@ -107,7 +107,7 @@ impl Bar {
         unsafe {
             let _ = SetWindowPos(
                 self.hwnd,
-                Some(HWND_TOPMOST),
+                Some(HWND_TOP),
                 x,
                 y,
                 w,
