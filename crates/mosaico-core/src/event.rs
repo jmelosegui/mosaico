@@ -27,6 +27,9 @@ pub enum WindowEvent {
 
     /// A window's title changed.
     TitleChanged { hwnd: usize },
+
+    /// The display configuration changed (monitor connect/disconnect).
+    DisplayChanged,
 }
 
 impl WindowEvent {
@@ -40,6 +43,7 @@ impl WindowEvent {
             | Self::Minimized { hwnd }
             | Self::Restored { hwnd }
             | Self::TitleChanged { hwnd } => *hwnd,
+            Self::DisplayChanged => 0,
         }
     }
 
@@ -53,6 +57,7 @@ impl WindowEvent {
             Self::Minimized { .. } => "Minimized",
             Self::Restored { .. } => "Restored",
             Self::TitleChanged { .. } => "TitleChanged",
+            Self::DisplayChanged => "DisplayChanged",
         }
     }
 }

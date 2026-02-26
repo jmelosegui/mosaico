@@ -168,6 +168,30 @@ fn daemon_loop() -> WindowResult<()> {
     // Main processing loop — blocks until a message arrives.
     while let Ok(msg) = rx.recv() {
         match msg {
+            DaemonMsg::Event(mosaico_core::WindowEvent::DisplayChanged) => {
+                match monitor::enumerate_monitors() {
+                    Ok(new_monitors) => {
+                        mosaico_core::log_info!(
+                            "Display change detected, {} monitors",
+                            new_monitors.len()
+                        );
+                        let bar_height = bar_mgr.bar_height();
+                        let indices = bar_mgr.bar_monitor_indices().to_vec();
+                        manager.handle_display_change(new_monitors, bar_height, &indices);
+
+                        let monitor_rects: Vec<_> = monitor::enumerate_monitors()
+                            .unwrap_or_default()
+                            .iter()
+                            .map(|m| m.work_area)
+                            .collect();
+                        bar_mgr.rebuild_for_monitors(monitor_rects, current_theme);
+                        bar_mgr.update(&manager.bar_states(&get_update()));
+                    }
+                    Err(e) => {
+                        mosaico_core::log_info!("Failed to re-enumerate monitors: {}", e);
+                    }
+                }
+            }
             DaemonMsg::Event(event) => {
                 manager.handle_event(&event);
                 bar_mgr.update(&manager.bar_states(&get_update()));

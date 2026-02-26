@@ -114,6 +114,21 @@ impl BarManager {
         }
     }
 
+    /// Rebuilds bars for a new set of monitor rects (after display change).
+    ///
+    /// Drops existing bars, stores new monitor rects, re-resolves colors,
+    /// and recreates bars.
+    pub fn rebuild_for_monitors(&mut self, monitor_rects: Vec<Rect>, theme: Theme) {
+        self.bars.clear();
+        self.monitor_rects = monitor_rects;
+        self.config.colors = self.raw_colors.clone();
+        self.config.resolve_colors(theme);
+
+        let (bars, indices) = Self::create_bars(&self.config, &self.monitor_rects);
+        self.bars = bars;
+        self.bar_monitor_indices = indices;
+    }
+
     /// Recreates bars with a new config. Returns the new bar height.
     pub fn reload(&mut self, config: BarConfig) -> i32 {
         self.bars.clear();
