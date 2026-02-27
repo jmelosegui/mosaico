@@ -223,6 +223,12 @@ height = 64\n\
 font = \"CaskaydiaCove Nerd Font\"\n\
 # Font size in pixels.\n\
 font_size = 24\n\
+# Render bar text in bold.\n\
+font_bold = true\n\
+# Render bar text in italic.\n\
+font_italic = false\n\
+# Render bar text with underline.\n\
+font_underline = false\n\
 # Horizontal padding at the bar edges in pixels.\n\
 padding = 8\n\
 # Horizontal padding inside each widget pill in pixels.\n\
