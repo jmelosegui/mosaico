@@ -8,10 +8,10 @@ use windows::Win32::Graphics::Gdi::{
     DeleteDC, DeleteObject, GetDC, ReleaseDC, SelectObject,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    CW_USEDEFAULT, CreateWindowExW, DefWindowProcW, DestroyWindow, HWND_TOPMOST, RegisterClassW,
-    SW_HIDE, SWP_NOACTIVATE, SWP_SHOWWINDOW, SetWindowPos, ShowWindow, ULW_ALPHA,
-    UpdateLayeredWindow, WNDCLASSW, WS_EX_LAYERED, WS_EX_TOOLWINDOW, WS_EX_TOPMOST,
-    WS_EX_TRANSPARENT, WS_POPUP,
+    CW_USEDEFAULT, CreateWindowExW, DefWindowProcW, DestroyWindow, GWL_EXSTYLE,
+    GetWindowLongPtrW, HWND_NOTOPMOST, HWND_TOPMOST, RegisterClassW, SW_HIDE, SWP_NOACTIVATE,
+    SWP_SHOWWINDOW, SetWindowPos, ShowWindow, ULW_ALPHA, UpdateLayeredWindow, WNDCLASSW,
+    WS_EX_LAYERED, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_EX_TRANSPARENT, WS_POPUP,
 };
 use windows::core::PCWSTR;
 
@@ -91,7 +91,7 @@ impl Border {
     pub fn new() -> WindowResult<Self> {
         ensure_class_registered();
 
-        let ex = WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_TOPMOST | WS_EX_TRANSPARENT;
+        let ex = WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT;
         let hwnd = unsafe {
             CreateWindowExW(
                 ex,
@@ -114,23 +114,50 @@ impl Border {
 
     /// Shows the border around the given rectangle with the specified color.
     ///
+    /// `target` is the focused window's HWND. The border is placed just
+    /// behind it in z-order and inherits its topmost state so it stays
+    /// visible with topmost windows without flickering for normal ones.
+    ///
     /// Renders the bitmap before making the window visible to avoid
     /// flickering caused by a stale bitmap being shown at the new size.
-    pub fn show(&self, rect: &Rect, color: Color, width: i32) {
+    pub fn show(&self, rect: &Rect, color: Color, width: i32, target: HWND) {
         let w = rect.width + width * 2;
         let h = rect.height + width * 2;
 
         // Render the new bitmap first so `UpdateLayeredWindow` atomically
-        // sets position, size, and pixel content in one
-        //
-        // call.
+        // sets position, size, and pixel content in one call.
         self.render(rect.x - width, rect.y - width, w, h, color, width);
 
-        // Then ensure the overlay is on top and visible.
+        // Match the target window's topmost state, then place the border
+        // just behind it so the border is visible around the window but
+        // never covers it or other windows that should be in front.
+        let target_topmost = unsafe {
+            let ex = GetWindowLongPtrW(target, GWL_EXSTYLE) as u32;
+            (ex & WS_EX_TOPMOST.0) != 0
+        };
+        let insert_after = if target_topmost {
+            HWND_TOPMOST
+        } else {
+            HWND_NOTOPMOST
+        };
+
         unsafe {
+            // First set the topmost/non-topmost band.
             let _ = SetWindowPos(
                 self.hwnd,
-                Some(HWND_TOPMOST),
+                Some(insert_after),
+                0,
+                0,
+                0,
+                0,
+                SWP_NOACTIVATE | SWP_SHOWWINDOW
+                    | windows::Win32::UI::WindowsAndMessaging::SWP_NOMOVE
+                    | windows::Win32::UI::WindowsAndMessaging::SWP_NOSIZE,
+            );
+            // Then position just behind the target window.
+            let _ = SetWindowPos(
+                self.hwnd,
+                Some(target),
                 rect.x - width,
                 rect.y - width,
                 w,

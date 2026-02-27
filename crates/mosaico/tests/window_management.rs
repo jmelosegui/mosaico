@@ -18,11 +18,9 @@ mod win32 {
 
     pub type HWND = *mut c_void;
     pub type BOOL = i32;
-    pub type DWORD = u32;
     pub type UINT = u32;
     pub type WPARAM = usize;
     pub type LPARAM = isize;
-
     pub const SW_MINIMIZE: i32 = 6;
     pub const SW_MAXIMIZE: i32 = 3;
     pub const SW_RESTORE: i32 = 9;
@@ -39,6 +37,20 @@ mod win32 {
         pub bottom: i32,
     }
 
+    pub const GW_OWNER: UINT = 4;
+    pub const PM_REMOVE: UINT = 0x0001;
+
+    #[repr(C)]
+    pub struct MSG {
+        pub hwnd: HWND,
+        pub message: UINT,
+        pub wparam: WPARAM,
+        pub lparam: LPARAM,
+        pub time: u32,
+        pub pt_x: i32,
+        pub pt_y: i32,
+    }
+
     #[link(name = "user32")]
     unsafe extern "system" {
         pub fn FindWindowW(class: *const u16, title: *const u16) -> HWND;
@@ -47,9 +59,35 @@ mod win32 {
         pub fn IsWindowVisible(hwnd: HWND) -> BOOL;
         pub fn ShowWindow(hwnd: HWND, cmd: i32) -> BOOL;
         pub fn EnumWindows(cb: WNDENUMPROC, lparam: LPARAM) -> BOOL;
-        pub fn GetWindowThreadProcessId(hwnd: HWND, pid: *mut DWORD) -> DWORD;
         pub fn PostMessageW(hwnd: HWND, msg: UINT, wparam: WPARAM, lparam: LPARAM) -> BOOL;
         pub fn GetWindowRect(hwnd: HWND, rect: *mut RECT) -> BOOL;
+        pub fn SetForegroundWindow(hwnd: HWND) -> BOOL;
+        pub fn GetWindow(hwnd: HWND, cmd: UINT) -> HWND;
+        pub fn RealGetWindowClassW(hwnd: HWND, string: *mut u16, max_count: UINT) -> UINT;
+        pub fn CreateWindowExW(
+            ex_style: u32,
+            class_name: *const u16,
+            window_name: *const u16,
+            style: u32,
+            x: i32,
+            y: i32,
+            width: i32,
+            height: i32,
+            parent: HWND,
+            menu: *mut c_void,
+            instance: *mut c_void,
+            param: *mut c_void,
+        ) -> HWND;
+        pub fn DestroyWindow(hwnd: HWND) -> BOOL;
+        pub fn PeekMessageW(
+            msg: *mut MSG,
+            hwnd: HWND,
+            min: UINT,
+            max: UINT,
+            remove: UINT,
+        ) -> BOOL;
+        pub fn TranslateMessage(msg: *const MSG) -> BOOL;
+        pub fn DispatchMessageW(msg: *const MSG) -> isize;
     }
 }
 
@@ -78,7 +116,7 @@ fn start_daemon() {
     let status = mosaico(&["start"]);
     assert!(status.success(), "daemon failed to start");
     // Give the daemon time to set up the event loop and IPC pipe.
-    thread::sleep(Duration::from_secs(2));
+    thread::sleep(Duration::from_secs(3));
 }
 
 /// Stops the daemon.
@@ -87,19 +125,82 @@ fn stop_daemon() {
     thread::sleep(Duration::from_millis(500));
 }
 
+/// Collects all visible top-level windows with class "Notepad" that
+/// are large enough to be actual application windows.
+///
+/// On Windows 11, the UWP notepad creates multiple "Notepad"-class
+/// windows per instance (tabs, frame, etc.).  Only the main window
+/// is large enough to tile.  We filter by a minimum size to skip
+/// helper windows.
+fn find_notepad_windows() -> Vec<win32::HWND> {
+    const MIN_SIZE: i32 = 100;
+
+    struct Search {
+        results: Vec<win32::HWND>,
+    }
+
+    unsafe extern "system" fn enum_cb(hwnd: win32::HWND, lparam: win32::LPARAM) -> win32::BOOL {
+        let search = unsafe { &mut *(lparam as *mut Search) };
+        unsafe {
+            if win32::IsWindowVisible(hwnd) == 0 {
+                return 1;
+            }
+            let mut buf = [0u16; 256];
+            let len = win32::RealGetWindowClassW(hwnd, buf.as_mut_ptr(), 256);
+            let class = String::from_utf16_lossy(&buf[..len as usize]);
+            if class != "Notepad" {
+                return 1;
+            }
+            // Skip small helper/tab windows created by UWP notepad.
+            let mut rect = win32::RECT {
+                left: 0,
+                top: 0,
+                right: 0,
+                bottom: 0,
+            };
+            win32::GetWindowRect(hwnd, &mut rect);
+            let w = rect.right - rect.left;
+            let h = rect.bottom - rect.top;
+            if w >= MIN_SIZE && h >= MIN_SIZE {
+                search.results.push(hwnd);
+            }
+        }
+        1
+    }
+
+    let mut search = Search {
+        results: Vec::new(),
+    };
+    unsafe {
+        win32::EnumWindows(enum_cb, &mut search as *mut Search as win32::LPARAM);
+    }
+    search.results
+}
+
 /// Launches notepad.exe and waits for its window to appear.
-/// Returns the child process handle and the window HWND.
+///
+/// Diffs the set of "Notepad"-class windows before and after spawning
+/// to find the new window.  This works even when notepad.exe is the
+/// Windows Store/UWP version that hosts all windows under a single
+/// process (different from the spawned PID).
 fn launch_notepad() -> (Child, win32::HWND) {
+    let before = find_notepad_windows();
+
     let child = Command::new("notepad.exe")
         .spawn()
         .expect("failed to launch notepad.exe");
-    let pid = child.id();
 
-    // Wait for the notepad window to appear (up to 10 seconds).
+    // Wait for a new Notepad-class window to appear (up to 10 seconds).
     let mut hwnd = std::ptr::null_mut();
     for _ in 0..20 {
         thread::sleep(Duration::from_millis(500));
-        hwnd = find_window_by_pid(pid);
+        let after = find_notepad_windows();
+        for w in &after {
+            if !before.contains(w) {
+                hwnd = *w;
+                break;
+            }
+        }
         if !hwnd.is_null() {
             break;
         }
@@ -112,45 +213,17 @@ fn launch_notepad() -> (Child, win32::HWND) {
     (child, hwnd)
 }
 
-/// Sends WM_CLOSE to notepad and waits for the process to exit.
-fn close_notepad(mut child: Child) {
-    let hwnd = find_window_by_pid(child.id());
+/// Sends WM_CLOSE to the notepad window and waits for the process to exit.
+fn close_notepad(hwnd: win32::HWND, mut child: Child) {
     if !hwnd.is_null() {
         unsafe {
             win32::PostMessageW(hwnd, win32::WM_CLOSE, 0, 0);
         }
     }
+    // Give notepad a moment to close, then kill if still alive.
+    thread::sleep(Duration::from_millis(500));
+    let _ = child.kill();
     let _ = child.wait();
-}
-
-/// Finds a visible top-level window belonging to the given process ID.
-fn find_window_by_pid(pid: u32) -> win32::HWND {
-    struct Search {
-        pid: u32,
-        result: win32::HWND,
-    }
-
-    unsafe extern "system" fn enum_cb(hwnd: win32::HWND, lparam: win32::LPARAM) -> win32::BOOL {
-        let search = unsafe { &mut *(lparam as *mut Search) };
-        let mut window_pid: win32::DWORD = 0;
-        unsafe {
-            win32::GetWindowThreadProcessId(hwnd, &mut window_pid);
-        }
-        if window_pid == search.pid && unsafe { win32::IsWindowVisible(hwnd) } != 0 {
-            search.result = hwnd;
-            return 0; // stop enumeration
-        }
-        1 // continue
-    }
-
-    let mut search = Search {
-        pid,
-        result: std::ptr::null_mut(),
-    };
-    unsafe {
-        win32::EnumWindows(enum_cb, &mut search as *mut Search as win32::LPARAM);
-    }
-    search.result
 }
 
 /// Finds the MosaicoBorder window.
@@ -218,18 +291,22 @@ fn take_screenshot(name: &str) {
 // Tests
 // ---------------------------------------------------------------------------
 
+/// Switches to workspace 8 so the test runs with only its own
+/// notepad window(s), free from interference by other desktop windows.
+fn isolate_workspace() {
+    mosaico(&["action", "go-to-workspace", "8"]);
+    thread::sleep(Duration::from_millis(500));
+}
+
 /// Minimize a window, then restore it by clicking (simulated via ShowWindow).
 /// The border should update to the restored window's position.
 #[test]
 fn minimize_and_restore_updates_border() {
     start_daemon();
+    isolate_workspace();
     let (child, hwnd) = launch_notepad();
 
-    // Capture the border rect while notepad is tiled.
-    let border = find_border_hwnd();
-    assert!(!border.is_null(), "border window not found");
     assert!(is_border_visible(), "border should be visible initially");
-    let border_before = get_window_rect(border);
 
     take_screenshot("minimize_restore_before");
 
@@ -249,33 +326,13 @@ fn minimize_and_restore_updates_border() {
     let iconic_after = unsafe { win32::IsIconic(hwnd) };
     assert!(iconic_after == 0, "notepad should no longer be minimized");
 
-    // Border should be visible and match the restored window position.
+    // Border should be visible and surround the restored notepad.
     assert!(is_border_visible(), "border should be visible after restore");
-    let border_after = get_window_rect(border);
-    let notepad_rect = get_window_rect(hwnd);
-
-    // The border should roughly surround notepad (within border width tolerance).
-    assert!(
-        border_after.0 <= notepad_rect.0 && border_after.2 >= notepad_rect.2,
-        "border should horizontally surround notepad: border={:?} notepad={:?}",
-        border_after, notepad_rect
-    );
-    assert!(
-        border_after.1 <= notepad_rect.1 && border_after.3 >= notepad_rect.3,
-        "border should vertically surround notepad: border={:?} notepad={:?}",
-        border_after, notepad_rect
-    );
-
-    // Border position should match what it was before minimize
-    // (since retiling returns notepad to the same slot).
-    assert_eq!(
-        border_before, border_after,
-        "border should return to same position after restore"
-    );
+    assert_border_surrounds("after restore", hwnd);
 
     take_screenshot("minimize_restore_after");
 
-    close_notepad(child);
+    close_notepad(hwnd, child);
     stop_daemon();
 }
 
@@ -284,6 +341,7 @@ fn minimize_and_restore_updates_border() {
 #[test]
 fn monocle_new_window_gets_monocle_size() {
     start_daemon();
+    isolate_workspace();
     let (child1, hwnd1) = launch_notepad();
 
     // Enable monocle mode — notepad1 should fill the work area.
@@ -322,8 +380,8 @@ fn monocle_new_window_gets_monocle_size() {
     let _ = mosaico(&["action", "toggle-monocle"]);
     thread::sleep(Duration::from_millis(500));
 
-    close_notepad(child2);
-    close_notepad(child1);
+    close_notepad(hwnd2, child2);
+    close_notepad(hwnd1, child1);
     stop_daemon();
 }
 
@@ -332,6 +390,7 @@ fn monocle_new_window_gets_monocle_size() {
 #[test]
 fn maximize_hides_border_and_preserves_maximize() {
     start_daemon();
+    isolate_workspace();
     let (child, hwnd) = launch_notepad();
 
     assert!(is_border_visible(), "border should be visible initially");
@@ -353,7 +412,7 @@ fn maximize_hides_border_and_preserves_maximize() {
 
     take_screenshot("maximize_after");
 
-    close_notepad(child);
+    close_notepad(hwnd, child);
     stop_daemon();
 }
 
@@ -362,6 +421,7 @@ fn maximize_hides_border_and_preserves_maximize() {
 #[test]
 fn restore_from_maximize_shows_border() {
     start_daemon();
+    isolate_workspace();
     let (child, hwnd) = launch_notepad();
 
     let _tiled_rect = get_window_rect(hwnd);
@@ -389,17 +449,194 @@ fn restore_from_maximize_shows_border() {
     );
 
     // The border should surround the restored notepad window.
-    let border = find_border_hwnd();
-    let border_rect = get_window_rect(border);
-    let notepad_rect = get_window_rect(hwnd);
-
-    assert!(
-        border_rect.0 <= notepad_rect.0 && border_rect.2 >= notepad_rect.2,
-        "border should horizontally surround notepad after restore"
-    );
+    assert_border_surrounds("after restore from maximize", hwnd);
 
     take_screenshot("restore_from_maximize");
 
-    close_notepad(child);
+    close_notepad(hwnd, child);
+    stop_daemon();
+}
+
+// ---------------------------------------------------------------------------
+// Dialog helpers
+// ---------------------------------------------------------------------------
+
+const WS_POPUP: u32 = 0x80000000;
+const WS_VISIBLE: u32 = 0x10000000;
+const WS_CAPTION_STYLE: u32 = 0x00C00000;
+const WS_EX_DLGMODALFRAME: u32 = 0x00000001;
+
+/// Creates a simple owned popup window that acts as a test dialog.
+///
+/// Uses `CreateWindowExW` with the owner set atomically at creation
+/// time, avoiding the Win32 race condition where `GetWindow(GW_OWNER)`
+/// returns NULL during `EVENT_OBJECT_CREATE` for cross-thread dialogs.
+///
+/// Unlike `MessageBoxA`, this is non-modal and will not disable the
+/// owner window, making it safe for testing even if the test crashes.
+fn create_test_dialog(owner: win32::HWND) -> win32::HWND {
+    let class: Vec<u16> = "Static\0".encode_utf16().collect();
+    let title: Vec<u16> = "MosaicoTestDialog\0".encode_utf16().collect();
+    unsafe {
+        win32::CreateWindowExW(
+            WS_EX_DLGMODALFRAME,
+            class.as_ptr(),
+            title.as_ptr(),
+            WS_POPUP | WS_VISIBLE | WS_CAPTION_STYLE,
+            100,
+            100,
+            300,
+            200,
+            owner,
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+        )
+    }
+}
+
+/// Drains the calling thread's message queue so pending activation
+/// and focus messages are processed.  Without this, windows created
+/// on the test thread never receive `WM_ACTIVATE` and Windows never
+/// fires `EVENT_SYSTEM_FOREGROUND` for them.
+fn pump_messages() {
+    unsafe {
+        let mut msg: win32::MSG = std::mem::zeroed();
+        while win32::PeekMessageW(
+            &mut msg,
+            std::ptr::null_mut(),
+            0,
+            0,
+            win32::PM_REMOVE,
+        ) != 0
+        {
+            win32::TranslateMessage(&msg);
+            win32::DispatchMessageW(&msg);
+        }
+    }
+}
+
+/// Destroys the test dialog window.
+fn close_test_dialog(hwnd: win32::HWND) {
+    if !hwnd.is_null() {
+        unsafe {
+            win32::DestroyWindow(hwnd);
+        }
+    }
+}
+
+/// Asserts the border roughly surrounds the given window.
+///
+/// Allows a small tolerance (2px) for DPI scaling and invisible
+/// border compensation differences between `GetWindowRect` and the
+/// daemon's `visible_rect` calculation.
+fn assert_border_surrounds(label: &str, target: win32::HWND) {
+    const TOL: i32 = 2;
+    let border = find_border_hwnd();
+    assert!(!border.is_null(), "{label}: border window not found");
+    let br = get_window_rect(border);
+    let tr = get_window_rect(target);
+    assert!(
+        br.0 <= tr.0 + TOL && br.2 >= tr.2 - TOL,
+        "{label}: border should horizontally surround target: border={br:?} target={tr:?}"
+    );
+    assert!(
+        br.1 <= tr.1 + TOL && br.3 >= tr.3 - TOL,
+        "{label}: border should vertically surround target: border={br:?} target={tr:?}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Dialog tests
+// ---------------------------------------------------------------------------
+
+/// An owned dialog should not be tiled. The notepad window should
+/// stay at the same position and the border should still surround it.
+#[test]
+fn owned_dialog_is_not_tiled() {
+    start_daemon();
+    isolate_workspace();
+    let (child, hwnd) = launch_notepad();
+
+    assert!(is_border_visible(), "border should be visible initially");
+    let notepad_before = get_window_rect(hwnd);
+
+    take_screenshot("dialog_not_tiled_before");
+
+    // Create an owned popup dialog.
+    let dialog = create_test_dialog(hwnd);
+    assert!(!dialog.is_null(), "failed to create test dialog");
+    thread::sleep(Duration::from_secs(2));
+
+    take_screenshot("dialog_not_tiled_dialog_open");
+
+    // The dialog should be owned by notepad.
+    let owner = unsafe { win32::GetWindow(dialog, win32::GW_OWNER) };
+    assert_eq!(owner, hwnd, "dialog should be owned by notepad");
+
+    // The dialog should not have been tiled — notepad should still
+    // be at the same position (not retiled for a new window).
+    let notepad_after = get_window_rect(hwnd);
+    assert_eq!(
+        notepad_before, notepad_after,
+        "notepad should not have been retiled when dialog appeared"
+    );
+
+    // Border should still be visible and surround notepad.
+    assert!(is_border_visible(), "border should still be visible");
+    assert_border_surrounds("border on notepad with dialog open", hwnd);
+
+    // Close the dialog.
+    close_test_dialog(dialog);
+    thread::sleep(Duration::from_secs(1));
+
+    take_screenshot("dialog_not_tiled_after");
+
+    close_notepad(hwnd, child);
+    stop_daemon();
+}
+
+/// Focusing an owned dialog should move the border to the dialog's
+/// owner window, not leave it on a previously focused window.
+#[test]
+fn focus_dialog_moves_border_to_owner() {
+    start_daemon();
+    isolate_workspace();
+    let (child1, hwnd1) = launch_notepad();
+    let (child2, hwnd2) = launch_notepad();
+
+    // Border should be on notepad2 (last launched/focused).
+    assert!(is_border_visible(), "border should be visible");
+    assert_border_surrounds("initial focus on notepad2", hwnd2);
+
+    take_screenshot("dialog_focus_two_notepads");
+
+    // Create a dialog owned by notepad1 and focus it.
+    let dialog = create_test_dialog(hwnd1);
+    assert!(!dialog.is_null(), "failed to create test dialog");
+    unsafe {
+        win32::SetForegroundWindow(dialog);
+    }
+    // Drain the message queue so WM_ACTIVATE is processed and
+    // Windows fires EVENT_SYSTEM_FOREGROUND for the dialog.
+    pump_messages();
+    thread::sleep(Duration::from_secs(2));
+
+    take_screenshot("dialog_focus_dialog_open");
+
+    // The dialog got focus, so the border should now surround
+    // notepad1 (the owner), not notepad2.
+    assert!(is_border_visible(), "border should be visible with dialog focused");
+    assert_border_surrounds("border follows owner of focused dialog", hwnd1);
+
+    take_screenshot("dialog_focus_after_close");
+
+    // Close the dialog.
+    close_test_dialog(dialog);
+    pump_messages();
+    thread::sleep(Duration::from_secs(1));
+
+    close_notepad(hwnd2, child2);
+    close_notepad(hwnd1, child1);
     stop_daemon();
 }

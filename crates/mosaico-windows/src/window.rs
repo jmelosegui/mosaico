@@ -100,15 +100,35 @@ impl Window {
         unsafe { IsZoomed(self.hwnd).as_bool() }
     }
 
+    /// Returns the owner window handle, or `None` if the window has no owner.
+    ///
+    /// Owned top-level windows are typically dialogs or property sheets
+    /// spawned by an application's main window.
+    pub fn owner(&self) -> Option<usize> {
+        use windows::Win32::UI::WindowsAndMessaging::{GW_OWNER, GetWindow};
+        unsafe {
+            GetWindow(self.hwnd, GW_OWNER)
+                .ok()
+                .filter(|h| !h.is_invalid())
+                .map(|h| h.0 as usize)
+        }
+    }
+
     /// Returns whether this looks like a real application window.
     ///
-    /// Checks for a caption bar (`WS_CAPTION`) and rejects tool windows
-    /// (`WS_EX_TOOLWINDOW`). This filters out internal helper windows,
-    /// tooltips, floating toolbars, and other non-application surfaces
-    /// that should never be tiled.
+    /// Checks for a caption bar (`WS_CAPTION`), rejects tool windows
+    /// (`WS_EX_TOOLWINDOW`), rejects owned windows, and rejects modal
+    /// dialog frames (`WS_EX_DLGMODALFRAME`).
+    ///
+    /// The modal-frame check is important because when a dialog is
+    /// created on a different thread from its owner, the owner
+    /// relationship may not be queryable at the time
+    /// `EVENT_OBJECT_CREATE` fires. `WS_EX_DLGMODALFRAME` is set
+    /// during `CreateWindowEx` itself, so it's always available.
     pub fn is_app_window(&self) -> bool {
         use windows::Win32::UI::WindowsAndMessaging::{
-            GWL_EXSTYLE, GWL_STYLE, GetWindowLongPtrW, WS_CAPTION, WS_EX_TOOLWINDOW,
+            GWL_EXSTYLE, GWL_STYLE, GW_OWNER, GetWindow, GetWindowLongPtrW, WS_CAPTION,
+            WS_EX_DLGMODALFRAME, WS_EX_TOOLWINDOW,
         };
 
         unsafe {
@@ -117,8 +137,11 @@ impl Window {
 
             let has_caption = (style & WS_CAPTION.0) == WS_CAPTION.0;
             let is_tool = (ex_style & WS_EX_TOOLWINDOW.0) == WS_EX_TOOLWINDOW.0;
+            let is_dialog = (ex_style & WS_EX_DLGMODALFRAME.0) != 0;
+            let has_owner = GetWindow(self.hwnd, GW_OWNER)
+                .is_ok_and(|owner| !owner.is_invalid());
 
-            has_caption && !is_tool
+            has_caption && !is_tool && !has_owner && !is_dialog
         }
     }
 }
