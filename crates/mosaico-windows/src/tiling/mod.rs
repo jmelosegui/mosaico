@@ -60,6 +60,12 @@ pub struct TilingManager {
     focused_window: Option<usize>,
     /// Suppresses `Moved` event handling during programmatic layout.
     applying_layout: bool,
+    /// Tracks whether the focused window is currently maximized.
+    ///
+    /// Used to detect maximize/restore transitions from
+    /// `LocationChanged` events without calling `update_border()`
+    /// on every animation frame.
+    focused_maximized: bool,
     /// Windows hidden programmatically by workspace switching.
     ///
     /// Events for these hwnds are ignored until they are shown again.
@@ -97,6 +103,7 @@ impl TilingManager {
             border_config,
             focused_monitor: 0,
             focused_window: None,
+            focused_maximized: false,
             applying_layout: false,
             hidden_by_switch: HashSet::new(),
         };
@@ -189,7 +196,11 @@ impl TilingManager {
                 if !self.applying_layout {
                     // Don't retile a window that the user just maximized —
                     // reassign_monitor would snap it back to BSP layout.
-                    if Window::from_raw(*hwnd).is_maximized() {
+                    let maximized = Window::from_raw(*hwnd).is_maximized();
+                    if self.focused_window == Some(*hwnd) {
+                        self.focused_maximized = maximized;
+                    }
+                    if maximized {
                         self.update_border();
                     } else {
                         self.reassign_monitor(*hwnd);
@@ -200,11 +211,36 @@ impl TilingManager {
                 if let Some(idx) = self.owning_monitor(*hwnd) {
                     self.focused_window = Some(*hwnd);
                     self.focused_monitor = idx;
+                    self.focused_maximized = Window::from_raw(*hwnd).is_maximized();
                     self.update_border();
                 }
                 // Unmanaged windows (Alt+Tab UI, shell, system dialogs)
                 // are ignored — the border stays on the last managed
                 // window so keyboard navigation keeps working.
+            }
+            WindowEvent::LocationChanged { hwnd } => {
+                // EVENT_OBJECT_LOCATIONCHANGE fires frequently (every
+                // animation frame), so only react when the focused
+                // window's maximized state changes. This catches
+                // maximize/restore via the title-bar buttons which do
+                // not fire EVENT_SYSTEM_MOVESIZEEND.
+                if self.focused_window == Some(*hwnd) {
+                    let maximized = Window::from_raw(*hwnd).is_maximized();
+                    if maximized != self.focused_maximized {
+                        self.focused_maximized = maximized;
+                        if maximized {
+                            // Entering maximize — hide border immediately.
+                            self.update_border();
+                        } else {
+                            // Restoring from maximize — retile to snap
+                            // the window back to its BSP position so the
+                            // border doesn't flash before the animation
+                            // finishes.
+                            self.reassign_monitor(*hwnd);
+                            self.update_border();
+                        }
+                    }
+                }
             }
             WindowEvent::DisplayChanged => {
                 // Handled by the daemon loop, not here.
@@ -486,6 +522,7 @@ impl TilingManager {
     /// refreshes the focus border.
     fn focus_and_update_border(&mut self, hwnd: usize) {
         self.focused_window = Some(hwnd);
+        self.focused_maximized = Window::from_raw(hwnd).is_maximized();
         Window::from_raw(hwnd).set_foreground();
         self.update_border();
     }

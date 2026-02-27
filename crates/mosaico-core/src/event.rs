@@ -28,6 +28,12 @@ pub enum WindowEvent {
     /// A window's title changed.
     TitleChanged { hwnd: usize },
 
+    /// A window's position or size changed.
+    ///
+    /// Fires frequently (e.g. during animations), so handlers should
+    /// filter to the focused window and avoid expensive work.
+    LocationChanged { hwnd: usize },
+
     /// The display configuration changed (monitor connect/disconnect).
     DisplayChanged,
 }
@@ -42,7 +48,8 @@ impl WindowEvent {
             | Self::Moved { hwnd }
             | Self::Minimized { hwnd }
             | Self::Restored { hwnd }
-            | Self::TitleChanged { hwnd } => *hwnd,
+            | Self::TitleChanged { hwnd }
+            | Self::LocationChanged { hwnd } => *hwnd,
             Self::DisplayChanged => 0,
         }
     }
@@ -57,6 +64,7 @@ impl WindowEvent {
             Self::Minimized { .. } => "Minimized",
             Self::Restored { .. } => "Restored",
             Self::TitleChanged { .. } => "TitleChanged",
+            Self::LocationChanged { .. } => "LocationChanged",
             Self::DisplayChanged => "DisplayChanged",
         }
     }
