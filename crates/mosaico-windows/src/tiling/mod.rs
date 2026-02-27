@@ -213,10 +213,36 @@ impl TilingManager {
                     self.focused_monitor = idx;
                     self.focused_maximized = Window::from_raw(*hwnd).is_maximized();
                     self.update_border();
+                } else if let Some(owner) = Window::from_raw(*hwnd).owner()
+                    && let Some(idx) = self.owning_monitor(owner)
+                {
+                    // An owned window (dialog, property sheet) got focus.
+                    //
+                    // Due to a Win32 race condition, dialogs created on
+                    // a different thread may not have their owner set
+                    // when EVENT_OBJECT_CREATE fires, causing them to
+                    // pass is_app_window() and get tiled. Now that the
+                    // owner is queryable, clean up if the dialog was
+                    // incorrectly added.
+                    if let Some((mon_idx, ws_idx)) = self.find_window(*hwnd) {
+                        self.monitors[mon_idx].workspaces[ws_idx].remove(*hwnd);
+                        mosaico_core::log_info!(
+                            "-fix 0x{:X} (owned dialog removed from tiling)",
+                            hwnd
+                        );
+                        self.apply_layout_on(mon_idx);
+                    }
+                    // Move the border to the owner so the user can see
+                    // which application the dialog belongs to.
+                    self.focused_window = Some(owner);
+                    self.focused_monitor = idx;
+                    self.focused_maximized = Window::from_raw(owner).is_maximized();
+                    self.update_border();
                 }
-                // Unmanaged windows (Alt+Tab UI, shell, system dialogs)
-                // are ignored — the border stays on the last managed
-                // window so keyboard navigation keeps working.
+                // Unmanaged windows without a managed owner (Alt+Tab UI,
+                // shell, system dialogs) are ignored — the border stays
+                // on the last managed window so keyboard navigation
+                // keeps working.
             }
             WindowEvent::LocationChanged { hwnd } => {
                 // EVENT_OBJECT_LOCATIONCHANGE fires frequently (every
@@ -560,7 +586,12 @@ impl TilingManager {
             g: 0xB4,
             b: 0xD8,
         });
-        border.show(&rect, color, self.border_config.width);
+        border.show(
+            &rect,
+            color,
+            self.border_config.width,
+            window.hwnd(),
+        );
     }
 
     fn hide_border(&self) {
