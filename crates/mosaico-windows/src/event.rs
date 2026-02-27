@@ -1,9 +1,9 @@
 use mosaico_core::WindowEvent;
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::{
-    EVENT_OBJECT_CREATE, EVENT_OBJECT_DESTROY, EVENT_OBJECT_HIDE, EVENT_OBJECT_NAMECHANGE,
-    EVENT_OBJECT_SHOW, EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_MINIMIZEEND,
-    EVENT_SYSTEM_MINIMIZESTART, EVENT_SYSTEM_MOVESIZEEND,
+    EVENT_OBJECT_CREATE, EVENT_OBJECT_DESTROY, EVENT_OBJECT_HIDE, EVENT_OBJECT_LOCATIONCHANGE,
+    EVENT_OBJECT_NAMECHANGE, EVENT_OBJECT_SHOW, EVENT_SYSTEM_FOREGROUND,
+    EVENT_SYSTEM_MINIMIZEEND, EVENT_SYSTEM_MINIMIZESTART, EVENT_SYSTEM_MOVESIZEEND,
 };
 
 /// Object ID indicating the event applies to the window itself,
@@ -35,6 +35,9 @@ pub fn translate(event: u32, hwnd: HWND, id_object: i32) -> Option<WindowEvent> 
         e if e == EVENT_SYSTEM_MINIMIZESTART => Some(WindowEvent::Minimized { hwnd: hwnd_val }),
         e if e == EVENT_SYSTEM_MINIMIZEEND => Some(WindowEvent::Restored { hwnd: hwnd_val }),
         e if e == EVENT_OBJECT_NAMECHANGE => Some(WindowEvent::TitleChanged { hwnd: hwnd_val }),
+        e if e == EVENT_OBJECT_LOCATIONCHANGE => {
+            Some(WindowEvent::LocationChanged { hwnd: hwnd_val })
+        }
         _ => None,
     }
 }

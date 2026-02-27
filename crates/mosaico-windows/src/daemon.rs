@@ -194,7 +194,12 @@ fn daemon_loop() -> WindowResult<()> {
             }
             DaemonMsg::Event(event) => {
                 manager.handle_event(&event);
-                bar_mgr.update(&manager.bar_states(&get_update()));
+                // LocationChanged fires very frequently — only the
+                // tiling manager needs it (for maximize detection).
+                // Skip bar updates to avoid unnecessary redraws.
+                if !matches!(event, mosaico_core::WindowEvent::LocationChanged { .. }) {
+                    bar_mgr.update(&manager.bar_states(&get_update()));
+                }
             }
             DaemonMsg::Action(action) => {
                 manager.handle_action(&action);
