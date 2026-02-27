@@ -17,6 +17,12 @@ pub struct BarConfig {
     pub font: String,
     /// Font size in pixels for bar text.
     pub font_size: i32,
+    /// Whether to render bar text in bold (weight 700 vs 400).
+    pub font_bold: bool,
+    /// Whether to render bar text in italic.
+    pub font_italic: bool,
+    /// Whether to render bar text with underline.
+    pub font_underline: bool,
     /// Horizontal padding inside the bar (outer edges) in pixels.
     pub padding: i32,
     /// Horizontal padding inside each pill in pixels.
@@ -293,6 +299,9 @@ impl Default for BarConfig {
             height: 64,
             font: "CaskaydiaCove Nerd Font".into(),
             font_size: 24,
+            font_bold: true,
+            font_italic: false,
+            font_underline: false,
             padding: 8,
             pill_padding: 12,
             pill_radius: 4,
@@ -406,6 +415,9 @@ mod tests {
         assert_eq!(config.font_size, 24);
         assert_eq!(config.pill_radius, 4);
         assert_eq!(config.pill_border_width, 2);
+        assert!(config.font_bold);
+        assert!(!config.font_italic);
+        assert!(!config.font_underline);
         assert_eq!(config.background_opacity, 0);
         assert!(config.monitors.is_empty());
         assert_eq!(config.left.len(), 3);

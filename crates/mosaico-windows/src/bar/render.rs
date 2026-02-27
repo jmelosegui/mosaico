@@ -83,30 +83,15 @@ pub fn render_bar(
             .encode_utf16()
             .chain(std::iter::once(0))
             .collect();
+        let weight = if config.font_bold { 700 } else { 400 };
         let font = CreateFontW(
             config.font_size,
             0,
             0,
             0,
-            400,
-            0,
-            0,
-            0,
-            FONT_CHARSET(0),
-            FONT_OUTPUT_PRECISION(0),
-            FONT_CLIP_PRECISION(0),
-            FONT_QUALITY(0),
-            0,
-            PCWSTR(font_wide.as_ptr()),
-        );
-        let bold_font = CreateFontW(
-            config.font_size,
-            0,
-            0,
-            0,
-            700,
-            0,
-            0,
+            weight,
+            config.font_italic as u32,
+            config.font_underline as u32,
             0,
             FONT_CHARSET(0),
             FONT_OUTPUT_PRECISION(0),
@@ -115,7 +100,7 @@ pub fn render_bar(
             0,
             PCWSTR(font_wide.as_ptr()),
         );
-        let old_font = SelectObject(mem_dc, bold_font.into());
+        let old_font = SelectObject(mem_dc, font.into());
         let _ = SetBkMode(mem_dc, TRANSPARENT);
 
         let mut ctx = DrawCtx {
@@ -136,7 +121,6 @@ pub fn render_bar(
         // Cleanup
         SelectObject(mem_dc, old_font);
         let _ = DeleteObject(font.into());
-        let _ = DeleteObject(bold_font.into());
         SelectObject(mem_dc, old_bmp);
         let _ = DeleteObject(bmp.into());
         let _ = DeleteDC(mem_dc);
