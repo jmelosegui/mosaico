@@ -45,7 +45,7 @@ impl CpuTracker {
 
 /// Returns the display text for a given usage percentage.
 pub fn text(cpu_usage: u32) -> String {
-    format!("CPU: {cpu_usage}%")
+    format!("CPU: {:>3}%", cpu_usage)
 }
 
 /// Queries idle, kernel, and user times as 64-bit tick counts.
