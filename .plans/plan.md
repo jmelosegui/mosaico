@@ -34,7 +34,7 @@ Mosaico is structured as a Cargo workspace with multiple crates:
 | [15](phase-15.md) | Catppuccin Theming | Complete |
 | [16](phase-16.md) | Active Window Icon Widget | Complete |
 | [17](phase-17.md) | Community Rules Repository | Complete |
-| [18](phase-18.md) | Auto-Start on Windows Boot | Planned |
+| [18](phase-18.md) | Auto-Start on Windows Boot | Complete |
 | [19](phase-19.md) | Media Widget | Planned |
 
 ## Design Principles

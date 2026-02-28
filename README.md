@@ -21,12 +21,15 @@ cargo install --path .
 ## Usage
 
 ```sh
-mosaico start    # Start the window manager
-mosaico stop     # Stop the window manager
-mosaico status   # Show current status
-mosaico doctor   # Check your setup for common issues
-mosaico init     # Create default configuration files
-mosaico --help   # Show all available commands
+mosaico start              # Start the window manager
+mosaico stop               # Stop the window manager
+mosaico status             # Show current status
+mosaico doctor             # Check your setup for common issues
+mosaico init               # Create default configuration files
+mosaico autostart enable   # Start automatically on Windows boot
+mosaico autostart disable  # Remove automatic startup
+mosaico autostart status   # Check if autostart is enabled
+mosaico --help             # Show all available commands
 ```
 
 ### Actions
