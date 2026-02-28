@@ -1,0 +1,198 @@
+/* Custom theme matching jmelosegui.com
+ * Only two themes: Dark (coal) and Light.
+ * Colors extracted from the blog's bootstrap.css + site.css.
+ */
+
+@import url('https://fonts.googleapis.com/css?family=Roboto:300,400,500,700');
+
+/* ── Hide unwanted theme options ─────────────────────────── */
+
+#mdbook-theme-list > li:has(#mdbook-theme-default_theme),
+#mdbook-theme-list > li:has(#mdbook-theme-rust),
+#mdbook-theme-list > li:has(#mdbook-theme-navy),
+#mdbook-theme-list > li:has(#mdbook-theme-ayu) {
+    display: none !important;
+}
+
+/* ── Typography (shared) ─────────────────────────────────── */
+
+body,
+.sidebar .sidebar-scrollbox {
+    font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* ── Dark theme (Coal) — blog dark mode ──────────────────── */
+/* body: #151e29, main-wrapper: #111821, sidebar: #1e2a3a    */
+
+.coal {
+    --bg: #111821;
+    --fg: rgba(255, 255, 255, 0.7);
+    --sidebar-bg: #1e2a3a;
+    --sidebar-fg: rgba(255, 255, 255, 0.7);
+    --sidebar-non-existant: rgba(255, 255, 255, 0.3);
+    --sidebar-active: #3B7EEB;
+    --sidebar-spacer: rgba(255, 255, 255, 0.08);
+    --scrollbar: rgba(255, 255, 255, 0.05);
+    --icons: rgba(255, 255, 255, 0.4);
+    --icons-hover: rgba(255, 255, 255, 0.95);
+    --links: #3B7EEB;
+    --inline-code-color: #f08d49;
+    --theme-popup-bg: #1e2a3a;
+    --theme-popup-border: rgba(255, 255, 255, 0.08);
+    --theme-hover-border: #3B7EEB;
+    --quote-bg: #151e29;
+    --quote-border: #3B7EEB;
+    --table-border-color: rgba(255, 255, 255, 0.05);
+    --table-header-bg: #151e29;
+    --table-alternate-bg: rgba(255, 255, 255, 0.02);
+    --searchbar-border-color: rgba(255, 255, 255, 0.08);
+    --searchbar-bg: #151e29;
+    --searchbar-fg: #fff;
+    --searchbar-shadow-color: transparent;
+    --searchresults-header-fg: #3B7EEB;
+    --searchresults-border-color: rgba(255, 255, 255, 0.08);
+    --search-mark-bg: #2f435c;
+}
+
+.coal code {
+    background-color: #1c1b1b;
+    color: #fff;
+}
+
+.coal pre {
+    background-color: #1c1b1b;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+}
+
+.coal pre > .buttons {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.coal .sidebar .active {
+    color: #3B7EEB;
+    font-weight: 500;
+}
+
+.coal .content h1,
+.coal .content h2,
+.coal .content h3,
+.coal .content h4 {
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.coal .content a {
+    color: #3B7EEB;
+    text-decoration: none;
+}
+
+.coal .content a:hover {
+    color: #80acf2;
+    text-decoration: underline;
+}
+
+.coal table td,
+.coal table th {
+    border-color: rgba(255, 255, 255, 0.05);
+}
+
+.coal table th {
+    background-color: #151e29;
+}
+
+.coal .menu-bar {
+    background-color: #151e29;
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+.coal .menu-bar .menu-title {
+    color: rgba(255, 255, 255, 0.95);
+}
+
+/* ── Light theme — blog light mode ───────────────────────── */
+/* body: #fff, sidebar: #3B7EEB (primary blue), text: #4f4f4f */
+
+.light {
+    --bg: #fff;
+    --fg: #4f4f4f;
+    --sidebar-bg: #3B7EEB;
+    --sidebar-fg: rgba(255, 255, 255, 0.8);
+    --sidebar-non-existant: rgba(255, 255, 255, 0.5);
+    --sidebar-active: #fff;
+    --sidebar-spacer: rgba(255, 255, 255, 0.2);
+    --scrollbar: rgba(0, 0, 0, 0.2);
+    --icons: #767676;
+    --icons-hover: #292929;
+    --links: #3B7EEB;
+    --inline-code-color: #b75501;
+    --theme-popup-bg: #fff;
+    --theme-popup-border: rgba(0, 0, 0, 0.08);
+    --theme-hover-border: #3B7EEB;
+    --quote-bg: #fafafa;
+    --quote-border: #292929;
+    --table-border-color: #a9a9a9;
+    --table-header-bg: #fafafa;
+    --table-alternate-bg: rgba(0, 0, 0, 0.03);
+    --searchbar-border-color: rgba(0, 0, 0, 0.08);
+    --searchbar-bg: #fafafa;
+    --searchbar-fg: #292929;
+    --searchbar-shadow-color: rgba(0, 0, 0, 0.05);
+    --searchresults-header-fg: #3B7EEB;
+    --searchresults-border-color: rgba(0, 0, 0, 0.08);
+    --search-mark-bg: #fff3cd;
+}
+
+.light code {
+    background-color: #f6f6f6;
+    color: #2f3337;
+}
+
+.light pre {
+    background-color: #f6f6f6;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 6px;
+}
+
+.light pre > .buttons {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.light .sidebar .active {
+    color: #fff;
+    font-weight: 500;
+}
+
+.light .content h1,
+.light .content h2,
+.light .content h3,
+.light .content h4 {
+    color: #292929;
+}
+
+.light .content a {
+    color: #3B7EEB;
+    text-decoration: none;
+}
+
+.light .content a:hover {
+    color: #1458c5;
+    text-decoration: underline;
+}
+
+.light table td,
+.light table th {
+    border-color: #a9a9a9;
+}
+
+.light table th {
+    background-color: #fafafa;
+}
+
+.light .menu-bar {
+    background-color: #fff;
+    border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+
+.light .menu-bar .menu-title {
+    color: #292929;
+}
