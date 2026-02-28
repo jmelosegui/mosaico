@@ -85,10 +85,12 @@ impl BarManager {
     /// Only samples CPU when the CPU widget is configured.
     pub fn update(&mut self, states: &[BarState]) {
         let cpu = self.cpu_tracker.as_mut().map_or(0, CpuTracker::sample);
+        let media = crate::bar::widgets::media::query_media();
         for (i, bar) in self.bars.iter().enumerate() {
             let mon_idx = self.bar_monitor_indices[i];
             let mut state = states.get(mon_idx).cloned().unwrap_or_default();
             state.cpu_usage = cpu;
+            state.media_text.clone_from(&media);
             bar.update(&self.config, &state);
         }
     }

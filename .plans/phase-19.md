@@ -1,6 +1,6 @@
 # Phase 19: Media Widget
 
-**Status:** Planned
+**Status:** Complete
 
 **Goal:** Add a bar widget that displays the currently playing media
 (track title, artist) from system media sources (Spotify, browsers,
@@ -158,26 +158,26 @@ icon = "\uF001"  # music note
 
 ## Tasks
 
-- [ ] Add `Media_Control` and `Foundation` WinRT features to
+- [x] Add `Media_Control` and `Foundation` WinRT features to
       `mosaico-windows/Cargo.toml`
-- [ ] Add `WidgetConfig::Media` variant to `bar.rs` with `enabled`,
+- [x] Add `WidgetConfig::Media` variant to `bar.rs` with `enabled`,
       `icon`, `format`, and `max_length` fields
-- [ ] Add `Media` to `WidgetConfig::icon()` and `enabled()` match arms
-- [ ] Add `media_text: String` to `BarState` struct and `Default` impl
-- [ ] Create `media.rs` in `bar/widgets/` with:
-  - [ ] `query_media()` -- GSMTC session query, returns formatted string
-  - [ ] `text(state)` -- returns `state.media_text` (or truncated version)
-- [ ] Register `pub mod media` in `widgets/mod.rs`
-- [ ] Add `WidgetConfig::Media` arm to `widget_text()` dispatch
-- [ ] Add `should_skip` logic for empty `media_text` (same as Update)
-- [ ] Populate `media_text` in daemon tick handler via `query_media()`
-- [ ] Add media widget to `generate_bar()` in `template.rs` (commented
+- [x] Add `Media` to `WidgetConfig::icon()` and `enabled()` match arms
+- [x] Add `media_text: String` to `BarState` struct and `Default` impl
+- [x] Create `media.rs` in `bar/widgets/` with:
+  - [x] `query_media()` -- GSMTC session query, returns formatted string
+  - [x] `text(state)` -- returns `state.media_text` (or truncated version)
+- [x] Register `pub mod media` in `widgets/mod.rs`
+- [x] Add `WidgetConfig::Media` arm to `widget_text()` dispatch
+- [x] Add `should_skip` logic for empty `media_text` (same as Update)
+- [x] Populate `media_text` in daemon tick handler via `query_media()`
+- [x] Add media widget to `generate_bar()` in `template.rs` (commented
       out by default, since not all users play media)
-- [ ] Build with `cargo build`
-- [ ] Run `cargo clippy --workspace` and fix warnings
-- [ ] Run `cargo fmt --all`
-- [ ] Run `cargo test` and fix any failures
-- [ ] Manual test: verify widget appears with Spotify, browser media,
+- [x] Build with `cargo build`
+- [x] Run `cargo clippy --workspace` and fix warnings
+- [x] Run `cargo fmt --all`
+- [x] Run `cargo test` and fix any failures
+- [x] Manual test: verify widget appears with Spotify, browser media,
       VLC; verify it hides when nothing is playing; verify truncation
       works; verify graceful behavior when GSMTC is unavailable
-- [ ] Update documentation (`docs/status-bar.md`)
+- [x] Update documentation (`docs/status-bar.md`)

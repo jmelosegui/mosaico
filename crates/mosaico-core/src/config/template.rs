@@ -307,7 +307,14 @@ icon = \"\\uF085\"\n\
 type = \"update\"\n\
 # enabled = true  # auto-hidden when no update is available\n\
 icon = \"\\uF019\"\n\
-color = \"green\"  # custom color for text and border (hex or named)\n"
+color = \"green\"  # custom color for text and border (hex or named)\n\
+\n\
+# Media widget -- shows currently playing track from Spotify, YouTube Music, etc.\n\
+# Auto-hidden when nothing is playing.\n\
+# [[right]]\n\
+# type = \"media\"\n\
+# icon = \"\\uF001\"\n\
+# max_length = 40  # truncate long titles with \"...\"\n"
         .to_string()
 }
 

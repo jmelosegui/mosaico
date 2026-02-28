@@ -65,11 +65,27 @@ Widgets are placed in `[[left]]`, `[[center]]`, or `[[right]]` arrays.
 | `ram` | RAM usage percentage | -- |
 | `cpu` | CPU usage percentage | -- |
 | `update` | Update indicator | -- |
+| `media` | Currently playing track | `max_length` |
 
 The `active_window` widget displays the application icon of the currently
 focused window. It extracts the icon from the running process and renders
 it as a bitmap in the bar. When no window is focused or the icon cannot be
 determined, the widget is hidden automatically.
+
+The `media` widget shows the currently playing track ("Artist - Title")
+using the Windows media transport controls API (GSMTC). It works with
+Spotify, browser media (YouTube, SoundCloud, etc.), VLC, and any app that
+integrates with Windows media controls. When nothing is playing, the
+widget is hidden automatically. Long titles are truncated to `max_length`
+characters (default 40) with an ellipsis. Some third-party media apps
+may not register with GSMTC and will not be detected.
+
+```toml
+[[right]]
+type = "media"
+icon = "\uF001"       # music note icon
+max_length = 40       # truncate long titles
+```
 
 ### Example: Full Bar
 
@@ -86,6 +102,11 @@ type = "layout"
 [[center]]
 type = "clock"
 format = "%H:%M"
+
+[[right]]
+type = "media"
+icon = "\uF001"
+max_length = 40
 
 [[right]]
 type = "cpu"

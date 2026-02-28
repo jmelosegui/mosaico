@@ -81,6 +81,7 @@ pixel buffer using geometry helpers (`in_rounded_rect`, `is_border_pixel`).
 | `ram` | System RAM usage percentage via `GlobalMemoryStatusEx` | -- |
 | `cpu` | CPU usage percentage via `GetSystemTimes` delta tracking | -- |
 | `update` | Update notification when newer version is available | -- |
+| `media` | Currently playing track via GSMTC | `max_length` (default 40) |
 
 Each widget can be independently enabled/disabled and assigned a custom icon.
 
@@ -94,6 +95,21 @@ vertical padding.
 When no window is focused or icon extraction fails, the widget collapses
 to zero width. Icons are extracted fresh on each render (no caching) since
 `SHGetFileInfoW` is fast and the focused window can change at any time.
+
+### Media
+
+The `media` widget queries the Windows
+`GlobalSystemMediaTransportControlsSessionManager` (GSMTC) API to display
+the currently playing track as "Artist - Title". It first tries the
+"current" session, then falls back to iterating all registered sessions to
+find one that is actively playing.
+
+Long titles are truncated to `max_length` characters (default 40) with an
+ellipsis. When nothing is playing or no media session is registered, the
+widget is invisible (same pattern as the Update widget). The GSMTC API
+works with Spotify, browsers, VLC, and any app that integrates with
+Windows media transport controls. Some third-party media apps may not
+register GSMTC sessions.
 
 ### Widget Placement
 
@@ -112,6 +128,7 @@ The `BarState` struct provides the data each widget needs:
 - `focused_hwnd` -- HWND of the focused window (`None` on non-focused monitors)
 - `cpu_usage` -- current CPU percentage (from `CpuTracker`)
 - `update_text` -- update notification string (empty if up to date)
+- `media_text` -- formatted media info, e.g. "Artist - Title" (empty if nothing playing)
 
 `TilingManager::bar_states()` produces a `Vec<BarState>` snapshot for all
 monitors on each render cycle.
