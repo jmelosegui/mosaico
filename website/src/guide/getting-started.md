@@ -10,13 +10,15 @@ Create the default configuration files in `~/.config/mosaico/`:
 mosaico init
 ```
 
-This generates three files:
+This generates the following files:
 
 | File | Purpose |
 |------|---------|
 | `config.toml` | Layout, border, theme, and logging settings |
 | `keybindings.toml` | Keyboard shortcut mappings |
-| `rules.toml` | Rules for excluding windows from tiling |
+| `rules.toml` | Community rules (auto-updated on daemon startup) |
+| `user-rules.toml` | Personal rule overrides (never overwritten) |
+| `bar.toml` | Status bar settings |
 
 Existing files are never overwritten, so it is safe to run `init` again.
 

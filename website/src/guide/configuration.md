@@ -11,7 +11,8 @@ Run `mosaico init` to generate fully-commented template files.
 |------|---------|------------|
 | `config.toml` | Layout, borders, theme, logging | Yes |
 | `keybindings.toml` | Keyboard shortcuts | No (restart required) |
-| `rules.toml` | Window management rules | Yes |
+| `rules.toml` | Community window rules (auto-downloaded) | On startup |
+| `user-rules.toml` | Personal window rule overrides | Yes |
 | `bar.toml` | Status bar settings | Yes |
 
 ## `config.toml`
@@ -74,14 +75,18 @@ format = "%H:%M"
 type = "cpu"
 ```
 
-## `rules.toml`
+## `rules.toml` and `user-rules.toml`
 
-Controls which windows are managed by the tiler. See
-[Window Rules](window-rules.md) for details.
+Window rules control which applications are tiled. Community rules are
+downloaded automatically to `rules.toml` on daemon startup. Add personal
+overrides in `user-rules.toml` (user rules take priority).
+
+See [Window Rules](window-rules.md) for details.
 
 ```toml
+# user-rules.toml — your personal overrides
 [[rule]]
-match_class = "ApplicationFrameWindow"
+match_title = "My Private Tool"
 manage = false
 ```
 
@@ -110,15 +115,17 @@ than rejected:
 
 ## Hot-Reload
 
-Changes to `config.toml`, `rules.toml`, and `bar.toml` are automatically
-detected and applied while the daemon is running (polled every 2 seconds).
+Changes to `config.toml`, `user-rules.toml`, and `bar.toml` are
+automatically detected and applied while the daemon is running (polled
+every 2 seconds).
 
 - **config.toml** -- layout gap/ratio, border settings, and theme are
   reloaded. Windows are retiled immediately.
-- **rules.toml** -- new rules apply to newly created windows. Existing
-  managed windows are not re-evaluated.
+- **user-rules.toml** -- both rule sets are re-merged and existing windows
+  are re-evaluated against the new rules.
 - **bar.toml** -- the status bar is recreated with updated settings and
   colors.
+- **rules.toml** -- community rules, updated only on daemon startup.
 - **keybindings.toml** -- **not** hot-reloaded. Changes require a daemon
   restart (`mosaico stop && mosaico start`).
 
