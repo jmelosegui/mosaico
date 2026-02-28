@@ -11,7 +11,8 @@ pub use bar::{BarColors, BarConfig, WidgetConfig};
 pub use keybinding::{Keybinding, Modifier};
 pub use loader::{
     bar_path, config_dir, config_path, keybindings_path, load, load_bar, load_keybindings,
-    load_rules, rules_path, try_load, try_load_bar, try_load_keybindings, try_load_rules,
+    load_merged_rules, load_rules, load_user_rules, rules_path, try_load, try_load_bar,
+    try_load_keybindings, try_load_rules, try_load_user_rules, user_rules_path,
 };
 pub use theme::{Theme, ThemeConfig};
 
@@ -173,6 +174,25 @@ pub(crate) struct KeybindingsFile {
 pub(crate) struct RulesFile {
     #[serde(default = "default_rules")]
     rule: Vec<WindowRule>,
+}
+
+/// Wrapper for deserializing the user rules file.
+///
+/// Unlike [`RulesFile`], an empty file results in zero rules
+/// (no hardcoded defaults are injected).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct UserRulesFile {
+    #[serde(default)]
+    rule: Vec<WindowRule>,
+}
+
+/// Validates a TOML string as a rules file.
+///
+/// Returns the parsed rules or an error description. Used by the
+/// community-rules downloader to verify content before caching.
+pub fn validate_rules(content: &str) -> Result<Vec<WindowRule>, String> {
+    let file: RulesFile = toml::from_str(content).map_err(|e| e.to_string())?;
+    Ok(file.rule)
 }
 
 #[cfg(test)]

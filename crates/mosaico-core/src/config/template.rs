@@ -313,20 +313,17 @@ color = \"green\"  # custom color for text and border (hex or named)\n"
 
 /// Generates the default `rules.toml` contents with explanatory comments.
 ///
-/// This is used by `mosaico init` to create a starter rules file.
+/// This serves as the initial cache before community rules are
+/// downloaded on the first daemon startup.
 pub fn generate_rules() -> String {
-    r#"# Mosaico window rules
+    r#"# Community-maintained default rules for Mosaico
 # Location: ~/.config/mosaico/rules.toml
 #
-# Rules control which windows are tiled. They are evaluated in order;
-# the first matching rule wins. Unmatched windows are tiled by default.
+# This file is downloaded automatically when the daemon starts.
+# To override a rule, add an entry in ~/.config/mosaico/user-rules.toml
+# rather than editing this file (it will be overwritten on next startup).
 #
-# Fields:
-#   match_class  - exact class name match (case-insensitive)
-#   match_title  - substring match on the window title (case-insensitive)
-#   manage       - true to tile, false to ignore
-#
-# Tip: run `mosaico debug list` to see each window's class name.
+# To contribute: https://github.com/jmelosegui/mosaico-rules
 
 # UWP apps (Settings, Store, etc.) enforce their own size constraints
 # and don't behave well when tiled.
@@ -338,15 +335,35 @@ manage = false
 [[rule]]
 match_title = "pinentry"
 manage = false
+"#
+    .to_string()
+}
 
-# Add your own rules below. Examples:
+/// Generates the default `user-rules.toml` contents with explanatory comments.
+///
+/// This is used by `mosaico init` to create a starter user rules file
+/// where users can add personal overrides that are never overwritten.
+pub fn generate_user_rules() -> String {
+    r#"# User-specific window rules for Mosaico
+# Location: ~/.config/mosaico/user-rules.toml
 #
-# [[rule]]
-# match_class = "TaskManagerWindow"
-# manage = false
+# Rules in this file take priority over community defaults in rules.toml.
+# Community rules are downloaded automatically — to contribute a rule
+# that benefits everyone, please submit it to:
 #
+#   https://github.com/jmelosegui/mosaico-rules
+#
+# Only add rules here for personal preferences that don't apply to all
+# users (e.g., tiling a specific app that most people would exclude).
+
+# Example: force-tile a window that community rules exclude
 # [[rule]]
-# match_title = "Popup"
+# match_class = "MySpecialApp"
+# manage = true
+
+# Example: exclude a personal app
+# [[rule]]
+# match_title = "My Private Tool"
 # manage = false
 "#
     .to_string()
@@ -448,6 +465,18 @@ mod tests {
         // Assert
         let defaults = crate::config::default_rules();
         assert_eq!(file.rule.len(), defaults.len());
+    }
+
+    #[test]
+    fn user_rules_template_parses_with_zero_rules() {
+        // Arrange
+        let toml_str = generate_user_rules();
+
+        // Act
+        let file: super::super::UserRulesFile = toml::from_str(&toml_str).unwrap();
+
+        // Assert — all entries are commented out, so zero rules.
+        assert_eq!(file.rule.len(), 0);
     }
 
     #[test]

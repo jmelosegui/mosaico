@@ -2,9 +2,9 @@ use mosaico_core::config;
 
 /// Creates the default configuration files at `~/.config/mosaico/`.
 ///
-/// Generates `config.toml`, `keybindings.toml`, `rules.toml`, and
-/// `bar.toml` with comments explaining every option. Existing files
-/// are not overwritten.
+/// Generates `config.toml`, `keybindings.toml`, `rules.toml`,
+/// `user-rules.toml`, and `bar.toml` with comments explaining every
+/// option. Existing files are not overwritten.
 pub fn execute() {
     let Some(dir) = config::config_dir() else {
         eprintln!("Error: could not determine home directory.");
@@ -25,11 +25,17 @@ pub fn execute() {
         &config::template::generate_keybindings(),
     );
     write_if_missing(&dir.join("rules.toml"), &config::template::generate_rules());
+    write_if_missing(
+        &dir.join("user-rules.toml"),
+        &config::template::generate_user_rules(),
+    );
     write_if_missing(&dir.join("bar.toml"), &config::template::generate_bar());
 
     println!(
         "\nEdit these files to customize layout, keybindings, window rules, and the status bar."
     );
+    println!("Add personal window rules in user-rules.toml (community rules in rules.toml are");
+    println!("downloaded automatically and will be overwritten on daemon startup).");
 }
 
 /// Writes content to a file only if it doesn't already exist.

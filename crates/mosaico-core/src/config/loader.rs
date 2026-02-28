@@ -2,7 +2,9 @@ use std::path::PathBuf;
 
 use super::bar::BarConfig;
 use super::keybinding;
-use super::{Config, Keybinding, KeybindingsFile, RulesFile, WindowRule, default_rules};
+use super::{
+    Config, Keybinding, KeybindingsFile, RulesFile, UserRulesFile, WindowRule, default_rules,
+};
 
 /// Returns the config directory: `~/.config/mosaico/`.
 pub fn config_dir() -> Option<PathBuf> {
@@ -22,6 +24,11 @@ pub fn keybindings_path() -> Option<PathBuf> {
 /// Returns the rules file path: `~/.config/mosaico/rules.toml`.
 pub fn rules_path() -> Option<PathBuf> {
     config_dir().map(|d| d.join("rules.toml"))
+}
+
+/// Returns the user rules file path: `~/.config/mosaico/user-rules.toml`.
+pub fn user_rules_path() -> Option<PathBuf> {
+    config_dir().map(|d| d.join("user-rules.toml"))
 }
 
 /// Returns the bar config file path: `~/.config/mosaico/bar.toml`.
@@ -88,6 +95,35 @@ pub fn try_load_rules() -> Result<Vec<WindowRule>, String> {
 /// Falls back to the built-in defaults if the file is missing or invalid.
 pub fn load_rules() -> Vec<WindowRule> {
     load_or_default(rules_path(), try_load_rules, default_rules)
+}
+
+/// Tries to load and parse `user-rules.toml`.
+///
+/// Returns the parsed rules or an error string.
+pub fn try_load_user_rules() -> Result<Vec<WindowRule>, String> {
+    let path = user_rules_path().ok_or("could not determine user-rules path")?;
+    let content = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+    let file: UserRulesFile =
+        toml::from_str(&content).map_err(|e| format!("{}: {e}", path.display()))?;
+    Ok(file.rule)
+}
+
+/// Loads user rules from `~/.config/mosaico/user-rules.toml`.
+///
+/// Returns an empty vec if the file is missing or invalid.
+pub fn load_user_rules() -> Vec<WindowRule> {
+    load_or_default(user_rules_path(), try_load_user_rules, Vec::new)
+}
+
+/// Loads and merges both rule sets: user rules first, then community rules.
+///
+/// User rules are prepended so they take priority (first match wins
+/// in [`super::should_manage`]). Falls back gracefully if either file
+/// is missing or invalid.
+pub fn load_merged_rules() -> Vec<WindowRule> {
+    let mut rules = load_user_rules();
+    rules.extend(load_rules());
+    rules
 }
 
 /// Tries to load and parse `bar.toml`.
