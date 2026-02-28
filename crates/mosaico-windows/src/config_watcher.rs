@@ -41,11 +41,11 @@ pub fn watch(tx: Sender<ConfigReload>, stop: Arc<AtomicBool>) {
     };
 
     let config_path = config::config_path();
-    let rules_path = config::rules_path();
+    let user_rules_path = config::user_rules_path();
     let bar_path = config::bar_path();
 
     let mut config_mtime = mtime(config_path.as_deref());
-    let mut rules_mtime = mtime(rules_path.as_deref());
+    let mut user_rules_mtime = mtime(user_rules_path.as_deref());
     let mut bar_mtime = mtime(bar_path.as_deref());
 
     let dir_str = HSTRING::from(dir.as_os_str());
@@ -69,8 +69,8 @@ pub fn watch(tx: Sender<ConfigReload>, stop: Arc<AtomicBool>) {
         if check_and_reload(
             &config_path,
             &mut config_mtime,
-            &rules_path,
-            &mut rules_mtime,
+            &user_rules_path,
+            &mut user_rules_mtime,
             &bar_path,
             &mut bar_mtime,
             &tx,
@@ -89,8 +89,8 @@ pub fn watch(tx: Sender<ConfigReload>, stop: Arc<AtomicBool>) {
 fn check_and_reload(
     config_path: &Option<std::path::PathBuf>,
     config_mtime: &mut Option<SystemTime>,
-    rules_path: &Option<std::path::PathBuf>,
-    rules_mtime: &mut Option<SystemTime>,
+    user_rules_path: &Option<std::path::PathBuf>,
+    user_rules_mtime: &mut Option<SystemTime>,
     bar_path: &Option<std::path::PathBuf>,
     bar_mtime: &mut Option<SystemTime>,
     tx: &Sender<ConfigReload>,
@@ -113,20 +113,16 @@ fn check_and_reload(
         }
     }
 
-    if let Some(path) = rules_path {
+    // Watch user-rules.toml (not rules.toml). Community rules.toml is
+    // machine-managed (downloaded on startup) and not watched.
+    if let Some(path) = user_rules_path {
         let new = mtime(Some(path.as_path()));
-        if new != *rules_mtime {
-            *rules_mtime = new;
-            match config::try_load_rules() {
-                Ok(rules) => {
-                    mosaico_core::log_info!("rules.toml changed, reloading");
-                    if tx.send(ConfigReload::Rules(rules)).is_err() {
-                        return true;
-                    }
-                }
-                Err(e) => {
-                    mosaico_core::log_info!("rules.toml invalid, skipping: {e}");
-                }
+        if new != *user_rules_mtime {
+            *user_rules_mtime = new;
+            mosaico_core::log_info!("user-rules.toml changed, reloading merged rules");
+            let merged = config::load_merged_rules();
+            if tx.send(ConfigReload::Rules(merged)).is_err() {
+                return true;
             }
         }
     }

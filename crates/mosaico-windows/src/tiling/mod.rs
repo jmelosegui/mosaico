@@ -333,9 +333,41 @@ impl TilingManager {
         self.update_border();
     }
 
-    /// Replaces the window rules used for managing new windows.
+    /// Replaces the window rules and removes windows that should no
+    /// longer be managed under the new rule set.
     pub fn reload_rules(&mut self, rules: Vec<WindowRule>) {
         self.rules = rules;
+        self.remove_newly_unmanaged();
+    }
+
+    /// Removes tiled windows that no longer pass `is_tileable` and
+    /// retiles affected monitors.
+    fn remove_newly_unmanaged(&mut self) {
+        // Collect first (immutable) to avoid borrow conflicts.
+        let mut removals: Vec<(usize, usize, usize)> = Vec::new();
+        for (mi, mon) in self.monitors.iter().enumerate() {
+            for (wi, ws) in mon.workspaces.iter().enumerate() {
+                for &hwnd in ws.handles() {
+                    if !self.is_tileable(hwnd) {
+                        removals.push((mi, wi, hwnd));
+                    }
+                }
+            }
+        }
+        if removals.is_empty() {
+            return;
+        }
+        let mut affected: Vec<usize> = Vec::new();
+        for &(mi, wi, hwnd) in &removals {
+            self.monitors[mi].workspaces[wi].remove(hwnd);
+            mosaico_core::log_info!("-rule 0x{hwnd:X} (unmanaged by new rules)");
+            if !affected.contains(&mi) {
+                affected.push(mi);
+            }
+        }
+        for idx in affected {
+            self.apply_layout_on(idx);
+        }
     }
 
     /// Returns a snapshot of bar state for each monitor.
@@ -416,11 +448,7 @@ impl TilingManager {
             }
         }
 
-        mosaico_core::log_info!(
-            "Display change: {} -> {} monitors",
-            old_count,
-            new_count
-        );
+        mosaico_core::log_info!("Display change: {} -> {} monitors", old_count, new_count);
 
         let mut new_states: Vec<MonitorState> = Vec::with_capacity(new_count);
 
@@ -586,12 +614,7 @@ impl TilingManager {
             g: 0xB4,
             b: 0xD8,
         });
-        border.show(
-            &rect,
-            color,
-            self.border_config.width,
-            window.hwnd(),
-        );
+        border.show(&rect, color, self.border_config.width, window.hwnd());
     }
 
     fn hide_border(&self) {
@@ -959,14 +982,11 @@ mod tests {
         let mut new_states: Vec<MonitorState> = Vec::new();
 
         for (id, work_area) in &new_infos {
-            let old_idx = old_monitors
-                .iter()
-                .position(|m| m.id == *id)
-                .or_else(|| {
-                    old_monitors
-                        .iter()
-                        .position(|m| m.work_area.x == work_area.x && m.work_area.y == work_area.y)
-                });
+            let old_idx = old_monitors.iter().position(|m| m.id == *id).or_else(|| {
+                old_monitors
+                    .iter()
+                    .position(|m| m.work_area.x == work_area.x && m.work_area.y == work_area.y)
+            });
 
             if let Some(idx) = old_idx {
                 let old = &mut old_monitors[idx];

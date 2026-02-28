@@ -127,7 +127,7 @@ impl Window {
     /// during `CreateWindowEx` itself, so it's always available.
     pub fn is_app_window(&self) -> bool {
         use windows::Win32::UI::WindowsAndMessaging::{
-            GWL_EXSTYLE, GWL_STYLE, GW_OWNER, GetWindow, GetWindowLongPtrW, WS_CAPTION,
+            GW_OWNER, GWL_EXSTYLE, GWL_STYLE, GetWindow, GetWindowLongPtrW, WS_CAPTION,
             WS_EX_DLGMODALFRAME, WS_EX_TOOLWINDOW,
         };
 
@@ -138,8 +138,7 @@ impl Window {
             let has_caption = (style & WS_CAPTION.0) == WS_CAPTION.0;
             let is_tool = (ex_style & WS_EX_TOOLWINDOW.0) == WS_EX_TOOLWINDOW.0;
             let is_dialog = (ex_style & WS_EX_DLGMODALFRAME.0) != 0;
-            let has_owner = GetWindow(self.hwnd, GW_OWNER)
-                .is_ok_and(|owner| !owner.is_invalid());
+            let has_owner = GetWindow(self.hwnd, GW_OWNER).is_ok_and(|owner| !owner.is_invalid());
 
             has_caption && !is_tool && !has_owner && !is_dialog
         }

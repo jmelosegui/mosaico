@@ -7,6 +7,9 @@ pub mod bar_manager;
 /// Border overlay windows for visual focus indicators.
 pub mod border;
 
+/// Downloads community rules from the mosaico-rules repository.
+pub mod community_rules;
+
 /// Config file watcher for hot-reloading.
 pub mod config_watcher;
 

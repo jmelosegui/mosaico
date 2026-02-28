@@ -8,10 +8,10 @@ use windows::Win32::Graphics::Gdi::{
     DeleteDC, DeleteObject, GetDC, ReleaseDC, SelectObject,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    CW_USEDEFAULT, CreateWindowExW, DefWindowProcW, DestroyWindow, GWL_EXSTYLE,
-    GetWindowLongPtrW, HWND_NOTOPMOST, HWND_TOPMOST, RegisterClassW, SW_HIDE, SWP_NOACTIVATE,
-    SWP_SHOWWINDOW, SetWindowPos, ShowWindow, ULW_ALPHA, UpdateLayeredWindow, WNDCLASSW,
-    WS_EX_LAYERED, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_EX_TRANSPARENT, WS_POPUP,
+    CW_USEDEFAULT, CreateWindowExW, DefWindowProcW, DestroyWindow, GWL_EXSTYLE, GetWindowLongPtrW,
+    HWND_NOTOPMOST, HWND_TOPMOST, RegisterClassW, SW_HIDE, SWP_NOACTIVATE, SWP_SHOWWINDOW,
+    SetWindowPos, ShowWindow, ULW_ALPHA, UpdateLayeredWindow, WNDCLASSW, WS_EX_LAYERED,
+    WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_EX_TRANSPARENT, WS_POPUP,
 };
 use windows::core::PCWSTR;
 
@@ -150,7 +150,8 @@ impl Border {
                 0,
                 0,
                 0,
-                SWP_NOACTIVATE | SWP_SHOWWINDOW
+                SWP_NOACTIVATE
+                    | SWP_SHOWWINDOW
                     | windows::Win32::UI::WindowsAndMessaging::SWP_NOMOVE
                     | windows::Win32::UI::WindowsAndMessaging::SWP_NOSIZE,
             );

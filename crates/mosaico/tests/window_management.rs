@@ -79,13 +79,7 @@ mod win32 {
             param: *mut c_void,
         ) -> HWND;
         pub fn DestroyWindow(hwnd: HWND) -> BOOL;
-        pub fn PeekMessageW(
-            msg: *mut MSG,
-            hwnd: HWND,
-            min: UINT,
-            max: UINT,
-            remove: UINT,
-        ) -> BOOL;
+        pub fn PeekMessageW(msg: *mut MSG, hwnd: HWND, min: UINT, max: UINT, remove: UINT) -> BOOL;
         pub fn TranslateMessage(msg: *const MSG) -> BOOL;
         pub fn DispatchMessageW(msg: *const MSG) -> isize;
     }
@@ -311,7 +305,9 @@ fn minimize_and_restore_updates_border() {
     take_screenshot("minimize_restore_before");
 
     // Minimize notepad.
-    unsafe { win32::ShowWindow(hwnd, win32::SW_MINIMIZE); }
+    unsafe {
+        win32::ShowWindow(hwnd, win32::SW_MINIMIZE);
+    }
     thread::sleep(Duration::from_secs(2));
 
     let iconic = unsafe { win32::IsIconic(hwnd) };
@@ -320,14 +316,19 @@ fn minimize_and_restore_updates_border() {
     take_screenshot("minimize_restore_minimized");
 
     // Restore notepad (simulates clicking the taskbar button).
-    unsafe { win32::ShowWindow(hwnd, win32::SW_RESTORE); }
+    unsafe {
+        win32::ShowWindow(hwnd, win32::SW_RESTORE);
+    }
     thread::sleep(Duration::from_secs(2));
 
     let iconic_after = unsafe { win32::IsIconic(hwnd) };
     assert!(iconic_after == 0, "notepad should no longer be minimized");
 
     // Border should be visible and surround the restored notepad.
-    assert!(is_border_visible(), "border should be visible after restore");
+    assert!(
+        is_border_visible(),
+        "border should be visible after restore"
+    );
     assert_border_surrounds("after restore", hwnd);
 
     take_screenshot("minimize_restore_after");
@@ -397,7 +398,9 @@ fn maximize_hides_border_and_preserves_maximize() {
     take_screenshot("maximize_before");
 
     // Maximize notepad.
-    unsafe { win32::ShowWindow(hwnd, win32::SW_MAXIMIZE); }
+    unsafe {
+        win32::ShowWindow(hwnd, win32::SW_MAXIMIZE);
+    }
     thread::sleep(Duration::from_secs(2));
 
     // Window should remain maximized (not retiled back).
@@ -427,7 +430,9 @@ fn restore_from_maximize_shows_border() {
     let _tiled_rect = get_window_rect(hwnd);
 
     // Maximize.
-    unsafe { win32::ShowWindow(hwnd, win32::SW_MAXIMIZE); }
+    unsafe {
+        win32::ShowWindow(hwnd, win32::SW_MAXIMIZE);
+    }
     thread::sleep(Duration::from_secs(2));
 
     assert!(
@@ -436,7 +441,9 @@ fn restore_from_maximize_shows_border() {
     );
 
     // Restore.
-    unsafe { win32::ShowWindow(hwnd, win32::SW_RESTORE); }
+    unsafe {
+        win32::ShowWindow(hwnd, win32::SW_RESTORE);
+    }
     thread::sleep(Duration::from_secs(2));
 
     let zoomed = unsafe { win32::IsZoomed(hwnd) };
@@ -502,14 +509,7 @@ fn create_test_dialog(owner: win32::HWND) -> win32::HWND {
 fn pump_messages() {
     unsafe {
         let mut msg: win32::MSG = std::mem::zeroed();
-        while win32::PeekMessageW(
-            &mut msg,
-            std::ptr::null_mut(),
-            0,
-            0,
-            win32::PM_REMOVE,
-        ) != 0
-        {
+        while win32::PeekMessageW(&mut msg, std::ptr::null_mut(), 0, 0, win32::PM_REMOVE) != 0 {
             win32::TranslateMessage(&msg);
             win32::DispatchMessageW(&msg);
         }
@@ -626,7 +626,10 @@ fn focus_dialog_moves_border_to_owner() {
 
     // The dialog got focus, so the border should now surround
     // notepad1 (the owner), not notepad2.
-    assert!(is_border_visible(), "border should be visible with dialog focused");
+    assert!(
+        is_border_visible(),
+        "border should be visible with dialog focused"
+    );
     assert_border_surrounds("border follows owner of focused dialog", hwnd1);
 
     take_screenshot("dialog_focus_after_close");

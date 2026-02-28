@@ -7,8 +7,8 @@ use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
 use windows::Win32::UI::Accessibility::{HWINEVENTHOOK, SetWinEventHook, UnhookWinEvent};
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetMessageW, MSG,
-    PostThreadMessageW, RegisterClassW, TranslateMessage, WM_DISPLAYCHANGE, WM_HOTKEY, WM_QUIT,
-    WNDCLASSW, WS_EX_TOOLWINDOW, WINEVENT_OUTOFCONTEXT, WINEVENT_SKIPOWNPROCESS,
+    PostThreadMessageW, RegisterClassW, TranslateMessage, WINEVENT_OUTOFCONTEXT,
+    WINEVENT_SKIPOWNPROCESS, WM_DISPLAYCHANGE, WM_HOTKEY, WM_QUIT, WNDCLASSW, WS_EX_TOOLWINDOW,
 };
 use windows::core::w;
 

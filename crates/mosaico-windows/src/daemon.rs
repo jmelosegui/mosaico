@@ -55,7 +55,7 @@ fn daemon_loop() -> WindowResult<()> {
     mosaico_core::log::init(&config.logging);
 
     let keybindings = config::load_keybindings();
-    let rules = config::load_rules();
+    let rules = config::load_merged_rules();
 
     mosaico_core::log_info!("Daemon started (PID: {})", std::process::id());
     mosaico_core::log_info!(
@@ -98,6 +98,14 @@ fn daemon_loop() -> WindowResult<()> {
             && let Ok(mut text) = update_text_writer.lock()
         {
             *text = format!("{tag} available");
+        }
+    });
+
+    // Background community-rules download — updates cached rules.toml.
+    let rules_tx = tx.clone();
+    thread::spawn(move || {
+        if let Some(rules) = crate::community_rules::download() {
+            let _ = rules_tx.send(DaemonMsg::Reload(Box::new(ConfigReload::Rules(rules))));
         }
     });
 

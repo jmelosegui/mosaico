@@ -14,6 +14,7 @@ pub fn execute() {
     check_keybindings_file();
     check_keybinding_keys();
     check_rules_file();
+    check_user_rules_file();
     check_bar_file();
     check_daemon();
     check_monitors();
@@ -96,6 +97,12 @@ fn check_keybinding_keys() {
 fn check_rules_file() {
     check_toml_file("rules.toml", config::rules_path(), || {
         config::try_load_rules().map(|_| ())
+    });
+}
+
+fn check_user_rules_file() {
+    check_toml_file("user-rules.toml", config::user_rules_path(), || {
+        config::try_load_user_rules().map(|_| ())
     });
 }
 

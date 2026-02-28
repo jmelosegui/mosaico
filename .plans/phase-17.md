@@ -1,6 +1,6 @@
 # Phase 17: Community Rules Repository
 
-**Status:** Planned
+**Status:** In Progress
 
 **Goal:** Create a separate `mosaico-rules` GitHub repository containing
 community-maintained default window rules, and update Mosaico to download
@@ -68,7 +68,9 @@ but a user wants to tile Chrome, they add `manage = true` for that class in
 
 ```
 mosaico-rules/
-  rules.toml           # The canonical rules file
+  windows/rules.toml   # Windows-specific community rules
+  linux/rules.toml     # Linux-specific community rules
+  macos/rules.toml     # macOS-specific community rules
   README.md            # Contributing guidelines
   CONTRIBUTING.md      # How to add/test rules
 ```
@@ -118,10 +120,12 @@ manage = false
 
 ### Hosting
 
-The raw file is served via GitHub raw content:
+The raw file is served via GitHub raw content, with per-OS paths:
 
 ```
-https://raw.githubusercontent.com/jmelosegui/mosaico-rules/main/rules.toml
+https://raw.githubusercontent.com/jmelosegui/mosaico-rules/main/windows/rules.toml
+https://raw.githubusercontent.com/jmelosegui/mosaico-rules/main/linux/rules.toml
+https://raw.githubusercontent.com/jmelosegui/mosaico-rules/main/macos/rules.toml
 ```
 
 This avoids the GitHub API rate limit (raw.githubusercontent.com has no
@@ -318,40 +322,40 @@ Migration path:
 
 ### `mosaico-rules` Repository
 
-- [ ] Create `mosaico-rules` GitHub repository under `jmelosegui`
-- [ ] Add `rules.toml` with comprehensive default exclusion rules
-  - [ ] UWP / system classes (`ApplicationFrameWindow`,
+- [x] Create `mosaico-rules` GitHub repository under `jmelosegui`
+- [x] Add `rules.toml` with comprehensive default exclusion rules
+  - [x] UWP / system classes (`ApplicationFrameWindow`,
         `Windows.UI.Core.CoreWindow`, etc.)
-  - [ ] GPU overlays (NVIDIA, AMD, Intel)
-  - [ ] System utilities (`RealTimeStylus`, `Shell_TrayWnd`, etc.)
+  - [x] GPU overlays (NVIDIA, AMD, Intel)
+  - [x] System utilities (`RealTimeStylus`, `Shell_TrayWnd`, etc.)
   - [ ] Common popups and dialogs
-  - [ ] GPG/SSH (`pinentry`)
+  - [x] GPG/SSH (`pinentry`)
 - [ ] Add `README.md` with project description and usage
 - [ ] Add `CONTRIBUTING.md` with instructions for testing and submitting rules
 
 ### Mosaico Changes
 
-- [ ] Add `user_rules_path()` to `loader.rs`
+- [x] Add `user_rules_path()` to `loader.rs`
       (`~/.config/mosaico/user-rules.toml`)
-- [ ] Add `load_user_rules()` and `try_load_user_rules()` to `loader.rs`
-- [ ] Add `load_merged_rules()` to `loader.rs` (user ++ cached community)
-- [ ] Add `UserRulesFile` serde wrapper to `config/mod.rs`
-- [ ] Update `re-exports` in `config/mod.rs` for new loader functions
-- [ ] Add `generate_user_rules()` to `template.rs` with commented template
-- [ ] Update `init.rs` to generate `user-rules.toml`
+- [x] Add `load_user_rules()` and `try_load_user_rules()` to `loader.rs`
+- [x] Add `load_merged_rules()` to `loader.rs` (user ++ cached community)
+- [x] Add `UserRulesFile` serde wrapper to `config/mod.rs`
+- [x] Update `re-exports` in `config/mod.rs` for new loader functions
+- [x] Add `generate_user_rules()` to `template.rs` with commented template
+- [x] Update `init.rs` to generate `user-rules.toml`
 - [ ] Update `init.rs` to print migration notice if `rules.toml` has custom
       rules beyond defaults
-- [ ] Add `download_community_rules()` function in daemon (uses `http::get`)
-- [ ] Spawn background download thread in `daemon_loop()` before main loop
-- [ ] Update daemon to call `load_merged_rules()` instead of `load_rules()`
-- [ ] Update `config_watcher.rs` to watch `user-rules.toml` instead of (or
+- [x] Add `download_community_rules()` function in daemon (uses `http::get`)
+- [x] Spawn background download thread in `daemon_loop()` before main loop
+- [x] Update daemon to call `load_merged_rules()` instead of `load_rules()`
+- [x] Update `config_watcher.rs` to watch `user-rules.toml` instead of (or
       in addition to) `rules.toml`
-- [ ] Update watcher reload to use `load_merged_rules()` for
+- [x] Update watcher reload to use `load_merged_rules()` for
       `ConfigReload::Rules`
-- [ ] Update `doctor.rs` to validate both `rules.toml` and `user-rules.toml`
+- [x] Update `doctor.rs` to validate both `rules.toml` and `user-rules.toml`
 - [ ] Update `doctor.rs` to report community rules cache age
-- [ ] Build with `cargo build`
-- [ ] Run `cargo clippy --workspace` and fix warnings
-- [ ] Run `cargo fmt --all`
-- [ ] Run `cargo test` and fix any failures
+- [x] Build with `cargo build`
+- [x] Run `cargo clippy --workspace` and fix warnings
+- [x] Run `cargo fmt --all`
+- [x] Run `cargo test` and fix any failures
 - [ ] Update documentation (`docs/configuration.md`, `docs/window-management.md`)
