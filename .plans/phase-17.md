@@ -1,6 +1,6 @@
 # Phase 17: Community Rules Repository
 
-**Status:** In Progress
+**Status:** Complete
 
 **Goal:** Create a separate `mosaico-rules` GitHub repository containing
 community-maintained default window rules, and update Mosaico to download
@@ -328,10 +328,10 @@ Migration path:
         `Windows.UI.Core.CoreWindow`, etc.)
   - [x] GPU overlays (NVIDIA, AMD, Intel)
   - [x] System utilities (`RealTimeStylus`, `Shell_TrayWnd`, etc.)
-  - [ ] Common popups and dialogs
+  - [x] Common popups and dialogs
   - [x] GPG/SSH (`pinentry`)
-- [ ] Add `README.md` with project description and usage
-- [ ] Add `CONTRIBUTING.md` with instructions for testing and submitting rules
+- [x] Add `README.md` with project description and usage
+- [x] Add `CONTRIBUTING.md` with instructions for testing and submitting rules
 
 ### Mosaico Changes
 
@@ -343,7 +343,7 @@ Migration path:
 - [x] Update `re-exports` in `config/mod.rs` for new loader functions
 - [x] Add `generate_user_rules()` to `template.rs` with commented template
 - [x] Update `init.rs` to generate `user-rules.toml`
-- [ ] Update `init.rs` to print migration notice if `rules.toml` has custom
+- [x] Update `init.rs` to print migration notice if `rules.toml` has custom
       rules beyond defaults
 - [x] Add `download_community_rules()` function in daemon (uses `http::get`)
 - [x] Spawn background download thread in `daemon_loop()` before main loop
@@ -353,9 +353,9 @@ Migration path:
 - [x] Update watcher reload to use `load_merged_rules()` for
       `ConfigReload::Rules`
 - [x] Update `doctor.rs` to validate both `rules.toml` and `user-rules.toml`
-- [ ] Update `doctor.rs` to report community rules cache age
+- [x] Update `doctor.rs` to report community rules cache age
 - [x] Build with `cargo build`
 - [x] Run `cargo clippy --workspace` and fix warnings
 - [x] Run `cargo fmt --all`
 - [x] Run `cargo test` and fix any failures
-- [ ] Update documentation (`docs/configuration.md`, `docs/window-management.md`)
+- [x] Update documentation (`docs/configuration.md`, `docs/window-management.md`)

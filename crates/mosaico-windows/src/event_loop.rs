@@ -145,7 +145,7 @@ fn create_event_sink() -> Option<HWND> {
         let class_name = w!("MosaicoEventSink");
         let wc = WNDCLASSW {
             lpfnWndProc: Some(event_sink_proc),
-            lpszClassName: class_name.into(),
+            lpszClassName: class_name,
             ..Default::default()
         };
 

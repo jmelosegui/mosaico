@@ -16,6 +16,8 @@ pub fn execute() {
         std::process::exit(1);
     }
 
+    check_rules_migration(&dir);
+
     write_if_missing(
         &dir.join("config.toml"),
         &config::template::generate_config(),
@@ -36,6 +38,31 @@ pub fn execute() {
     );
     println!("Add personal window rules in user-rules.toml (community rules in rules.toml are");
     println!("downloaded automatically and will be overwritten on daemon startup).");
+}
+
+/// Warns if `rules.toml` has custom rules that should move to `user-rules.toml`.
+///
+/// Community rules now overwrite `rules.toml` on every daemon startup.
+/// If the user previously added custom rules there, they need to migrate
+/// them to `user-rules.toml` to avoid losing them.
+fn check_rules_migration(dir: &std::path::Path) {
+    let rules_path = dir.join("rules.toml");
+    let user_rules_path = dir.join("user-rules.toml");
+
+    if !rules_path.exists() || user_rules_path.exists() {
+        return;
+    }
+
+    let default_count = config::default_rules().len();
+    let Ok(current) = config::try_load_rules() else {
+        return;
+    };
+
+    if current.len() > default_count {
+        println!("\x1b[33m[notice]\x1b[0m rules.toml contains custom rules.");
+        println!("         Community rules now overwrite this file on daemon startup.");
+        println!("         Move your custom rules to user-rules.toml to keep them.");
+    }
 }
 
 /// Writes content to a file only if it doesn't already exist.

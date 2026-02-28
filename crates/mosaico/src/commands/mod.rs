@@ -3,6 +3,7 @@ mod banner;
 pub mod daemon;
 pub mod debug;
 pub mod doctor;
+mod doctor_runtime;
 pub mod init;
 pub mod start;
 pub mod status;

@@ -1,9 +1,26 @@
 # Window Rules
 
-Window rules control which applications Mosaico manages. Rules are defined
-in `~/.config/mosaico/rules.toml`.
+Window rules control which applications Mosaico manages. Rules are split
+into two files:
 
-## Configuration
+| File | Purpose |
+|------|---------|
+| `rules.toml` | Community rules, downloaded on daemon startup |
+| `user-rules.toml` | Your personal rules, never overwritten |
+
+Both files live in `~/.config/mosaico/`.
+
+## How It Works
+
+When the daemon starts, it downloads the latest community rules from the
+[mosaico-rules](https://github.com/jmelosegui/mosaico-rules) repository
+and saves them to `rules.toml`. Your personal rules in `user-rules.toml`
+are never touched.
+
+At runtime, both files are merged: **user rules are evaluated first**, so
+they take priority over community defaults. The first matching rule wins.
+
+## Rule Format
 
 Each rule is a `[[rule]]` entry:
 
@@ -42,22 +59,39 @@ manage = false
 
 ## Evaluation Order
 
-Rules are evaluated in the order they appear in the file. The **first
-matching rule wins**. If no rule matches a window, it is managed by default.
+Rules are evaluated in order. User rules (`user-rules.toml`) come first,
+followed by community rules (`rules.toml`). The **first matching rule
+wins**. If no rule matches a window, it is managed by default.
 
-This means you should place more specific rules before general ones.
+This means you can override any community rule by adding a rule in
+`user-rules.toml`. For example, to force-tile a window that community
+rules exclude:
 
-## Default Rules
+```toml
+# user-rules.toml
+[[rule]]
+match_class = "Chrome_WidgetWin_1"
+manage = true
+```
 
-Even without a `rules.toml` file, Mosaico excludes:
+## Community Rules
 
-- `ApplicationFrameWindow` -- UWP apps like Settings and Microsoft Store
+Community rules are maintained at
+[github.com/jmelosegui/mosaico-rules](https://github.com/jmelosegui/mosaico-rules).
+They cover common exclusions like UWP apps, GPU overlays, system dialogs,
+and VPN clients.
+
+If you find a window that should be excluded for all users, consider
+[contributing](https://github.com/jmelosegui/mosaico-rules/blob/main/CONTRIBUTING.md)
+the rule upstream instead of keeping it in `user-rules.toml`.
 
 ## Hot-Reload
 
-Changes to `rules.toml` are automatically detected and applied while the
-daemon is running. New rules apply to newly opened windows; existing managed
-windows are not re-evaluated.
+Changes to `user-rules.toml` are automatically detected and applied while
+the daemon is running. When the file changes, both rule sets are re-merged
+and existing windows are re-evaluated against the new rules.
+
+Community rules (`rules.toml`) are only updated on daemon startup.
 
 ## Finding Window Class Names
 
