@@ -30,8 +30,8 @@ Mosaico is structured as a Cargo workspace with multiple crates:
 | [11](phase-11.md) | Window Rules | Complete |
 | [12](phase-12.md) | Focus Borders, Monocle Mode, Vim Motions | Complete |
 | [13](phase-13.md) | Unified Navigation, Doctor, Banner, Hot-Reload | Complete |
-| [14](phase-14.md) | Status Bar | Planned |
-| [15](phase-15.md) | Catppuccin Theming | Planned |
+| [14](phase-14.md) | Status Bar | Complete |
+| [15](phase-15.md) | Catppuccin Theming | Complete |
 | [16](phase-16.md) | Active Window Icon Widget | Planned |
 | [17](phase-17.md) | Community Rules Repository | Complete |
 | [18](phase-18.md) | Auto-Start on Windows Boot | Planned |

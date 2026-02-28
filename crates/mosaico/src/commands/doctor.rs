@@ -13,10 +13,11 @@ pub fn execute() {
     println!();
     check_config_dir();
     check_config_file();
+    check_theme();
     check_keybindings_file();
     check_keybinding_keys();
     check_rules_file();
-    check_rules_cache_age();
+    doctor_runtime::check_rules_cache_age();
     check_user_rules_file();
     check_bar_file();
     doctor_runtime::check_daemon();
@@ -69,6 +70,30 @@ fn check_config_file() {
     });
 }
 
+fn check_theme() {
+    let cfg = config::load();
+    let name = cfg.theme.name.to_ascii_lowercase();
+    let flavor = cfg.theme.flavor.to_ascii_lowercase();
+    if name != "catppuccin" {
+        println!(
+            "  {WARN} Unknown theme \"{}\", falling back to catppuccin mocha",
+            cfg.theme.name
+        );
+        return;
+    }
+    if !matches!(
+        flavor.as_str(),
+        "mocha" | "macchiato" | "frappe" | "frappé" | "latte"
+    ) {
+        println!(
+            "  {WARN} Unknown flavor \"{}\", falling back to mocha",
+            cfg.theme.flavor
+        );
+        return;
+    }
+    println!("  {OK} Theme: catppuccin {flavor}");
+}
+
 fn check_keybindings_file() {
     check_toml_file("keybindings.toml", config::keybindings_path(), || {
         config::try_load_keybindings().map(|_| ())
@@ -101,33 +126,6 @@ fn check_rules_file() {
     check_toml_file("rules.toml", config::rules_path(), || {
         config::try_load_rules().map(|_| ())
     });
-}
-
-fn check_rules_cache_age() {
-    let Some(path) = config::rules_path() else {
-        return;
-    };
-    if !path.exists() {
-        println!("  {WARN} Community rules not cached (will download on first start)");
-        return;
-    }
-    let age = path
-        .metadata()
-        .ok()
-        .and_then(|m| m.modified().ok())
-        .and_then(|t| t.elapsed().ok());
-    match age {
-        Some(d) if d.as_secs() < 86_400 => {
-            println!("  {OK} Community rules cached (updated today)");
-        }
-        Some(d) => {
-            let days = d.as_secs() / 86_400;
-            println!("  {WARN} Community rules cached ({days} day(s) ago)");
-        }
-        None => {
-            println!("  {WARN} Community rules cached (unknown age)");
-        }
-    }
 }
 
 fn check_user_rules_file() {
