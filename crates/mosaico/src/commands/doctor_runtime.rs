@@ -35,6 +35,14 @@ pub fn check_rules_cache_age() {
     }
 }
 
+pub fn check_autostart() {
+    if mosaico_windows::autostart::is_enabled() {
+        println!("  {OK} Autostart is enabled");
+    } else {
+        println!("  {WARN} Autostart is disabled (run `mosaico autostart enable` to set up)");
+    }
+}
+
 pub fn check_daemon() {
     if mosaico_windows::ipc::is_daemon_running() {
         if let Ok(Some(pid)) = mosaico_core::pid::read_pid_file() {

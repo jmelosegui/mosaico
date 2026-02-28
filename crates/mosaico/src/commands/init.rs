@@ -4,7 +4,8 @@ use mosaico_core::config;
 ///
 /// Generates `config.toml`, `keybindings.toml`, `rules.toml`,
 /// `user-rules.toml`, and `bar.toml` with comments explaining every
-/// option. Existing files are not overwritten.
+/// option. Existing files are not overwritten. On first run, prompts
+/// the user to enable autostart.
 pub fn execute() {
     let Some(dir) = config::config_dir() else {
         eprintln!("Error: could not determine home directory.");
@@ -15,6 +16,8 @@ pub fn execute() {
         eprintln!("Error: could not create {}: {e}", dir.display());
         std::process::exit(1);
     }
+
+    let is_first_run = !dir.join("config.toml").exists();
 
     check_rules_migration(&dir);
 
@@ -33,11 +36,31 @@ pub fn execute() {
     );
     write_if_missing(&dir.join("bar.toml"), &config::template::generate_bar());
 
+    if is_first_run {
+        prompt_autostart();
+    }
+
     println!(
         "\nEdit these files to customize layout, keybindings, window rules, and the status bar."
     );
     println!("Add personal window rules in user-rules.toml (community rules in rules.toml are");
     println!("downloaded automatically and will be overwritten on daemon startup).");
+}
+
+/// Asks the user whether to register Mosaico for automatic startup.
+///
+/// Default is No (`[y/N]`) so pressing Enter skips autostart.
+fn prompt_autostart() {
+    use std::io::Write;
+    print!("\nWould you like Mosaico to start automatically when Windows starts? [y/N]: ");
+    let _ = std::io::stdout().flush();
+    let mut input = String::new();
+    if std::io::stdin().read_line(&mut input).is_ok() && input.trim().eq_ignore_ascii_case("y") {
+        match mosaico_windows::autostart::enable() {
+            Ok(()) => println!("Autostart enabled."),
+            Err(e) => eprintln!("Warning: could not enable autostart: {e}"),
+        }
+    }
 }
 
 /// Warns if `rules.toml` has custom rules that should move to `user-rules.toml`.

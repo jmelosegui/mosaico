@@ -1,6 +1,6 @@
 # Phase 18: Auto-Start on Windows Boot
 
-**Status:** Planned
+**Status:** Complete
 
 **Goal:** Extend the `mosaico init` command to interactively ask the user
 whether Mosaico should launch automatically when Windows starts, and
@@ -240,22 +240,22 @@ All operations use `HKEY_CURRENT_USER` so no elevation is required.
 
 ## Tasks
 
-- [ ] Create `autostart.rs` in `mosaico-windows/src/` with `enable()`,
-      `disable()`, `is_enabled()`, and `exe_path()` using Windows Registry
-- [ ] Add `pub mod autostart` to `mosaico-windows/src/lib.rs`
-- [ ] Create `autostart.rs` in `mosaico/src/commands/` with `execute()`
-      handler for enable/disable/status actions
-- [ ] Add `Autostart` subcommand to `main.rs` with `AutostartAction` enum
-- [ ] Update `init.rs` to prompt user after config generation:
-  - [ ] Print prompt with `[y/N]` default
-  - [ ] Read stdin line
-  - [ ] Call `autostart::enable()` on "y"/"Y"
-  - [ ] Skip prompt if all config files already existed
-- [ ] Update `mosaico doctor` to report autostart status (informational)
-- [ ] Build with `cargo build`
-- [ ] Run `cargo clippy --workspace` and fix warnings
-- [ ] Run `cargo fmt --all`
-- [ ] Run `cargo test` and fix any failures
+- [x] Create `autostart.rs` in `mosaico-windows/src/` with `enable()`,
+      `disable()`, `is_enabled()`, and `exe_command()` using Windows Registry
+- [x] Add `pub mod autostart` to `mosaico-windows/src/lib.rs`
+- [x] Create `autostart.rs` in `mosaico/src/commands/` with `enable()`,
+      `disable()`, `status()` handlers
+- [x] Add `Autostart` subcommand to `main.rs` with `AutostartCommands` enum
+- [x] Update `init.rs` to prompt user after config generation:
+  - [x] Print prompt with `[y/N]` default
+  - [x] Read stdin line
+  - [x] Call `autostart::enable()` on "y"/"Y"
+  - [x] Skip prompt if all config files already existed
+- [x] Update `mosaico doctor` to report autostart status (informational)
+- [x] Build with `cargo build`
+- [x] Run `cargo clippy --workspace` and fix warnings
+- [x] Run `cargo fmt --all`
+- [x] Run `cargo test` and fix any failures
 - [ ] Manual test: verify registry entry is created/removed, Mosaico starts
       after Windows reboot, `autostart status` reports correctly
-- [ ] Update documentation (`docs/cli.md`, `docs/configuration.md`)
+- [x] Update documentation (website CLI page, README)

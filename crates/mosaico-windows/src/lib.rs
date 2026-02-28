@@ -1,3 +1,6 @@
+/// Windows startup registration via the HKCU Run registry key.
+pub mod autostart;
+
 /// Status bar overlay windows.
 pub mod bar;
 

@@ -6,11 +6,15 @@ All interactions with Mosaico go through the command-line interface.
 
 Creates default configuration files in `~/.config/mosaico/`:
 
-- `config.toml` -- layout, border, and logging settings
+- `config.toml` -- layout, border, theme, and logging settings
 - `keybindings.toml` -- keyboard shortcuts
-- `rules.toml` -- window management rules
+- `rules.toml` -- community window rules (auto-updated on daemon startup)
+- `user-rules.toml` -- personal rule overrides
+- `bar.toml` -- status bar settings
 
 Files that already exist are skipped to preserve your customizations.
+On first run, you are prompted to enable
+[automatic startup](#mosaico-autostart).
 
 ## `mosaico start`
 
@@ -48,12 +52,31 @@ Checks performed:
 
 1. Config directory exists (creates it if missing)
 2. `config.toml` syntax validation
-3. `keybindings.toml` syntax validation
-4. Key names resolve to valid key codes
-5. `rules.toml` syntax validation
-6. `bar.toml` syntax validation
-7. Daemon status (IPC pipe, PID file, process liveness)
-8. Monitor enumeration and dimensions
+3. Theme flavor validation
+4. `keybindings.toml` syntax validation
+5. Key names resolve to valid key codes
+6. `rules.toml` syntax validation
+7. Community rules cache age
+8. `user-rules.toml` syntax validation
+9. `bar.toml` syntax validation
+10. Autostart status
+11. Daemon status (IPC pipe, PID file, process liveness)
+12. Monitor enumeration and dimensions
+
+## `mosaico autostart`
+
+Manages automatic startup when Windows boots.
+
+```sh
+mosaico autostart enable    # Register to start on logon
+mosaico autostart disable   # Remove the startup entry
+mosaico autostart status    # Show current autostart state
+```
+
+This writes a value under the `HKEY_CURRENT_USER` registry Run key, so no
+administrator rights are needed.
+
+On first run, `mosaico init` also prompts to enable autostart.
 
 ## `mosaico action <verb> [direction]`
 

@@ -35,6 +35,11 @@ enum Commands {
     Status,
     /// Check your setup for common issues
     Doctor,
+    /// Manage automatic startup when Windows boots
+    Autostart {
+        #[command(subcommand)]
+        action: AutostartCommands,
+    },
     /// Send an action to the running daemon
     Action {
         #[command(subcommand)]
@@ -102,6 +107,16 @@ enum DebugCommands {
     Move(commands::debug::move_window::MoveArgs),
 }
 
+#[derive(Subcommand)]
+enum AutostartCommands {
+    /// Enable autostart on Windows boot
+    Enable,
+    /// Disable autostart on Windows boot
+    Disable,
+    /// Show current autostart status
+    Status,
+}
+
 fn direction(d: DirectionCommands) -> Direction {
     match d {
         DirectionCommands::Left => Direction::Left,
@@ -120,6 +135,11 @@ fn main() {
         Commands::Stop => commands::stop::execute(),
         Commands::Status => commands::status::execute(),
         Commands::Doctor => commands::doctor::execute(),
+        Commands::Autostart { action } => match action {
+            AutostartCommands::Enable => commands::autostart::enable(),
+            AutostartCommands::Disable => commands::autostart::disable(),
+            AutostartCommands::Status => commands::autostart::status(),
+        },
         Commands::Daemon => commands::daemon::execute(),
         Commands::Action { action } => {
             let action = match action {

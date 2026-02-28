@@ -20,6 +20,7 @@ pub fn execute() {
     doctor_runtime::check_rules_cache_age();
     check_user_rules_file();
     check_bar_file();
+    doctor_runtime::check_autostart();
     doctor_runtime::check_daemon();
     doctor_runtime::check_monitors();
     println!();
