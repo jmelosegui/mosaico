@@ -9,7 +9,7 @@ src = "src"
 build-dir = "book"
 
 [output.html]
-site-url = "/"
+site-url = "/mosaico/"
 default-theme = "coal"
 preferred-dark-theme = "coal"
 git-repository-url = "https://github.com/jmelosegui/mosaico"
