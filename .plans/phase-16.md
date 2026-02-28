@@ -1,6 +1,6 @@
 # Phase 16: Active Window Icon Widget
 
-**Status:** Planned
+**Status:** Complete
 
 **Goal:** Add a new bar widget that displays the icon of the currently focused
 window, positioned between the workspace indicators and the layout widget.
@@ -178,28 +178,28 @@ variants.
 
 ## Tasks
 
-- [ ] Add `WidgetConfig::ActiveWindow` variant to `bar.rs` with `enabled`
+- [x] Add `WidgetConfig::ActiveWindow` variant to `bar.rs` with `enabled`
       and `icon` fields (matching existing pattern)
-- [ ] Add `ActiveWindow` to `WidgetConfig::icon()` and `enabled()` match arms
-- [ ] Insert `ActiveWindow` in `default_left_widgets()` between Workspaces
+- [x] Add `ActiveWindow` to `WidgetConfig::icon()` and `enabled()` match arms
+- [x] Insert `ActiveWindow` in `default_left_widgets()` between Workspaces
       and Layout
-- [ ] Add `focused_hwnd: Option<usize>` to `BarState` struct and `Default`
-- [ ] Populate `focused_hwnd` in `TilingManager::bar_states()` -- set to
+- [x] Add `focused_hwnd: Option<usize>` to `BarState` struct and `Default`
+- [x] Populate `focused_hwnd` in `TilingManager::bar_states()` -- set to
       `self.focused_window` for the focused monitor, `None` for others
-- [ ] Create `active_window.rs` in `bar/widgets/` with:
-  - [ ] `extract_icon(hwnd)` -- tries WM_GETICON then GetClassLongPtrW
-  - [ ] `draw()` -- extracts icon, creates temp DIB, calls DrawIconEx,
+- [x] Create `active_window.rs` in `bar/widgets/` with:
+  - [x] `extract_icon(hwnd)` -- uses SHGetFileInfoW via PID -> exe path
+  - [x] `draw()` -- extracts icon, creates temp DIB, calls DrawIconEx,
         blits BGRA pixels into bar buffer, returns new X position
-- [ ] Register `pub mod active_window` in `widgets/mod.rs`
-- [ ] Add `WidgetConfig::ActiveWindow` arm to `draw_left()` dispatch
+- [x] Register `pub mod active_window` in `widgets/mod.rs`
+- [x] Add `WidgetConfig::ActiveWindow` arm to `draw_left()` dispatch
       (special-case like `Workspaces`, calls `active_window::draw()`)
-- [ ] Add `WidgetConfig::ActiveWindow` arm to `widget_text()` (returns
+- [x] Add `WidgetConfig::ActiveWindow` arm to `widget_text()` (returns
       empty string) and `draw_pill_right()` if needed
-- [ ] Build with `cargo build`
-- [ ] Run `cargo clippy --workspace` and fix warnings
-- [ ] Run `cargo fmt --all`
-- [ ] Run `cargo test` and fix any failures
-- [ ] Manual test: verify icon appears for various apps (Chrome, Explorer,
+- [x] Build with `cargo build`
+- [x] Run `cargo clippy --workspace` and fix warnings
+- [x] Run `cargo fmt --all`
+- [x] Run `cargo test` and fix any failures
+- [x] Manual test: verify icon appears for various apps (Chrome, Explorer,
       Terminal, VS Code), disappears on empty workspace, handles hung
       windows gracefully
-- [ ] Update `docs/status-bar.md` with ActiveWindow widget documentation
+- [x] Update `docs/status-bar.md` with ActiveWindow widget documentation

@@ -74,6 +74,7 @@ pixel buffer using geometry helpers (`in_rounded_rect`, `is_border_pixel`).
 | Type | Description | Extra Config |
 |------|-------------|--------------|
 | `workspaces` | Numbered workspace indicators (1-8), active highlighted | -- |
+| `active_window` | Icon of the focused window (bitmap, not text) | -- |
 | `layout` | Current layout name ("BSP") and monocle indicator ("M") | -- |
 | `clock` | Current time | `format` (strftime, default `"%H:%M:%S"`) |
 | `date` | Current date | `format` (strftime, default `"%A %d %B %Y"`) |
@@ -82,6 +83,17 @@ pixel buffer using geometry helpers (`in_rounded_rect`, `is_border_pixel`).
 | `update` | Update notification when newer version is available | -- |
 
 Each widget can be independently enabled/disabled and assigned a custom icon.
+
+### Active Window Icon
+
+The `active_window` widget extracts the application icon from the focused
+window's process executable via `SHGetFileInfoW` and renders it as a BGRA
+bitmap inside a pill. The icon is scaled to fit the bar height minus
+vertical padding.
+
+When no window is focused or icon extraction fails, the widget collapses
+to zero width. Icons are extracted fresh on each render (no caching) since
+`SHGetFileInfoW` is fast and the focused window can change at any time.
 
 ### Widget Placement
 
@@ -97,6 +109,7 @@ The `BarState` struct provides the data each widget needs:
 - `workspace_count` -- total workspaces with windows
 - `layout_name` -- "BSP"
 - `monocle` -- whether monocle mode is active
+- `focused_hwnd` -- HWND of the focused window (`None` on non-focused monitors)
 - `cpu_usage` -- current CPU percentage (from `CpuTracker`)
 - `update_text` -- update notification string (empty if up to date)
 

@@ -58,6 +58,7 @@ Widgets are placed in `[[left]]`, `[[center]]`, or `[[right]]` arrays.
 | Widget | Description | Options |
 |--------|-------------|---------|
 | `workspaces` | Workspace indicator pills | -- |
+| `active_window` | Icon of the focused window | -- |
 | `layout` | Current layout mode | -- |
 | `clock` | Current time | `format` (strftime) |
 | `date` | Current date | `format` (strftime) |
@@ -65,11 +66,19 @@ Widgets are placed in `[[left]]`, `[[center]]`, or `[[right]]` arrays.
 | `cpu` | CPU usage percentage | -- |
 | `update` | Update indicator | -- |
 
+The `active_window` widget displays the application icon of the currently
+focused window. It extracts the icon from the running process and renders
+it as a bitmap in the bar. When no window is focused or the icon cannot be
+determined, the widget is hidden automatically.
+
 ### Example: Full Bar
 
 ```toml
 [[left]]
 type = "workspaces"
+
+[[left]]
+type = "active_window"
 
 [[left]]
 type = "layout"
