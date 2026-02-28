@@ -1,6 +1,6 @@
 # Phase 15: Catppuccin Theming
 
-**Status:** Planned
+**Status:** Complete
 
 **Goal:** Add a built-in theming system using the Catppuccin color palette.
 A theme applies a consistent color scheme across all visual elements --
@@ -195,17 +195,23 @@ All four flavor palettes (104 colors total) are included.
 
 ## Tasks
 
-- [ ] Create `theme/` module in `mosaico-core` with `Flavor` and `CatppuccinColor` enums
-- [ ] Hardcode all four Catppuccin flavor palettes in `palette.rs`
-- [ ] Implement `resolve(flavor, color) -> String` for hex lookup
-- [ ] Define `ThemeOverrides` struct with `Option<CatppuccinColor>` fields
-- [ ] Define `ThemeConfig` struct with serde support
-- [ ] Add `[theme]` section to `Config` with `Option<ThemeConfig>`
-- [ ] Implement `resolve_theme()` to generate hex colors from theme config
-- [ ] Integrate theme resolution into config loading pipeline
-- [ ] Ensure explicit hex colors in `config.toml` / `bar.toml` take precedence
-- [ ] Update `mosaico init` template with commented `[theme]` section
-- [ ] Add theme validation to `mosaico doctor`
-- [ ] Verify hot-reload works with theme flavor/override changes
-- [ ] Build, lint, test
-- [ ] Update documentation
+- [x] Create `theme/` module in `mosaico-core` with `Flavor` and `CatppuccinColor` enums
+      (implemented as `theme.rs` + `palette.rs` with `Theme` enum; simpler flat design)
+- [x] Hardcode all four Catppuccin flavor palettes in `palette.rs`
+- [x] Implement `resolve(flavor, color) -> String` for hex lookup
+      (`palette::named_color()` + `Theme::resolve_color()`)
+- [x] Define `ThemeOverrides` struct with `Option<CatppuccinColor>` fields
+      (replaced with named-color-string approach in existing fields)
+- [x] Define `ThemeConfig` struct with serde support
+- [x] Add `[theme]` section to `Config` with `Option<ThemeConfig>`
+      (non-optional, always present with defaults)
+- [x] Implement `resolve_theme()` to generate hex colors from theme config
+      (split across `resolve()`, `resolve_borders()`, `resolve_colors()`)
+- [x] Integrate theme resolution into config loading pipeline
+- [x] Ensure explicit hex colors in `config.toml` / `bar.toml` take precedence
+- [x] Update `mosaico init` template with commented `[theme]` section
+      (active by default, not commented)
+- [x] Add theme validation to `mosaico doctor`
+- [x] Verify hot-reload works with theme flavor/override changes
+- [x] Build, lint, test
+- [x] Update documentation

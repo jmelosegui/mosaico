@@ -1,6 +1,6 @@
 # Phase 14: Status Bar
 
-**Status:** Planned
+**Status:** Complete
 
 **Goal:** Add a configurable status bar to the top of each monitor displaying
 workspace indicators, layout mode, and system information.
@@ -201,22 +201,22 @@ Recommendation: start with Option A for simplicity.
 
 ## Tasks
 
-- [ ] Define `BarConfig`, `BarColors`, `WidgetConfig` in `mosaico-core` with defaults and serde
-- [ ] Add `bar_path()`, `load_bar()`, `try_load_bar()` to config loader
-- [ ] Add `generate_bar()` to template generator
-- [ ] Update `mosaico init` to write `bar.toml`
-- [ ] Create bar window with layered overlay properties (one per monitor)
-- [ ] Implement DIB-based text rendering pipeline
-- [ ] Implement workspace indicator widget (numbers, active highlight)
-- [ ] Implement layout indicator widget (BSP/Monocle)
-- [ ] Implement clock widget with configurable format
-- [ ] Implement date widget with configurable format
-- [ ] Implement RAM usage widget
-- [ ] Implement update notification widget
-- [ ] Adjust work area to account for bar height
-- [ ] Wire bar updates to tiling manager state changes
-- [ ] Add 1-second refresh timer for system widgets
-- [ ] Add `ConfigReload::Bar` variant and poll `bar.toml` in config watcher
-- [ ] Add bar validation to `mosaico doctor`
-- [ ] Build, lint, test
-- [ ] Update documentation
+- [x] Define `BarConfig`, `BarColors`, `WidgetConfig` in `mosaico-core` with defaults and serde
+- [x] Add `bar_path()`, `load_bar()`, `try_load_bar()` to config loader
+- [x] Add `generate_bar()` to template generator
+- [x] Update `mosaico init` to write `bar.toml`
+- [x] Create bar window with layered overlay properties (one per monitor)
+- [x] Implement DIB-based text rendering pipeline
+- [x] Implement workspace indicator widget (numbers, active highlight)
+- [x] Implement layout indicator widget (BSP/Monocle)
+- [x] Implement clock widget with configurable format
+- [x] Implement date widget with configurable format
+- [x] Implement RAM usage widget
+- [x] Implement update notification widget
+- [x] Adjust work area to account for bar height
+- [x] Wire bar updates to tiling manager state changes
+- [x] Add 1-second refresh timer for system widgets
+- [x] Add `ConfigReload::Bar` variant and poll `bar.toml` in config watcher
+- [x] Add bar validation to `mosaico doctor`
+- [x] Build, lint, test
+- [x] Update documentation
