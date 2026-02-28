@@ -1,0 +1,18 @@
+[book]
+title = "Mosaico"
+description = "A cross-platform tiling window manager, written in Rust."
+authors = ["Juan Manuel Elosegui"]
+language = "en"
+src = "src"
+
+[build]
+build-dir = "book"
+
+[output.html]
+site-url = "/mosaico/"
+default-theme = "coal"
+preferred-dark-theme = "coal"
+git-repository-url = "https://github.com/jmelosegui/mosaico"
+edit-url-template = "https://github.com/jmelosegui/mosaico/edit/main/website/{path}"
+additional-css = ["src/theme.css"]
+additional-js = ["src/theme.js"]
