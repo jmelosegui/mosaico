@@ -2,6 +2,8 @@
 
 A cross-platform tiling window manager, written in Rust.
 
+**Documentation:** [jmelosegui.com/mosaico](https://jmelosegui.com/mosaico/)
+
 ## Installation
 
 ### Windows
