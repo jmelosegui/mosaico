@@ -10,6 +10,7 @@ pub mod clock;
 pub mod cpu;
 pub mod date;
 pub mod layout;
+pub mod media;
 pub mod ram;
 mod system;
 pub mod update;
@@ -33,6 +34,8 @@ pub struct BarState {
     pub update_text: String,
     /// HWND of the focused window on this monitor (for icon widget).
     pub focused_hwnd: Option<usize>,
+    /// Formatted media info (e.g. "Artist - Title"). Empty = nothing playing.
+    pub media_text: String,
 }
 
 impl Default for BarState {
@@ -45,6 +48,7 @@ impl Default for BarState {
             cpu_usage: 0,
             update_text: String::new(),
             focused_hwnd: None,
+            media_text: String::new(),
         }
     }
 }
@@ -95,7 +99,11 @@ fn should_skip(widget: &WidgetConfig, state: &BarState) -> bool {
         return true;
     }
     // Hide the update widget when there is no update available.
-    matches!(widget, WidgetConfig::Update { .. }) && state.update_text.is_empty()
+    if matches!(widget, WidgetConfig::Update { .. }) && state.update_text.is_empty() {
+        return true;
+    }
+    // Hide the media widget when nothing is playing.
+    matches!(widget, WidgetConfig::Media { .. }) && state.media_text.is_empty()
 }
 
 // -- shared pill rendering ------------------------------------------------
@@ -225,6 +233,7 @@ fn widget_text(state: &BarState, widget: &WidgetConfig) -> String {
         WidgetConfig::Ram { .. } => ram::text(),
         WidgetConfig::Cpu { .. } => cpu::text(state.cpu_usage),
         WidgetConfig::Update { .. } => update::text(state),
+        WidgetConfig::Media { max_length, .. } => media::text(state, *max_length),
     }
 }
 

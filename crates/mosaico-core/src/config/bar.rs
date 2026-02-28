@@ -159,6 +159,17 @@ pub enum WidgetConfig {
         #[serde(default)]
         color: String,
     },
+    /// Currently playing media (artist and track title).
+    Media {
+        #[serde(default = "default_true")]
+        enabled: bool,
+        #[serde(default = "default_media_icon")]
+        icon: String,
+        #[serde(default)]
+        color: String,
+        #[serde(default = "default_media_max_length")]
+        max_length: usize,
+    },
 }
 
 fn default_true() -> bool {
@@ -180,7 +191,8 @@ impl WidgetConfig {
             | Self::Ram { icon, .. }
             | Self::Cpu { icon, .. }
             | Self::Update { icon, .. }
-            | Self::ActiveWindow { icon, .. } => icon,
+            | Self::ActiveWindow { icon, .. }
+            | Self::Media { icon, .. } => icon,
         }
     }
 
@@ -194,7 +206,8 @@ impl WidgetConfig {
             | Self::Ram { enabled, .. }
             | Self::Cpu { enabled, .. }
             | Self::Update { enabled, .. }
-            | Self::ActiveWindow { enabled, .. } => *enabled,
+            | Self::ActiveWindow { enabled, .. }
+            | Self::Media { enabled, .. } => *enabled,
         }
     }
 
@@ -208,7 +221,8 @@ impl WidgetConfig {
             | Self::Ram { color, .. }
             | Self::Cpu { color, .. }
             | Self::Update { color, .. }
-            | Self::ActiveWindow { color, .. } => color,
+            | Self::ActiveWindow { color, .. }
+            | Self::Media { color, .. } => color,
         }
     }
 
@@ -222,7 +236,8 @@ impl WidgetConfig {
             | Self::Ram { color, .. }
             | Self::Cpu { color, .. }
             | Self::Update { color, .. }
-            | Self::ActiveWindow { color, .. } => color,
+            | Self::ActiveWindow { color, .. }
+            | Self::Media { color, .. } => color,
         };
         if !color.is_empty()
             && let Some(hex) = theme.named_color(color)
@@ -230,6 +245,14 @@ impl WidgetConfig {
             *color = hex.to_string();
         }
     }
+}
+
+fn default_media_icon() -> String {
+    "\u{F001}".into()
+}
+
+fn default_media_max_length() -> usize {
+    40
 }
 
 fn default_clock_format() -> String {

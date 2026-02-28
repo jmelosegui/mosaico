@@ -30,6 +30,9 @@ features = [
     "Win32_Security",                  # Required by CreateFileW and CreateNamedPipeW
     "Win32_Networking_WinHttp",        # WinHttpOpen, WinHttpConnect, etc.
     "Win32_System_Registry",           # RegOpenKeyExW, RegSetValueExW, etc.
+    "Media",                           # WinRT Media namespace (parent)
+    "Media_Control",                   # GSMTC media session manager
+    "Foundation",                      # IAsyncOperation for WinRT async
 ]
 
 [lints]

@@ -387,6 +387,7 @@ impl TilingManager {
                 } else {
                     None
                 },
+                media_text: String::new(),
             })
             .collect()
     }
