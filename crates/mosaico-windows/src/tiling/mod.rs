@@ -21,15 +21,12 @@ use crate::frame;
 use crate::monitor;
 use crate::window::Window;
 
-/// Per-monitor state: multiple workspaces, work area, and monocle flag.
+/// Per-monitor state: multiple workspaces and work area.
 pub(super) struct MonitorState {
     pub(super) id: usize,
     pub(super) work_area: Rect,
     pub(super) workspaces: Vec<Workspace>,
     pub(super) active_workspace: usize,
-    pub(super) monocle: bool,
-    /// The window shown fullscreen in monocle mode.
-    pub(super) monocle_window: Option<usize>,
 }
 
 impl MonitorState {
@@ -100,8 +97,6 @@ impl TilingManager {
                 work_area: info.work_area,
                 workspaces: (0..MAX_WORKSPACES).map(|_| Workspace::new()).collect(),
                 active_workspace: 0,
-                monocle: false,
-                monocle_window: None,
             })
             .collect();
 
@@ -173,7 +168,7 @@ impl TilingManager {
                 active_workspace: m.active_workspace,
                 workspace_count: m.workspaces.len(),
                 layout_name: "BSP".into(),
-                monocle: m.monocle,
+                monocle: m.active_ws().monocle(),
                 cpu_usage: 0,
                 update_text: update_text.to_string(),
                 focused_hwnd: if i == self.focused_monitor {

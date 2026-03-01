@@ -95,13 +95,13 @@ fn display_change_preserves_active_workspace() {
 #[test]
 fn display_change_preserves_monocle_state() {
     let mut monitors = make_monitors(1);
-    monitors[0].monocle = true;
-    monitors[0].monocle_window = Some(100);
+    monitors[0].active_ws_mut().set_monocle(true);
+    monitors[0].active_ws_mut().set_monocle_window(Some(100));
     monitors[0].workspaces[0].add(100);
 
     let new_infos = vec![(0, Rect::new(0, 0, 1920, 1080))];
     let result = simulate_display_change(&mut monitors, new_infos);
 
-    assert!(result[0].monocle);
-    assert_eq!(result[0].monocle_window, Some(100));
+    assert!(result[0].active_ws().monocle());
+    assert_eq!(result[0].active_ws().monocle_window(), Some(100));
 }

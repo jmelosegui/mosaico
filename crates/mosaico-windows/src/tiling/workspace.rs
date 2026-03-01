@@ -52,8 +52,18 @@ impl TilingManager {
 
         self.apply_layout_on(mon_idx);
 
-        // Focus the first window on the new workspace, or clear focus.
-        if let Some(&hwnd) = self.monitors[mon_idx].active_ws().handles().first() {
+        // When returning to a monocle workspace, restore focus to the
+        // remembered monocle window instead of the first in the list.
+        let ws = self.monitors[mon_idx].active_ws();
+        let target = if ws.monocle() {
+            ws.monocle_window()
+                .filter(|&h| ws.contains(h))
+                .or_else(|| ws.handles().first().copied())
+        } else {
+            ws.handles().first().copied()
+        };
+
+        if let Some(hwnd) = target {
             self.focus_and_update_border(hwnd);
         } else {
             self.focused_window = None;

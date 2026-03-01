@@ -8,6 +8,10 @@ use crate::layout::Layout;
 pub struct Workspace {
     /// Ordered list of managed window handles.
     handles: Vec<usize>,
+    /// Whether monocle (single-window fullscreen) mode is active.
+    monocle: bool,
+    /// The window shown fullscreen in monocle mode.
+    monocle_window: Option<usize>,
 }
 
 impl Workspace {
@@ -15,7 +19,29 @@ impl Workspace {
     pub fn new() -> Self {
         Self {
             handles: Vec::new(),
+            monocle: false,
+            monocle_window: None,
         }
+    }
+
+    /// Returns whether monocle mode is active on this workspace.
+    pub fn monocle(&self) -> bool {
+        self.monocle
+    }
+
+    /// Sets the monocle mode flag.
+    pub fn set_monocle(&mut self, value: bool) {
+        self.monocle = value;
+    }
+
+    /// Returns the monocle window handle, if any.
+    pub fn monocle_window(&self) -> Option<usize> {
+        self.monocle_window
+    }
+
+    /// Sets the monocle window handle.
+    pub fn set_monocle_window(&mut self, value: Option<usize>) {
+        self.monocle_window = value;
     }
 
     /// Adds a window to the end of the workspace.

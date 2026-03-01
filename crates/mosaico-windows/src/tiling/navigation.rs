@@ -16,7 +16,7 @@ impl TilingManager {
         if self.monitors.is_empty() {
             return;
         }
-        let monocle = self.monitors[self.focused_monitor].monocle;
+        let monocle = self.monitors[self.focused_monitor].active_ws().monocle();
         match dir {
             Direction::Left | Direction::Right => {
                 if monocle {
@@ -66,17 +66,18 @@ impl TilingManager {
     fn focus_adjacent_monitor_idx(&mut self, idx: usize, dir: Direction) {
         self.focused_monitor = idx;
         let mon = &self.monitors[idx];
-        let entry = if mon.monocle {
+        let entry = if mon.active_ws().monocle() {
             // Return to the remembered monocle window, or fall back
             // to the first window in the workspace.
-            mon.monocle_window
+            mon.active_ws()
+                .monocle_window()
                 .or_else(|| mon.active_ws().handles().first().copied())
         } else {
             self.find_entry_window(idx, dir)
         };
         if let Some(hwnd) = entry {
             self.focus_and_update_border(hwnd);
-            if self.monitors[idx].monocle {
+            if self.monitors[idx].active_ws().monocle() {
                 self.apply_layout_on(idx);
             }
         } else {
@@ -97,7 +98,7 @@ impl TilingManager {
             return;
         };
         // Monocle: window is stuck until monocle is removed.
-        if self.monitors[self.focused_monitor].monocle {
+        if self.monitors[self.focused_monitor].active_ws().monocle() {
             return;
         }
         match dir {

@@ -15,12 +15,13 @@ impl TilingManager {
             return;
         }
         let idx = self.focused_monitor;
-        let enabling = !self.monitors[idx].monocle;
-        self.monitors[idx].monocle = enabling;
+        let ws = self.monitors[idx].active_ws_mut();
+        let enabling = !ws.monocle();
+        ws.set_monocle(enabling);
         if enabling {
-            self.monitors[idx].monocle_window = self.focused_window;
+            ws.set_monocle_window(self.focused_window);
         } else {
-            self.monitors[idx].monocle_window = None;
+            ws.set_monocle_window(None);
         }
         self.apply_layout_on(idx);
         self.update_border();
@@ -41,9 +42,12 @@ impl TilingManager {
             self.applying_layout = false;
             return;
         };
-        if state.monocle {
-            // In monocle mode, the focused window fills the work area.
-            if let Some(hwnd) = self.focused_window
+        if state.active_ws().monocle() {
+            // In monocle mode, the remembered monocle window fills the
+            // work area. Fall back to focused_window when monocle_window
+            // is unset (e.g. toggled without a specific target).
+            let monocle_hwnd = state.active_ws().monocle_window().or(self.focused_window);
+            if let Some(hwnd) = monocle_hwnd
                 && state.active_ws().contains(hwnd)
             {
                 let gap = self.layout.gap;

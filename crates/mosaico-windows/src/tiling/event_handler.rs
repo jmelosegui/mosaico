@@ -37,6 +37,13 @@ impl TilingManager {
                     // Focus the new window before layout so monocle
                     // mode sizes the correct window.
                     self.focused_window = Some(*hwnd);
+                    // In monocle mode the newest window becomes the
+                    // monocle target so it fills the work area.
+                    if self.monitors[idx].active_ws().monocle() {
+                        self.monitors[idx]
+                            .active_ws_mut()
+                            .set_monocle_window(Some(*hwnd));
+                    }
                     self.apply_layout_on(idx);
                     self.focus_from_mouse = false;
                     self.focus_and_update_border(*hwnd);
@@ -60,11 +67,11 @@ impl TilingManager {
                         self.monitors[mon_idx].workspaces[ws_idx].len()
                     );
                     // Clear monocle if the monocle window was destroyed.
-                    if self.monitors[mon_idx].monocle
-                        && self.monitors[mon_idx].monocle_window == Some(*hwnd)
+                    if self.monitors[mon_idx].workspaces[ws_idx].monocle()
+                        && self.monitors[mon_idx].workspaces[ws_idx].monocle_window() == Some(*hwnd)
                     {
-                        self.monitors[mon_idx].monocle = false;
-                        self.monitors[mon_idx].monocle_window = None;
+                        self.monitors[mon_idx].workspaces[ws_idx].set_monocle(false);
+                        self.monitors[mon_idx].workspaces[ws_idx].set_monocle_window(None);
                     }
                     if ws_idx == self.monitors[mon_idx].active_workspace {
                         self.apply_layout_on(mon_idx);

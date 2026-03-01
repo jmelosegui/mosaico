@@ -22,8 +22,6 @@ pub(super) fn make_monitor(id: usize) -> MonitorState {
         work_area: Rect::new(0, 0, 1920, 1080),
         workspaces: (0..MAX_WORKSPACES).map(|_| Workspace::new()).collect(),
         active_workspace: 0,
-        monocle: false,
-        monocle_window: None,
     }
 }
 
@@ -116,8 +114,6 @@ pub(super) fn simulate_display_change(
                 work_area: *work_area,
                 workspaces: std::mem::take(&mut old.workspaces),
                 active_workspace: old.active_workspace,
-                monocle: old.monocle,
-                monocle_window: old.monocle_window,
             });
         } else {
             new_states.push(MonitorState {
@@ -125,8 +121,6 @@ pub(super) fn simulate_display_change(
                 work_area: *work_area,
                 workspaces: (0..MAX_WORKSPACES).map(|_| Workspace::new()).collect(),
                 active_workspace: 0,
-                monocle: false,
-                monocle_window: None,
             });
         }
     }

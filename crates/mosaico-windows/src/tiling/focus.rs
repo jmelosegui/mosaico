@@ -57,7 +57,7 @@ impl TilingManager {
         let Some(mon) = self.monitors.get(self.focused_monitor) else {
             return;
         };
-        let is_monocle = mon.monocle;
+        let is_monocle = mon.active_ws().monocle();
         let hex = if is_monocle {
             &self.border_config.monocle
         } else {

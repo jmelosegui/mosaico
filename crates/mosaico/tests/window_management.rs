@@ -668,6 +668,63 @@ fn monocle_new_window_gets_monocle_size() {
     stop_daemon();
 }
 
+/// Enable monocle on workspace 8, switch to workspace 7, switch back.
+/// The monocle window (notepad1) should still fill the screen and be
+/// focused — not the first window in the handle list.
+#[test]
+fn monocle_persists_after_workspace_switch() {
+    let _guard = test_guard();
+    start_daemon();
+    isolate_workspace();
+
+    let (child1, hwnd1) = launch_notepad();
+    let (child2, hwnd2) = launch_notepad();
+
+    // Focus hwnd1 and enable monocle — hwnd1 should fill the work area.
+    unsafe {
+        win32::SetForegroundWindow(hwnd1);
+    }
+    thread::sleep(Duration::from_secs(1));
+    let status = mosaico(&["action", "toggle-monocle"]);
+    assert!(status.success(), "toggle-monocle failed");
+    thread::sleep(Duration::from_secs(1));
+    let monocle_rect = get_window_rect(hwnd1);
+
+    // Switch to workspace 7 (empty), then back to workspace 8.
+    mosaico(&["action", "go-to-workspace", "7"]);
+    thread::sleep(Duration::from_millis(500));
+    mosaico(&["action", "go-to-workspace", "8"]);
+    thread::sleep(Duration::from_secs(1));
+
+    // hwnd1 should still be monocle-sized after returning.
+    let after_rect = get_window_rect(hwnd1);
+    let tolerance = 20;
+    let (mw, mh) = (
+        monocle_rect.2 - monocle_rect.0,
+        monocle_rect.3 - monocle_rect.1,
+    );
+    let (aw, ah) = (after_rect.2 - after_rect.0, after_rect.3 - after_rect.1);
+    assert!(
+        (aw - mw).abs() < tolerance && (ah - mh).abs() < tolerance,
+        "monocle window should keep monocle size after ws switch: \
+         before={mw}x{mh}, after={aw}x{ah}"
+    );
+
+    // The border should surround hwnd1 (not hwnd2).
+    assert!(
+        border_surrounds_target(hwnd1),
+        "border should surround the monocle window after ws switch"
+    );
+
+    // Disable monocle before cleanup.
+    let _ = mosaico(&["action", "toggle-monocle"]);
+    thread::sleep(Duration::from_millis(500));
+
+    close_notepad(hwnd2, child2);
+    close_notepad(hwnd1, child1);
+    stop_daemon();
+}
+
 /// Maximize a window. The border should hide and the window should
 /// NOT be retiled back to BSP layout.
 #[test]

@@ -89,8 +89,6 @@ impl TilingManager {
                     work_area: info.work_area,
                     workspaces: std::mem::take(&mut old.workspaces),
                     active_workspace: old.active_workspace,
-                    monocle: old.monocle,
-                    monocle_window: old.monocle_window,
                 });
             } else {
                 // Brand new monitor — create fresh workspaces.
@@ -99,8 +97,6 @@ impl TilingManager {
                     work_area: info.work_area,
                     workspaces: (0..MAX_WORKSPACES).map(|_| Workspace::new()).collect(),
                     active_workspace: 0,
-                    monocle: false,
-                    monocle_window: None,
                 });
             }
         }
