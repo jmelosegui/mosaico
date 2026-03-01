@@ -56,6 +56,7 @@ impl TilingManager {
         };
         self.hiding = config.layout.hiding;
         self.border_config = config.borders.clone();
+        self.mouse_follows_focus = config.mouse.follows_focus;
         self.apply_corner_preference_all();
         self.retile_all();
         self.update_border();

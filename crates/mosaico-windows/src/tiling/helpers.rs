@@ -52,6 +52,12 @@ impl TilingManager {
         self.monitors.iter().position(|m| m.id == mid)
     }
 
+    pub(super) fn is_managed_on_active_workspace(&self, hwnd: usize) -> bool {
+        self.monitors
+            .get(self.focused_monitor)
+            .is_some_and(|mon| mon.active_ws().contains(hwnd))
+    }
+
     pub(super) fn owning_monitor(&self, hwnd: usize) -> Option<usize> {
         self.monitors
             .iter()

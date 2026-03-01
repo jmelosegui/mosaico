@@ -32,6 +32,12 @@ corner_style = "small"
 # focused = "blue"
 # monocle = "green"
 
+[mouse]
+# Move the cursor to the center of the focused window on keyboard navigation.
+follows_focus = true
+# Automatically focus the window under the cursor without clicking.
+focus_follows_mouse = false
+
 [logging]
 # Enable file logging to ~/.config/mosaico/logs/mosaico.log.
 enabled = false

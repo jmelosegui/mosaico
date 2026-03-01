@@ -47,7 +47,13 @@ pub(super) fn daemon_loop() -> WindowResult<()> {
 
     let (tx, rx) = mpsc::channel::<DaemonMsg>();
 
-    let mut manager = TilingManager::new(layout, rules, config.borders, config.layout.hiding)?;
+    let mut manager = TilingManager::new(
+        layout,
+        rules,
+        config.borders,
+        config.layout.hiding,
+        config.mouse.follows_focus,
+    )?;
     let bar_height = bar_mgr.bar_height();
     if bar_height > 0 {
         // Retile with bar-adjusted work areas so borders match final positions.
@@ -70,7 +76,12 @@ pub(super) fn daemon_loop() -> WindowResult<()> {
     let action_tx = tx.clone();
     let (event_channel_tx, event_channel_rx) = mpsc::channel();
     let (action_channel_tx, action_channel_rx) = mpsc::channel();
-    let event_loop = event_loop::start(event_channel_tx, action_channel_tx, keybindings)?;
+    let event_loop = event_loop::start(
+        event_channel_tx,
+        action_channel_tx,
+        keybindings,
+        config.mouse.focus_follows_mouse,
+    )?;
 
     // Bridge: forward window events into the unified channel.
     let event_bridge = daemon_threads::spawn_event_bridge(event_channel_rx, event_tx);
@@ -127,6 +138,7 @@ pub(super) fn daemon_loop() -> WindowResult<()> {
                     &mut manager,
                     &mut bar_mgr,
                     &mut current_theme,
+                    &event_loop,
                     &get_update,
                 );
             }

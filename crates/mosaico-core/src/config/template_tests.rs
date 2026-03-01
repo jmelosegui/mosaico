@@ -34,6 +34,11 @@ fn config_template_matches_default_values() {
     assert_eq!(config.layout.gap, defaults.layout.gap);
     assert_eq!(config.layout.ratio, defaults.layout.ratio);
     assert_eq!(config.borders.width, defaults.borders.width);
+    assert_eq!(config.mouse.follows_focus, defaults.mouse.follows_focus);
+    assert_eq!(
+        config.mouse.focus_follows_mouse,
+        defaults.mouse.focus_follows_mouse
+    );
     // Border colors should resolve from the default Mocha theme.
     assert_eq!(config.borders.focused, defaults.borders.focused);
     assert_eq!(config.borders.monocle, defaults.borders.monocle);

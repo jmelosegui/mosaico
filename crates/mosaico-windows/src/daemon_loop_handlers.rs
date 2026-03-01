@@ -91,12 +91,14 @@ pub(super) fn handle_reload(
     manager: &mut TilingManager,
     bar_mgr: &mut BarManager,
     current_theme: &mut mosaico_core::config::Theme,
+    event_loop: &crate::event_loop::EventLoopHandle,
     get_update: &dyn Fn() -> String,
 ) {
     match reload {
         crate::config_watcher::ConfigReload::Config(cfg) => {
             *current_theme = cfg.theme.resolve();
             manager.reload_config(&cfg);
+            event_loop.toggle_focus_follows_mouse(cfg.mouse.focus_follows_mouse);
             // Theme may have changed — re-resolve bar colors.
             bar_mgr.resolve_colors(*current_theme);
             bar_mgr.update(&manager.bar_states(&get_update()));

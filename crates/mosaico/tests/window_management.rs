@@ -9,6 +9,8 @@ use std::sync::{Mutex, OnceLock};
 use std::thread;
 use std::time::Duration;
 
+use mosaico_core::config;
+
 // ---------------------------------------------------------------------------
 // Win32 FFI
 // ---------------------------------------------------------------------------
@@ -38,6 +40,12 @@ mod win32 {
         pub bottom: i32,
     }
 
+    #[repr(C)]
+    pub struct POINT {
+        pub x: i32,
+        pub y: i32,
+    }
+
     pub const GW_OWNER: UINT = 4;
     pub const PM_REMOVE: UINT = 0x0001;
 
@@ -62,6 +70,8 @@ mod win32 {
         pub fn EnumWindows(cb: WNDENUMPROC, lparam: LPARAM) -> BOOL;
         pub fn PostMessageW(hwnd: HWND, msg: UINT, wparam: WPARAM, lparam: LPARAM) -> BOOL;
         pub fn GetWindowRect(hwnd: HWND, rect: *mut RECT) -> BOOL;
+        pub fn GetCursorPos(point: *mut POINT) -> BOOL;
+        pub fn SetCursorPos(x: i32, y: i32) -> BOOL;
         pub fn SetForegroundWindow(hwnd: HWND) -> BOOL;
         pub fn GetWindow(hwnd: HWND, cmd: UINT) -> HWND;
         pub fn RealGetWindowClassW(hwnd: HWND, string: *mut u16, max_count: UINT) -> UINT;
@@ -100,6 +110,30 @@ fn mosaico(args: &[&str]) -> std::process::ExitStatus {
     child.wait().expect("failed to wait for mosaico")
 }
 
+struct ConfigGuard {
+    path: std::path::PathBuf,
+    previous: Option<String>,
+}
+
+impl Drop for ConfigGuard {
+    fn drop(&mut self) {
+        if let Some(prev) = &self.previous {
+            let _ = std::fs::write(&self.path, prev);
+        } else {
+            let _ = std::fs::remove_file(&self.path);
+        }
+    }
+}
+
+fn set_config_toml(contents: &str) -> ConfigGuard {
+    let dir = config::config_dir().expect("config dir missing");
+    let path = dir.join("config.toml");
+    std::fs::create_dir_all(&dir).expect("failed to create config dir");
+    let previous = std::fs::read_to_string(&path).ok();
+    std::fs::write(&path, contents).expect("failed to write config.toml");
+    ConfigGuard { path, previous }
+}
+
 /// Starts the daemon and waits for it to be ready.
 ///
 /// Also closes any leftover Notepad windows from previous tests
@@ -126,7 +160,10 @@ fn test_guard() -> std::sync::MutexGuard<'static, ()> {
     TEST_LOCK
         .get_or_init(|| Mutex::new(()))
         .lock()
-        .expect("failed to lock test mutex")
+        .unwrap_or_else(|e| {
+            eprintln!("test mutex poisoned, recovering");
+            e.into_inner()
+        })
 }
 
 /// Stops the daemon.
@@ -288,6 +325,39 @@ fn get_window_rect(hwnd: win32::HWND) -> (i32, i32, i32, i32) {
     (rect.left, rect.top, rect.right, rect.bottom)
 }
 
+fn get_cursor_pos() -> (i32, i32) {
+    let mut point = win32::POINT { x: 0, y: 0 };
+    unsafe {
+        win32::GetCursorPos(&mut point);
+    }
+    (point.x, point.y)
+}
+
+fn cursor_near_window(hwnd: win32::HWND, max_delta: i32) -> bool {
+    let (left, top, right, bottom) = get_window_rect(hwnd);
+    let center_x = left + (right - left) / 2;
+    let center_y = top + (bottom - top) / 2;
+    let (cursor_x, cursor_y) = get_cursor_pos();
+    let dx = (cursor_x - center_x).abs();
+    let dy = (cursor_y - center_y).abs();
+    dx <= max_delta && dy <= max_delta
+}
+
+fn wait_for_cursor_near_window(
+    hwnd: win32::HWND,
+    max_delta: i32,
+    attempts: usize,
+    delay_ms: u64,
+) -> bool {
+    for _ in 0..attempts {
+        if cursor_near_window(hwnd, max_delta) {
+            return true;
+        }
+        thread::sleep(Duration::from_millis(delay_ms));
+    }
+    false
+}
+
 /// Returns true if the border window is currently visible.
 fn is_border_visible() -> bool {
     let hwnd = find_border_hwnd();
@@ -338,6 +408,168 @@ fn take_screenshot(name: &str) {
 fn isolate_workspace() {
     mosaico(&["action", "go-to-workspace", "8"]);
     thread::sleep(Duration::from_millis(500));
+}
+
+#[test]
+fn keyboard_focus_moves_cursor_to_focused_window() {
+    let _guard = test_guard();
+    let _config_guard = set_config_toml(
+        r##"[mouse]
+follows_focus = true
+focus_follows_mouse = false
+"##,
+    );
+    start_daemon();
+    isolate_workspace();
+
+    let (child1, hwnd1) = launch_notepad();
+    let (child2, hwnd2) = launch_notepad();
+
+    // Focus hwnd1 via the daemon (SetForegroundWindow fires a Focused
+    // event which the daemon uses to update its internal tracking).
+    unsafe {
+        win32::SetForegroundWindow(hwnd1);
+    }
+    thread::sleep(Duration::from_secs(2));
+
+    // Determine the direction from hwnd1 to hwnd2 based on positions.
+    let (left1, _, right1, _) = get_window_rect(hwnd1);
+    let (left2, _, right2, _) = get_window_rect(hwnd2);
+    let cx1 = left1 + (right1 - left1) / 2;
+    let cx2 = left2 + (right2 - left2) / 2;
+    let dir = if cx2 > cx1 { "right" } else { "left" };
+
+    let status = mosaico(&["action", "focus", dir]);
+    assert!(status.success(), "focus {dir} failed");
+    thread::sleep(Duration::from_millis(500));
+
+    let max_delta = 50;
+    assert!(
+        wait_for_cursor_near_window(hwnd2, max_delta, 10, 200),
+        "cursor not centered on hwnd2 after focus {dir}"
+    );
+
+    close_notepad(hwnd2, child2);
+    close_notepad(hwnd1, child1);
+    stop_daemon();
+}
+
+#[test]
+fn mouse_hover_focuses_window_when_enabled() {
+    let _guard = test_guard();
+    let _config_guard = set_config_toml(
+        r##"[mouse]
+follows_focus = false
+focus_follows_mouse = true
+"##,
+    );
+    start_daemon();
+    isolate_workspace();
+
+    let (child1, hwnd1) = launch_notepad();
+    let (child2, hwnd2) = launch_notepad();
+
+    unsafe {
+        win32::SetForegroundWindow(hwnd1);
+    }
+    thread::sleep(Duration::from_secs(1));
+
+    let (left1, top1, right1, bottom1) = get_window_rect(hwnd1);
+    let center1_x = left1 + (right1 - left1) / 2;
+    let center1_y = top1 + (bottom1 - top1) / 2;
+    let (left2, top2, right2, bottom2) = get_window_rect(hwnd2);
+    let center2_x = left2 + (right2 - left2) / 2;
+    let center2_y = top2 + (bottom2 - top2) / 2;
+    unsafe {
+        win32::SetCursorPos(center1_x, center1_y);
+    }
+    thread::sleep(Duration::from_millis(200));
+    unsafe {
+        win32::SetCursorPos(center2_x, center2_y);
+    }
+
+    for _ in 0..15 {
+        if border_surrounds_target(hwnd2) {
+            break;
+        }
+        thread::sleep(Duration::from_millis(300));
+    }
+    assert!(
+        border_surrounds_target(hwnd2),
+        "border did not move to hovered window"
+    );
+
+    close_notepad(hwnd2, child2);
+    close_notepad(hwnd1, child1);
+    stop_daemon();
+}
+
+#[test]
+fn keyboard_focus_moves_cursor_after_hover_focus() {
+    let _guard = test_guard();
+    let _config_guard = set_config_toml(
+        r##"[mouse]
+follows_focus = true
+focus_follows_mouse = true
+"##,
+    );
+    start_daemon();
+    isolate_workspace();
+
+    let (child1, hwnd1) = launch_notepad();
+    let (child2, hwnd2) = launch_notepad();
+
+    unsafe {
+        win32::SetForegroundWindow(hwnd1);
+    }
+    thread::sleep(Duration::from_secs(1));
+
+    let (left1, top1, right1, bottom1) = get_window_rect(hwnd1);
+    let center1_x = left1 + (right1 - left1) / 2;
+    let center1_y = top1 + (bottom1 - top1) / 2;
+    let (left2, top2, right2, bottom2) = get_window_rect(hwnd2);
+    let center2_x = left2 + (right2 - left2) / 2;
+    let center2_y = top2 + (bottom2 - top2) / 2;
+
+    unsafe {
+        win32::SetCursorPos(center1_x, center1_y);
+    }
+    thread::sleep(Duration::from_millis(200));
+    unsafe {
+        win32::SetCursorPos(center2_x, center2_y);
+    }
+
+    for _ in 0..15 {
+        if border_surrounds_target(hwnd2) {
+            break;
+        }
+        thread::sleep(Duration::from_millis(300));
+    }
+    assert!(
+        border_surrounds_target(hwnd2),
+        "border did not move to hovered window"
+    );
+
+    // Determine direction from hwnd2 back to hwnd1.
+    let dir = if center1_x < center2_x {
+        "left"
+    } else {
+        "right"
+    };
+
+    let status = mosaico(&["action", "focus", dir]);
+    assert!(status.success(), "focus {dir} failed");
+    thread::sleep(Duration::from_millis(500));
+
+    let max_delta = 50;
+    assert!(
+        wait_for_cursor_near_window(hwnd1, max_delta, 10, 200),
+        "cursor not centered on hwnd1 after keyboard focus {dir}"
+    );
+
+    close_notepad(hwnd2, child2);
+    close_notepad(hwnd1, child1);
+    stop_daemon();
 }
 
 /// Minimize a window, then restore it by clicking (simulated via ShowWindow).
@@ -598,6 +830,17 @@ fn assert_border_surrounds(label: &str, target: win32::HWND) {
         br.1 <= tr.1 + TOL && br.3 >= tr.3 - TOL,
         "{label}: border should vertically surround target: border={br:?} target={tr:?}"
     );
+}
+
+fn border_surrounds_target(target: win32::HWND) -> bool {
+    const TOL: i32 = 5;
+    let border = find_border_hwnd();
+    if border.is_null() {
+        return false;
+    }
+    let br = get_window_rect(border);
+    let tr = get_window_rect(target);
+    br.0 <= tr.0 + TOL && br.2 >= tr.2 - TOL && br.1 <= tr.1 + TOL && br.3 >= tr.3 - TOL
 }
 
 // ---------------------------------------------------------------------------

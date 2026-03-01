@@ -1,6 +1,7 @@
 //! Focus management and border overlay for the tiling manager.
 
 use mosaico_core::window::Window as WindowTrait;
+use windows::Win32::UI::WindowsAndMessaging::SetCursorPos;
 
 use crate::border::Color;
 use crate::window::Window;
@@ -8,12 +9,29 @@ use crate::window::Window;
 use super::TilingManager;
 
 impl TilingManager {
+    /// Moves the cursor to the center of the given window.
+    fn move_cursor_to_window(hwnd: usize) {
+        let Ok(rect) = Window::from_raw(hwnd).rect() else {
+            return;
+        };
+        let cx = rect.x + rect.width / 2;
+        let cy = rect.y + rect.height / 2;
+        // SAFETY: SetCursorPos is safe to call with screen coordinates.
+        unsafe {
+            let _ = SetCursorPos(cx, cy);
+        }
+    }
+
     /// Sets the focused window, brings it to the foreground, and
     /// refreshes the focus border.
     pub(super) fn focus_and_update_border(&mut self, hwnd: usize) {
         self.focused_window = Some(hwnd);
         self.focused_maximized = Window::from_raw(hwnd).is_maximized();
         Window::from_raw(hwnd).set_foreground();
+        if self.mouse_follows_focus && !self.focus_from_mouse {
+            Self::move_cursor_to_window(hwnd);
+        }
+        self.focus_from_mouse = false;
         self.update_border();
     }
 

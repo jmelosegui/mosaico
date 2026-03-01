@@ -70,6 +70,10 @@ pub struct TilingManager {
     /// `LocationChanged` events without calling `update_border()`
     /// on every animation frame.
     focused_maximized: bool,
+    /// Whether keyboard-driven focus should move the cursor.
+    mouse_follows_focus: bool,
+    /// Suppresses cursor moves after mouse-driven focus.
+    focus_from_mouse: bool,
     /// How windows are hidden during workspace switches.
     hiding: HidingBehaviour,
     /// Windows hidden programmatically by workspace switching.
@@ -87,6 +91,7 @@ impl TilingManager {
         rules: Vec<WindowRule>,
         border_config: BorderConfig,
         hiding: HidingBehaviour,
+        mouse_follows_focus: bool,
     ) -> WindowResult<Self> {
         let monitors: Vec<MonitorState> = monitor::enumerate_monitors()?
             .into_iter()
@@ -111,6 +116,8 @@ impl TilingManager {
             focused_monitor: 0,
             focused_window: None,
             focused_maximized: false,
+            mouse_follows_focus,
+            focus_from_mouse: false,
             applying_layout: false,
             hiding,
             hidden_by_switch: HashSet::new(),
@@ -134,7 +141,10 @@ impl TilingManager {
     /// Executes a user-triggered action.
     pub fn handle_action(&mut self, action: &Action) {
         match action {
-            Action::Focus(dir) => self.focus_direction(*dir),
+            Action::Focus(dir) => {
+                self.focus_from_mouse = false;
+                self.focus_direction(*dir);
+            }
             Action::Move(dir) => self.move_direction(*dir),
             Action::Retile => self.retile_all(),
             Action::ToggleMonocle => self.toggle_monocle(),

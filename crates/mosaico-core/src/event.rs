@@ -16,6 +16,9 @@ pub enum WindowEvent {
     /// A window received keyboard focus.
     Focused { hwnd: usize },
 
+    /// A window was focused via mouse hover (focus-follows-mouse).
+    MouseHover { hwnd: usize },
+
     /// A window finished being moved or resized.
     Moved { hwnd: usize },
 
@@ -48,6 +51,7 @@ impl WindowEvent {
             Self::Created { hwnd }
             | Self::Destroyed { hwnd }
             | Self::Focused { hwnd }
+            | Self::MouseHover { hwnd }
             | Self::Moved { hwnd }
             | Self::Minimized { hwnd }
             | Self::Restored { hwnd }
@@ -63,6 +67,7 @@ impl WindowEvent {
             Self::Created { .. } => "Created",
             Self::Destroyed { .. } => "Destroyed",
             Self::Focused { .. } => "Focused",
+            Self::MouseHover { .. } => "MouseHover",
             Self::Moved { .. } => "Moved",
             Self::Minimized { .. } => "Minimized",
             Self::Restored { .. } => "Restored",

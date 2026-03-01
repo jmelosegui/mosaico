@@ -38,6 +38,7 @@ impl TilingManager {
                     // mode sizes the correct window.
                     self.focused_window = Some(*hwnd);
                     self.apply_layout_on(idx);
+                    self.focus_from_mouse = false;
                     self.focus_and_update_border(*hwnd);
                 }
             }
@@ -119,13 +120,16 @@ impl TilingManager {
                         self.goto_workspace((ws_idx + 1) as u8);
                         // goto_workspace focuses the first window; refocus
                         // the one the user actually clicked.
+                        self.focus_from_mouse = true;
                         self.focus_and_update_border(*hwnd);
                         return;
                     }
+                    self.focus_from_mouse = true;
                     self.focused_window = Some(*hwnd);
                     self.focused_monitor = idx;
                     self.focused_maximized = Window::from_raw(*hwnd).is_maximized();
                     self.update_border();
+                    self.focus_from_mouse = false;
                 } else if let Some(owner) = Window::from_raw(*hwnd).owner()
                     && let Some(idx) = self.owning_monitor(owner)
                 {
@@ -151,11 +155,22 @@ impl TilingManager {
                     self.focused_monitor = idx;
                     self.focused_maximized = Window::from_raw(owner).is_maximized();
                     self.update_border();
+                    self.focus_from_mouse = false;
                 }
                 // Unmanaged windows without a managed owner (Alt+Tab UI,
                 // shell, system dialogs) are ignored — the border stays
                 // on the last managed window so keyboard navigation
                 // keeps working.
+            }
+            WindowEvent::MouseHover { hwnd } => {
+                if !self.is_managed_on_active_workspace(*hwnd) {
+                    return;
+                }
+                if self.focused_window == Some(*hwnd) {
+                    return;
+                }
+                self.focus_from_mouse = true;
+                self.focus_and_update_border(*hwnd);
             }
             WindowEvent::LocationChanged { hwnd } => {
                 // EVENT_OBJECT_LOCATIONCHANGE fires frequently (every
