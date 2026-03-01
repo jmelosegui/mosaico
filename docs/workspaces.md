@@ -37,27 +37,61 @@ Actions use 1-based indexing in the user-facing interface (config, CLI) and
 `goto_workspace(n)` (in `tiling/workspace.rs`):
 
 1. If already on workspace N, does nothing
-2. Hides all windows in the current workspace (calls `ShowWindow(SW_HIDE)`)
-3. Adds hidden windows to `hidden_by_switch` set to prevent the `Destroyed`
-   event handler from removing them
+2. Hides all windows in the current workspace using the configured hiding
+   strategy (see below)
+3. For `Hide` and `Minimize` strategies: adds hidden windows to
+   `hidden_by_switch` set to prevent spurious event handlers from removing
+   them. Skipped for `Cloak` because cloaking does not fire events.
 4. Sets `active_workspace` to N
-5. Shows all windows in the target workspace (calls `ShowWindow(SW_SHOW)`)
-6. Removes shown windows from `hidden_by_switch`
+5. Shows all windows in the target workspace (reverses the hiding strategy)
+6. For `Hide` and `Minimize` strategies: removes shown windows from
+   `hidden_by_switch`
 7. Retiles the monitor
 8. Focuses the first window in the new workspace
 
+### Hiding Behaviour
+
+The `hiding` setting in `[layout]` controls how windows are hidden during
+workspace switches. Three strategies are available:
+
+| Strategy | Method | Taskbar Icon | Fires Events |
+|----------|--------|-------------|-------------|
+| `"cloak"` (default) | COM ImmersiveShell cloaking | Kept | No |
+| `"hide"` | `ShowWindow(SW_HIDE)` | Removed | `EVENT_OBJECT_HIDE` |
+| `"minimize"` | `ShowWindow(SW_MINIMIZE)` | Kept (minimized) | `EVENT_SYSTEM_MINIMIZESTART` |
+
+**Cloak** is the recommended default. It uses the same undocumented COM
+interface (`IApplicationView::SetCloak`) that Windows uses internally for
+virtual desktops. Windows become invisible but keep their taskbar icons and
+do not fire any events that would confuse the tiling manager.
+
+The implementation lives in `crates/mosaico-windows/src/com/` and uses raw
+`#[repr(C)]` vtable structs for the ImmersiveShell COM interfaces.
+
+Note: `DwmSetWindowAttribute(DWMWA_CLOAK=13)` returns `E_ACCESSDENIED` from
+user-mode processes. Only the COM approach works.
+
 ### Hidden Window Tracking
 
-When windows are hidden during a workspace switch, the OS fires
-`EVENT_OBJECT_HIDE` which normally maps to a `Destroyed` event. Without
-special handling, this would cause the tiling manager to remove those windows
-from the workspace permanently.
+When using `Hide` or `Minimize` strategies, the OS fires events
+(`EVENT_OBJECT_HIDE` or `EVENT_SYSTEM_MINIMIZESTART`) that would normally
+cause the tiling manager to remove windows from the workspace.
 
 The `hidden_by_switch: HashSet<usize>` field tracks windows that were
-programmatically hidden. When a `Destroyed` event arrives:
+programmatically hidden. When a `Destroyed` or `Minimized` event arrives:
 
 - If the handle is in `hidden_by_switch`, the event is ignored
-- If the handle is not in the set, normal destroy handling proceeds
+- If the handle is not in the set, normal handling proceeds
+
+This tracking is skipped for `Cloak` mode because cloaking does not fire
+any relevant events.
+
+### Cloaked Window Focus Handling
+
+When using Cloak mode, cloaked windows retain their taskbar icons. If a user
+clicks a cloaked window's taskbar icon, Windows fires `EVENT_SYSTEM_FOREGROUND`.
+The `Focused` event handler detects that the window belongs to an inactive
+workspace and automatically switches to that workspace.
 
 ## Sending Windows
 
@@ -118,10 +152,13 @@ N is 1-8. Parsing validates the range and rejects invalid workspace numbers.
   are pre-allocated at startup.
 - **1-indexed user interface** (Alt+1 = workspace 1) is conventional and
   intuitive. Internal 0-based indexing is an implementation detail.
-- **Hide/show via `ShowWindow`** is the simplest approach for workspace
-  switching. Windows retain their positions and are simply made invisible.
-- **`hidden_by_switch` tracking** is essential to prevent the tiling manager
-  from interpreting programmatic hides as window closures.
+- **Configurable hiding strategy** allows choosing between Cloak (default),
+  Hide, and Minimize. Cloak preserves taskbar icons and avoids spurious
+  events. Hide is the legacy approach. Minimize keeps taskbar icons but
+  may trigger app-specific behaviour (e.g. pausing media).
+- **`hidden_by_switch` tracking** is essential for Hide and Minimize modes
+  to prevent the tiling manager from interpreting programmatic hides as
+  window closures. Skipped for Cloak mode which fires no events.
 - **Per-monitor workspaces** rather than global workspaces match the
   multi-monitor mental model where each monitor is independent.
 - **Workspace 1 is always the initial active workspace**. New windows

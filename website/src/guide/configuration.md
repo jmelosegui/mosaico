@@ -21,8 +21,9 @@ Controls layout, borders, logging, and theme:
 
 ```toml
 [layout]
-gap = 8       # Pixel gap between windows (0-200)
-ratio = 0.5   # BSP split ratio (0.1-0.9)
+gap = 8          # Pixel gap between windows (0-200)
+ratio = 0.5      # BSP split ratio (0.1-0.9)
+hiding = "cloak" # How windows hide on workspace switch: "cloak", "hide", "minimize"
 
 [borders]
 width = 4              # Border thickness in pixels (0-32)
@@ -114,6 +115,7 @@ than rejected:
 | `ratio` | 0.1 -- 0.9 |
 | `border width` | 0 -- 32 |
 | `corner_style` | `"square"`, `"small"`, `"round"` |
+| `hiding` | `"cloak"`, `"hide"`, `"minimize"` |
 
 ## Hot-Reload
 
@@ -121,8 +123,9 @@ Changes to `config.toml`, `user-rules.toml`, and `bar.toml` are
 automatically detected and applied while the daemon is running (polled
 every 2 seconds).
 
-- **config.toml** -- layout gap/ratio, border settings, and theme are
-  reloaded. Windows are retiled immediately.
+- **config.toml** -- layout gap/ratio, hiding behaviour, border settings,
+  and theme are reloaded. Windows are retiled immediately. Hiding changes
+  take effect on the next workspace switch.
 - **user-rules.toml** -- both rule sets are re-merged and existing windows
   are re-evaluated against the new rules.
 - **bar.toml** -- the status bar is recreated with updated settings and

@@ -23,7 +23,8 @@ mosaico action send-to-workspace 5
 
 When you switch to a different workspace:
 
-1. All windows on the current workspace are hidden
+1. All windows on the current workspace are hidden using the configured
+   hiding strategy
 2. All windows on the target workspace are shown
 3. The layout is reapplied
 4. Focus is set to the first window
@@ -39,6 +40,26 @@ When you send a window to another workspace:
 3. The window is hidden (it is now on a non-active workspace)
 4. The current workspace is retiled
 5. Focus moves to the next window
+
+## Hiding Behaviour
+
+The `hiding` setting in `[layout]` controls how windows are hidden during
+workspace switches:
+
+| Strategy | Taskbar Icon | Notes |
+|----------|-------------|-------|
+| `"cloak"` (default) | Kept | Invisible via DWM. Same mechanism as Windows virtual desktops. |
+| `"hide"` | Removed | Legacy `SW_HIDE`. Simple but loses taskbar icons. |
+| `"minimize"` | Kept (minimized) | Some apps react to minimize (e.g. pause media). |
+
+```toml
+[layout]
+hiding = "cloak"   # "cloak", "hide", or "minimize"
+```
+
+**Cloak** is the recommended default. Windows become invisible but keep
+their taskbar icons, so you can still see all running apps. Clicking a
+cloaked window's taskbar icon automatically switches to its workspace.
 
 ## Per-Monitor Workspaces
 

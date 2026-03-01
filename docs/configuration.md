@@ -21,7 +21,9 @@ All settings have sensible defaults, so configuration files are optional.
 
 - `Config` -- top-level config: `layout: LayoutConfig`, `borders: BorderConfig`,
   `logging: LogConfig`, `theme: ThemeConfig`
-- `LayoutConfig` -- `gap: i32` (default 8), `ratio: f64` (default 0.5)
+- `LayoutConfig` -- `gap: i32` (default 8), `ratio: f64` (default 0.5),
+  `hiding: HidingBehaviour` (default `Cloak`)
+- `HidingBehaviour` (enum) -- `Cloak`, `Hide`, `Minimize`
 - `BorderConfig` -- `width: i32` (default 4), `focused: String` (default
   `"#00b4d8"`), `monocle: String` (default `"#2d6a4f"`)
 - `LogConfig` -- `enabled: bool` (default false), `level: String` (default
@@ -46,8 +48,9 @@ Controls layout, borders, logging, and theme:
 
 ```toml
 [layout]
-gap = 8       # Pixel gap between windows (0-200)
-ratio = 0.5   # BSP split ratio (0.1-0.9)
+gap = 8         # Pixel gap between windows (0-200)
+ratio = 0.5     # BSP split ratio (0.1-0.9)
+hiding = "cloak" # How windows hide on workspace switch: "cloak", "hide", "minimize"
 
 [borders]
 width = 4              # Border thickness in pixels (0-32)
@@ -214,10 +217,11 @@ detected and applied while the daemon is running. The config file watcher
 (see [daemon.md](daemon.md)) polls for modification time changes every
 2 seconds.
 
-- **config.toml**: layout gap/ratio, border settings, and theme are reloaded.
-  The tiling manager calls `reload_config()` which updates the `BspLayout`
-  and `BorderConfig`, then retiles all windows. If the theme changed, bar
-  colors are re-resolved.
+- **config.toml**: layout gap/ratio, hiding behaviour, border settings, and
+  theme are reloaded. The tiling manager calls `reload_config()` which
+  updates the `BspLayout`, hiding strategy, and `BorderConfig`, then retiles
+  all windows. If the theme changed, bar colors are re-resolved. Hiding
+  changes take effect on the next workspace switch.
 - **rules.toml**: window rules are replaced via `reload_rules()`. New rules
   apply to newly created windows; existing managed windows are not re-evaluated.
 - **bar.toml**: the `BarManager` is recreated with `reload()`, colors are

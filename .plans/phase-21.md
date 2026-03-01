@@ -333,5 +333,5 @@ next workspace switch.
 - [ ] Manual test: verify `"hide"` — existing behaviour unchanged
 - [ ] Manual test: verify `"minimize"` — windows minimize, taskbar shows
       minimized state, restore works
-- [ ] Update documentation (`docs/workspaces.md`, `docs/configuration.md`)
+- [x] Update documentation (`docs/workspaces.md`, `docs/configuration.md`)
 - [x] Update `.plans/plan.md`
