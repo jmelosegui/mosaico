@@ -2,9 +2,8 @@ use std::path::PathBuf;
 
 use super::bar::BarConfig;
 use super::keybinding;
-use super::{
-    Config, Keybinding, KeybindingsFile, RulesFile, UserRulesFile, WindowRule, default_rules,
-};
+use super::rules::{KeybindingsFile, RulesFile, UserRulesFile};
+use super::{Config, Keybinding, WindowRule, default_rules};
 
 /// Returns the config directory: `~/.config/mosaico/`.
 pub fn config_dir() -> Option<PathBuf> {

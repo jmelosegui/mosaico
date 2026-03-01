@@ -5,6 +5,7 @@
 //! borders, monocle mode, and minimize/maximize behavior.
 
 use std::process::{Child, Command};
+use std::sync::{Mutex, OnceLock};
 use std::thread;
 use std::time::Duration;
 
@@ -118,6 +119,14 @@ fn start_daemon() {
     assert!(status.success(), "daemon failed to start");
     // Give the daemon time to set up the event loop and IPC pipe.
     thread::sleep(Duration::from_secs(3));
+}
+
+fn test_guard() -> std::sync::MutexGuard<'static, ()> {
+    static TEST_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    TEST_LOCK
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .expect("failed to lock test mutex")
 }
 
 /// Stops the daemon.
@@ -335,6 +344,7 @@ fn isolate_workspace() {
 /// The border should update to the restored window's position.
 #[test]
 fn minimize_and_restore_updates_border() {
+    let _guard = test_guard();
     start_daemon();
     isolate_workspace();
     let (child, hwnd) = launch_notepad();
@@ -380,6 +390,7 @@ fn minimize_and_restore_updates_border() {
 /// receive monocle sizing (fill the work area) instead of BSP sizing.
 #[test]
 fn monocle_new_window_gets_monocle_size() {
+    let _guard = test_guard();
     start_daemon();
     isolate_workspace();
     let (child1, hwnd1) = launch_notepad();
@@ -429,6 +440,7 @@ fn monocle_new_window_gets_monocle_size() {
 /// NOT be retiled back to BSP layout.
 #[test]
 fn maximize_hides_border_and_preserves_maximize() {
+    let _guard = test_guard();
     start_daemon();
     isolate_workspace();
     let (child, hwnd) = launch_notepad();
@@ -462,6 +474,7 @@ fn maximize_hides_border_and_preserves_maximize() {
 /// and the window should be retiled back to BSP layout.
 #[test]
 fn restore_from_maximize_shows_border() {
+    let _guard = test_guard();
     start_daemon();
     isolate_workspace();
     let (child, hwnd) = launch_notepad();
@@ -595,6 +608,7 @@ fn assert_border_surrounds(label: &str, target: win32::HWND) {
 /// stay at the same position and the border should still surround it.
 #[test]
 fn owned_dialog_is_not_tiled() {
+    let _guard = test_guard();
     start_daemon();
     isolate_workspace();
     let (child, hwnd) = launch_notepad();
@@ -641,6 +655,7 @@ fn owned_dialog_is_not_tiled() {
 /// owner window, not leave it on a previously focused window.
 #[test]
 fn focus_dialog_moves_border_to_owner() {
+    let _guard = test_guard();
     start_daemon();
     isolate_workspace();
     let (child1, hwnd1) = launch_notepad();
