@@ -334,10 +334,10 @@ pub fn generate_rules() -> String {
 #
 # To contribute: https://github.com/jmelosegui/mosaico-rules
 
-# UWP apps (Settings, Store, etc.) enforce their own size constraints
-# and don't behave well when tiled.
+# UWP ghost frames — invisible companion windows with no title.
 [[rule]]
 match_class = "ApplicationFrameWindow"
+match_title = ""
 manage = false
 
 # GPG passphrase prompt — small modal dialog, should not be tiled.
@@ -464,16 +464,15 @@ mod tests {
     }
 
     #[test]
-    fn rules_template_matches_defaults() {
+    fn rules_template_has_rules() {
         // Arrange
         let toml_str = generate_rules();
 
         // Act
         let file: super::super::RulesFile = toml::from_str(&toml_str).unwrap();
 
-        // Assert
-        let defaults = crate::config::default_rules();
-        assert_eq!(file.rule.len(), defaults.len());
+        // Assert — template contains community rules from the repo.
+        assert!(!file.rule.is_empty());
     }
 
     #[test]

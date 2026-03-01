@@ -100,23 +100,12 @@ pub struct WindowRule {
     pub manage: bool,
 }
 
-/// Returns the default window rules.
+/// Returns the default window rules (empty).
 ///
-/// These exclude window classes that don't behave well when tiled,
-/// such as UWP app frames that enforce their own size constraints.
+/// Rules are sourced from the community `rules.toml` (downloaded from
+/// the mosaico-rules repository) and the user's `user-rules.toml`.
 pub fn default_rules() -> Vec<WindowRule> {
-    vec![
-        WindowRule {
-            match_class: Some("ApplicationFrameWindow".into()),
-            match_title: None,
-            manage: false,
-        },
-        WindowRule {
-            match_title: Some("pinentry".into()),
-            match_class: None,
-            manage: false,
-        },
-    ]
+    Vec::new()
 }
 
 impl Default for LayoutConfig {
@@ -178,12 +167,18 @@ fn matches_rule(class: &str, title: &str, rule: &WindowRule) -> bool {
     {
         return false;
     }
-    if let Some(ref mt) = rule.match_title
-        && !title
+    if let Some(ref mt) = rule.match_title {
+        if mt.is_empty() {
+            // match_title = "" means the window title must be empty.
+            if !title.is_empty() {
+                return false;
+            }
+        } else if !title
             .to_ascii_lowercase()
             .contains(&mt.to_ascii_lowercase())
-    {
-        return false;
+        {
+            return false;
+        }
     }
     rule.match_class.is_some() || rule.match_title.is_some()
 }
@@ -396,20 +391,25 @@ mod tests {
     }
 
     #[test]
-    fn default_rules_exclude_uwp_frame() {
+    fn empty_match_title_only_matches_empty_title() {
         // Arrange
-        let rules = default_rules();
+        let rules = vec![WindowRule {
+            match_class: Some("ApplicationFrameWindow".into()),
+            match_title: Some(String::new()),
+            manage: false,
+        }];
 
         // Act / Assert
-        assert!(!should_manage("ApplicationFrameWindow", "Settings", &rules));
+        assert!(!should_manage("ApplicationFrameWindow", "", &rules));
+        assert!(should_manage("ApplicationFrameWindow", "Settings", &rules));
     }
 
     #[test]
-    fn default_rules_exclude_pinentry() {
-        // Arrange
+    fn default_rules_are_empty() {
+        // Arrange / Act
         let rules = default_rules();
 
-        // Act / Assert
-        assert!(!should_manage("Qt5QWindowIcon", "Pinentry", &rules));
+        // Assert
+        assert!(rules.is_empty());
     }
 }
