@@ -120,13 +120,13 @@ impl Border {
     ///
     /// Renders the bitmap before making the window visible to avoid
     /// flickering caused by a stale bitmap being shown at the new size.
-    pub fn show(&self, rect: &Rect, color: Color, width: i32, target: HWND) {
+    pub fn show(&self, rect: &Rect, color: Color, width: i32, radius: i32, target: HWND) {
         let w = rect.width + width * 2;
         let h = rect.height + width * 2;
 
         // Render the new bitmap first so `UpdateLayeredWindow` atomically
         // sets position, size, and pixel content in one call.
-        self.render(rect.x - width, rect.y - width, w, h, color, width);
+        self.render(rect.x - width, rect.y - width, w, h, color, width, radius);
 
         // Match the target window's topmost state, then place the border
         // just behind it so the border is visible around the window but
@@ -176,7 +176,8 @@ impl Border {
     }
 
     /// Renders the border bitmap and applies it via `UpdateLayeredWindow`.
-    fn render(&self, x: i32, y: i32, w: i32, h: i32, color: Color, bw: i32) {
+    #[allow(clippy::too_many_arguments)]
+    fn render(&self, x: i32, y: i32, w: i32, h: i32, color: Color, bw: i32, r: i32) {
         if w <= 0 || h <= 0 {
             return;
         }
@@ -221,10 +222,14 @@ impl Border {
                 | (u32::from(color.g) << 8)
                 | u32::from(color.b);
             let buf = std::slice::from_raw_parts_mut(bits as *mut u32, (w * h) as usize);
+            let iw = w - 2 * bw;
+            let ih = h - 2 * bw;
+            let ir = (r - bw).max(0);
             for py in 0..h {
                 for px in 0..w {
-                    let on_border = px < bw || px >= w - bw || py < bw || py >= h - bw;
-                    buf[(py * w + px) as usize] = if on_border { pixel } else { 0 };
+                    let in_outer = in_rounded_rect(px, py, w, h, r);
+                    let in_inner = in_rounded_rect(px - bw, py - bw, iw, ih, ir);
+                    buf[(py * w + px) as usize] = if in_outer && !in_inner { pixel } else { 0 };
                 }
             }
 
@@ -256,6 +261,32 @@ impl Border {
             let _ = ReleaseDC(None, screen_dc);
         }
     }
+}
+
+/// Tests if local coordinate `(lx, ly)` is inside a rounded rectangle
+/// of size `(w, h)` with corner radius `r`.
+fn in_rounded_rect(lx: i32, ly: i32, w: i32, h: i32, r: i32) -> bool {
+    if lx < 0 || lx >= w || ly < 0 || ly >= h {
+        return false;
+    }
+    if r <= 0 {
+        return true;
+    }
+    // Determine which corner zone the pixel falls in.
+    let (cx, cy) = if lx < r && ly < r {
+        (r, r) // top-left
+    } else if lx >= w - r && ly < r {
+        (w - r - 1, r) // top-right
+    } else if lx < r && ly >= h - r {
+        (r, h - r - 1) // bottom-left
+    } else if lx >= w - r && ly >= h - r {
+        (w - r - 1, h - r - 1) // bottom-right
+    } else {
+        return true; // not in a corner zone
+    };
+    let dx = lx - cx;
+    let dy = ly - cy;
+    dx * dx + dy * dy <= r * r
 }
 
 impl Drop for Border {
@@ -290,5 +321,44 @@ mod tests {
             })
         );
         assert_eq!(Color::from_hex("bad"), None);
+    }
+
+    #[test]
+    fn rounded_rect_zero_radius_is_full_rect() {
+        // Arrange / Act / Assert
+        assert!(in_rounded_rect(0, 0, 10, 10, 0));
+        assert!(in_rounded_rect(9, 9, 10, 10, 0));
+    }
+
+    #[test]
+    fn rounded_rect_outside_is_false() {
+        // Arrange / Act / Assert
+        assert!(!in_rounded_rect(-1, 0, 10, 10, 2));
+        assert!(!in_rounded_rect(0, -1, 10, 10, 2));
+        assert!(!in_rounded_rect(10, 0, 10, 10, 2));
+        assert!(!in_rounded_rect(0, 10, 10, 10, 2));
+    }
+
+    #[test]
+    fn rounded_rect_center_is_inside() {
+        // Arrange / Act / Assert
+        assert!(in_rounded_rect(5, 5, 10, 10, 4));
+    }
+
+    #[test]
+    fn rounded_rect_corner_pixel_outside_circle() {
+        // Arrange -- top-left corner (0,0) with radius 5
+        // Distance from center (5,5): sqrt(25+25) > 5
+
+        // Act / Assert
+        assert!(!in_rounded_rect(0, 0, 10, 10, 5));
+    }
+
+    #[test]
+    fn rounded_rect_edge_not_in_corner_is_inside() {
+        // Arrange -- pixel on the top edge but not in a corner zone
+
+        // Act / Assert
+        assert!(in_rounded_rect(5, 0, 10, 10, 3));
     }
 }

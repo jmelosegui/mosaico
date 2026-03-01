@@ -21,6 +21,8 @@ ratio = 0.5
 [borders]
 # Border width in pixels around the focused window.
 width = 4
+# Corner style for borders and tiled windows: "square", "small", or "round".
+corner_style = "small"
 # Override theme border colors (hex or named: blue, green, mauve, etc.):
 # focused = "blue"
 # monocle = "green"

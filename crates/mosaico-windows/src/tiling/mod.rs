@@ -14,6 +14,7 @@ use crate::monitor::MonitorInfo;
 use crate::bar::BarState;
 use crate::border::{Border, Color};
 use crate::enumerate;
+use crate::frame;
 use crate::monitor;
 use crate::window::Window;
 
@@ -114,6 +115,7 @@ impl TilingManager {
                 && let Some(idx) = manager.monitor_index_for(hwnd)
             {
                 manager.monitors[idx].active_ws_mut().add(hwnd);
+                frame::set_corner_preference(win.hwnd(), manager.border_config.corner_style);
             }
         }
 
@@ -146,6 +148,7 @@ impl TilingManager {
                         self.monitors[idx].active_workspace + 1,
                         self.monitors[idx].active_ws().len()
                     );
+                    frame::set_corner_preference(w.hwnd(), self.border_config.corner_style);
                     // Focus the new window before layout so monocle
                     // mode sizes the correct window.
                     self.focused_window = Some(*hwnd);
@@ -161,6 +164,7 @@ impl TilingManager {
                 }
                 // Truly destroyed — clean up from any workspace.
                 if let Some((mon_idx, ws_idx)) = self.find_window(*hwnd) {
+                    frame::reset_corner_preference(Window::from_raw(*hwnd).hwnd());
                     self.monitors[mon_idx].workspaces[ws_idx].remove(*hwnd);
                     mosaico_core::log_info!(
                         "-del 0x{:X} from mon {} ws {} (now {})",
@@ -305,8 +309,21 @@ impl TilingManager {
             ratio: config.layout.ratio,
         };
         self.border_config = config.borders.clone();
+        self.apply_corner_preference_all();
         self.retile_all();
         self.update_border();
+    }
+
+    /// Applies the current corner preference to every managed window.
+    fn apply_corner_preference_all(&self) {
+        let style = self.border_config.corner_style;
+        for mon in &self.monitors {
+            for ws in &mon.workspaces {
+                for &hwnd in ws.handles() {
+                    frame::set_corner_preference(Window::from_raw(hwnd).hwnd(), style);
+                }
+            }
+        }
     }
 
     /// Shows all windows across every workspace and monitor.
@@ -318,7 +335,9 @@ impl TilingManager {
         for mon in &self.monitors {
             for ws in &mon.workspaces {
                 for &hwnd in ws.handles() {
-                    Window::from_raw(hwnd).force_show();
+                    let w = Window::from_raw(hwnd);
+                    frame::reset_corner_preference(w.hwnd());
+                    w.force_show();
                 }
             }
         }
@@ -359,6 +378,7 @@ impl TilingManager {
         }
         let mut affected: Vec<usize> = Vec::new();
         for &(mi, wi, hwnd) in &removals {
+            frame::reset_corner_preference(Window::from_raw(hwnd).hwnd());
             self.monitors[mi].workspaces[wi].remove(hwnd);
             mosaico_core::log_info!("-rule 0x{hwnd:X} (unmanaged by new rules)");
             if !affected.contains(&mi) {
@@ -615,7 +635,13 @@ impl TilingManager {
             g: 0xB4,
             b: 0xD8,
         });
-        border.show(&rect, color, self.border_config.width, window.hwnd());
+        border.show(
+            &rect,
+            color,
+            self.border_config.width,
+            self.border_config.corner_style.border_radius(),
+            window.hwnd(),
+        );
     }
 
     fn hide_border(&self) {
