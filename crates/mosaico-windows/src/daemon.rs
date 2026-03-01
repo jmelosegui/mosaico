@@ -176,6 +176,13 @@ fn daemon_loop() -> WindowResult<()> {
     // Main processing loop — blocks until a message arrives.
     while let Ok(msg) = rx.recv() {
         match msg {
+            DaemonMsg::Event(mosaico_core::WindowEvent::WorkAreaChanged) => {
+                mosaico_core::log_info!("Work area changed (taskbar shown/hidden)");
+                let bar_height = bar_mgr.bar_height();
+                let indices = bar_mgr.bar_monitor_indices().to_vec();
+                manager.reset_and_adjust_work_areas(bar_height, &indices);
+                bar_mgr.update(&manager.bar_states(&get_update()));
+            }
             DaemonMsg::Event(mosaico_core::WindowEvent::DisplayChanged) => {
                 match monitor::enumerate_monitors() {
                     Ok(new_monitors) => {

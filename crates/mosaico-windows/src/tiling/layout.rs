@@ -30,6 +30,7 @@ impl TilingManager {
         for i in 0..self.monitors.len() {
             self.apply_layout_on(i);
         }
+        self.update_border();
     }
 
     pub(super) fn apply_layout_on(&mut self, monitor_idx: usize) {

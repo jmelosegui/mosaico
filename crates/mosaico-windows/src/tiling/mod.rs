@@ -272,7 +272,7 @@ impl TilingManager {
                     }
                 }
             }
-            WindowEvent::DisplayChanged => {
+            WindowEvent::DisplayChanged | WindowEvent::WorkAreaChanged => {
                 // Handled by the daemon loop, not here.
             }
             _ => {}

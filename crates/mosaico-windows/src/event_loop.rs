@@ -7,8 +7,9 @@ use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
 use windows::Win32::UI::Accessibility::{HWINEVENTHOOK, SetWinEventHook, UnhookWinEvent};
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetMessageW, MSG,
-    PostThreadMessageW, RegisterClassW, TranslateMessage, WINEVENT_OUTOFCONTEXT,
-    WINEVENT_SKIPOWNPROCESS, WM_DISPLAYCHANGE, WM_HOTKEY, WM_QUIT, WNDCLASSW, WS_EX_TOOLWINDOW,
+    PostThreadMessageW, RegisterClassW, SPI_SETWORKAREA, TranslateMessage, WINEVENT_OUTOFCONTEXT,
+    WINEVENT_SKIPOWNPROCESS, WM_DISPLAYCHANGE, WM_HOTKEY, WM_QUIT, WM_SETTINGCHANGE, WNDCLASSW,
+    WS_EX_TOOLWINDOW,
 };
 use windows::core::w;
 
@@ -184,8 +185,8 @@ fn create_event_sink() -> Option<HWND> {
 
 /// WNDPROC for the event sink window.
 ///
-/// Catches `WM_DISPLAYCHANGE` and sends a `DisplayChanged` event through
-/// the thread-local sender. All other messages are passed to `DefWindowProcW`.
+/// Catches `WM_DISPLAYCHANGE` and `WM_SETTINGCHANGE` (work-area changes)
+/// and forwards them as events through the thread-local sender.
 unsafe extern "system" fn event_sink_proc(
     hwnd: HWND,
     msg: u32,
@@ -196,6 +197,12 @@ unsafe extern "system" fn event_sink_proc(
         EVENT_SENDER.with(|cell| {
             if let Some(sender) = cell.borrow().as_ref() {
                 let _ = sender.send(WindowEvent::DisplayChanged);
+            }
+        });
+    } else if msg == WM_SETTINGCHANGE && wparam.0 == SPI_SETWORKAREA.0 as usize {
+        EVENT_SENDER.with(|cell| {
+            if let Some(sender) = cell.borrow().as_ref() {
+                let _ = sender.send(WindowEvent::WorkAreaChanged);
             }
         });
     }

@@ -36,6 +36,9 @@ pub enum WindowEvent {
 
     /// The display configuration changed (monitor connect/disconnect).
     DisplayChanged,
+
+    /// The desktop work area changed (e.g. taskbar shown/hidden).
+    WorkAreaChanged,
 }
 
 impl WindowEvent {
@@ -50,7 +53,7 @@ impl WindowEvent {
             | Self::Restored { hwnd }
             | Self::TitleChanged { hwnd }
             | Self::LocationChanged { hwnd } => *hwnd,
-            Self::DisplayChanged => 0,
+            Self::DisplayChanged | Self::WorkAreaChanged => 0,
         }
     }
 
@@ -66,6 +69,7 @@ impl WindowEvent {
             Self::TitleChanged { .. } => "TitleChanged",
             Self::LocationChanged { .. } => "LocationChanged",
             Self::DisplayChanged => "DisplayChanged",
+            Self::WorkAreaChanged => "WorkAreaChanged",
         }
     }
 }
