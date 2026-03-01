@@ -1055,7 +1055,7 @@ mod tests {
     /// Simulates handle_display_change logic on raw MonitorStates
     /// (avoids TilingManager construction which needs Win32).
     fn simulate_display_change(
-        old_monitors: &mut Vec<MonitorState>,
+        old_monitors: &mut [MonitorState],
         new_infos: Vec<(usize, Rect)>,
     ) -> Vec<MonitorState> {
         let mut new_states: Vec<MonitorState> = Vec::new();

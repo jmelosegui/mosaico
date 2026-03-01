@@ -12,7 +12,7 @@ use std::time::Duration;
 // Win32 FFI
 // ---------------------------------------------------------------------------
 
-#[allow(non_snake_case, non_camel_case_types)]
+#[allow(non_snake_case, non_camel_case_types, clippy::upper_case_acronyms)]
 mod win32 {
     use std::ffi::c_void;
 

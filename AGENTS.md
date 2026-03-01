@@ -15,7 +15,7 @@ cargo build -p mosaico               # Build only the CLI binary
 cargo test                           # Run all tests across the workspace
 cargo test -p mosaico                # Run tests for the CLI crate only
 cargo test help_exits_successfully   # Run a single test by name
-cargo clippy --workspace             # Run linter across all crates
+cargo clippy --all-targets -- -D warnings  # Run linter (matches CI)
 cargo fmt --all                      # Format all code
 cargo fmt --all -- --check           # Check formatting without modifying
 ```
@@ -55,7 +55,7 @@ Follow the official Rust API Guidelines: https://rust-lang.github.io/api-guideli
 ### Formatting
 
 - Run `cargo fmt --all` before committing
-- Run `cargo clippy --workspace` and fix all warnings before committing
+- Run `cargo clippy --all-targets -- -D warnings` and fix all warnings before committing
 - Use `rustfmt` defaults — do not override `rustfmt.toml` settings
 
 ### File Organization
