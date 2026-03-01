@@ -9,6 +9,7 @@ license = "MIT"
 clap = { version = "4", features = ["derive"] }
 mosaico-core = { path = "../mosaico-core" }
 mosaico-windows = { path = "../mosaico-windows" }
+zip = { version = "2", default-features = false, features = ["deflate"] }
 
 [lints]
 workspace = true

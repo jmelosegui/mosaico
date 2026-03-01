@@ -38,6 +38,7 @@ Mosaico is structured as a Cargo workspace with multiple crates:
 | [19](phase-19.md) | Media Widget | Complete |
 | [20](phase-20.md) | Rounded Corners | Complete |
 | [21](phase-21.md) | Configurable Window Hiding Behaviour | Complete |
+| [22](phase-22.md) | Self-Update Command | Complete |
 
 ## Design Principles
 

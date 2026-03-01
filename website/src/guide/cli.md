@@ -78,6 +78,18 @@ administrator rights are needed.
 
 On first run, `mosaico init` also prompts to enable autostart.
 
+## `mosaico update`
+
+Checks GitHub for a newer release and installs it automatically. If the
+daemon is running, it is stopped before the update and restarted afterward.
+
+```sh
+mosaico update          # Update to the latest release
+mosaico update --force  # Reinstall even if already on the latest version
+```
+
+The `--force` flag is useful for recovering a corrupted binary.
+
 ## `mosaico action <verb> [direction]`
 
 Sends a tiling action to the running daemon. Available actions:

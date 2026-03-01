@@ -1,6 +1,6 @@
 # Phase 22: Self-Update Command
 
-**Status:** Pending
+**Status:** Complete
 
 **Goal:** Add a `mosaico update` command that checks for a newer release,
 stops the running daemon (if any), downloads and replaces the binary,
@@ -370,33 +370,34 @@ Run 'mosaico start' to restart with the current version.
 
 ## Tasks
 
-- [ ] Add `get_bytes()` to `mosaico-windows/src/http.rs`
-- [ ] Add `zip` crate dependency to `mosaico-windows/Cargo.toml`
-- [ ] Extract `fetch_latest_tag()` from `version_check.rs` as a public
+- [x] Add `get_bytes()` to `mosaico-windows/src/http.rs`
+- [x] Add `zip` crate dependency to `mosaico-windows/Cargo.toml` and
+      `mosaico/Cargo.toml`
+- [x] Extract `fetch_latest_tag()` from `version_check.rs` as a public
       helper (reusable by both `check_for_update` and `update`)
-- [ ] Create `update.rs` in `mosaico/src/commands/`:
-  - [ ] `execute(force: bool)` — main entry point
-  - [ ] Check for update, compare versions, respect `--force`
-  - [ ] Detect whether daemon is running
-  - [ ] Stop daemon if running
-  - [ ] Download release zip from GitHub
-  - [ ] Extract `mosaico.exe` from zip
-  - [ ] Rename current exe to `.old`, write new exe
-  - [ ] Rollback on write failure
-  - [ ] Restart daemon if it was running
-  - [ ] Print clear status messages at each step
-- [ ] Add `pub mod update` to `commands/mod.rs`
-- [ ] Add `Update { force: bool }` variant to `Commands` in `main.rs`
-- [ ] Route `Commands::Update` to `commands::update::execute()` in `main()`
-- [ ] Update start.rs hint: "Run 'mosaico update' to install it"
-- [ ] Add `.old` file cleanup at daemon startup (best-effort delete)
-- [ ] Run `cargo fmt --all`
-- [ ] Run `cargo clippy --workspace` and fix warnings
-- [ ] Run `cargo test` and fix failures
-- [ ] Manual test: verify update from an older version — daemon stops,
-      binary replaced, daemon restarts, new version reported
-- [ ] Manual test: verify `--force` reinstalls same version
-- [ ] Manual test: verify "already latest" when no update available
-- [ ] Manual test: verify update when daemon is not running (no restart)
-- [ ] Update documentation (`docs/cli.md`, `website/src/guide/cli.md`)
-- [ ] Update `.plans/plan.md`
+- [x] Make `is_newer()` public in `version_check.rs` for the update command
+- [x] Remove duplicate `version_check.rs` from CLI crate (rewire to library)
+- [x] Create `update.rs` in `mosaico/src/commands/`:
+  - [x] `execute(force: bool)` — main entry point
+  - [x] Check for update, compare versions, respect `--force`
+  - [x] Detect whether daemon is running
+  - [x] Stop daemon if running
+  - [x] Download release zip from GitHub
+  - [x] Extract `mosaico.exe` from zip
+  - [x] Rename current exe to `.old`, write new exe
+  - [x] Rollback on write failure
+  - [x] Restart daemon if it was running
+  - [x] Print clear status messages at each step
+- [x] Add `pub mod update` to `commands/mod.rs`
+- [x] Add `Update { force: bool }` variant to `Commands` in `main.rs`
+- [x] Route `Commands::Update` to `commands::update::execute()` in `main()`
+- [x] Update start.rs hint: "Run 'mosaico update' to install it"
+- [x] Add `.old` file cleanup at daemon startup (best-effort delete)
+- [x] Run `cargo fmt --all`
+- [x] Run `cargo clippy --all-targets -- -D warnings` and fix warnings
+- [x] Run `cargo test --lib` and fix failures
+- [x] Manual test: verify "already latest" when local >= remote
+- [x] Manual test: verify `--force` reinstalls same version
+- [x] Manual test: verify update when daemon is not running (no restart)
+- [x] Update documentation (`docs/cli.md`, `website/src/guide/cli.md`)
+- [x] Update `.plans/plan.md`

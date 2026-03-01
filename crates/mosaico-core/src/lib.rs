@@ -7,6 +7,7 @@ pub mod log;
 pub mod pid;
 pub mod rect;
 pub mod spatial;
+pub mod version;
 pub mod window;
 pub mod workspace;
 

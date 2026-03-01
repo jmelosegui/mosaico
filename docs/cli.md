@@ -24,7 +24,7 @@ dedicated handler module under `crates/mosaico/src/commands/`.
 | `crates/mosaico/src/commands/daemon.rs` | `mosaico daemon` handler (hidden) |
 | `crates/mosaico/src/commands/action.rs` | `mosaico action <verb>` handler |
 | `crates/mosaico/src/commands/banner.rs` | Shared ASCII logo used by `start` and `doctor` |
-| `crates/mosaico/src/commands/version_check.rs` | Checks GitHub releases API for updates |
+| `crates/mosaico/src/commands/update.rs` | `mosaico update` handler |
 | `crates/mosaico/src/commands/debug/list.rs` | `mosaico debug list` handler |
 | `crates/mosaico/src/commands/debug/events.rs` | `mosaico debug events` handler |
 | `crates/mosaico/src/commands/debug/move_window.rs` | `mosaico debug move` handler |
@@ -33,7 +33,7 @@ dedicated handler module under `crates/mosaico/src/commands/`.
 
 - `Cli` -- top-level `clap::Parser` struct
 - `Commands` -- enum of all subcommands: `Init`, `Start`, `Stop`, `Status`,
-  `Doctor`, `Action`, `Debug`, `Daemon`
+  `Doctor`, `Update`, `Action`, `Debug`, `Daemon`
 - `ActionCommands` -- enum: `Focus { direction }`, `Move { direction }`,
   `Retile`, `ToggleMonocle`, `CloseFocused`, `GoToWorkspace { n }`,
   `SendToWorkspace { n }`
@@ -133,6 +133,21 @@ mosaico action close-focused
 mosaico action goto-workspace 3
 mosaico action send-to-workspace 5
 ```
+
+### `mosaico update [--force]`
+
+Checks GitHub for a newer release. If one is available, stops the running daemon
+(if any), downloads the release zip, extracts the new binary, replaces the
+current executable using a rename-then-write strategy, and restarts the daemon if
+it was running before.
+
+The `--force` flag reinstalls even if already on the latest version, useful for
+recovering a corrupted binary or verifying the update mechanism.
+
+The self-replacement works by renaming the running `mosaico.exe` to
+`mosaico.exe.old` (Windows allows renaming but not overwriting a locked file),
+then writing the new binary in its place. The `.old` backup is cleaned up
+immediately or on the next daemon start.
 
 ### `mosaico daemon` (hidden)
 

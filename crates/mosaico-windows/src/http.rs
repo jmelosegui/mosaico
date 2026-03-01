@@ -1,7 +1,7 @@
 //! Minimal HTTPS GET client using WinHTTP.
 //!
-//! Provides a single `get(host, path, timeout_ms)` function that makes a
-//! synchronous HTTPS request and returns the response body as a string.
+//! Provides `get()` for text responses and `get_bytes()` for binary
+//! downloads. Both perform synchronous HTTPS GET requests via WinHTTP.
 
 use std::ffi::c_void;
 
@@ -39,12 +39,24 @@ impl Drop for Handle {
     }
 }
 
-/// Performs a synchronous HTTPS GET and returns the response body.
+/// Performs a synchronous HTTPS GET and returns the response body as text.
 ///
 /// `timeout_ms` applies independently to each WinHTTP phase (resolve,
 /// connect, send, receive).  Returns `Err` on any network or protocol
 /// failure; callers should treat errors as non-fatal.
 pub fn get(host: &str, path: &str, timeout_ms: i32) -> Result<String, String> {
+    let bytes = get_bytes(host, path, timeout_ms)?;
+    String::from_utf8(bytes).map_err(|e| e.to_string())
+}
+
+/// Performs a synchronous HTTPS GET and returns the raw response body.
+///
+/// Unlike [`get()`], this returns raw bytes without UTF-8 conversion,
+/// suitable for downloading binary files (zip archives, etc.).
+/// WinHTTP follows redirects automatically, so GitHub release asset
+/// downloads (which redirect to `objects.githubusercontent.com`) work
+/// transparently.
+pub fn get_bytes(host: &str, path: &str, timeout_ms: i32) -> Result<Vec<u8>, String> {
     let agent = to_wide(concat!("mosaico/", env!("CARGO_PKG_VERSION")));
     let host_w = to_wide(host);
     let path_w = to_wide(path);
@@ -94,8 +106,8 @@ pub fn get(host: &str, path: &str, timeout_ms: i32) -> Result<String, String> {
     }
 }
 
-/// Reads the full response body into a UTF-8 string.
-unsafe fn read_body(request: *mut c_void) -> Result<String, String> {
+/// Reads the full response body into a byte vector.
+unsafe fn read_body(request: *mut c_void) -> Result<Vec<u8>, String> {
     let mut body = Vec::new();
     loop {
         let mut available: u32 = 0;
@@ -117,7 +129,7 @@ unsafe fn read_body(request: *mut c_void) -> Result<String, String> {
         }
         body.extend_from_slice(&buf[..read as usize]);
     }
-    String::from_utf8(body).map_err(|e| e.to_string())
+    Ok(body)
 }
 
 /// Converts a `&str` to a null-terminated wide (UTF-16) string.

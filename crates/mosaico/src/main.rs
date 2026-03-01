@@ -50,6 +50,12 @@ enum Commands {
         #[command(subcommand)]
         command: DebugCommands,
     },
+    /// Update mosaico to the latest release
+    Update {
+        /// Reinstall even if already on the latest version
+        #[arg(long)]
+        force: bool,
+    },
     /// Run the daemon (internal — not for direct use)
     #[command(hide = true)]
     Daemon,
@@ -140,6 +146,7 @@ fn main() {
             AutostartCommands::Disable => commands::autostart::disable(),
             AutostartCommands::Status => commands::autostart::status(),
         },
+        Commands::Update { force } => commands::update::execute(force),
         Commands::Daemon => commands::daemon::execute(),
         Commands::Action { action } => {
             let action = match action {

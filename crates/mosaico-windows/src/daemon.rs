@@ -22,6 +22,7 @@ use crate::tiling::TilingManager;
 /// manages the tiling workspace.
 pub fn run() -> WindowResult<()> {
     dpi::enable_dpi_awareness();
+    clean_old_binary();
     pid::write_pid_file()?;
     eprintln!("Mosaico daemon started.");
 
@@ -278,6 +279,20 @@ fn daemon_loop() -> WindowResult<()> {
     let _ = ipc_thread.join();
 
     Ok(())
+}
+
+/// Removes a leftover `.exe.old` backup from a previous self-update.
+///
+/// The update command renames the current binary to `.exe.old` before
+/// writing the new one. On Windows the `.old` file may still be locked
+/// at update time, so we retry deletion here at the next daemon start.
+fn clean_old_binary() {
+    if let Ok(exe) = std::env::current_exe() {
+        let old = exe.with_extension("exe.old");
+        if old.exists() {
+            let _ = std::fs::remove_file(&old);
+        }
+    }
 }
 
 /// Accepts IPC connections in a loop and forwards commands to the

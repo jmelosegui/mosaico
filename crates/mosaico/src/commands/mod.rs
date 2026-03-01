@@ -9,4 +9,4 @@ pub mod init;
 pub mod start;
 pub mod status;
 pub mod stop;
-pub mod version_check;
+pub mod update;
