@@ -84,11 +84,26 @@ In `config.toml`:
 ```toml
 [borders]
 width = 4              # Border thickness in pixels (0-32)
+corner_style = "small" # "square", "small", or "round"
 focused = "#00b4d8"    # Color for normal focused window
 monocle = "#2d6a4f"    # Color when monocle mode is active
 ```
 
 Setting `width = 0` effectively disables the border.
+
+### Rounded Corners
+
+The `corner_style` field controls both the border overlay shape and the
+tiled windows themselves.
+
+| Value | Border overlay | DWM (Windows 11) |
+|-------|---------------|------------------|
+| `"square"` | Sharp corners (0 px) | `DONOTROUND` |
+| `"small"` | Subtle rounding (8 px) | `ROUNDSMALL` (~4 px) |
+| `"round"` | Standard rounding (16 px) | `ROUND` (~8 px) |
+
+On Windows 10, the DWM attribute is silently ignored — only the border
+overlay is affected.
 
 ## Design Decisions
 

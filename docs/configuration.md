@@ -51,6 +51,7 @@ ratio = 0.5   # BSP split ratio (0.1-0.9)
 
 [borders]
 width = 4              # Border thickness in pixels (0-32)
+corner_style = "small" # "square", "small", or "round"
 focused = "#00b4d8"    # Hex color for focused window
 monocle = "#2d6a4f"    # Hex color for monocle mode
 
@@ -151,6 +152,7 @@ All loaders follow the same pattern:
 - `gap`: clamped to `[0, 200]`
 - `ratio`: clamped to `[0.1, 0.9]`
 - `border width`: clamped to `[0, 32]`
+- `corner_style`: must be `"square"`, `"small"`, or `"round"`
 
 ### Partial Files
 
