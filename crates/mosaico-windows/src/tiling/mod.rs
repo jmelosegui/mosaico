@@ -173,6 +173,13 @@ impl TilingManager {
                         ws_idx + 1,
                         self.monitors[mon_idx].workspaces[ws_idx].len()
                     );
+                    // Clear monocle if the monocle window was destroyed.
+                    if self.monitors[mon_idx].monocle
+                        && self.monitors[mon_idx].monocle_window == Some(*hwnd)
+                    {
+                        self.monitors[mon_idx].monocle = false;
+                        self.monitors[mon_idx].monocle_window = None;
+                    }
                     if ws_idx == self.monitors[mon_idx].active_workspace {
                         self.apply_layout_on(mon_idx);
                     }
@@ -996,6 +1003,51 @@ mod tests {
         assert!(mon.monocle);
         // No vertical neighbor lookup should happen — there is
         // conceptually only one window.
+    }
+
+    #[test]
+    fn monocle_clears_when_monocle_window_destroyed() {
+        // Arrange
+        let mut mon = make_monitor(1);
+        mon.workspaces[0].add(100);
+        mon.workspaces[0].add(200);
+        mon.monocle = true;
+        mon.monocle_window = Some(100);
+
+        // Act — simulate Destroyed handler: remove and clear monocle.
+        mon.workspaces[0].remove(100);
+        if mon.monocle && mon.monocle_window == Some(100) {
+            mon.monocle = false;
+            mon.monocle_window = None;
+        }
+
+        // Assert
+        assert!(!mon.monocle);
+        assert_eq!(mon.monocle_window, None);
+        assert_eq!(mon.workspaces[0].len(), 1);
+        assert!(mon.workspaces[0].contains(200));
+    }
+
+    #[test]
+    fn monocle_persists_when_other_window_destroyed() {
+        // Arrange
+        let mut mon = make_monitor(1);
+        mon.workspaces[0].add(100);
+        mon.workspaces[0].add(200);
+        mon.monocle = true;
+        mon.monocle_window = Some(100);
+
+        // Act — destroy a non-monocle window.
+        mon.workspaces[0].remove(200);
+        if mon.monocle && mon.monocle_window == Some(200) {
+            mon.monocle = false;
+            mon.monocle_window = None;
+        }
+
+        // Assert — monocle stays active.
+        assert!(mon.monocle);
+        assert_eq!(mon.monocle_window, Some(100));
+        assert_eq!(mon.workspaces[0].len(), 1);
     }
 
     // -- handle_display_change --
