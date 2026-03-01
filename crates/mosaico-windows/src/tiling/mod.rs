@@ -5,7 +5,7 @@ mod workspace;
 use std::collections::HashSet;
 
 use mosaico_core::action::MAX_WORKSPACES;
-use mosaico_core::config::{BorderConfig, WindowRule};
+use mosaico_core::config::{BorderConfig, HidingBehaviour, WindowRule};
 use mosaico_core::window::Window as WindowTrait;
 use mosaico_core::{Action, BspLayout, Rect, WindowEvent, WindowResult, Workspace};
 
@@ -67,6 +67,8 @@ pub struct TilingManager {
     /// `LocationChanged` events without calling `update_border()`
     /// on every animation frame.
     focused_maximized: bool,
+    /// How windows are hidden during workspace switches.
+    hiding: HidingBehaviour,
     /// Windows hidden programmatically by workspace switching.
     ///
     /// Events for these hwnds are ignored until they are shown again.
@@ -81,6 +83,7 @@ impl TilingManager {
         layout: BspLayout,
         rules: Vec<WindowRule>,
         border_config: BorderConfig,
+        hiding: HidingBehaviour,
     ) -> WindowResult<Self> {
         let monitors: Vec<MonitorState> = monitor::enumerate_monitors()?
             .into_iter()
@@ -106,6 +109,7 @@ impl TilingManager {
             focused_window: None,
             focused_maximized: false,
             applying_layout: false,
+            hiding,
             hidden_by_switch: HashSet::new(),
         };
 
@@ -186,6 +190,10 @@ impl TilingManager {
                 }
             }
             WindowEvent::Minimized { hwnd } => {
+                // Programmatic minimize from workspace switch — ignore.
+                if self.hidden_by_switch.contains(hwnd) {
+                    return;
+                }
                 // Only remove from the active workspace. Windows on
                 // non-active workspaces are hidden by workspace switching
                 // and must not be pruned.
@@ -220,6 +228,19 @@ impl TilingManager {
             }
             WindowEvent::Focused { hwnd } => {
                 if let Some(idx) = self.owning_monitor(*hwnd) {
+                    // Check if the window is on a non-active workspace
+                    // (e.g. user clicked a cloaked window's taskbar icon).
+                    // Switch to that workspace so the window becomes visible.
+                    if let Some((mon_idx, ws_idx)) = self.find_window(*hwnd)
+                        && ws_idx != self.monitors[mon_idx].active_workspace
+                    {
+                        self.focused_monitor = mon_idx;
+                        self.goto_workspace((ws_idx + 1) as u8);
+                        // goto_workspace focuses the first window; refocus
+                        // the one the user actually clicked.
+                        self.focus_and_update_border(*hwnd);
+                        return;
+                    }
                     self.focused_window = Some(*hwnd);
                     self.focused_monitor = idx;
                     self.focused_maximized = Window::from_raw(*hwnd).is_maximized();
@@ -315,6 +336,7 @@ impl TilingManager {
             gap: config.layout.gap,
             ratio: config.layout.ratio,
         };
+        self.hiding = config.layout.hiding;
         self.border_config = config.borders.clone();
         self.apply_corner_preference_all();
         self.retile_all();
@@ -333,6 +355,26 @@ impl TilingManager {
         }
     }
 
+    /// Hides a window using the configured strategy.
+    fn hide_window(&self, hwnd: usize) {
+        let win = Window::from_raw(hwnd);
+        match self.hiding {
+            HidingBehaviour::Cloak => win.cloak(),
+            HidingBehaviour::Hide => win.hide(),
+            HidingBehaviour::Minimize => win.minimize(),
+        }
+    }
+
+    /// Shows a window, reversing the configured hiding strategy.
+    fn show_window(&self, hwnd: usize) {
+        let win = Window::from_raw(hwnd);
+        match self.hiding {
+            HidingBehaviour::Cloak => win.uncloak(),
+            HidingBehaviour::Hide => win.show(),
+            HidingBehaviour::Minimize => win.show(),
+        }
+    }
+
     /// Shows all windows across every workspace and monitor.
     ///
     /// Called on daemon shutdown so that windows hidden by workspace
@@ -344,6 +386,7 @@ impl TilingManager {
                 for &hwnd in ws.handles() {
                     let w = Window::from_raw(hwnd);
                     frame::reset_corner_preference(w.hwnd());
+                    w.uncloak();
                     w.force_show();
                 }
             }
@@ -1207,6 +1250,76 @@ mod tests {
 
         assert!(result[0].monocle);
         assert_eq!(result[0].monocle_window, Some(100));
+    }
+
+    // -- hiding behaviour: hidden_by_switch logic --
+
+    #[test]
+    fn cloak_mode_does_not_populate_hidden_by_switch() {
+        // Arrange
+        let mut mon = make_monitor(1);
+        mon.workspaces[0].add(10);
+        mon.workspaces[0].add(20);
+        mon.workspaces[1].add(30);
+
+        let hiding = HidingBehaviour::Cloak;
+        let mut hidden_by_switch = HashSet::new();
+
+        // Act — simulate goto_workspace with Cloak mode
+        for &hwnd in mon.active_ws().handles() {
+            if hiding != HidingBehaviour::Cloak {
+                hidden_by_switch.insert(hwnd);
+            }
+        }
+        mon.active_workspace = 1;
+
+        // Assert — hidden_by_switch must stay empty for Cloak
+        assert!(hidden_by_switch.is_empty());
+    }
+
+    #[test]
+    fn hide_mode_populates_hidden_by_switch() {
+        // Arrange
+        let mut mon = make_monitor(1);
+        mon.workspaces[0].add(10);
+        mon.workspaces[0].add(20);
+        mon.workspaces[1].add(30);
+
+        let hiding = HidingBehaviour::Hide;
+        let mut hidden_by_switch = HashSet::new();
+
+        // Act — simulate goto_workspace with Hide mode
+        for &hwnd in mon.active_ws().handles() {
+            if hiding != HidingBehaviour::Cloak {
+                hidden_by_switch.insert(hwnd);
+            }
+        }
+        mon.active_workspace = 1;
+
+        // Assert — hidden_by_switch must contain ws 0's windows
+        assert_eq!(hidden_by_switch.len(), 2);
+        assert!(hidden_by_switch.contains(&10));
+        assert!(hidden_by_switch.contains(&20));
+    }
+
+    #[test]
+    fn minimize_mode_populates_hidden_by_switch() {
+        // Arrange
+        let mut mon = make_monitor(1);
+        mon.workspaces[0].add(10);
+
+        let hiding = HidingBehaviour::Minimize;
+        let mut hidden_by_switch = HashSet::new();
+
+        // Act
+        for &hwnd in mon.active_ws().handles() {
+            if hiding != HidingBehaviour::Cloak {
+                hidden_by_switch.insert(hwnd);
+            }
+        }
+
+        // Assert
+        assert!(hidden_by_switch.contains(&10));
     }
 
     // Standalone helper matching TilingManager::find_window logic

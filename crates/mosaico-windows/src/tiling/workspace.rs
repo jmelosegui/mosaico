@@ -2,9 +2,11 @@
 //!
 //! Manages hiding/showing windows when switching workspaces and
 //! tracks programmatically hidden windows to prevent spurious
-//! EVENT_OBJECT_HIDE removals.
+//! `EVENT_OBJECT_HIDE` removals.
 
-use super::{TilingManager, Window};
+use mosaico_core::config::HidingBehaviour;
+
+use super::TilingManager;
 
 impl TilingManager {
     /// Switches to workspace `n` (1-indexed) on the focused monitor.
@@ -21,11 +23,13 @@ impl TilingManager {
             return; // already there
         }
 
-        // Mark current workspace windows as programmatically hidden
-        // so EVENT_OBJECT_HIDE events are ignored for them.
+        // Hide current workspace windows. Only guard with
+        // hidden_by_switch for strategies that fire events.
         for &hwnd in mon.active_ws().handles() {
-            self.hidden_by_switch.insert(hwnd);
-            Window::from_raw(hwnd).hide();
+            if self.hiding != HidingBehaviour::Cloak {
+                self.hidden_by_switch.insert(hwnd);
+            }
+            self.hide_window(hwnd);
         }
 
         // Switch active workspace.
@@ -33,8 +37,10 @@ impl TilingManager {
 
         // Show windows on the target workspace and unmark them.
         for &hwnd in self.monitors[mon_idx].active_ws().handles() {
-            self.hidden_by_switch.remove(&hwnd);
-            Window::from_raw(hwnd).show();
+            if self.hiding != HidingBehaviour::Cloak {
+                self.hidden_by_switch.remove(&hwnd);
+            }
+            self.show_window(hwnd);
         }
 
         mosaico_core::log_info!(
@@ -83,8 +89,10 @@ impl TilingManager {
 
         // Hide remaining windows on the source workspace.
         for &h in self.monitors[mon_idx].active_ws().handles() {
-            self.hidden_by_switch.insert(h);
-            Window::from_raw(h).hide();
+            if self.hiding != HidingBehaviour::Cloak {
+                self.hidden_by_switch.insert(h);
+            }
+            self.hide_window(h);
         }
 
         // Switch to the target workspace.
@@ -92,8 +100,10 @@ impl TilingManager {
 
         // Show all windows on the target workspace.
         for &h in self.monitors[mon_idx].active_ws().handles() {
-            self.hidden_by_switch.remove(&h);
-            Window::from_raw(h).show();
+            if self.hiding != HidingBehaviour::Cloak {
+                self.hidden_by_switch.remove(&h);
+            }
+            self.show_window(h);
         }
 
         mosaico_core::log_info!(

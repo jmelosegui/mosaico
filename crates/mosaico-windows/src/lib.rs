@@ -1,6 +1,9 @@
 /// Windows startup registration via the HKCU Run registry key.
 pub mod autostart;
 
+/// COM-based window cloaking via the ImmersiveShell.
+mod com;
+
 /// Status bar overlay windows.
 pub mod bar;
 

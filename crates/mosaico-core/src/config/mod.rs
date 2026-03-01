@@ -41,6 +41,24 @@ pub struct LayoutConfig {
     pub gap: i32,
     /// Ratio of space given to the first window in each split (0.0–1.0).
     pub ratio: f64,
+    /// How windows are hidden during workspace switches.
+    pub hiding: HidingBehaviour,
+}
+
+/// How windows are hidden when switching away from their workspace.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum HidingBehaviour {
+    /// DWM Cloak: window becomes invisible but keeps its taskbar icon
+    /// and does not fire `EVENT_OBJECT_HIDE`. Recommended default.
+    #[default]
+    Cloak,
+    /// `ShowWindow(SW_HIDE)`: window is fully hidden and loses its
+    /// taskbar icon. Fires `EVENT_OBJECT_HIDE`.
+    Hide,
+    /// `ShowWindow(SW_MINIMIZE)`: window is minimized. Keeps taskbar
+    /// icon but shows minimized state. Fires `EVENT_SYSTEM_MINIMIZESTART`.
+    Minimize,
 }
 
 /// Corner style for borders and tiled windows.
@@ -110,7 +128,11 @@ pub fn default_rules() -> Vec<WindowRule> {
 
 impl Default for LayoutConfig {
     fn default() -> Self {
-        Self { gap: 8, ratio: 0.5 }
+        Self {
+            gap: 8,
+            ratio: 0.5,
+            hiding: HidingBehaviour::default(),
+        }
     }
 }
 
@@ -373,6 +395,7 @@ mod tests {
             layout: LayoutConfig {
                 gap: -50,
                 ratio: 2.0,
+                ..Default::default()
             },
             borders: BorderConfig {
                 width: 999,

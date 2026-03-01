@@ -37,6 +37,7 @@ Mosaico is structured as a Cargo workspace with multiple crates:
 | [18](phase-18.md) | Auto-Start on Windows Boot | Complete |
 | [19](phase-19.md) | Media Widget | Complete |
 | [20](phase-20.md) | Rounded Corners | Complete |
+| [21](phase-21.md) | Configurable Window Hiding Behaviour | Complete |
 
 ## Design Principles
 

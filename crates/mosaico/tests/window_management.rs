@@ -100,12 +100,19 @@ fn mosaico(args: &[&str]) -> std::process::ExitStatus {
 }
 
 /// Starts the daemon and waits for it to be ready.
+///
+/// Also closes any leftover Notepad windows from previous tests
+/// to prevent Win11 session restore from creating extra windows.
 fn start_daemon() {
     // Make sure no daemon is already running.
     let _ = Command::new(env!("CARGO_BIN_EXE_mosaico"))
         .arg("stop")
         .output();
     thread::sleep(Duration::from_secs(1));
+
+    // Close leftover notepads gracefully so session restore
+    // doesn't pollute the next test.
+    close_all_notepads();
 
     let status = mosaico(&["start"]);
     assert!(status.success(), "daemon failed to start");
@@ -207,17 +214,49 @@ fn launch_notepad() -> (Child, win32::HWND) {
     (child, hwnd)
 }
 
-/// Sends WM_CLOSE to the notepad window and waits for the process to exit.
+/// Sends WM_CLOSE to the notepad window and waits for it to close.
+///
+/// Win11 Notepad saves session state on graceful close.  If we
+/// force-kill instead, it will restore all "unsaved" windows next
+/// time it opens, polluting subsequent tests.  We wait up to 5s
+/// for the window to disappear before giving up.
 fn close_notepad(hwnd: win32::HWND, mut child: Child) {
     if !hwnd.is_null() {
         unsafe {
             win32::PostMessageW(hwnd, win32::WM_CLOSE, 0, 0);
         }
+        // Wait for the window to actually disappear.
+        for _ in 0..10 {
+            thread::sleep(Duration::from_millis(500));
+            if unsafe { win32::IsWindowVisible(hwnd) } == 0 {
+                break;
+            }
+        }
     }
-    // Give notepad a moment to close, then kill if still alive.
-    thread::sleep(Duration::from_millis(500));
     let _ = child.kill();
     let _ = child.wait();
+}
+
+/// Gracefully closes ALL visible Notepad windows by sending WM_CLOSE.
+///
+/// Prevents Win11 Notepad's session restore from polluting the next
+/// test with leftover windows.
+fn close_all_notepads() {
+    let windows = find_notepad_windows();
+    for &hwnd in &windows {
+        unsafe {
+            win32::PostMessageW(hwnd, win32::WM_CLOSE, 0, 0);
+        }
+    }
+    if !windows.is_empty() {
+        // Wait for all notepad windows to close gracefully.
+        for _ in 0..10 {
+            thread::sleep(Duration::from_millis(500));
+            if find_notepad_windows().is_empty() {
+                break;
+            }
+        }
+    }
 }
 
 /// Finds the MosaicoBorder window.
@@ -527,11 +566,13 @@ fn close_test_dialog(hwnd: win32::HWND) {
 
 /// Asserts the border roughly surrounds the given window.
 ///
-/// Allows a small tolerance (2px) for DPI scaling and invisible
-/// border compensation differences between `GetWindowRect` and the
-/// daemon's `visible_rect` calculation.
+/// The daemon positions the border around the DWM visible rect,
+/// but the test queries `GetWindowRect` which includes invisible
+/// DWM borders (~7-10 physical px, ~3-5 logical px at high DPI).
+/// A tolerance of 5 logical pixels covers this offset while still
+/// catching real positioning bugs (which would be off by hundreds).
 fn assert_border_surrounds(label: &str, target: win32::HWND) {
-    const TOL: i32 = 2;
+    const TOL: i32 = 5;
     let border = find_border_hwnd();
     assert!(!border.is_null(), "{label}: border window not found");
     let br = get_window_rect(border);

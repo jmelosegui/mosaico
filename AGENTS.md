@@ -136,6 +136,30 @@ Follow the official Rust API Guidelines: https://rust-lang.github.io/api-guideli
 - Do not commit unless explicitly asked by the user
 - Update plan checkboxes in the same commit that completes the work
 
+## Manual Verification
+
+Before asking the user to verify a feature or confirming it works:
+
+- **Test it yourself** using the CLI, IPC commands, and PowerShell/system
+  tools. You have all the means to do so.
+- Kill the daemon (`taskkill /IM mosaico.exe /F`), rebuild, start it, and
+  exercise the feature through `mosaico.exe action ...` commands.
+- Verify observable state programmatically (e.g. use PowerShell with
+  `DwmGetWindowAttribute` to check cloak state, `IsWindowVisible` for
+  visibility, `debug list` for managed windows).
+- Check the daemon log file at `~/.config/mosaico/logs/mosaico.log` for
+  errors or unexpected behaviour.
+- Only present the result to the user after confirming it works.
+
+## Integration Tests
+
+- All new features must include integration tests that run as part of
+  `cargo test` before committing.
+- Integration tests live in `crates/<crate>/tests/` and must pass
+  alongside unit tests.
+- Run the full test suite (`cargo test`, `cargo clippy --all-targets
+  -- -D warnings`, `cargo fmt --all -- --check`) before every commit.
+
 ## Development Plan
 
 See `.plans/plan.md` for the project roadmap and phase details.

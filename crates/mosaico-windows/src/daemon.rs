@@ -82,7 +82,7 @@ fn daemon_loop() -> WindowResult<()> {
 
     let (tx, rx) = mpsc::channel::<DaemonMsg>();
 
-    let mut manager = TilingManager::new(layout, rules, config.borders)?;
+    let mut manager = TilingManager::new(layout, rules, config.borders, config.layout.hiding)?;
     let bar_height = bar_mgr.bar_height();
     if bar_height > 0 {
         // Retile with bar-adjusted work areas so borders match final positions.

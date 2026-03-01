@@ -59,6 +59,22 @@ impl Window {
         class == "Chrome_WidgetWin_1" || class == "MozillaWindowClass"
     }
 
+    /// Cloaks the window via the ImmersiveShell COM interface.
+    ///
+    /// Makes the window invisible without removing its taskbar icon or
+    /// firing `EVENT_OBJECT_HIDE`. This is the same mechanism Windows
+    /// uses for its built-in virtual desktop feature.
+    pub fn cloak(&self) {
+        crate::com::cloak_window(self.hwnd);
+    }
+
+    /// Uncloaks a previously cloaked window.
+    ///
+    /// No-op if the window is not cloaked.
+    pub fn uncloak(&self) {
+        crate::com::uncloak_window(self.hwnd);
+    }
+
     /// Hides the window without destroying it.
     pub fn hide(&self) {
         use windows::Win32::UI::WindowsAndMessaging::{SW_HIDE, ShowWindow};

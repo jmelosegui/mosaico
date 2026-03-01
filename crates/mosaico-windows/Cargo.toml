@@ -19,6 +19,7 @@ features = [
     "Win32_UI_Input_KeyboardAndMouse", # RegisterHotKey, UnregisterHotKey
     "Win32_UI_HiDpi",                  # SetProcessDpiAwarenessContext
     "Win32_Foundation",                # HWND, BOOL, RECT, LPARAM, DuplicateHandle
+    "Win32_System_Com",                # CoCreateInstance, CoInitializeEx (COM cloaking)
     "Win32_System_SystemInformation",  # GlobalMemoryStatusEx, GetLocalTime
     "Win32_System_Console",            # SetConsoleCtrlHandler (Ctrl+C handling)
     "Win32_System_ProcessStatus",      # K32GetModuleFileNameExW (exe path from PID)
