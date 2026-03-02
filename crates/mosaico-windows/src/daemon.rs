@@ -2,6 +2,7 @@ use mosaico_core::WindowResult;
 use mosaico_core::pid;
 
 use crate::dpi;
+use crate::instance_guard::InstanceGuard;
 
 #[path = "daemon_ipc.rs"]
 mod daemon_ipc;
@@ -22,6 +23,7 @@ mod daemon_types;
 pub fn run() -> WindowResult<()> {
     dpi::enable_dpi_awareness();
     clean_old_binary();
+    let _guard = InstanceGuard::acquire()?;
     pid::write_pid_file()?;
     eprintln!("Mosaico daemon started.");
 

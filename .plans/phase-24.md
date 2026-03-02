@@ -1,6 +1,6 @@
 # Phase 24: Single-Instance Daemon Guard
 
-**Status:** Pending
+**Status:** Complete
 
 **Goal:** Ensure only one Mosaico daemon instance can run at a time.
 
@@ -94,14 +94,14 @@ crates/
 
 ## Tasks
 
-- [ ] Add `instance_guard.rs` to `mosaico-windows` with `InstanceGuard`
-- [ ] Use `CreateMutexW` and check `ERROR_ALREADY_EXISTS`
-- [ ] Define `InstanceError` with user-friendly messaging
-- [ ] Acquire guard in daemon startup before IPC
-- [ ] Store guard for daemon lifetime (drop on shutdown)
-- [ ] Add integration test: starting daemon twice yields error
-- [ ] Run `cargo fmt --all`
-- [ ] Run `cargo clippy --all-targets -- -D warnings` and fix warnings
-- [ ] Run `cargo test` and fix failures
-- [ ] Manual test: start daemon twice, verify second exits cleanly
-- [ ] Update `.plans/plan.md`
+- [x] Add `instance_guard.rs` to `mosaico-windows` with `InstanceGuard`
+- [x] Use `CreateMutexW` and check `ERROR_ALREADY_EXISTS`
+- [x] Define `InstanceError` with user-friendly messaging
+- [x] Acquire guard in daemon startup before IPC
+- [x] Store guard for daemon lifetime (drop on shutdown)
+- [x] Add integration test: starting daemon twice yields error
+- [x] Run `cargo fmt --all`
+- [x] Run `cargo clippy --all-targets -- -D warnings` and fix warnings
+- [x] Run `cargo test` and fix failures
+- [x] Manual test: start daemon twice, verify second exits cleanly
+- [x] Update `.plans/plan.md`

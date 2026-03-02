@@ -1,11 +1,6 @@
 //! Media widget — displays the currently playing track from system
 //! media sources using the Windows GSMTC API.
 
-use windows::Media::Control::{
-    GlobalSystemMediaTransportControlsSession, GlobalSystemMediaTransportControlsSessionManager,
-    GlobalSystemMediaTransportControlsSessionPlaybackStatus,
-};
-
 use super::BarState;
 
 /// Returns the widget display text, truncated to `max_length`.
@@ -20,55 +15,13 @@ pub fn text(state: &BarState, max_length: usize) -> String {
 ///
 /// Returns an empty string if nothing is playing or the API is
 /// unavailable. This is called on each bar tick (1 second).
+///
+/// **Note:** The GSMTC `RequestAsync().get()` call blocks forever in
+/// our daemon process (no GUI message pump). This stub returns empty
+/// until a non-blocking implementation is added.
 pub fn query_media() -> String {
-    query_media_inner().unwrap_or_default()
-}
-
-fn query_media_inner() -> Option<String> {
-    let manager = GlobalSystemMediaTransportControlsSessionManager::RequestAsync()
-        .ok()?
-        .get()
-        .ok()?;
-
-    // Try the "current" (focused) session first, then fall back to
-    // iterating all sessions — GetCurrentSession() often returns null
-    // even when music is actively playing.
-    if let Ok(session) = manager.GetCurrentSession()
-        && let Some(text) = extract_playing(&session)
-    {
-        return Some(text);
-    }
-
-    let sessions = manager.GetSessions().ok()?;
-    let count = sessions.Size().ok()?;
-    for i in 0..count {
-        if let Ok(session) = sessions.GetAt(i)
-            && let Some(text) = extract_playing(&session)
-        {
-            return Some(text);
-        }
-    }
-
-    None
-}
-
-/// Returns "Artist - Title" if the session is actively playing.
-fn extract_playing(session: &GlobalSystemMediaTransportControlsSession) -> Option<String> {
-    let playback = session.GetPlaybackInfo().ok()?;
-    let status = playback.PlaybackStatus().ok()?;
-    if status != GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing {
-        return None;
-    }
-
-    let props = session.TryGetMediaPropertiesAsync().ok()?.get().ok()?;
-    let title = props.Title().ok().map(|s| s.to_string_lossy());
-    let artist = props.Artist().ok().map(|s| s.to_string_lossy());
-
-    match (artist.as_deref(), title.as_deref()) {
-        (Some(a), Some(t)) if !a.is_empty() && !t.is_empty() => Some(format!("{a} - {t}")),
-        (_, Some(t)) if !t.is_empty() => Some(t.to_string()),
-        _ => None,
-    }
+    // TODO: implement non-blocking GSMTC query
+    String::new()
 }
 
 /// Truncates a string to `max` characters, adding "..." if needed.

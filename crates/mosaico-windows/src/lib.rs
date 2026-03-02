@@ -46,6 +46,9 @@ pub mod keys;
 /// Win32 event translation.
 pub mod event;
 
+/// Single-instance daemon guard (named kernel mutex).
+pub mod instance_guard;
+
 /// Win32 event loop (SetWinEventHook + message pump).
 pub mod event_loop;
 

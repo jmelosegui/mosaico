@@ -85,6 +85,46 @@ fn start_and_stop_lifecycle() {
 }
 
 #[test]
+fn second_daemon_is_rejected() {
+    // Arrange — stop any running daemon first
+    let _ = Command::new(env!("CARGO_BIN_EXE_mosaico"))
+        .arg("stop")
+        .output();
+
+    // Start the daemon via `mosaico start` (detached process)
+    let mut child = Command::new(env!("CARGO_BIN_EXE_mosaico"))
+        .arg("start")
+        .spawn()
+        .expect("failed to spawn mosaico start");
+    let _ = child.wait();
+
+    // Wait for the daemon to acquire the mutex
+    std::thread::sleep(Duration::from_secs(1));
+
+    // Act — try to start a second daemon directly
+    let output = Command::new(env!("CARGO_BIN_EXE_mosaico"))
+        .arg("daemon")
+        .output()
+        .expect("failed to execute second daemon");
+
+    // Cleanup — stop the running daemon
+    let _ = Command::new(env!("CARGO_BIN_EXE_mosaico"))
+        .arg("stop")
+        .output();
+
+    // Assert — second daemon should fail with "already running"
+    assert!(
+        !output.status.success(),
+        "Second daemon should exit with error"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("already running"),
+        "Expected 'already running' in stderr, got: {stderr}"
+    );
+}
+
+#[test]
 fn debug_list_subcommand_runs() {
     // Arrange
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_mosaico"));
