@@ -35,11 +35,11 @@ Mosaico is structured as a Cargo workspace with multiple crates:
 | [16](phase-16.md) | Active Window Icon Widget | Complete |
 | [17](phase-17.md) | Community Rules Repository | Complete |
 | [18](phase-18.md) | Auto-Start on Windows Boot | Complete |
-| [19](phase-19.md) | Media Widget | Complete |
+| [19](phase-19.md) | Media Widget | Blocked |
 | [20](phase-20.md) | Rounded Corners | Complete |
 | [21](phase-21.md) | Configurable Window Hiding Behaviour | Complete |
 | [22](phase-22.md) | Self-Update Command | Complete |
-| [23](phase-23.md) | Mouse Follows Focus & Focus Follows Mouse | Pending |
+| [23](phase-23.md) | Mouse Follows Focus & Focus Follows Mouse | Complete |
 | [24](phase-24.md) | Single-Instance Daemon Guard | Complete |
 | [25](phase-25.md) | Interactive Window Resizing | Pending |
 | [26](phase-26.md) | Floating Window Toggle | Pending |
