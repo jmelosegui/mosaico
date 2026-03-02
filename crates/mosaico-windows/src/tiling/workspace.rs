@@ -23,6 +23,8 @@ impl TilingManager {
             return; // already there
         }
 
+        self.switching_workspace = true;
+
         // Hide current workspace windows. Only guard with
         // hidden_by_switch for strategies that fire events.
         for &hwnd in mon.active_ws().handles() {
@@ -69,6 +71,8 @@ impl TilingManager {
             self.focused_window = None;
             self.update_border();
         }
+
+        self.switching_workspace = false;
     }
 
     /// Sends the focused window to workspace `n` (1-indexed) on the
@@ -92,6 +96,8 @@ impl TilingManager {
             return; // focused window is not on the active workspace
         }
         let src_ws_num = mon.active_workspace + 1;
+
+        self.switching_workspace = true;
 
         // Remove from current workspace, add to target.
         self.monitors[mon_idx].active_ws_mut().remove(hwnd);
@@ -127,5 +133,7 @@ impl TilingManager {
 
         self.apply_layout_on(mon_idx);
         self.focus_and_update_border(hwnd);
+
+        self.switching_workspace = false;
     }
 }
