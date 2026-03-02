@@ -79,6 +79,13 @@ pub struct TilingManager {
     /// This prevents `EVENT_OBJECT_HIDE` from removing windows that
     /// were just hidden by a workspace switch.
     hidden_by_switch: HashSet<usize>,
+    /// Guard flag set during workspace switches.
+    ///
+    /// Prevents `Focused` events (fired by `set_foreground()` inside
+    /// `goto_workspace`) from re-entering `goto_workspace`, which
+    /// would cause an infinite loop when two workspace hotkeys are
+    /// pressed simultaneously.
+    switching_workspace: bool,
 }
 
 impl TilingManager {
@@ -116,6 +123,7 @@ impl TilingManager {
             applying_layout: false,
             hiding,
             hidden_by_switch: HashSet::new(),
+            switching_workspace: false,
         };
 
         for win in enumerate::enumerate_windows()? {

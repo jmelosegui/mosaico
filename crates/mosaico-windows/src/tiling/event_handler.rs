@@ -120,7 +120,11 @@ impl TilingManager {
                     // Check if the window is on a non-active workspace
                     // (e.g. user clicked a cloaked window's taskbar icon).
                     // Switch to that workspace so the window becomes visible.
-                    if let Some((mon_idx, ws_idx)) = self.find_window(*hwnd)
+                    // Skip this when a workspace switch is already in progress
+                    // to prevent an infinite loop when two workspace hotkeys
+                    // fire simultaneously.
+                    if !self.switching_workspace
+                        && let Some((mon_idx, ws_idx)) = self.find_window(*hwnd)
                         && ws_idx != self.monitors[mon_idx].active_workspace
                     {
                         self.focused_monitor = mon_idx;
