@@ -71,7 +71,9 @@ impl TilingManager {
             .compute_layout(&self.layout, &state.work_area);
         for (hwnd, rect) in &positions {
             let window = Window::from_raw(*hwnd);
-            if window.rect().ok().as_ref() == Some(rect) {
+            // Always call set_rect for maximized windows — it clears
+            // WS_MAXIMIZE which SetWindowPos alone doesn't remove.
+            if !window.is_maximized() && window.rect().ok().as_ref() == Some(rect) {
                 continue;
             }
             if let Err(e) = window.set_rect(rect) {

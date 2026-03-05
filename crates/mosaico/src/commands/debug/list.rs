@@ -27,10 +27,17 @@ pub fn execute() {
         let border = frame::border_offset(window.hwnd())
             .map(|b| format!("L:{} T:{} R:{} B:{}", b.left, b.top, b.right, b.bottom))
             .unwrap_or_else(|_| "?".into());
+        let state = if window.is_maximized() {
+            "maximized"
+        } else if window.is_minimized() {
+            "minimized"
+        } else {
+            "normal"
+        };
 
         println!("  0x{hwnd:X}  {display_title}");
         println!("       Class: {class}");
-        println!("       Managed: {managed}  Monitor: {monitor_num}");
+        println!("       Managed: {managed}  Monitor: {monitor_num}  State: {state}");
         println!(
             "       Rect: {}x{} at ({}, {})  Border: {border}",
             rect.width, rect.height, rect.x, rect.y
