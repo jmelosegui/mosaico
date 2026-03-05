@@ -4,9 +4,19 @@
 //! tracks programmatically hidden windows to prevent spurious
 //! `EVENT_OBJECT_HIDE` removals.
 
+use std::time::{Duration, Instant};
+
 use mosaico_core::config::HidingBehaviour;
 
 use super::TilingManager;
+
+/// How long after a workspace switch to suppress focus-triggered switches.
+///
+/// Win32 events (e.g. `EVENT_SYSTEM_FOREGROUND`) fired during the switch are
+/// queued asynchronously and may arrive after the switch completes. A 500 ms
+/// cooldown is long enough to absorb these deferred events without being
+/// noticeable to the user.
+const WS_SWITCH_COOLDOWN: Duration = Duration::from_millis(500);
 
 impl TilingManager {
     /// Switches to workspace `n` (1-indexed) on the focused monitor.
@@ -23,7 +33,7 @@ impl TilingManager {
             return; // already there
         }
 
-        self.switching_workspace = true;
+        self.ws_switch_cooldown = Some(Instant::now() + WS_SWITCH_COOLDOWN);
 
         // Hide current workspace windows. Only guard with
         // hidden_by_switch for strategies that fire events.
@@ -71,8 +81,6 @@ impl TilingManager {
             self.focused_window = None;
             self.update_border();
         }
-
-        self.switching_workspace = false;
     }
 
     /// Sends the focused window to workspace `n` (1-indexed) on the
@@ -97,7 +105,7 @@ impl TilingManager {
         }
         let src_ws_num = mon.active_workspace + 1;
 
-        self.switching_workspace = true;
+        self.ws_switch_cooldown = Some(Instant::now() + WS_SWITCH_COOLDOWN);
 
         // Remove from current workspace, add to target.
         self.monitors[mon_idx].active_ws_mut().remove(hwnd);
@@ -133,7 +141,5 @@ impl TilingManager {
 
         self.apply_layout_on(mon_idx);
         self.focus_and_update_border(hwnd);
-
-        self.switching_workspace = false;
     }
 }
