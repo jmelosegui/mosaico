@@ -44,10 +44,9 @@ impl TilingManager {
             return;
         };
         let window = Window::from_raw(hwnd);
-        // Hide the border when the focused window is maximized —
-        // the border would be behind the maximized window anyway and
-        // trying to keep it topmost causes z-order flickering.
-        if window.is_maximized() {
+        // Hide the border when the focused window is maximized or minimized —
+        // the border would be invisible or orphaned on screen.
+        if window.is_maximized() || window.is_minimized() {
             border.hide();
             return;
         }

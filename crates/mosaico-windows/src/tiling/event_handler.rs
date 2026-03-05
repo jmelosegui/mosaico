@@ -98,6 +98,11 @@ impl TilingManager {
                         self.monitors[mon_idx].workspaces[ws_idx].len()
                     );
                     self.apply_layout_on(mon_idx);
+                    // Clear focus and hide border if the minimized window was focused.
+                    if self.focused_window == Some(*hwnd) {
+                        self.focused_window = None;
+                        self.update_border();
+                    }
                 }
             }
             WindowEvent::Moved { hwnd } => {
