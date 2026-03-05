@@ -116,6 +116,12 @@ impl Window {
         unsafe { IsZoomed(self.hwnd).as_bool() }
     }
 
+    /// Returns whether this window is minimized (iconic).
+    pub fn is_minimized(&self) -> bool {
+        use windows::Win32::UI::WindowsAndMessaging::IsIconic;
+        unsafe { IsIconic(self.hwnd).as_bool() }
+    }
+
     /// Returns the owner window handle, or `None` if the window has no owner.
     ///
     /// Owned top-level windows are typically dialogs or property sheets

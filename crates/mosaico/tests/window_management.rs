@@ -573,7 +573,7 @@ focus_follows_mouse = true
 }
 
 /// Minimize a window, then restore it by clicking (simulated via ShowWindow).
-/// The border should update to the restored window's position.
+/// The border should hide while minimized and reappear after restore.
 #[test]
 fn minimize_and_restore_updates_border() {
     let _guard = test_guard();
@@ -593,6 +593,12 @@ fn minimize_and_restore_updates_border() {
 
     let iconic = unsafe { win32::IsIconic(hwnd) };
     assert!(iconic != 0, "notepad should be minimized");
+
+    // Border should be hidden while the window is minimized.
+    assert!(
+        !is_border_visible(),
+        "border should be hidden when the only window is minimized"
+    );
 
     take_screenshot("minimize_restore_minimized");
 
@@ -615,6 +621,60 @@ fn minimize_and_restore_updates_border() {
     take_screenshot("minimize_restore_after");
 
     close_notepad(hwnd, child);
+    stop_daemon();
+}
+
+/// Minimize the focused window when two windows are tiled.
+/// The border should hide and the remaining window should fill the screen.
+#[test]
+fn minimize_focused_hides_border_with_two_windows() {
+    let _guard = test_guard();
+    start_daemon();
+    isolate_workspace();
+    let (child1, hwnd1) = launch_notepad();
+    let (child2, hwnd2) = launch_notepad();
+
+    // Focus hwnd2 (last launched should already be focused, but be explicit).
+    unsafe {
+        win32::SetForegroundWindow(hwnd2);
+    }
+    thread::sleep(Duration::from_secs(1));
+
+    assert!(is_border_visible(), "border should be visible with two windows");
+    assert_border_surrounds("initial focus on hwnd2", hwnd2);
+
+    take_screenshot("minimize_two_before");
+
+    // Minimize the focused window (hwnd2).
+    unsafe {
+        win32::ShowWindow(hwnd2, win32::SW_MINIMIZE);
+    }
+    thread::sleep(Duration::from_secs(2));
+
+    let iconic = unsafe { win32::IsIconic(hwnd2) };
+    assert!(iconic != 0, "hwnd2 should be minimized");
+
+    take_screenshot("minimize_two_after");
+
+    // The border should be hidden because the minimized window was the
+    // focused one, and focus was cleared.
+    assert!(
+        !is_border_visible(),
+        "border should be hidden after minimizing the focused window"
+    );
+
+    // hwnd1 should still be visible (the remaining tiled window).
+    let visible = unsafe { win32::IsWindowVisible(hwnd1) };
+    assert!(visible != 0, "hwnd1 should still be visible");
+
+    // Restore hwnd2 to clean up.
+    unsafe {
+        win32::ShowWindow(hwnd2, win32::SW_RESTORE);
+    }
+    thread::sleep(Duration::from_secs(2));
+
+    close_notepad(hwnd2, child2);
+    close_notepad(hwnd1, child1);
     stop_daemon();
 }
 
