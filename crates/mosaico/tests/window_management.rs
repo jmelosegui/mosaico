@@ -642,7 +642,10 @@ fn minimize_focused_hides_border_with_two_windows() {
     }
     thread::sleep(Duration::from_secs(1));
 
-    assert!(is_border_visible(), "border should be visible with two windows");
+    assert!(
+        is_border_visible(),
+        "border should be visible with two windows"
+    );
     assert_border_surrounds("initial focus on hwnd2", hwnd2);
 
     take_screenshot("minimize_two_before");

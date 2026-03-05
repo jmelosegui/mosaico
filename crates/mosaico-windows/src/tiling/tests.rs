@@ -7,14 +7,14 @@ mod display_tests;
 #[path = "tests/hiding_tests.rs"]
 mod hiding_tests;
 #[cfg(test)]
+#[path = "tests/minimize_tests.rs"]
+mod minimize_tests;
+#[cfg(test)]
 #[path = "tests/monitor_tests.rs"]
 mod monitor_tests;
 #[cfg(test)]
 #[path = "tests/monocle_tests.rs"]
 mod monocle_tests;
-#[cfg(test)]
-#[path = "tests/minimize_tests.rs"]
-mod minimize_tests;
 #[cfg(test)]
 #[path = "tests/workspace_tests.rs"]
 mod workspace_tests;

@@ -9,6 +9,7 @@ mod navigation_helpers;
 mod workspace;
 
 use std::collections::HashSet;
+use std::time::Instant;
 
 use mosaico_core::action::MAX_WORKSPACES;
 use mosaico_core::config::{BorderConfig, HidingBehaviour, WindowRule};
@@ -79,13 +80,18 @@ pub struct TilingManager {
     /// This prevents `EVENT_OBJECT_HIDE` from removing windows that
     /// were just hidden by a workspace switch.
     hidden_by_switch: HashSet<usize>,
-    /// Guard flag set during workspace switches.
+    /// Cooldown timestamp suppressing focus-triggered workspace switches.
     ///
-    /// Prevents `Focused` events (fired by `set_foreground()` inside
-    /// `goto_workspace`) from re-entering `goto_workspace`, which
-    /// would cause an infinite loop when two workspace hotkeys are
-    /// pressed simultaneously.
-    switching_workspace: bool,
+    /// Win32 events fired during a workspace switch (e.g. by
+    /// `set_foreground()` or `SetWindowLongW` inside `set_rect`)
+    /// are queued asynchronously and may arrive after the switch
+    /// completes.  Checking a boolean guard is insufficient because
+    /// the flag is cleared before these deferred events are processed.
+    ///
+    /// Instead we record the `Instant` when the switch finishes and
+    /// suppress focus-triggered switches until a short cooldown
+    /// elapses, preventing infinite workspace-switching loops.
+    ws_switch_cooldown: Option<Instant>,
 }
 
 impl TilingManager {
@@ -123,7 +129,7 @@ impl TilingManager {
             applying_layout: false,
             hiding,
             hidden_by_switch: HashSet::new(),
-            switching_workspace: false,
+            ws_switch_cooldown: None,
         };
 
         for win in enumerate::enumerate_windows()? {

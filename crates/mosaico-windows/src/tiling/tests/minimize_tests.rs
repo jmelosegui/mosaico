@@ -38,7 +38,10 @@ fn minimize_focused_window_clears_focus() {
         }
     }
 
-    assert_eq!(focused_window, None, "focus should be cleared after minimizing the focused window");
+    assert_eq!(
+        focused_window, None,
+        "focus should be cleared after minimizing the focused window"
+    );
     assert!(!monitors[0].workspaces[0].contains(100));
 }
 
@@ -60,7 +63,11 @@ fn minimize_unfocused_window_preserves_focus() {
         }
     }
 
-    assert_eq!(focused_window, Some(200), "focus should remain on the other window");
+    assert_eq!(
+        focused_window,
+        Some(200),
+        "focus should remain on the other window"
+    );
     assert!(!monitors[0].workspaces[0].contains(100));
     assert!(monitors[0].workspaces[0].contains(200));
 }
@@ -105,6 +112,9 @@ fn minimize_ignores_window_on_inactive_workspace() {
         }
     }
 
-    assert!(!removed, "window on inactive workspace should not be removed");
+    assert!(
+        !removed,
+        "window on inactive workspace should not be removed"
+    );
     assert!(monitors[0].workspaces[1].contains(100));
 }
