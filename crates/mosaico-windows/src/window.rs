@@ -200,6 +200,20 @@ impl mosaico_core::Window for Window {
     }
 
     fn set_rect(&self, rect: &mosaico_core::Rect) -> WindowResult<()> {
+        // If the window is maximized, clear the WS_MAXIMIZE style first.
+        // SetWindowPos alone doesn't remove the style, leaving the window
+        // in a "maximized but tiled-sized" ghost state with wrong frame
+        // metrics (e.g. extra top border offset).
+        if self.is_maximized() {
+            use windows::Win32::UI::WindowsAndMessaging::{
+                GWL_STYLE, GetWindowLongW, SetWindowLongW, WS_MAXIMIZE,
+            };
+            unsafe {
+                let style = GetWindowLongW(self.hwnd, GWL_STYLE);
+                SetWindowLongW(self.hwnd, GWL_STYLE, style & !(WS_MAXIMIZE.0 as i32));
+            }
+        }
+
         // Compensate for invisible borders so the visible portion
         // lands exactly at the requested position and size.
         let border = frame::border_offset(self.hwnd)?;
