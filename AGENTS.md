@@ -149,7 +149,38 @@ Before asking the user to verify a feature or confirming it works:
   visibility, `debug list` for managed windows).
 - Check the daemon log file at `~/.config/mosaico/logs/mosaico.log` for
   errors or unexpected behaviour.
+- **Take screenshots** to visually validate window layout, borders, and
+  tiling behaviour (see below).
 - Only present the result to the user after confirming it works.
+
+## Screenshots
+
+Use `scripts/screenshot.ps1` to capture the screen and visually verify
+behaviour such as window tiling, border rendering, monocle mode, and
+workspace switching.
+
+```powershell
+# Capture the primary monitor (default) to a temp file:
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/screenshot.ps1
+
+# Capture the primary monitor to a specific path:
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/screenshot.ps1 -OutputPath path/to/output.png
+
+# Capture all monitors:
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/screenshot.ps1 -OutputPath path/to/output.png -Mode all
+```
+
+Parameters:
+- `-OutputPath` (optional) — Where to save the PNG. Defaults to
+  `$env:TEMP/mosaico_screenshot.png`. Parent directories are created
+  automatically.
+- `-Mode` (optional) — `primary` (default) captures only the primary
+  monitor. `all` captures the entire virtual screen across all monitors.
+
+The script writes the output path to stdout. After taking a screenshot,
+read the resulting image file to visually inspect the current desktop
+state. Integration tests use this same script (with `-Mode all`) to
+capture screenshots into `target/test-screenshots/`.
 
 ## Integration Tests
 

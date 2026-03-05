@@ -378,7 +378,7 @@ fn take_screenshot(name: &str) {
     let out_dir = workspace_root.join("target").join("test-screenshots");
     let out_path = out_dir.join(format!("{name}.png"));
 
-    let script = workspace_root.join("scripts").join("test_screenshot.ps1");
+    let script = workspace_root.join("scripts").join("screenshot.ps1");
 
     let status = Command::new("powershell")
         .args([
@@ -389,6 +389,8 @@ fn take_screenshot(name: &str) {
             &script.to_string_lossy(),
             "-OutputPath",
             &out_path.to_string_lossy(),
+            "-Mode",
+            "all",
         ])
         .status();
 
