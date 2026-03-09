@@ -14,19 +14,27 @@ const OBJID_WINDOW: i32 = 0;
 ///
 /// Returns `None` for events we don't care about (e.g. child object
 /// events, or event types not relevant to tiling).
+///
+/// Most events are filtered to `id_object == OBJID_WINDOW` so we only
+/// process top-level window events. However, some applications (notably
+/// WPF-based apps like Visual Studio) fire creation and name-change
+/// events with non-zero `id_object` for their main window. For those
+/// event types we skip the filter and let downstream handlers
+/// (`is_tileable`) decide whether the window is real.
 pub fn translate(event: u32, hwnd: HWND, id_object: i32) -> Option<WindowEvent> {
-    // Ignore events on child objects (scrollbars, buttons, etc.).
-    // We only care about top-level window events.
-    if id_object != OBJID_WINDOW {
-        return None;
-    }
-
+    let is_window = id_object == OBJID_WINDOW;
     let hwnd_val = hwnd.0 as usize;
 
     match event {
+        // Creation / show — relaxed filter for WPF compatibility.
         e if e == EVENT_OBJECT_SHOW || e == EVENT_OBJECT_CREATE => {
             Some(WindowEvent::Created { hwnd: hwnd_val })
         }
+        // Name change — relaxed filter so WPF windows are discovered
+        // when they set their title for the first time.
+        e if e == EVENT_OBJECT_NAMECHANGE => Some(WindowEvent::TitleChanged { hwnd: hwnd_val }),
+        // The remaining events are strict: only top-level windows.
+        _ if !is_window => None,
         e if e == EVENT_OBJECT_DESTROY || e == EVENT_OBJECT_HIDE => {
             Some(WindowEvent::Destroyed { hwnd: hwnd_val })
         }
@@ -34,7 +42,6 @@ pub fn translate(event: u32, hwnd: HWND, id_object: i32) -> Option<WindowEvent> 
         e if e == EVENT_SYSTEM_MOVESIZEEND => Some(WindowEvent::Moved { hwnd: hwnd_val }),
         e if e == EVENT_SYSTEM_MINIMIZESTART => Some(WindowEvent::Minimized { hwnd: hwnd_val }),
         e if e == EVENT_SYSTEM_MINIMIZEEND => Some(WindowEvent::Restored { hwnd: hwnd_val }),
-        e if e == EVENT_OBJECT_NAMECHANGE => Some(WindowEvent::TitleChanged { hwnd: hwnd_val }),
         e if e == EVENT_OBJECT_LOCATIONCHANGE => {
             Some(WindowEvent::LocationChanged { hwnd: hwnd_val })
         }

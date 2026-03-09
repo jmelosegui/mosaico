@@ -2,6 +2,7 @@
 
 use mosaico_core::window::Window as WindowTrait;
 
+use crate::frame;
 use crate::monitor;
 use crate::window::Window;
 
@@ -77,6 +78,39 @@ impl TilingManager {
             }
         }
         None
+    }
+
+    /// Adopts an untracked window into the tiling layout if it is tileable.
+    ///
+    /// Some applications (e.g. WPF-based apps like Visual Studio) never
+    /// fire EVENT_OBJECT_CREATE for their main window. This method is
+    /// called from fallback event handlers (TitleChanged, Focused) to
+    /// pick up windows that the Created handler missed.
+    pub(super) fn try_adopt(&mut self, hwnd: usize) {
+        if !self.is_tileable(hwnd) {
+            return;
+        }
+        let Some(idx) = self.monitor_index_for(hwnd) else {
+            return;
+        };
+        if !self.monitors[idx].active_ws_mut().add(hwnd) {
+            return;
+        }
+        let w = Window::from_raw(hwnd);
+        let title = w.title().unwrap_or_default();
+        let class = w.class().unwrap_or_default();
+        mosaico_core::log_info!(
+            "+adopt 0x{:X} [{}] \"{}\" on mon {} ws {} (now {})",
+            hwnd,
+            class,
+            title,
+            idx,
+            self.monitors[idx].active_workspace + 1,
+            self.monitors[idx].active_ws().len()
+        );
+        frame::set_corner_preference(w.hwnd(), self.border_config.corner_style);
+        self.apply_layout_on(idx);
+        self.update_border();
     }
 
     pub(super) fn close_focused(&mut self) {

@@ -175,10 +175,24 @@ impl TilingManager {
                     self.update_border();
                     self.focus_from_mouse = false;
                 }
-                // Unmanaged windows without a managed owner (Alt+Tab UI,
-                // shell, system dialogs) are ignored — the border stays
-                // on the last managed window so keyboard navigation
-                // keeps working.
+                // Window is not tracked and has no managed owner. It may
+                // be an app whose creation event was missed (e.g. WPF).
+                // Try to adopt it; if it's not tileable (Alt+Tab UI,
+                // shell, system dialogs) try_adopt will bail out and
+                // the border stays on the last managed window.
+                else {
+                    self.try_adopt(*hwnd);
+                }
+            }
+            WindowEvent::TitleChanged { hwnd } => {
+                // Some applications (notably WPF-based apps) do not fire
+                // EVENT_OBJECT_CREATE or EVENT_OBJECT_SHOW for their main
+                // window. They do, however, fire EVENT_OBJECT_NAMECHANGE
+                // once the window title is set. Use this as a fallback to
+                // discover windows that slipped past the Created handler.
+                if self.find_window(*hwnd).is_none() {
+                    self.try_adopt(*hwnd);
+                }
             }
             WindowEvent::MouseHover { hwnd } => {
                 if !self.is_managed_on_active_workspace(*hwnd) {
@@ -217,7 +231,6 @@ impl TilingManager {
             WindowEvent::DisplayChanged | WindowEvent::WorkAreaChanged => {
                 // Handled by the daemon loop, not here.
             }
-            _ => {}
         }
     }
 }
