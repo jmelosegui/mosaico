@@ -27,14 +27,14 @@ fn minimize_focused_window_clears_focus() {
 
     // Simulate the Minimized event handler for the focused window.
     let hwnd = 100;
-    if let Some((mon_idx, ws_idx)) = find_window_in(&monitors, hwnd) {
-        if ws_idx == monitors[mon_idx].active_workspace {
-            monitors[mon_idx].workspaces[ws_idx].remove(hwnd);
-            // The bug fix: clear focused_window when the minimized
-            // window was focused.
-            if focused_window == Some(hwnd) {
-                focused_window = None;
-            }
+    if let Some((mon_idx, ws_idx)) = find_window_in(&monitors, hwnd)
+        && ws_idx == monitors[mon_idx].active_workspace
+    {
+        monitors[mon_idx].workspaces[ws_idx].remove(hwnd);
+        // The bug fix: clear focused_window when the minimized
+        // window was focused.
+        if focused_window == Some(hwnd) {
+            focused_window = None;
         }
     }
 
@@ -54,12 +54,12 @@ fn minimize_unfocused_window_preserves_focus() {
 
     // Minimize window 100 while window 200 is focused.
     let hwnd = 100;
-    if let Some((mon_idx, ws_idx)) = find_window_in(&monitors, hwnd) {
-        if ws_idx == monitors[mon_idx].active_workspace {
-            monitors[mon_idx].workspaces[ws_idx].remove(hwnd);
-            if focused_window == Some(hwnd) {
-                focused_window = None;
-            }
+    if let Some((mon_idx, ws_idx)) = find_window_in(&monitors, hwnd)
+        && ws_idx == monitors[mon_idx].active_workspace
+    {
+        monitors[mon_idx].workspaces[ws_idx].remove(hwnd);
+        if focused_window == Some(hwnd) {
+            focused_window = None;
         }
     }
 
@@ -83,13 +83,12 @@ fn minimize_ignores_window_hidden_by_switch() {
     // workspace switch — should be ignored.
     let hwnd = 100;
     let mut removed = false;
-    if !hidden_by_switch.contains(&hwnd) {
-        if let Some((mon_idx, ws_idx)) = find_window_in(&monitors, hwnd) {
-            if ws_idx == monitors[mon_idx].active_workspace {
-                monitors[mon_idx].workspaces[ws_idx].remove(hwnd);
-                removed = true;
-            }
-        }
+    if !hidden_by_switch.contains(&hwnd)
+        && let Some((mon_idx, ws_idx)) = find_window_in(&monitors, hwnd)
+        && ws_idx == monitors[mon_idx].active_workspace
+    {
+        monitors[mon_idx].workspaces[ws_idx].remove(hwnd);
+        removed = true;
     }
 
     assert!(!removed, "window hidden by switch should not be removed");
@@ -105,11 +104,11 @@ fn minimize_ignores_window_on_inactive_workspace() {
     // Simulate the Minimized event — should only act on active workspace.
     let hwnd = 100;
     let mut removed = false;
-    if let Some((mon_idx, ws_idx)) = find_window_in(&monitors, hwnd) {
-        if ws_idx == monitors[mon_idx].active_workspace {
-            monitors[mon_idx].workspaces[ws_idx].remove(hwnd);
-            removed = true;
-        }
+    if let Some((mon_idx, ws_idx)) = find_window_in(&monitors, hwnd)
+        && ws_idx == monitors[mon_idx].active_workspace
+    {
+        monitors[mon_idx].workspaces[ws_idx].remove(hwnd);
+        removed = true;
     }
 
     assert!(

@@ -128,9 +128,9 @@ impl TilingManager {
                     // Suppress during the cooldown period after a workspace
                     // switch to prevent deferred Win32 focus events from
                     // triggering an infinite switching loop.
-                    if !self
+                    if self
                         .ws_switch_cooldown
-                        .is_some_and(|t| std::time::Instant::now() < t)
+                        .is_none_or(|t| std::time::Instant::now() >= t)
                         && let Some((mon_idx, ws_idx)) = self.find_window(*hwnd)
                         && ws_idx != self.monitors[mon_idx].active_workspace
                     {
