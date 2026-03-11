@@ -83,6 +83,7 @@ pub(super) fn handle_command(
             bar_mgr.update(&manager.bar_states(&get_update()));
             Some(Response::ok())
         }
+        Command::Inspect => Some(Response::ok_with_message(manager.inspect_state())),
     }
 }
 
