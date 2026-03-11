@@ -27,6 +27,35 @@ pub fn is_process_alive(pid: u32) -> bool {
     }
 }
 
+/// Returns whether the current process is running elevated (Administrator).
+///
+/// Called once at startup so the tiling manager knows whether to skip
+/// elevated windows (which cannot be repositioned via UIPI).
+pub fn is_current_process_elevated() -> bool {
+    use windows::Win32::Security::{GetTokenInformation, TokenElevation, TOKEN_ELEVATION, TOKEN_QUERY};
+    use windows::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
+
+    unsafe {
+        let mut token = windows::Win32::Foundation::HANDLE::default();
+        if OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token).is_err() {
+            return false;
+        }
+
+        let mut elevation = TOKEN_ELEVATION::default();
+        let mut returned = 0u32;
+        let ok = GetTokenInformation(
+            token,
+            TokenElevation,
+            Some(&mut elevation as *mut _ as *mut _),
+            std::mem::size_of::<TOKEN_ELEVATION>() as u32,
+            &mut returned,
+        );
+        let _ = CloseHandle(token);
+
+        ok.is_ok() && elevation.TokenIsElevated != 0
+    }
+}
+
 /// Forcibly terminates a process by PID.
 ///
 /// Used as a fallback when the daemon's IPC pipe is gone but the

@@ -92,6 +92,11 @@ pub struct TilingManager {
     /// suppress focus-triggered switches until a short cooldown
     /// elapses, preventing infinite workspace-switching loops.
     ws_switch_cooldown: Option<Instant>,
+    /// Whether the current process (mosaico) is running elevated.
+    ///
+    /// When `false`, elevated windows are skipped in `is_tileable`
+    /// because `SetWindowPos` silently fails across the UIPI boundary.
+    self_elevated: bool,
 }
 
 impl TilingManager {
@@ -114,6 +119,7 @@ impl TilingManager {
             .collect();
 
         let border = Border::new().ok();
+        let self_elevated = crate::process::is_current_process_elevated();
 
         let mut manager = Self {
             monitors,
@@ -130,6 +136,7 @@ impl TilingManager {
             hiding,
             hidden_by_switch: HashSet::new(),
             ws_switch_cooldown: None,
+            self_elevated,
         };
 
         for win in enumerate::enumerate_windows()? {
