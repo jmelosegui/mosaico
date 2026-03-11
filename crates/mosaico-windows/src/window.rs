@@ -136,6 +136,50 @@ impl Window {
         }
     }
 
+    /// Returns whether the process owning this window is running elevated (Administrator).
+    ///
+    /// Used to skip windows that mosaico cannot reposition due to UIPI
+    /// when running as a regular user. Returns `false` on any failure
+    /// (can't query → assume not elevated → attempt to manage it).
+    pub fn is_elevated(&self) -> bool {
+        use windows::Win32::Foundation::CloseHandle;
+        use windows::Win32::Security::{GetTokenInformation, TokenElevation, TOKEN_ELEVATION, TOKEN_QUERY};
+        use windows::Win32::System::Threading::{OpenProcess, OpenProcessToken, PROCESS_QUERY_LIMITED_INFORMATION};
+        use windows::Win32::UI::WindowsAndMessaging::GetWindowThreadProcessId;
+
+        unsafe {
+            let mut pid = 0u32;
+            GetWindowThreadProcessId(self.hwnd, Some(&mut pid));
+            if pid == 0 {
+                return false;
+            }
+
+            let Ok(process) = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) else {
+                return false;
+            };
+
+            let mut token = windows::Win32::Foundation::HANDLE::default();
+            let token_ok = OpenProcessToken(process, TOKEN_QUERY, &mut token);
+            let _ = CloseHandle(process);
+            if token_ok.is_err() {
+                return false;
+            }
+
+            let mut elevation = TOKEN_ELEVATION::default();
+            let mut returned = 0u32;
+            let info_ok = GetTokenInformation(
+                token,
+                TokenElevation,
+                Some(&mut elevation as *mut _ as *mut _),
+                std::mem::size_of::<TOKEN_ELEVATION>() as u32,
+                &mut returned,
+            );
+            let _ = CloseHandle(token);
+
+            info_ok.is_ok() && elevation.TokenIsElevated != 0
+        }
+    }
+
     /// Returns whether this looks like a real application window.
     ///
     /// Checks for a caption bar (`WS_CAPTION`), rejects tool windows

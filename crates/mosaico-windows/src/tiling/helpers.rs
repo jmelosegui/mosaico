@@ -14,6 +14,11 @@ impl TilingManager {
         if !window.is_visible() || !window.is_app_window() {
             return false;
         }
+        // When mosaico runs as a regular user, SetWindowPos silently fails
+        // on windows owned by elevated processes (UIPI). Skip them.
+        if !self.self_elevated && window.is_elevated() {
+            return false;
+        }
         let class = window.class().unwrap_or_default();
         let title = window.title().unwrap_or_default();
         mosaico_core::config::should_manage(&class, &title, &self.rules)
