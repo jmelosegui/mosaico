@@ -14,6 +14,8 @@ pub enum Command {
     Status,
     /// Execute a tiling action (focus, swap, retile, etc.).
     Action { action: Action },
+    /// Dump the daemon's internal workspace state for debugging.
+    Inspect,
 }
 
 /// A response sent from the daemon back to the CLI.

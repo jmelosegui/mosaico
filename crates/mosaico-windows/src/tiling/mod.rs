@@ -173,6 +173,59 @@ impl TilingManager {
             .sum()
     }
 
+    /// Returns a formatted dump of the daemon's internal workspace state.
+    pub fn inspect_state(&self) -> String {
+        use std::fmt::Write;
+
+        let mut out = String::new();
+
+        for (mi, mon) in self.monitors.iter().enumerate() {
+            let _ = writeln!(
+                out,
+                "Monitor {} (id={}, work_area={}x{}+{}+{}, active_ws={}):",
+                mi,
+                mon.id,
+                mon.work_area.width,
+                mon.work_area.height,
+                mon.work_area.x,
+                mon.work_area.y,
+                mon.active_workspace + 1,
+            );
+
+            for (wi, ws) in mon.workspaces.iter().enumerate() {
+                if ws.is_empty() {
+                    continue;
+                }
+                let _ = writeln!(
+                    out,
+                    "  Workspace {} ({} window{}):",
+                    wi + 1,
+                    ws.len(),
+                    if ws.len() == 1 { "" } else { "s" },
+                );
+                for &hwnd in ws.handles() {
+                    let win = crate::window::Window::from_raw(hwnd);
+                    let title = mosaico_core::Window::title(&win).unwrap_or_default();
+                    let class = mosaico_core::Window::class(&win).unwrap_or_default();
+                    let visible = mosaico_core::Window::is_visible(&win);
+                    let _ = writeln!(
+                        out,
+                        "    0x{:X}  visible={}  class={:?}  title={:?}",
+                        hwnd, visible, class, title,
+                    );
+                }
+            }
+        }
+
+        let _ = writeln!(out, "Focused monitor: {}", self.focused_monitor);
+        let _ = match self.focused_window {
+            Some(h) => writeln!(out, "Focused window: 0x{:X}", h),
+            None => writeln!(out, "Focused window: None"),
+        };
+
+        out
+    }
+
     /// Returns a snapshot of bar state for each monitor.
     pub fn bar_states(&self, update_text: &str) -> Vec<BarState> {
         self.monitors

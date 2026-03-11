@@ -111,6 +111,8 @@ enum DebugCommands {
     Events,
     /// Move a window to a specific position and size
     Move(commands::debug::move_window::MoveArgs),
+    /// Dump the daemon's internal workspace state
+    State,
 }
 
 #[derive(Subcommand)]
@@ -164,6 +166,7 @@ fn main() {
             DebugCommands::List => commands::debug::list::execute(),
             DebugCommands::Events => commands::debug::events::execute(),
             DebugCommands::Move(args) => commands::debug::move_window::execute(&args),
+            DebugCommands::State => commands::debug::state::execute(),
         },
     }
 }
