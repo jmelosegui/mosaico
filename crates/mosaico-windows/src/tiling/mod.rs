@@ -215,10 +215,17 @@ impl TilingManager {
                     let title = mosaico_core::Window::title(&win).unwrap_or_default();
                     let class = mosaico_core::Window::class(&win).unwrap_or_default();
                     let visible = mosaico_core::Window::is_visible(&win);
+                    let minimized = win.is_minimized();
+                    let cloaked = win.is_cloaked();
+                    let rect = mosaico_core::Window::rect(&win).ok();
+                    let rect_str = match rect {
+                        Some(r) => format!("{}x{}+{}+{}", r.width, r.height, r.x, r.y),
+                        None => "N/A".to_string(),
+                    };
                     let _ = writeln!(
                         out,
-                        "    0x{:X}  visible={}  class={:?}  title={:?}",
-                        hwnd, visible, class, title,
+                        "    0x{:X}  visible={}  minimized={}  cloaked={}  rect={}  class={:?}  title={:?}",
+                        hwnd, visible, minimized, cloaked, rect_str, class, title,
                     );
                 }
             }

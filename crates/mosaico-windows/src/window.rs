@@ -136,11 +136,32 @@ impl Window {
         }
     }
 
+    /// Returns whether the window is cloaked by the OS (e.g. suspended UWP apps).
+    ///
+    /// `IsWindowVisible` returns `true` for OS-cloaked windows, so this
+    /// check is needed to avoid allocating layout slots for invisible
+    /// UWP windows like a suspended Settings app.
+    pub fn is_cloaked(&self) -> bool {
+        use windows::Win32::Graphics::Dwm::{DWMWA_CLOAKED, DwmGetWindowAttribute};
+
+        let mut cloaked: u32 = 0;
+        let result = unsafe {
+            DwmGetWindowAttribute(
+                self.hwnd,
+                DWMWA_CLOAKED,
+                &mut cloaked as *mut u32 as *mut _,
+                std::mem::size_of::<u32>() as u32,
+            )
+        };
+        result.is_ok() && cloaked != 0
+    }
+
     /// Returns whether the process owning this window is running elevated (Administrator).
     ///
     /// Used to skip windows that mosaico cannot reposition due to UIPI
-    /// when running as a regular user. Returns `false` on any failure
-    /// (can't query → assume not elevated → attempt to manage it).
+    /// when running as a regular user. When `OpenProcessToken` fails
+    /// (access denied across the UIPI boundary), assumes elevated —
+    /// if we can't query the token we can't control the window either.
     pub fn is_elevated(&self) -> bool {
         use windows::Win32::Foundation::CloseHandle;
         use windows::Win32::Security::{GetTokenInformation, TokenElevation, TOKEN_ELEVATION, TOKEN_QUERY};
@@ -162,7 +183,9 @@ impl Window {
             let token_ok = OpenProcessToken(process, TOKEN_QUERY, &mut token);
             let _ = CloseHandle(process);
             if token_ok.is_err() {
-                return false;
+                // Can open the process but not its token → elevation
+                // mismatch. We can't control this window either.
+                return true;
             }
 
             let mut elevation = TOKEN_ELEVATION::default();
