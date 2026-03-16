@@ -1,7 +1,6 @@
 //! Event handling for the tiling manager.
 
 use mosaico_core::WindowEvent;
-use mosaico_core::window::Window as WindowTrait;
 
 use crate::frame;
 use crate::window::Window;
@@ -12,42 +11,32 @@ impl TilingManager {
     /// Handles a window event and re-tiles the affected monitor.
     pub fn handle_event(&mut self, event: &WindowEvent) {
         match event {
-            WindowEvent::Created { hwnd } | WindowEvent::Restored { hwnd } => {
+            WindowEvent::Created { hwnd } => {
                 if !self.is_tileable(*hwnd) {
                     return;
                 }
-                // Place new windows on the focused monitor so they appear
-                // where the user is working, not wherever the OS spawns them.
-                let idx = self.focused_monitor;
-                if self.monitors.get(idx).is_some() && self.monitors[idx].active_ws_mut().add(*hwnd)
-                {
-                    let w = Window::from_raw(*hwnd);
-                    let title = w.title().unwrap_or_default();
-                    let class = w.class().unwrap_or_default();
-                    mosaico_core::log_info!(
-                        "+add 0x{:X} [{}] \"{}\" to mon {} ws {} (now {})",
-                        hwnd,
-                        class,
-                        title,
-                        idx,
-                        self.monitors[idx].active_workspace + 1,
-                        self.monitors[idx].active_ws().len()
-                    );
-                    frame::set_corner_preference(w.hwnd(), self.border_config.corner_style);
-                    // Focus the new window before layout so monocle
-                    // mode sizes the correct window.
-                    self.focused_window = Some(*hwnd);
-                    // In monocle mode the newest window becomes the
-                    // monocle target so it fills the work area.
-                    if self.monitors[idx].active_ws().monocle() {
-                        self.monitors[idx]
-                            .active_ws_mut()
-                            .set_monocle_window(Some(*hwnd));
-                    }
-                    self.apply_layout_on(idx);
+                // Skip windows already managed in any workspace. WPF apps
+                // (e.g. Visual Studio) fire spurious EVENT_OBJECT_SHOW from
+                // child elements; without this guard the window gets added
+                // to every workspace that happens to be active at the time.
+                if self.find_window(*hwnd).is_some() {
+                    return;
+                }
+                self.add_and_focus(*hwnd);
+            }
+            WindowEvent::Restored { hwnd } => {
+                if !self.is_tileable(*hwnd) {
+                    return;
+                }
+                // If the window was already re-adopted (e.g. by a Focused
+                // event that fired before this Restored event during
+                // Alt+Tab), just focus it instead of bailing out.
+                if self.find_window(*hwnd).is_some() {
                     self.focus_from_mouse = false;
                     self.focus_and_update_border(*hwnd);
+                    return;
                 }
+                self.add_and_focus(*hwnd);
             }
             WindowEvent::Destroyed { hwnd } => {
                 // EVENT_OBJECT_HIDE also maps here. Skip windows we hid

@@ -11,7 +11,7 @@ use super::TilingManager;
 impl TilingManager {
     pub(super) fn is_tileable(&self, hwnd: usize) -> bool {
         let window = Window::from_raw(hwnd);
-        if !window.is_visible() || !window.is_app_window() {
+        if !window.is_visible() || !window.is_app_window() || window.is_cloaked() {
             return false;
         }
         // When mosaico runs as a regular user, SetWindowPos silently fails
@@ -116,6 +116,43 @@ impl TilingManager {
         frame::set_corner_preference(w.hwnd(), self.border_config.corner_style);
         self.apply_layout_on(idx);
         self.update_border();
+    }
+
+    /// Adds a window to the focused monitor's active workspace and focuses it.
+    ///
+    /// Shared by the `Created` and `Restored` event handlers.
+    pub(super) fn add_and_focus(&mut self, hwnd: usize) {
+        // Place new windows on the focused monitor so they appear
+        // where the user is working, not wherever the OS spawns them.
+        let idx = self.focused_monitor;
+        if self.monitors.get(idx).is_some() && self.monitors[idx].active_ws_mut().add(hwnd) {
+            let w = Window::from_raw(hwnd);
+            let title = w.title().unwrap_or_default();
+            let class = w.class().unwrap_or_default();
+            mosaico_core::log_info!(
+                "+add 0x{:X} [{}] \"{}\" to mon {} ws {} (now {})",
+                hwnd,
+                class,
+                title,
+                idx,
+                self.monitors[idx].active_workspace + 1,
+                self.monitors[idx].active_ws().len()
+            );
+            frame::set_corner_preference(w.hwnd(), self.border_config.corner_style);
+            // Focus the new window before layout so monocle
+            // mode sizes the correct window.
+            self.focused_window = Some(hwnd);
+            // In monocle mode the newest window becomes the
+            // monocle target so it fills the work area.
+            if self.monitors[idx].active_ws().monocle() {
+                self.monitors[idx]
+                    .active_ws_mut()
+                    .set_monocle_window(Some(hwnd));
+            }
+            self.apply_layout_on(idx);
+            self.focus_from_mouse = false;
+            self.focus_and_update_border(hwnd);
+        }
     }
 
     pub(super) fn close_focused(&mut self) {
