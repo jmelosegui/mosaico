@@ -87,8 +87,11 @@ impl TilingManager {
     /// Removes handles from the workspace that are no longer valid windows.
     ///
     /// Some windows (especially UWP and WinUI apps) may close without
-    /// firing a reliable `EVENT_OBJECT_DESTROY`. This ensures stale
-    /// handles don't leave phantom slots in the layout.
+    /// firing a reliable `EVENT_OBJECT_DESTROY`. Similarly, a window may
+    /// be minimized without firing `EVENT_SYSTEM_MINIMIZESTART` (e.g. it
+    /// was minimized before being adopted, or the event was lost). This
+    /// ensures stale or minimized handles don't leave phantom slots in
+    /// the layout.
     fn prune_stale_handles(&mut self, monitor_idx: usize) {
         let Some(state) = self.monitors.get_mut(monitor_idx) else {
             return;
@@ -98,10 +101,14 @@ impl TilingManager {
             .handles()
             .iter()
             .copied()
-            .filter(|&hwnd| !Window::from_raw(hwnd).is_visible())
+            .filter(|&hwnd| {
+                let w = Window::from_raw(hwnd);
+                !w.is_visible() || w.is_minimized()
+            })
             .collect();
-        for hwnd in stale {
-            state.active_ws_mut().remove(hwnd);
+        for hwnd in &stale {
+            state.active_ws_mut().remove(*hwnd);
+            mosaico_core::log_info!("-prune 0x{:X} (stale or minimized)", hwnd);
         }
     }
 }
