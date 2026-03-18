@@ -12,6 +12,11 @@ pub struct Workspace {
     monocle: bool,
     /// The window shown fullscreen in monocle mode.
     monocle_window: Option<usize>,
+    /// The last focused window on this workspace.
+    ///
+    /// Saved when switching away, restored when switching back so the
+    /// user returns to the window they were working on.
+    last_focused: Option<usize>,
 }
 
 impl Workspace {
@@ -21,6 +26,7 @@ impl Workspace {
             handles: Vec::new(),
             monocle: false,
             monocle_window: None,
+            last_focused: None,
         }
     }
 
@@ -42,6 +48,16 @@ impl Workspace {
     /// Sets the monocle window handle.
     pub fn set_monocle_window(&mut self, value: Option<usize>) {
         self.monocle_window = value;
+    }
+
+    /// Returns the last focused window on this workspace.
+    pub fn last_focused(&self) -> Option<usize> {
+        self.last_focused
+    }
+
+    /// Sets the last focused window on this workspace.
+    pub fn set_last_focused(&mut self, value: Option<usize>) {
+        self.last_focused = value;
     }
 
     /// Adds a window to the end of the workspace.
@@ -74,6 +90,9 @@ impl Workspace {
     pub fn remove(&mut self, hwnd: usize) -> bool {
         if let Some(pos) = self.handles.iter().position(|&h| h == hwnd) {
             self.handles.remove(pos);
+            if self.last_focused == Some(hwnd) {
+                self.last_focused = None;
+            }
             true
         } else {
             false
