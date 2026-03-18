@@ -217,6 +217,7 @@ impl TilingManager {
                     let visible = mosaico_core::Window::is_visible(&win);
                     let minimized = win.is_minimized();
                     let cloaked = win.is_cloaked();
+                    let elevated = win.is_elevated();
                     let rect = mosaico_core::Window::rect(&win).ok();
                     let rect_str = match rect {
                         Some(r) => format!("{}x{}+{}+{}", r.width, r.height, r.x, r.y),
@@ -224,13 +225,14 @@ impl TilingManager {
                     };
                     let _ = writeln!(
                         out,
-                        "    0x{:X}  visible={}  minimized={}  cloaked={}  rect={}  class={:?}  title={:?}",
-                        hwnd, visible, minimized, cloaked, rect_str, class, title,
+                        "    0x{:X}  visible={}  minimized={}  cloaked={}  elevated={}  rect={}  class={:?}  title={:?}",
+                        hwnd, visible, minimized, cloaked, elevated, rect_str, class, title,
                     );
                 }
             }
         }
 
+        let _ = writeln!(out, "Self elevated: {}", self.self_elevated);
         let _ = writeln!(out, "Focused monitor: {}", self.focused_monitor);
         let _ = match self.focused_window {
             Some(h) => writeln!(out, "Focused window: 0x{:X}", h),

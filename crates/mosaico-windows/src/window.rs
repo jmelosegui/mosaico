@@ -176,7 +176,9 @@ impl Window {
             }
 
             let Ok(process) = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) else {
-                return false;
+                // Cannot open the process — assume elevated so we don't
+                // add an uncontrollable window to the tiling layout.
+                return true;
             };
 
             let mut token = windows::Win32::Foundation::HANDLE::default();
