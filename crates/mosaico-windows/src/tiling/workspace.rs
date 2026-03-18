@@ -35,9 +35,14 @@ impl TilingManager {
 
         self.ws_switch_cooldown = Some(Instant::now() + WS_SWITCH_COOLDOWN);
 
+        // Remember which window was focused before leaving.
+        self.monitors[mon_idx]
+            .active_ws_mut()
+            .set_last_focused(self.focused_window);
+
         // Hide current workspace windows. Only guard with
         // hidden_by_switch for strategies that fire events.
-        for &hwnd in mon.active_ws().handles() {
+        for &hwnd in self.monitors[mon_idx].active_ws().handles() {
             if self.hiding != HidingBehaviour::Cloak {
                 self.hidden_by_switch.insert(hwnd);
             }
@@ -64,15 +69,19 @@ impl TilingManager {
 
         self.apply_layout_on(mon_idx);
 
-        // When returning to a monocle workspace, restore focus to the
-        // remembered monocle window instead of the first in the list.
+        // Restore focus to the last focused window on this workspace.
+        // In monocle mode, prefer the monocle window. Fall back to the
+        // first window if the remembered window is no longer present.
         let ws = self.monitors[mon_idx].active_ws();
         let target = if ws.monocle() {
             ws.monocle_window()
                 .filter(|&h| ws.contains(h))
+                .or_else(|| ws.last_focused().filter(|&h| ws.contains(h)))
                 .or_else(|| ws.handles().first().copied())
         } else {
-            ws.handles().first().copied()
+            ws.last_focused()
+                .filter(|&h| ws.contains(h))
+                .or_else(|| ws.handles().first().copied())
         };
 
         if let Some(hwnd) = target {
