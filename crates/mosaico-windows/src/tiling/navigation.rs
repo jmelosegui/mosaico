@@ -145,6 +145,7 @@ impl TilingManager {
         self.apply_layout_on(target);
         self.focused_monitor = target;
         self.update_border();
+        self.move_cursor_to_focused();
     }
 
     /// Swaps two windows by workspace index, re-tiles, and updates the border.
@@ -154,6 +155,7 @@ impl TilingManager {
             .swap(a, b);
         self.apply_layout_on(self.focused_monitor);
         self.update_border();
+        self.move_cursor_to_focused();
     }
 
     // helper methods live in navigation_helpers.rs
