@@ -45,6 +45,8 @@ enum Commands {
         #[command(subcommand)]
         action: ActionCommands,
     },
+    /// Show the animated mosaico banner
+    Banner,
     /// Debugging and inspection tools
     Debug {
         #[command(subcommand)]
@@ -148,6 +150,7 @@ fn main() {
             AutostartCommands::Disable => commands::autostart::disable(),
             AutostartCommands::Status => commands::autostart::status(),
         },
+        Commands::Banner => commands::banner::execute(),
         Commands::Update { force } => commands::update::execute(force),
         Commands::Daemon => commands::daemon::execute(),
         Commands::Action { action } => {
