@@ -4,20 +4,24 @@ use crate::bar_manager::BarManager;
 use crate::monitor;
 use crate::tiling::TilingManager;
 
+/// Processes a single event. Returns `true` if the bar should be refreshed.
+///
+/// Bar updates are deferred to the caller so the bar is only refreshed
+/// once per batch instead of after every individual event.
 pub(super) fn handle_event(
     event: mosaico_core::WindowEvent,
     manager: &mut TilingManager,
     bar_mgr: &mut BarManager,
     current_theme: &mut mosaico_core::config::Theme,
-    get_update: &dyn Fn() -> String,
-) {
+    _get_update: &dyn Fn() -> String,
+) -> bool {
     match event {
         mosaico_core::WindowEvent::WorkAreaChanged => {
             mosaico_core::log_info!("Work area changed (taskbar shown/hidden)");
             let bar_height = bar_mgr.bar_height();
             let indices = bar_mgr.bar_monitor_indices().to_vec();
             manager.reset_and_adjust_work_areas(bar_height, &indices);
-            bar_mgr.update(&manager.bar_states(&get_update()));
+            true
         }
         mosaico_core::WindowEvent::DisplayChanged => match monitor::enumerate_monitors() {
             Ok(new_monitors) => {
@@ -32,20 +36,18 @@ pub(super) fn handle_event(
                     .map(|m| m.work_area)
                     .collect();
                 bar_mgr.rebuild_for_monitors(monitor_rects, *current_theme);
-                bar_mgr.update(&manager.bar_states(&get_update()));
+                true
             }
             Err(e) => {
                 mosaico_core::log_info!("Failed to re-enumerate monitors: {}", e);
+                false
             }
         },
         other => {
             manager.handle_event(&other);
             // LocationChanged fires very frequently — only the
             // tiling manager needs it (for maximize detection).
-            // Skip bar updates to avoid unnecessary redraws.
-            if !matches!(other, mosaico_core::WindowEvent::LocationChanged { .. }) {
-                bar_mgr.update(&manager.bar_states(&get_update()));
-            }
+            !matches!(other, mosaico_core::WindowEvent::LocationChanged { .. })
         }
     }
 }

@@ -97,6 +97,13 @@ pub struct TilingManager {
     /// When `false`, elevated windows are skipped in `is_tileable`
     /// because `SetWindowPos` silently fails across the UIPI boundary.
     self_elevated: bool,
+    /// Windows that `try_adopt` already rejected via `is_tileable`.
+    ///
+    /// Prevents re-evaluating expensive Win32 queries (visibility,
+    /// elevation, class, title) on every deferred event for windows
+    /// that will never be managed (e.g. elevated Visual Studio).
+    /// Cleared on rule reload; entries removed on `Destroyed`.
+    adopt_rejected: HashSet<usize>,
 }
 
 impl TilingManager {
@@ -137,6 +144,7 @@ impl TilingManager {
             hidden_by_switch: HashSet::new(),
             ws_switch_cooldown: None,
             self_elevated,
+            adopt_rejected: HashSet::new(),
         };
 
         for win in enumerate::enumerate_windows()? {

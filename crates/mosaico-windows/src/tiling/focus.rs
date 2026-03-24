@@ -78,6 +78,15 @@ impl TilingManager {
             g: 0xB4,
             b: 0xD8,
         });
+        mosaico_core::log_debug!(
+            "border.show 0x{:X} at ({},{} {}x{}) mon={}",
+            hwnd,
+            rect.x,
+            rect.y,
+            rect.width,
+            rect.height,
+            self.focused_monitor
+        );
         border.show(
             &rect,
             color,

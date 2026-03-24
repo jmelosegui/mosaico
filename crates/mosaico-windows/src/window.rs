@@ -2,7 +2,8 @@ use mosaico_core::{Rect, WindowResult};
 
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::{
-    GetWindowTextLengthW, GetWindowTextW, IsWindowVisible, RealGetWindowClassW, SWP_FRAMECHANGED,
+    GetWindowTextLengthW, GetWindowTextW, IsWindow, IsWindowVisible, RealGetWindowClassW,
+    SWP_FRAMECHANGED,
     SWP_NOACTIVATE, SWP_NOCOPYBITS, SWP_NOSENDCHANGING, SWP_NOZORDER, SetWindowPos,
 };
 
@@ -108,6 +109,11 @@ impl Window {
         unsafe {
             let _ = ShowWindow(self.hwnd, SW_SHOW);
         }
+    }
+
+    /// Returns whether the window handle is still valid (the window exists).
+    pub fn is_valid(&self) -> bool {
+        unsafe { IsWindow(Some(self.hwnd)).as_bool() }
     }
 
     /// Returns whether this window is maximized.

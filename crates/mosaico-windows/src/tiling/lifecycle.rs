@@ -66,6 +66,7 @@ impl TilingManager {
     /// longer be managed under the new rule set.
     pub fn reload_rules(&mut self, rules: Vec<WindowRule>) {
         self.rules = rules;
+        self.adopt_rejected.clear();
         self.remove_newly_unmanaged();
     }
 

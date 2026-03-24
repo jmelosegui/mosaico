@@ -98,6 +98,9 @@ impl TilingManager {
     /// called from fallback event handlers (TitleChanged, Focused) to
     /// pick up windows that the Created handler missed.
     pub(super) fn try_adopt(&mut self, hwnd: usize) {
+        // Don't use adopt_rejected here — try_adopt is called from
+        // TitleChanged (relaxed id_object filter) where child element
+        // events share the parent hwnd and would poison the cache.
         if !self.is_tileable(hwnd) {
             return;
         }
@@ -121,7 +124,6 @@ impl TilingManager {
         );
         frame::set_corner_preference(w.hwnd(), self.border_config.corner_style);
         self.apply_layout_on(idx);
-        self.update_border();
     }
 
     /// Adds a window to the focused monitor's active workspace and focuses it.

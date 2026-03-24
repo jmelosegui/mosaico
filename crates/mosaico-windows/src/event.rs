@@ -35,9 +35,8 @@ pub fn translate(event: u32, hwnd: HWND, id_object: i32) -> Option<WindowEvent> 
         e if e == EVENT_OBJECT_NAMECHANGE => Some(WindowEvent::TitleChanged { hwnd: hwnd_val }),
         // The remaining events are strict: only top-level windows.
         _ if !is_window => None,
-        e if e == EVENT_OBJECT_DESTROY || e == EVENT_OBJECT_HIDE => {
-            Some(WindowEvent::Destroyed { hwnd: hwnd_val })
-        }
+        e if e == EVENT_OBJECT_DESTROY => Some(WindowEvent::Destroyed { hwnd: hwnd_val }),
+        e if e == EVENT_OBJECT_HIDE => Some(WindowEvent::Hidden { hwnd: hwnd_val }),
         e if e == EVENT_SYSTEM_FOREGROUND => Some(WindowEvent::Focused { hwnd: hwnd_val }),
         e if e == EVENT_SYSTEM_MOVESIZEEND => Some(WindowEvent::Moved { hwnd: hwnd_val }),
         e if e == EVENT_SYSTEM_MINIMIZESTART => Some(WindowEvent::Minimized { hwnd: hwnd_val }),

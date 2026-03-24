@@ -40,14 +40,14 @@ impl TilingManager {
             .active_ws_mut()
             .set_last_focused(self.focused_window);
 
-        // Hide current workspace windows. Only guard with
-        // hidden_by_switch for strategies that fire events.
-        for &hwnd in self.monitors[mon_idx].active_ws().handles() {
-            if self.hiding != HidingBehaviour::Cloak {
-                self.hidden_by_switch.insert(hwnd);
-            }
-            self.hide_window(hwnd);
-        }
+        // Collect the previous workspace's handles so we can hide them
+        // AFTER the target workspace's window is foregrounded. Hiding
+        // first would leave the old foreground window cloaked, and DWM
+        // may auto-uncloak it during rapid switching if no new window
+        // takes foreground before the next switch.
+        let prev_handles: Vec<usize> =
+            self.monitors[mon_idx].active_ws().handles().to_vec();
+        let prev_ws = self.monitors[mon_idx].active_workspace;
 
         // Switch active workspace.
         self.monitors[mon_idx].active_workspace = idx;
@@ -59,13 +59,6 @@ impl TilingManager {
             }
             self.show_window(hwnd);
         }
-
-        mosaico_core::log_info!(
-            "goto-workspace {} on mon {} ({} windows)",
-            n,
-            mon_idx,
-            self.monitors[mon_idx].active_ws().len()
-        );
 
         self.apply_layout_on(mon_idx);
 
@@ -90,6 +83,24 @@ impl TilingManager {
             self.focused_window = None;
             self.update_border();
         }
+
+        // Now hide the previous workspace's windows. Doing this AFTER
+        // focusing the target window ensures the foreground has moved
+        // away, preventing DWM from auto-uncloaking the old window.
+        for &hwnd in &prev_handles {
+            if self.hiding != HidingBehaviour::Cloak {
+                self.hidden_by_switch.insert(hwnd);
+            }
+            self.hide_window(hwnd);
+        }
+
+        mosaico_core::log_debug!(
+            "goto-workspace {} on mon {} (from ws {}, {} windows)",
+            n,
+            mon_idx,
+            prev_ws + 1,
+            self.monitors[mon_idx].active_ws().len()
+        );
     }
 
     /// Sends the focused window to workspace `n` (1-indexed) on the

@@ -13,6 +13,13 @@ pub enum WindowEvent {
     /// A window was destroyed or closed.
     Destroyed { hwnd: usize },
 
+    /// A window was hidden (EVENT_OBJECT_HIDE) but not necessarily destroyed.
+    ///
+    /// GPU-accelerated apps (e.g. Zed, browsers) may fire HIDE when
+    /// recreating their rendering surface. The handler should verify the
+    /// window is truly gone before removing it from the layout.
+    Hidden { hwnd: usize },
+
     /// A window received keyboard focus.
     Focused { hwnd: usize },
 
@@ -50,6 +57,7 @@ impl WindowEvent {
         match self {
             Self::Created { hwnd }
             | Self::Destroyed { hwnd }
+            | Self::Hidden { hwnd }
             | Self::Focused { hwnd }
             | Self::MouseHover { hwnd }
             | Self::Moved { hwnd }
@@ -66,6 +74,7 @@ impl WindowEvent {
         match self {
             Self::Created { .. } => "Created",
             Self::Destroyed { .. } => "Destroyed",
+            Self::Hidden { .. } => "Hidden",
             Self::Focused { .. } => "Focused",
             Self::MouseHover { .. } => "MouseHover",
             Self::Moved { .. } => "Moved",

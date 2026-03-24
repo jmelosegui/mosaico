@@ -19,11 +19,19 @@ mod event_loop_message_pump;
 #[path = "event_loop_win_event.rs"]
 mod event_loop_win_event;
 
-/// Minimum event code we listen for (EVENT_SYSTEM_FOREGROUND = 0x0003).
-const EVENT_MIN: u32 = 0x0003;
+/// System event range: FOREGROUND (0x0003) through MINIMIZEEND (0x0017).
+///
+/// Covers: EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_MOVESIZEEND,
+/// EVENT_SYSTEM_MINIMIZESTART, EVENT_SYSTEM_MINIMIZEEND.
+const SYSTEM_EVENT_MIN: u32 = 0x0003;
+const SYSTEM_EVENT_MAX: u32 = 0x0017;
 
-/// Maximum event code we listen for (EVENT_OBJECT_NAMECHANGE = 0x800C).
-const EVENT_MAX: u32 = 0x800C;
+/// Object event range: CREATE (0x8000) through NAMECHANGE (0x800C).
+///
+/// Covers: EVENT_OBJECT_CREATE, EVENT_OBJECT_DESTROY, EVENT_OBJECT_SHOW,
+/// EVENT_OBJECT_HIDE, EVENT_OBJECT_LOCATIONCHANGE, EVENT_OBJECT_NAMECHANGE.
+const OBJECT_EVENT_MIN: u32 = 0x8000;
+const OBJECT_EVENT_MAX: u32 = 0x800C;
 
 // Thread-local sender for the WinEvent callback.
 thread_local! {
@@ -51,22 +59,36 @@ pub fn start(
 
         let thread_id = unsafe { windows::Win32::System::Threading::GetCurrentThreadId() };
 
-        // SAFETY: SetWinEventHook registers our callback for system-wide
-        // window events. WINEVENT_OUTOFCONTEXT means the callback runs in
-        // our process. WINEVENT_SKIPOWNPROCESS ignores our own windows.
-        let hook = unsafe {
+        let flags = WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS;
+
+        // Use two targeted hooks instead of one broad range (0x0003–0x800C)
+        // to avoid receiving thousands of irrelevant events in the gap
+        // (0x0018–0x7FFF) that translate() would just discard. Under heavy
+        // system load this noise can starve the message pump.
+        let hook_system = unsafe {
             SetWinEventHook(
-                EVENT_MIN,
-                EVENT_MAX,
+                SYSTEM_EVENT_MIN,
+                SYSTEM_EVENT_MAX,
                 None,
                 Some(event_loop_win_event::win_event_proc),
                 0,
                 0,
-                WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS,
+                flags,
+            )
+        };
+        let hook_object = unsafe {
+            SetWinEventHook(
+                OBJECT_EVENT_MIN,
+                OBJECT_EVENT_MAX,
+                None,
+                Some(event_loop_win_event::win_event_proc),
+                0,
+                0,
+                flags,
             )
         };
 
-        if hook.is_invalid() {
+        if hook_system.is_invalid() || hook_object.is_invalid() {
             let _ = ready_tx.send(Err("Failed to set WinEvent hook".to_string()));
             return;
         }
@@ -92,7 +114,8 @@ pub fn start(
         drop(hotkeys);
 
         unsafe {
-            let _ = UnhookWinEvent(hook);
+            let _ = UnhookWinEvent(hook_system);
+            let _ = UnhookWinEvent(hook_object);
         }
     });
 

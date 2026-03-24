@@ -12,6 +12,11 @@ impl TilingManager {
     pub fn handle_event(&mut self, event: &WindowEvent) {
         match event {
             WindowEvent::Created { hwnd } => {
+                // Don't use adopt_rejected here — Created events come
+                // through a relaxed id_object filter (for WPF compat)
+                // so child element SHOW events share the parent hwnd
+                // and would poison the cache before the real window is
+                // ready.
                 if !self.is_tileable(*hwnd) {
                     return;
                 }
@@ -25,7 +30,11 @@ impl TilingManager {
                 self.add_and_focus(*hwnd);
             }
             WindowEvent::Restored { hwnd } => {
+                if self.adopt_rejected.contains(hwnd) {
+                    return;
+                }
                 if !self.is_tileable(*hwnd) {
+                    self.adopt_rejected.insert(*hwnd);
                     return;
                 }
                 // If the window was already re-adopted (e.g. by a Focused
@@ -39,60 +48,29 @@ impl TilingManager {
                 self.add_and_focus(*hwnd);
             }
             WindowEvent::Destroyed { hwnd } => {
-                // EVENT_OBJECT_HIDE also maps here. Skip windows we hid
-                // programmatically during a workspace switch.
+                self.adopt_rejected.remove(hwnd);
+                frame::reset_corner_preference(Window::from_raw(*hwnd).hwnd());
+                self.remove_from_tiling(*hwnd, "del", false);
+            }
+            WindowEvent::Hidden { hwnd } => {
                 if self.hidden_by_switch.contains(hwnd) {
                     return;
                 }
-                // Truly destroyed — clean up from any workspace.
-                if let Some((mon_idx, ws_idx)) = self.find_window(*hwnd) {
-                    frame::reset_corner_preference(Window::from_raw(*hwnd).hwnd());
-                    self.monitors[mon_idx].workspaces[ws_idx].remove(*hwnd);
-                    mosaico_core::log_info!(
-                        "-del 0x{:X} from mon {} ws {} (now {})",
-                        hwnd,
-                        mon_idx,
-                        ws_idx + 1,
-                        self.monitors[mon_idx].workspaces[ws_idx].len()
+                if Window::from_raw(*hwnd).is_valid() {
+                    mosaico_core::log_debug!(
+                        "hide-ignored 0x{:X} (window still valid)",
+                        hwnd
                     );
-                    // Clear monocle if the monocle window was destroyed.
-                    if self.monitors[mon_idx].workspaces[ws_idx].monocle()
-                        && self.monitors[mon_idx].workspaces[ws_idx].monocle_window() == Some(*hwnd)
-                    {
-                        self.monitors[mon_idx].workspaces[ws_idx].set_monocle(false);
-                        self.monitors[mon_idx].workspaces[ws_idx].set_monocle_window(None);
-                    }
-                    if ws_idx == self.monitors[mon_idx].active_workspace {
-                        self.apply_layout_on(mon_idx);
-                    }
+                    return;
                 }
+                frame::reset_corner_preference(Window::from_raw(*hwnd).hwnd());
+                self.remove_from_tiling(*hwnd, "hide", false);
             }
             WindowEvent::Minimized { hwnd } => {
-                // Programmatic minimize from workspace switch — ignore.
                 if self.hidden_by_switch.contains(hwnd) {
                     return;
                 }
-                // Only remove from the active workspace. Windows on
-                // non-active workspaces are hidden by workspace switching
-                // and must not be pruned.
-                if let Some((mon_idx, ws_idx)) = self.find_window(*hwnd)
-                    && ws_idx == self.monitors[mon_idx].active_workspace
-                {
-                    self.monitors[mon_idx].workspaces[ws_idx].remove(*hwnd);
-                    mosaico_core::log_info!(
-                        "-min 0x{:X} from mon {} ws {} (now {})",
-                        hwnd,
-                        mon_idx,
-                        ws_idx + 1,
-                        self.monitors[mon_idx].workspaces[ws_idx].len()
-                    );
-                    self.apply_layout_on(mon_idx);
-                    // Clear focus and hide border if the minimized window was focused.
-                    if self.focused_window == Some(*hwnd) {
-                        self.focused_window = None;
-                        self.update_border();
-                    }
-                }
+                self.remove_from_tiling(*hwnd, "min", true);
             }
             WindowEvent::Moved { hwnd } => {
                 if !self.applying_layout {
@@ -117,18 +95,33 @@ impl TilingManager {
                     // Suppress during the cooldown period after a workspace
                     // switch to prevent deferred Win32 focus events from
                     // triggering an infinite switching loop.
-                    if self
-                        .ws_switch_cooldown
-                        .is_none_or(|t| std::time::Instant::now() >= t)
-                        && let Some((mon_idx, ws_idx)) = self.find_window(*hwnd)
-                        && ws_idx != self.monitors[mon_idx].active_workspace
-                    {
-                        self.focused_monitor = mon_idx;
-                        self.goto_workspace((ws_idx + 1) as u8);
-                        // goto_workspace focuses the first window; refocus
-                        // the one the user actually clicked.
-                        self.focus_from_mouse = true;
-                        self.focus_and_update_border(*hwnd);
+                    // Is this window on a non-active workspace?
+                    let off_active = self
+                        .find_window(*hwnd)
+                        .is_some_and(|(mi, wi)| wi != self.monitors[mi].active_workspace);
+
+                    if off_active {
+                        if self
+                            .ws_switch_cooldown
+                            .is_none_or(|t| std::time::Instant::now() >= t)
+                        {
+                            // Outside cooldown: the user clicked a hidden
+                            // window's taskbar icon — switch to its workspace.
+                            if let Some((mon_idx, ws_idx)) = self.find_window(*hwnd) {
+                                self.focused_monitor = mon_idx;
+                                self.goto_workspace((ws_idx + 1) as u8);
+                                self.focus_from_mouse = true;
+                                self.focus_and_update_border(*hwnd);
+                            }
+                        } else {
+                            // Inside cooldown: stale deferred focus event
+                            // from a previous workspace switch — ignore it
+                            // to prevent corrupting the focused state.
+                            mosaico_core::log_debug!(
+                                "focus-suppressed 0x{:X} (off-workspace, cooldown active)",
+                                hwnd
+                            );
+                        }
                         return;
                     }
                     self.focus_from_mouse = true;
@@ -220,6 +213,46 @@ impl TilingManager {
             WindowEvent::DisplayChanged | WindowEvent::WorkAreaChanged => {
                 // Handled by the daemon loop, not here.
             }
+        }
+    }
+
+    /// Removes a window from the tiling layout, clears focus/monocle state
+    /// if needed, and retiles the affected monitor.
+    ///
+    /// When `active_only` is true, only removes the window if it is on the
+    /// active workspace (used by Minimized to avoid pruning windows hidden
+    /// by workspace switching).
+    fn remove_from_tiling(&mut self, hwnd: usize, reason: &str, active_only: bool) {
+        let Some((mon_idx, ws_idx)) = self.find_window(hwnd) else {
+            return;
+        };
+        if active_only && ws_idx != self.monitors[mon_idx].active_workspace {
+            return;
+        }
+
+        self.monitors[mon_idx].workspaces[ws_idx].remove(hwnd);
+        mosaico_core::log_info!(
+            "-{} 0x{:X} from mon {} ws {} (now {})",
+            reason,
+            hwnd,
+            mon_idx,
+            ws_idx + 1,
+            self.monitors[mon_idx].workspaces[ws_idx].len()
+        );
+
+        if self.monitors[mon_idx].workspaces[ws_idx].monocle()
+            && self.monitors[mon_idx].workspaces[ws_idx].monocle_window() == Some(hwnd)
+        {
+            self.monitors[mon_idx].workspaces[ws_idx].set_monocle(false);
+            self.monitors[mon_idx].workspaces[ws_idx].set_monocle_window(None);
+        }
+
+        if self.focused_window == Some(hwnd) {
+            self.focused_window = None;
+        }
+
+        if ws_idx == self.monitors[mon_idx].active_workspace {
+            self.apply_layout_on(mon_idx);
         }
     }
 }

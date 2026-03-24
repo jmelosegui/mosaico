@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::mpsc;
 
 use mosaico_core::BspLayout;
@@ -99,52 +100,92 @@ pub(super) fn daemon_loop() -> WindowResult<()> {
     // 1-second tick for bar system widget refresh (clock, RAM).
     let tick_thread = daemon_threads::spawn_tick_thread(tx.clone(), watcher_stop.clone());
 
-    // Main processing loop — blocks until a message arrives.
-    while let Ok(msg) = rx.recv() {
-        match msg {
-            DaemonMsg::Event(event) => {
-                daemon_loop_handlers::handle_event(
-                    event,
-                    &mut manager,
-                    &mut bar_mgr,
-                    &mut current_theme,
-                    &get_update,
-                );
-            }
-            DaemonMsg::Action(action) => {
-                daemon_loop_handlers::handle_action(
-                    action,
-                    &mut manager,
-                    &mut bar_mgr,
-                    &get_update,
-                );
-            }
-            DaemonMsg::Command(command, reply_tx) => {
-                if let Some(response) = daemon_loop_handlers::handle_command(
-                    &command,
-                    &mut manager,
-                    &mut bar_mgr,
-                    &get_update,
-                ) {
-                    let _ = reply_tx.send(response);
-                    if matches!(command, Command::Stop) {
-                        break;
+    // Main processing loop.
+    //
+    // Actions (hotkeys), commands, reloads, and ticks are always
+    // processed before window events so that keyboard shortcuts
+    // remain responsive even when the event queue is flooded.
+    let mut events = Vec::new();
+    let mut should_stop = false;
+
+    while !should_stop {
+        // Block until at least one message arrives.
+        let first = match rx.recv() {
+            Ok(msg) => msg,
+            Err(_) => break,
+        };
+
+        // Drain all queued messages so we can prioritise.
+        events.clear();
+        let mut batch = vec![first];
+        while let Ok(msg) = rx.try_recv() {
+            batch.push(msg);
+        }
+
+        // Process priority messages (actions, commands, reloads, ticks)
+        // first, deferring window events.
+        for msg in batch {
+            match msg {
+                DaemonMsg::Event(event) => events.push(event),
+                DaemonMsg::Action(action) => {
+                    daemon_loop_handlers::handle_action(
+                        action,
+                        &mut manager,
+                        &mut bar_mgr,
+                        &get_update,
+                    );
+                }
+                DaemonMsg::Command(command, reply_tx) => {
+                    if let Some(response) = daemon_loop_handlers::handle_command(
+                        &command,
+                        &mut manager,
+                        &mut bar_mgr,
+                        &get_update,
+                    ) {
+                        let _ = reply_tx.send(response);
+                        if matches!(command, Command::Stop) {
+                            should_stop = true;
+                        }
                     }
                 }
+                DaemonMsg::Reload(reload) => {
+                    daemon_loop_handlers::handle_reload(
+                        *reload,
+                        &mut manager,
+                        &mut bar_mgr,
+                        &mut current_theme,
+                        &event_loop,
+                        &get_update,
+                    );
+                }
+                DaemonMsg::Tick => {
+                    daemon_loop_handlers::handle_tick(
+                        &mut manager,
+                        &mut bar_mgr,
+                        &get_update,
+                    );
+                }
             }
-            DaemonMsg::Reload(reload) => {
-                daemon_loop_handlers::handle_reload(
-                    *reload,
-                    &mut manager,
-                    &mut bar_mgr,
-                    &mut current_theme,
-                    &event_loop,
-                    &get_update,
-                );
-            }
-            DaemonMsg::Tick => {
-                daemon_loop_handlers::handle_tick(&mut manager, &mut bar_mgr, &get_update);
-            }
+        }
+
+        // Deduplicate events before processing. LocationChanged and
+        // TitleChanged fire very frequently; only the last per hwnd
+        // matters. This can collapse hundreds of events into a handful.
+        dedup_events(&mut events);
+
+        // Process deferred window events, then refresh the bar once.
+        let mut needs_bar_update = false;
+        for event in events.drain(..) {
+            needs_bar_update |= daemon_loop_handlers::handle_event(
+                event,
+                &mut manager,
+                &mut bar_mgr,
+                &mut current_theme,
+                &get_update,
+            );
+        }
+        if needs_bar_update {
+            bar_mgr.update(&manager.bar_states(&get_update()));
         }
     }
 
@@ -161,4 +202,46 @@ pub(super) fn daemon_loop() -> WindowResult<()> {
     let _ = ipc_thread.join();
 
     Ok(())
+}
+
+/// Collapses duplicate high-frequency events in a batch.
+///
+/// `LocationChanged` and `TitleChanged` fire many times per second for the
+/// same window. Only the last occurrence per hwnd is meaningful — earlier
+/// ones would just do redundant work. Other event types preserve order and
+/// are never dropped because their side-effects are not idempotent.
+fn dedup_events(events: &mut Vec<mosaico_core::WindowEvent>) {
+    use mosaico_core::WindowEvent;
+
+    if events.len() <= 1 {
+        return;
+    }
+
+    // Track the last index of each dedupable (hwnd, variant) pair.
+    let mut last_seen: HashMap<(usize, u8), usize> = HashMap::new();
+
+    for (i, ev) in events.iter().enumerate() {
+        let key = match ev {
+            WindowEvent::LocationChanged { hwnd } => (*hwnd, 0u8),
+            WindowEvent::TitleChanged { hwnd } => (*hwnd, 1),
+            _ => continue, // non-dedupable
+        };
+        last_seen.insert(key, i);
+    }
+
+    if last_seen.is_empty() {
+        return;
+    }
+
+    // Keep an event if it's non-dedupable OR the last of its kind.
+    let mut i = 0;
+    events.retain(|ev| {
+        let dominated = match ev {
+            WindowEvent::LocationChanged { hwnd } => last_seen.get(&(*hwnd, 0)) != Some(&i),
+            WindowEvent::TitleChanged { hwnd } => last_seen.get(&(*hwnd, 1)) != Some(&i),
+            _ => false,
+        };
+        i += 1;
+        !dominated
+    });
 }

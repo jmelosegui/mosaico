@@ -24,14 +24,12 @@ impl TilingManager {
             ws.set_monocle_window(None);
         }
         self.apply_layout_on(idx);
-        self.update_border();
     }
 
     pub(super) fn retile_all(&mut self) {
         for i in 0..self.monitors.len() {
             self.apply_layout_on(i);
         }
-        self.update_border();
     }
 
     pub(super) fn apply_layout_on(&mut self, monitor_idx: usize) {
@@ -63,6 +61,7 @@ impl TilingManager {
                 }
                 window.invalidate();
                 self.applying_layout = false;
+                self.update_border();
                 return;
             }
         }
@@ -82,6 +81,7 @@ impl TilingManager {
             window.invalidate();
         }
         self.applying_layout = false;
+        self.update_border();
     }
 
     /// Removes handles from the workspace that are no longer valid windows.
