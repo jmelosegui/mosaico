@@ -1,8 +1,23 @@
 # Mosaico
 
-A cross-platform tiling window manager, written in Rust.
+A fast, configurable tiling window manager for Windows, written in Rust.
+
+<!-- TODO: Replace with an actual screen recording (GIF or MP4) showing mosaico in action -->
+<!-- ![mosaico demo](docs/assets/demo.gif) -->
 
 **Documentation:** [jmelosegui.com/mosaico](https://jmelosegui.com/mosaico/)
+
+## Features
+
+- Automatic tiling with configurable layouts (BSP, monocle)
+- Vim-style keybindings out of the box
+- Hot-reload for config and window rules — no restart needed
+- Per-app rules to exclude windows from tiling
+- Colored window borders to identify the focused window
+- Status bar with CPU, RAM, and active window widgets
+- Multi-monitor support
+- One-line install, zero dependencies
+- Built-in `doctor` command to diagnose setup issues
 
 ## Installation
 
