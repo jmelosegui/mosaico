@@ -1,13 +1,18 @@
 /// A rectangle representing a window's position and size.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Rect {
+    /// Left edge (pixels).
     pub x: i32,
+    /// Top edge (pixels).
     pub y: i32,
+    /// Width (pixels).
     pub width: i32,
+    /// Height (pixels).
     pub height: i32,
 }
 
 impl Rect {
+    /// Creates a new rectangle.
     pub fn new(x: i32, y: i32, width: i32, height: i32) -> Self {
         Self {
             x,

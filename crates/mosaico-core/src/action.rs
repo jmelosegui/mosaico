@@ -6,9 +6,13 @@ use serde::{Deserialize, Serialize};
 /// Spatial direction for focus and move actions.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Direction {
+    /// Left.
     Left,
+    /// Right.
     Right,
+    /// Up.
     Up,
+    /// Down.
     Down,
 }
 

@@ -51,6 +51,8 @@ pub fn watch(tx: Sender<ConfigReload>, stop: Arc<AtomicBool>) {
     let dir_str = HSTRING::from(dir.as_os_str());
     let flags = FILE_NOTIFY_CHANGE_LAST_WRITE | FILE_NOTIFY_CHANGE_FILE_NAME;
 
+    // SAFETY: FindFirstChangeNotificationW creates a change notification
+    // handle for the config directory. The HSTRING is valid for the call.
     let handle = unsafe { FindFirstChangeNotificationW(&dir_str, false, flags) };
     let Ok(handle) = handle else {
         mosaico_core::log_info!("FindFirstChangeNotificationW failed, watcher exiting");
@@ -58,6 +60,8 @@ pub fn watch(tx: Sender<ConfigReload>, stop: Arc<AtomicBool>) {
     };
 
     while !stop.load(Ordering::Relaxed) {
+        // SAFETY: WaitForSingleObject blocks until the config directory
+        // changes or the timeout expires. The handle is valid (checked above).
         let result = unsafe { WaitForSingleObject(handle, WAIT_TIMEOUT_MS) };
         if stop.load(Ordering::Relaxed) {
             break;
@@ -78,9 +82,11 @@ pub fn watch(tx: Sender<ConfigReload>, stop: Arc<AtomicBool>) {
             break; // sender dropped
         }
 
+        // SAFETY: FindNextChangeNotification re-arms the change handle.
         let _ = unsafe { FindNextChangeNotification(handle) };
     }
 
+    // SAFETY: FindCloseChangeNotification closes the change handle on exit.
     let _ = unsafe { FindCloseChangeNotification(handle) };
 }
 

@@ -79,6 +79,7 @@ impl Window {
     /// Hides the window without destroying it.
     pub fn hide(&self) {
         use windows::Win32::UI::WindowsAndMessaging::{SW_HIDE, ShowWindow};
+        // SAFETY: ShowWindow is safe to call with a valid HWND.
         unsafe {
             let _ = ShowWindow(self.hwnd, SW_HIDE);
         }
@@ -87,6 +88,7 @@ impl Window {
     /// Shows a previously hidden window.
     pub fn show(&self) {
         use windows::Win32::UI::WindowsAndMessaging::{SW_SHOWNOACTIVATE, ShowWindow};
+        // SAFETY: ShowWindow is safe to call with a valid HWND.
         unsafe {
             let _ = ShowWindow(self.hwnd, SW_SHOWNOACTIVATE);
         }
@@ -95,6 +97,7 @@ impl Window {
     /// Minimizes the window.
     pub fn minimize(&self) {
         use windows::Win32::UI::WindowsAndMessaging::{SW_MINIMIZE, ShowWindow};
+        // SAFETY: ShowWindow is safe to call with a valid HWND.
         unsafe {
             let _ = ShowWindow(self.hwnd, SW_MINIMIZE);
         }
@@ -106,6 +109,7 @@ impl Window {
     /// ensuring Windows fully restores the window's visibility state.
     pub fn force_show(&self) {
         use windows::Win32::UI::WindowsAndMessaging::{SW_SHOW, ShowWindow};
+        // SAFETY: ShowWindow is safe to call with a valid HWND.
         unsafe {
             let _ = ShowWindow(self.hwnd, SW_SHOW);
         }
@@ -113,18 +117,21 @@ impl Window {
 
     /// Returns whether the window handle is still valid (the window exists).
     pub fn is_valid(&self) -> bool {
+        // SAFETY: IsWindow is a read-only query on a valid HWND.
         unsafe { IsWindow(Some(self.hwnd)).as_bool() }
     }
 
     /// Returns whether this window is maximized.
     pub fn is_maximized(&self) -> bool {
         use windows::Win32::UI::WindowsAndMessaging::IsZoomed;
+        // SAFETY: IsZoomed is a read-only query on a valid HWND.
         unsafe { IsZoomed(self.hwnd).as_bool() }
     }
 
     /// Returns whether this window is minimized (iconic).
     pub fn is_minimized(&self) -> bool {
         use windows::Win32::UI::WindowsAndMessaging::IsIconic;
+        // SAFETY: IsIconic is a read-only query on a valid HWND.
         unsafe { IsIconic(self.hwnd).as_bool() }
     }
 
@@ -134,6 +141,7 @@ impl Window {
     /// spawned by an application's main window.
     pub fn owner(&self) -> Option<usize> {
         use windows::Win32::UI::WindowsAndMessaging::{GW_OWNER, GetWindow};
+        // SAFETY: GetWindow with GW_OWNER is a read-only query on a valid HWND.
         unsafe {
             GetWindow(self.hwnd, GW_OWNER)
                 .ok()
@@ -151,6 +159,7 @@ impl Window {
         use windows::Win32::Graphics::Dwm::{DWMWA_CLOAKED, DwmGetWindowAttribute};
 
         let mut cloaked: u32 = 0;
+        // SAFETY: DwmGetWindowAttribute reads a DWM property into a caller-owned buffer.
         let result = unsafe {
             DwmGetWindowAttribute(
                 self.hwnd,
@@ -178,6 +187,8 @@ impl Window {
         };
         use windows::Win32::UI::WindowsAndMessaging::GetWindowThreadProcessId;
 
+        // SAFETY: Queries the process token elevation via standard Win32 APIs.
+        // All handles (process, token) are closed before returning.
         unsafe {
             let mut pid = 0u32;
             GetWindowThreadProcessId(self.hwnd, Some(&mut pid));
@@ -232,6 +243,7 @@ impl Window {
             WS_EX_DLGMODALFRAME, WS_EX_TOOLWINDOW,
         };
 
+        // SAFETY: GetWindowLongPtrW and GetWindow are read-only queries on a valid HWND.
         unsafe {
             let style = GetWindowLongPtrW(self.hwnd, GWL_STYLE) as u32;
             let ex_style = GetWindowLongPtrW(self.hwnd, GWL_EXSTYLE) as u32;
@@ -287,6 +299,7 @@ impl mosaico_core::Window for Window {
             use windows::Win32::UI::WindowsAndMessaging::{
                 GWL_STYLE, GetWindowLongW, SetWindowLongW, WS_MAXIMIZE,
             };
+            // SAFETY: GetWindowLongW/SetWindowLongW clear WS_MAXIMIZE on a valid HWND.
             unsafe {
                 let style = GetWindowLongW(self.hwnd, GWL_STYLE);
                 SetWindowLongW(self.hwnd, GWL_STYLE, style & !(WS_MAXIMIZE.0 as i32));

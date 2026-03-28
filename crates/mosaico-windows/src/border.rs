@@ -71,6 +71,8 @@ fn ensure_class_registered() {
             lpszClassName: PCWSTR(CLASS_NAME.as_ptr()),
             ..Default::default()
         };
+        // SAFETY: RegisterClassW is called once (guarded by Once) to
+        // register the border window class with a valid WNDCLASSW.
         unsafe {
             RegisterClassW(&wc);
         }
@@ -83,6 +85,7 @@ unsafe extern "system" fn border_wnd_proc(
     wparam: WPARAM,
     lparam: LPARAM,
 ) -> LRESULT {
+    // SAFETY: DefWindowProcW is the default handler required by WNDPROC.
     unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) }
 }
 
@@ -92,6 +95,9 @@ impl Border {
         ensure_class_registered();
 
         let ex = WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT;
+        // SAFETY: CreateWindowExW creates a layered popup window using the
+        // class registered above. The class name pointer is valid for the
+        // lifetime of the process.
         let hwnd = unsafe {
             CreateWindowExW(
                 ex,
@@ -131,6 +137,9 @@ impl Border {
         // Match the target window's topmost state, then place the border
         // just behind it so the border is visible around the window but
         // never covers it or other windows that should be in front.
+        // SAFETY: GetWindowLongPtrW reads the extended style of the target
+        // window to determine whether it is topmost. The HWND is provided
+        // by the caller (the focused window).
         let target_topmost = unsafe {
             let ex = GetWindowLongPtrW(target, GWL_EXSTYLE) as u32;
             (ex & WS_EX_TOPMOST.0) != 0
@@ -141,6 +150,9 @@ impl Border {
             HWND_NOTOPMOST
         };
 
+        // SAFETY: SetWindowPos repositions the border overlay. The border
+        // HWND is owned by this struct and the target HWND is the caller's
+        // focused window.
         unsafe {
             // First set the topmost/non-topmost band.
             let _ = SetWindowPos(
@@ -170,6 +182,7 @@ impl Border {
 
     /// Hides the border.
     pub fn hide(&self) {
+        // SAFETY: ShowWindow hides the border overlay owned by this struct.
         unsafe {
             let _ = ShowWindow(self.hwnd, SW_HIDE);
         }
@@ -182,6 +195,9 @@ impl Border {
             return;
         }
 
+        // SAFETY: This block creates a temporary memory DC + DIB section,
+        // renders the border pixels, and calls UpdateLayeredWindow to apply
+        // the bitmap atomically. All GDI handles are released before return.
         unsafe {
             let screen_dc = GetDC(None);
             let mem_dc = CreateCompatibleDC(Some(screen_dc));
@@ -291,6 +307,8 @@ fn in_rounded_rect(lx: i32, ly: i32, w: i32, h: i32, r: i32) -> bool {
 
 impl Drop for Border {
     fn drop(&mut self) {
+        // SAFETY: DestroyWindow cleans up the border overlay. The HWND
+        // is exclusively owned by this struct and not used after drop.
         unsafe {
             let _ = DestroyWindow(self.hwnd);
         }

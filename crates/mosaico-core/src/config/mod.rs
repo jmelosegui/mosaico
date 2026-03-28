@@ -1,10 +1,18 @@
+/// Status bar configuration.
 pub mod bar;
+/// Keybinding definitions and defaults.
 pub mod keybinding;
+/// Configuration file loading and path resolution.
 mod loader;
+/// Color palette definitions for themes.
 mod palette;
+/// Window management rules.
 pub mod rules;
+/// Default configuration file templates.
 pub mod template;
+/// Theme resolution and color schemes.
 pub mod theme;
+/// Shared configuration types.
 pub mod types;
 
 use serde::{Deserialize, Serialize};

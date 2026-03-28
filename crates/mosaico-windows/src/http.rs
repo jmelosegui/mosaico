@@ -32,6 +32,8 @@ impl Handle {
 impl Drop for Handle {
     fn drop(&mut self) {
         if !self.0.is_null() {
+            // SAFETY: WinHttpCloseHandle closes a WinHTTP handle. The
+            // pointer is non-null (checked above) and exclusively owned.
             unsafe {
                 let _ = WinHttpCloseHandle(self.0);
             }
@@ -44,6 +46,11 @@ impl Drop for Handle {
 /// `timeout_ms` applies independently to each WinHTTP phase (resolve,
 /// connect, send, receive).  Returns `Err` on any network or protocol
 /// failure; callers should treat errors as non-fatal.
+///
+/// # Errors
+///
+/// Returns `Err` on connection failure, HTTP error, timeout, or if the
+/// response body is not valid UTF-8.
 pub fn get(host: &str, path: &str, timeout_ms: i32) -> Result<String, String> {
     let bytes = get_bytes(host, path, timeout_ms)?;
     String::from_utf8(bytes).map_err(|e| e.to_string())
@@ -56,11 +63,19 @@ pub fn get(host: &str, path: &str, timeout_ms: i32) -> Result<String, String> {
 /// WinHTTP follows redirects automatically, so GitHub release asset
 /// downloads (which redirect to `objects.githubusercontent.com`) work
 /// transparently.
+///
+/// # Errors
+///
+/// Returns `Err` on connection failure, HTTP error, or timeout.
 pub fn get_bytes(host: &str, path: &str, timeout_ms: i32) -> Result<Vec<u8>, String> {
     let agent = to_wide(concat!("mosaico/", env!("CARGO_PKG_VERSION")));
     let host_w = to_wide(host);
     let path_w = to_wide(path);
 
+    // SAFETY: WinHTTP session/connect/request handles are opened in
+    // sequence and wrapped in RAII Handle structs that call
+    // WinHttpCloseHandle on drop. All wide-string pointers are valid
+    // for the duration of each call.
     unsafe {
         let session = Handle::new(WinHttpOpen(
             PCWSTR(agent.as_ptr()),
@@ -111,6 +126,9 @@ unsafe fn read_body(request: *mut c_void) -> Result<Vec<u8>, String> {
     let mut body = Vec::new();
     loop {
         let mut available: u32 = 0;
+        // SAFETY: WinHttpQueryDataAvailable and WinHttpReadData operate
+        // on the open request handle. The buffer is freshly allocated
+        // with sufficient capacity for the available byte count.
         unsafe {
             WinHttpQueryDataAvailable(request, &mut available)
                 .map_err(|e| e.message().to_string())?;
@@ -120,6 +138,7 @@ unsafe fn read_body(request: *mut c_void) -> Result<Vec<u8>, String> {
         }
         let mut buf = vec![0u8; available as usize];
         let mut read: u32 = 0;
+        // SAFETY: WinHttpReadData reads into a buffer of sufficient size.
         unsafe {
             WinHttpReadData(request, buf.as_mut_ptr().cast(), available, &mut read)
                 .map_err(|e| e.message().to_string())?;

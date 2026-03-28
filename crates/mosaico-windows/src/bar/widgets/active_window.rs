@@ -56,6 +56,8 @@ pub fn draw(ctx: &mut DrawCtx, x: i32, config: &BarConfig, hwnd: Option<usize>) 
     let iy = pill_y + (pill_h - icon_sz) / 2;
     render_icon(ctx, hicon, ix, iy, icon_sz);
 
+    // SAFETY: DestroyIcon releases the icon handle obtained from
+    // SHGetFileInfoW. Called after the icon has been rendered.
     unsafe {
         let _ = DestroyIcon(hicon);
     }
@@ -67,6 +69,8 @@ pub fn draw(ctx: &mut DrawCtx, x: i32, config: &BarConfig, hwnd: Option<usize>) 
 /// Resolves HWND -> PID -> exe path -> shell icon.
 fn extract_icon(hwnd: usize) -> Option<HICON> {
     let mut pid: u32 = 0;
+    // SAFETY: GetWindowThreadProcessId queries the PID for a window
+    // handle. The HWND is provided by the tiling manager's focus state.
     unsafe { GetWindowThreadProcessId(HWND(hwnd as *mut _), Some(&mut pid)) };
     if pid == 0 {
         return None;
@@ -76,6 +80,8 @@ fn extract_icon(hwnd: usize) -> Option<HICON> {
 
 /// Returns the executable path for a process ID.
 fn exe_path(pid: u32) -> Option<String> {
+    // SAFETY: OpenProcess opens a handle to query the module filename.
+    // The handle is closed immediately after use via CloseHandle.
     unsafe {
         let h = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, false, pid).ok()?;
         let mut buf = [0u16; 1024];
@@ -91,7 +97,10 @@ fn exe_path(pid: u32) -> Option<String> {
 /// Gets a large shell icon for the given executable path.
 fn shell_icon(path: &str) -> Option<HICON> {
     let wide: Vec<u16> = OsStr::new(path).encode_wide().chain(Some(0)).collect();
+    // SAFETY: mem::zeroed is safe for SHFILEINFOW (plain-old-data).
+    // SHGetFileInfoW retrieves a shell icon for the given executable path.
     let mut info: SHFILEINFOW = unsafe { mem::zeroed() };
+    // SAFETY: SHGetFileInfoW retrieves a shell icon for the executable.
     let ok = unsafe {
         SHGetFileInfoW(
             PCWSTR(wide.as_ptr()),
@@ -110,6 +119,8 @@ fn shell_icon(path: &str) -> Option<HICON> {
 
 /// Queries the HICON for its native pixel width. Falls back to 32.
 fn native_icon_size(hicon: HICON) -> i32 {
+    // SAFETY: GetIconInfo and GetObjectW query icon metadata. Bitmap
+    // handles from ICONINFO are freed via DeleteObject before returning.
     unsafe {
         let mut ii: ICONINFO = mem::zeroed();
         if GetIconInfo(hicon, &mut ii).is_err() {
@@ -140,6 +151,8 @@ fn native_icon_size(hicon: HICON) -> i32 {
 
 /// Renders an HICON into the bar buffer via DrawIconEx + temp DIB.
 fn render_icon(ctx: &mut DrawCtx, hicon: HICON, x: i32, y: i32, size: i32) {
+    // SAFETY: Creates a temp DC + DIB, draws the icon via DrawIconEx,
+    // composites the pixels into the bar buffer, and frees all handles.
     unsafe {
         let dc = CreateCompatibleDC(None);
         let bmi = BITMAPINFO {

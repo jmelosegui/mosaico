@@ -45,6 +45,10 @@ thread_local! {
 /// do not receive broadcast messages. Instead we create a regular hidden
 /// window with `WS_EX_TOOLWINDOW` to keep it out of the taskbar.
 pub(crate) fn create_event_sink(focus_follows_mouse: bool) -> Option<HWND> {
+    // SAFETY: Registers a window class and creates a hidden popup window
+    // for receiving broadcast messages (WM_DISPLAYCHANGE, WM_SETTINGCHANGE)
+    // and timer ticks. All Win32 calls use valid parameters; the HWND is
+    // checked before use.
     unsafe {
         let class_name = w!("MosaicoEventSink");
         let wc = WNDCLASSW {
@@ -97,6 +101,8 @@ pub(crate) fn create_event_sink(focus_follows_mouse: bool) -> Option<HWND> {
 }
 
 pub(crate) fn destroy_event_sink(hwnd: HWND, focus_follows_mouse: bool) {
+    // SAFETY: KillTimer and DestroyWindow are called with the HWND
+    // created by create_event_sink. The caller ensures the HWND is valid.
     unsafe {
         if focus_follows_mouse {
             let _ = KillTimer(Some(hwnd), FOCUS_FOLLOWS_MOUSE_TIMER_ID);
@@ -107,6 +113,8 @@ pub(crate) fn destroy_event_sink(hwnd: HWND, focus_follows_mouse: bool) {
 
 pub(crate) fn toggle_focus_follows_mouse(hwnd: HWND, enabled: bool) {
     let flag = if enabled { 1 } else { 0 };
+    // SAFETY: PostMessageW sends a message to the event sink window.
+    // The HWND was created by create_event_sink on the event loop thread.
     unsafe {
         let _ = PostMessageW(
             Some(hwnd),
@@ -141,6 +149,8 @@ pub(crate) unsafe extern "system" fn event_sink_proc(
         });
     } else if msg == FOCUS_FOLLOWS_MOUSE_TOGGLE_MSG {
         if wparam.0 == 1 {
+            // SAFETY: SetTimer starts the focus-follows-mouse polling timer
+            // on the event sink window owned by this thread.
             unsafe {
                 let _ = SetTimer(
                     Some(hwnd),
@@ -150,6 +160,8 @@ pub(crate) unsafe extern "system" fn event_sink_proc(
                 );
             }
         } else {
+            // SAFETY: KillTimer stops the focus-follows-mouse timer on
+            // the event sink window owned by this thread.
             unsafe {
                 let _ = KillTimer(Some(hwnd), FOCUS_FOLLOWS_MOUSE_TIMER_ID);
             }
@@ -157,8 +169,13 @@ pub(crate) unsafe extern "system" fn event_sink_proc(
         }
     } else if msg == WM_TIMER && wparam.0 == FOCUS_FOLLOWS_MOUSE_TIMER_ID {
         let mut point = POINT::default();
+        // SAFETY: GetCursorPos, WindowFromPoint, and GetAncestor are
+        // read-only Win32 queries. WindowFromPoint may return NULL (0)
+        // which is checked below via root_handle != 0.
         if unsafe { GetCursorPos(&mut point) }.is_ok() {
+            // SAFETY: WindowFromPoint returns the window under the cursor.
             let hwnd = unsafe { WindowFromPoint(point) };
+            // SAFETY: GetAncestor returns the root owner of the window.
             let root = unsafe { GetAncestor(hwnd, GA_ROOT) };
             let root_handle = root.0 as usize;
             if root_handle != 0 {
@@ -185,5 +202,7 @@ pub(crate) unsafe extern "system" fn event_sink_proc(
             }
         }
     }
+    // SAFETY: DefWindowProcW is the default message handler for
+    // messages not handled above. Required by the WNDPROC contract.
     unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) }
 }

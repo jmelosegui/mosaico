@@ -8,41 +8,71 @@ use std::fmt;
 #[derive(Debug, Clone, PartialEq)]
 pub enum WindowEvent {
     /// A new window was created and made visible.
-    Created { hwnd: usize },
+    Created {
+        /// Window handle.
+        hwnd: usize,
+    },
 
     /// A window was destroyed or closed.
-    Destroyed { hwnd: usize },
+    Destroyed {
+        /// Window handle.
+        hwnd: usize,
+    },
 
     /// A window was hidden (EVENT_OBJECT_HIDE) but not necessarily destroyed.
     ///
     /// GPU-accelerated apps (e.g. Zed, browsers) may fire HIDE when
     /// recreating their rendering surface. The handler should verify the
     /// window is truly gone before removing it from the layout.
-    Hidden { hwnd: usize },
+    Hidden {
+        /// Window handle.
+        hwnd: usize,
+    },
 
     /// A window received keyboard focus.
-    Focused { hwnd: usize },
+    Focused {
+        /// Window handle.
+        hwnd: usize,
+    },
 
     /// A window was focused via mouse hover (focus-follows-mouse).
-    MouseHover { hwnd: usize },
+    MouseHover {
+        /// Window handle.
+        hwnd: usize,
+    },
 
     /// A window finished being moved or resized.
-    Moved { hwnd: usize },
+    Moved {
+        /// Window handle.
+        hwnd: usize,
+    },
 
     /// A window was minimized.
-    Minimized { hwnd: usize },
+    Minimized {
+        /// Window handle.
+        hwnd: usize,
+    },
 
     /// A window was restored from minimized state.
-    Restored { hwnd: usize },
+    Restored {
+        /// Window handle.
+        hwnd: usize,
+    },
 
     /// A window's title changed.
-    TitleChanged { hwnd: usize },
+    TitleChanged {
+        /// Window handle.
+        hwnd: usize,
+    },
 
     /// A window's position or size changed.
     ///
     /// Fires frequently (e.g. during animations), so handlers should
     /// filter to the focused window and avoid expensive work.
-    LocationChanged { hwnd: usize },
+    LocationChanged {
+        /// Window handle.
+        hwnd: usize,
+    },
 
     /// The display configuration changed (monitor connect/disconnect).
     DisplayChanged,

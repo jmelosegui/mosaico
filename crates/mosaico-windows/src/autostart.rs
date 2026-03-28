@@ -17,6 +17,11 @@ const VALUE_NAME: &str = "Mosaico";
 /// Registers Mosaico to start on Windows logon.
 ///
 /// Writes `"<exe_path>" start` to the registry Run key.
+///
+/// # Errors
+///
+/// Returns `Err` if the executable path cannot be resolved or the
+/// registry key cannot be opened or written to.
 pub fn enable() -> Result<(), String> {
     let value = exe_command()?;
     let key = open_run_key(KEY_SET_VALUE)?;
@@ -28,6 +33,11 @@ pub fn enable() -> Result<(), String> {
 /// Removes the Mosaico autostart entry from the registry.
 ///
 /// Returns `Ok(())` if the value was removed or didn't exist.
+///
+/// # Errors
+///
+/// Returns `Err` if the registry key cannot be opened or the value
+/// cannot be deleted (for reasons other than it not existing).
 pub fn disable() -> Result<(), String> {
     let key = open_run_key(KEY_SET_VALUE)?;
     let result = delete_value(key);

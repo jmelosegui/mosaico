@@ -34,11 +34,15 @@ pub fn draw_text(ctx: &mut DrawCtx, x: i32, text: &str, color_hex: &str) -> i32 
     let text_w = measure_text_wide(ctx.dc, &wide);
 
     let mut text_size = windows::Win32::Foundation::SIZE::default();
+    // SAFETY: GetTextExtentPoint32W measures text dimensions using the
+    // DC's currently selected font. The wide slice is valid UTF-16.
     unsafe {
         let _ = GetTextExtentPoint32W(ctx.dc, &wide, &mut text_size);
     }
     let y = (ctx.h - text_size.cy) / 2;
 
+    // SAFETY: SetTextColor and TextOutW draw text onto the memory DC.
+    // The DC is valid for the duration of the render_bar call.
     unsafe {
         let _ = SetTextColor(
             ctx.dc,
@@ -62,6 +66,8 @@ pub fn measure_text(dc: HDC, text: &str) -> i32 {
 /// Measures pre-encoded UTF-16 text width.
 fn measure_text_wide(dc: HDC, wide: &[u16]) -> i32 {
     let mut size = windows::Win32::Foundation::SIZE::default();
+    // SAFETY: GetTextExtentPoint32W measures text width. The DC and
+    // wide slice are valid for the duration of the call.
     unsafe {
         let _ = GetTextExtentPoint32W(dc, wide, &mut size);
     }

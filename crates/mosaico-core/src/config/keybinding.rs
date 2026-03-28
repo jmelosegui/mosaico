@@ -18,9 +18,13 @@ pub struct Keybinding {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Modifier {
+    /// Alt key.
     Alt,
+    /// Shift key.
     Shift,
+    /// Control key.
     Ctrl,
+    /// Windows/Super key.
     Win,
 }
 

@@ -50,6 +50,8 @@ fn ensure_class_registered() {
             lpszClassName: PCWSTR(CLASS_NAME.as_ptr()),
             ..Default::default()
         };
+        // SAFETY: RegisterClassW is called once (guarded by Once) to
+        // register the bar window class with a valid WNDCLASSW.
         unsafe {
             RegisterClassW(&wc);
         }
@@ -62,16 +64,24 @@ unsafe extern "system" fn bar_wnd_proc(
     wparam: WPARAM,
     lparam: LPARAM,
 ) -> LRESULT {
+    // SAFETY: DefWindowProcW is the default handler required by WNDPROC.
     unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) }
 }
 
 impl Bar {
     /// Creates a new hidden bar overlay positioned at the top of the
     /// given monitor work area.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` if the Win32 window could not be created.
     pub fn new(monitor_work_area: Rect) -> Result<Self, Box<dyn std::error::Error>> {
         ensure_class_registered();
 
         let ex = WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT;
+        // SAFETY: CreateWindowExW creates a layered popup window for the
+        // bar overlay. The class name pointer is valid for the process
+        // lifetime (static array).
         let hwnd = unsafe {
             CreateWindowExW(
                 ex,
@@ -104,6 +114,8 @@ impl Bar {
 
         render_bar(self.hwnd, x, y, w, h, config, state);
 
+        // SAFETY: SetWindowPos positions and shows the bar overlay.
+        // The HWND is owned by this struct.
         unsafe {
             let _ = SetWindowPos(
                 self.hwnd,
@@ -119,6 +131,7 @@ impl Bar {
 
     /// Hides the bar.
     pub fn hide(&self) {
+        // SAFETY: ShowWindow hides the bar overlay owned by this struct.
         unsafe {
             let _ = ShowWindow(self.hwnd, SW_HIDE);
         }
@@ -127,6 +140,8 @@ impl Bar {
 
 impl Drop for Bar {
     fn drop(&mut self) {
+        // SAFETY: DestroyWindow cleans up the bar overlay. The HWND is
+        // exclusively owned by this struct and not used after drop.
         unsafe {
             let _ = DestroyWindow(self.hwnd);
         }

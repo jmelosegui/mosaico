@@ -9,11 +9,23 @@ use windows::Win32::System::Console::{CTRL_C_EVENT, SetConsoleCtrlHandler};
 /// Registers a Ctrl+C handler that sends `()` on the given channel.
 ///
 /// The handler fires once; subsequent Ctrl+C signals are ignored.
-pub fn set_handler(tx: Sender<()>) {
-    unsafe { SetConsoleCtrlHandler(Some(handler), true) }.expect("failed to set Ctrl+C handler");
+///
+/// # Errors
+///
+/// Returns an error if the Win32 console handler could not be installed
+/// or if `set_handler` has already been called.
+pub fn set_handler(tx: Sender<()>) -> Result<(), String> {
+    // SAFETY: SetConsoleCtrlHandler installs a process-wide console
+    // control handler. The callback pointer is valid for the process
+    // lifetime (static function).
+    unsafe { SetConsoleCtrlHandler(Some(handler), true) }
+        .map_err(|e| format!("failed to set Ctrl+C handler: {e}"))?;
 
     // Store the sender in a global so the callback can reach it.
-    SENDER.set(tx).expect("Ctrl+C handler already registered");
+    SENDER
+        .set(tx)
+        .map_err(|_| "Ctrl+C handler already registered".to_string())?;
+    Ok(())
 }
 
 /// Global sender — written once by `set_handler`, read by the callback.

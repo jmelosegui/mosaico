@@ -54,6 +54,8 @@ fn system_times() -> (u64, u64, u64) {
     let mut kernel = FILETIME::default();
     let mut user = FILETIME::default();
 
+    // SAFETY: GetSystemTimes fills the FILETIME structs with system-wide
+    // idle, kernel, and user time counters. All pointers are valid stack refs.
     unsafe {
         let _ = GetSystemTimes(Some(&mut idle), Some(&mut kernel), Some(&mut user));
     }

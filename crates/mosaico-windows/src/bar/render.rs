@@ -33,6 +33,9 @@ pub fn render_bar(
         return;
     }
 
+    // SAFETY: This block creates a temporary memory DC + DIB section,
+    // renders the bar content, and applies it via UpdateLayeredWindow.
+    // All GDI handles (DC, bitmap, font) are released before return.
     unsafe {
         let screen_dc = GetDC(None);
         let mem_dc = CreateCompatibleDC(Some(screen_dc));
@@ -144,6 +147,8 @@ unsafe fn apply_layered(
         AlphaFormat: 1,
         ..Default::default()
     };
+    // SAFETY: UpdateLayeredWindow atomically sets the window's position,
+    // size, and pixel content from the prepared memory DC.
     unsafe {
         let _ = UpdateLayeredWindow(
             hwnd,

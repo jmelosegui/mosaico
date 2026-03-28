@@ -57,6 +57,8 @@ pub fn start(
             *cell.borrow_mut() = Some(event_tx);
         });
 
+        // SAFETY: GetCurrentThreadId returns the calling thread's ID.
+        // It is always safe to call and never fails.
         let thread_id = unsafe { windows::Win32::System::Threading::GetCurrentThreadId() };
 
         let flags = WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS;
@@ -65,6 +67,9 @@ pub fn start(
         // to avoid receiving thousands of irrelevant events in the gap
         // (0x0018–0x7FFF) that translate() would just discard. Under heavy
         // system load this noise can starve the message pump.
+        // SAFETY: SetWinEventHook installs out-of-process event hooks
+        // for system and object events. The callback function pointer is
+        // valid for the lifetime of the thread. Hooks are unhooked on exit.
         let hook_system = unsafe {
             SetWinEventHook(
                 SYSTEM_EVENT_MIN,
@@ -76,6 +81,7 @@ pub fn start(
                 flags,
             )
         };
+        // SAFETY: Second SetWinEventHook for object events (same safety as above).
         let hook_object = unsafe {
             SetWinEventHook(
                 OBJECT_EVENT_MIN,
@@ -113,6 +119,8 @@ pub fn start(
         }
         drop(hotkeys);
 
+        // SAFETY: UnhookWinEvent removes the hooks installed above.
+        // Called during thread shutdown after the message pump exits.
         unsafe {
             let _ = UnhookWinEvent(hook_system);
             let _ = UnhookWinEvent(hook_object);
@@ -152,6 +160,10 @@ impl EventLoopHandle {
 
     /// Signals the event loop to stop and waits for the thread to finish.
     pub fn stop(self) {
+        // SAFETY: PostThreadMessageW sends WM_QUIT to the event loop
+        // thread, causing GetMessageW to return false and the pump to
+        // exit. The thread_id was obtained from GetCurrentThreadId on
+        // the target thread.
         unsafe {
             let _ = PostThreadMessageW(self.thread_id, WM_QUIT, WPARAM(0), LPARAM(0));
         }

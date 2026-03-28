@@ -20,6 +20,7 @@ pub struct MonitorInfo {
 ///
 /// Falls back to the primary monitor if the window handle is invalid.
 pub fn monitor_id_for_window(hwnd: usize) -> usize {
+    // SAFETY: MonitorFromWindow is a read-only query on a window handle.
     let hmonitor = unsafe { MonitorFromWindow(HWND(hwnd as *mut _), MONITOR_DEFAULTTOPRIMARY) };
     hmonitor.0 as usize
 }

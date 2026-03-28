@@ -11,6 +11,8 @@ pub fn text() -> String {
 
 /// Queries the OS for current memory load as a percentage (0–100).
 fn usage_percent() -> u32 {
+    // SAFETY: GlobalMemoryStatusEx fills the MEMORYSTATUSEX struct with
+    // current memory statistics. dwLength must be set before the call.
     unsafe {
         let mut status = MEMORYSTATUSEX {
             dwLength: mem::size_of::<MEMORYSTATUSEX>() as u32,

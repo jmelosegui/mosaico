@@ -39,6 +39,11 @@ pub fn bar_path() -> Option<PathBuf> {
 ///
 /// Returns `Ok(Config)` on success, or an error string describing
 /// what went wrong (IO error, parse error, etc.).
+///
+/// # Errors
+///
+/// Returns `Err` if the config path cannot be determined, the file
+/// cannot be read, or the TOML content is invalid.
 pub fn try_load() -> Result<Config, String> {
     let path = config_path().ok_or("could not determine config path")?;
     let content = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
@@ -59,6 +64,11 @@ pub fn load() -> Config {
 /// Tries to load and parse `keybindings.toml`.
 ///
 /// Returns the parsed keybindings or an error string.
+///
+/// # Errors
+///
+/// Returns `Err` if the keybindings path cannot be determined, the file
+/// cannot be read, or the TOML content is invalid.
 pub fn try_load_keybindings() -> Result<Vec<Keybinding>, String> {
     let path = keybindings_path().ok_or("could not determine keybindings path")?;
     let content = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
@@ -81,6 +91,11 @@ pub fn load_keybindings() -> Vec<Keybinding> {
 /// Tries to load and parse `rules.toml`.
 ///
 /// Returns the parsed rules or an error string.
+///
+/// # Errors
+///
+/// Returns `Err` if the rules path cannot be determined, the file
+/// cannot be read, or the TOML content is invalid.
 pub fn try_load_rules() -> Result<Vec<WindowRule>, String> {
     let path = rules_path().ok_or("could not determine rules path")?;
     let content = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
@@ -99,6 +114,11 @@ pub fn load_rules() -> Vec<WindowRule> {
 /// Tries to load and parse `user-rules.toml`.
 ///
 /// Returns the parsed rules or an error string.
+///
+/// # Errors
+///
+/// Returns `Err` if the user-rules path cannot be determined, the file
+/// cannot be read, or the TOML content is invalid.
 pub fn try_load_user_rules() -> Result<Vec<WindowRule>, String> {
     let path = user_rules_path().ok_or("could not determine user-rules path")?;
     let content = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
@@ -130,6 +150,11 @@ pub fn load_merged_rules() -> Vec<WindowRule> {
 /// Returns the parsed bar config or an error string. Colors are **not**
 /// resolved here — the caller must call `resolve_colors(theme)` with
 /// the global theme from `config.toml`.
+///
+/// # Errors
+///
+/// Returns `Err` if the bar config path cannot be determined, the file
+/// cannot be read, or the TOML content is invalid.
 pub fn try_load_bar() -> Result<BarConfig, String> {
     let path = bar_path().ok_or("could not determine bar config path")?;
     let content = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;

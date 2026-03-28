@@ -8,6 +8,8 @@ use windows::Win32::System::SystemInformation::GetLocalTime;
 /// Supports: `%H` (hour), `%M` (minute), `%S` (second), `%A` (weekday),
 /// `%d` (day), `%B` (month name), `%Y` (year), `%%` (literal %).
 pub fn format_local_time(fmt: &str) -> String {
+    // SAFETY: GetLocalTime returns the current local time as a
+    // SYSTEMTIME struct. It is always safe to call and never fails.
     let st: SYSTEMTIME = unsafe { GetLocalTime() };
 
     let weekdays = [

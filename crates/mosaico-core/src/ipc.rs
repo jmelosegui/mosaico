@@ -13,7 +13,10 @@ pub enum Command {
     /// Request the daemon's current status.
     Status,
     /// Execute a tiling action (focus, swap, retile, etc.).
-    Action { action: Action },
+    Action {
+        /// The action to execute.
+        action: Action,
+    },
     /// Dump the daemon's internal workspace state for debugging.
     Inspect,
 }
@@ -32,7 +35,9 @@ pub struct Response {
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum ResponseStatus {
+    /// Command succeeded.
     Ok,
+    /// Command failed.
     Error,
 }
 

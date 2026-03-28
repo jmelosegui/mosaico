@@ -42,9 +42,13 @@ impl Default for LogConfig {
 /// Log severity levels.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Level {
+    /// Verbose debugging output.
     Debug,
+    /// Informational messages.
     Info,
+    /// Warnings.
     Warn,
+    /// Errors.
     Error,
 }
 

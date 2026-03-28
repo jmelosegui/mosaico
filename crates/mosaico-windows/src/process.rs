@@ -37,6 +37,8 @@ pub fn is_current_process_elevated() -> bool {
     };
     use windows::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
 
+    // SAFETY: Queries the current process token for elevation status.
+    // The token handle is closed before returning.
     unsafe {
         let mut token = windows::Win32::Foundation::HANDLE::default();
         if OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token).is_err() {
@@ -69,7 +71,9 @@ pub fn kill_process(pid: u32) -> bool {
 
     match result {
         Ok(handle) => {
+            // SAFETY: TerminateProcess on a valid handle with PROCESS_TERMINATE.
             let killed = unsafe { TerminateProcess(handle, 1) };
+            // SAFETY: CloseHandle releases the process handle.
             unsafe {
                 let _ = CloseHandle(handle);
             }

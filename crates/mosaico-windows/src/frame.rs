@@ -25,6 +25,7 @@ pub struct BorderOffset {
 /// Falls back to `GetWindowRect` if DWM is unavailable.
 pub fn visible_rect(hwnd: HWND) -> WindowResult<RECT> {
     let mut frame = RECT::default();
+    // SAFETY: DwmGetWindowAttribute queries a DWM attribute on a valid HWND.
     let result = unsafe {
         DwmGetWindowAttribute(
             hwnd,
@@ -35,6 +36,7 @@ pub fn visible_rect(hwnd: HWND) -> WindowResult<RECT> {
     };
 
     if result.is_err() {
+        // SAFETY: GetWindowRect retrieves the bounding rectangle of a valid HWND.
         unsafe { GetWindowRect(hwnd, &mut frame)? };
     }
 
@@ -45,6 +47,7 @@ pub fn visible_rect(hwnd: HWND) -> WindowResult<RECT> {
 /// (includes borders) with `DWMWA_EXTENDED_FRAME_BOUNDS` (visible area).
 pub fn border_offset(hwnd: HWND) -> WindowResult<BorderOffset> {
     let mut window_rect = RECT::default();
+    // SAFETY: GetWindowRect retrieves the bounding rectangle of a valid HWND.
     unsafe { GetWindowRect(hwnd, &mut window_rect)? };
 
     let frame_rect = visible_rect(hwnd)?;
@@ -84,6 +87,7 @@ pub fn set_corner_preference(hwnd: HWND, style: CornerStyle) {
         CornerStyle::Small => DWMWCP_ROUNDSMALL,
         CornerStyle::Round => DWMWCP_ROUND,
     };
+    // SAFETY: DwmSetWindowAttribute sets a DWM corner preference on a valid HWND.
     let _ = unsafe {
         DwmSetWindowAttribute(
             hwnd,
@@ -99,6 +103,7 @@ pub fn set_corner_preference(hwnd: HWND, style: CornerStyle) {
 /// Called when a window is removed from management.
 pub fn reset_corner_preference(hwnd: HWND) {
     let pref = DWMWCP_DEFAULT;
+    // SAFETY: DwmSetWindowAttribute resets the DWM corner preference on a valid HWND.
     let _ = unsafe {
         DwmSetWindowAttribute(
             hwnd,

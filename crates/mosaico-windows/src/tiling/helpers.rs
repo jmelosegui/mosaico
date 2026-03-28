@@ -171,6 +171,7 @@ impl TilingManager {
         };
         // Send WM_CLOSE so the window can handle its own shutdown gracefully.
         use windows::Win32::UI::WindowsAndMessaging::{PostMessageW, WM_CLOSE};
+        // SAFETY: PostMessageW sends WM_CLOSE to a valid HWND owned by this process's focused window.
         unsafe {
             let _ = PostMessageW(
                 Some(windows::Win32::Foundation::HWND(hwnd as *mut _)),

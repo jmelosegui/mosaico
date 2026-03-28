@@ -84,89 +84,119 @@ pub struct BarColors {
 pub enum WidgetConfig {
     /// Numbered workspace indicators with active highlight.
     Workspaces {
+        /// Whether this widget is shown.
         #[serde(default = "default_true")]
         enabled: bool,
+        /// Icon text prepended to the widget.
         #[serde(default)]
         icon: String,
+        /// Text color (hex or named).
         #[serde(default)]
         color: String,
     },
     /// Current layout name (BSP) and monocle indicator.
     Layout {
+        /// Whether this widget is shown.
         #[serde(default = "default_true")]
         enabled: bool,
+        /// Icon text prepended to the widget.
         #[serde(default)]
         icon: String,
+        /// Text color (hex or named).
         #[serde(default)]
         color: String,
     },
     /// Current time with configurable strftime format.
     Clock {
+        /// Whether this widget is shown.
         #[serde(default = "default_true")]
         enabled: bool,
+        /// Display format string.
         #[serde(default = "default_clock_format")]
         format: String,
+        /// Icon text prepended to the widget.
         #[serde(default)]
         icon: String,
+        /// Text color (hex or named).
         #[serde(default)]
         color: String,
     },
     /// Current date with configurable strftime format.
     Date {
+        /// Whether this widget is shown.
         #[serde(default = "default_true")]
         enabled: bool,
+        /// Display format string.
         #[serde(default = "default_date_format")]
         format: String,
+        /// Icon text prepended to the widget.
         #[serde(default)]
         icon: String,
+        /// Text color (hex or named).
         #[serde(default)]
         color: String,
     },
     /// System RAM usage percentage.
     Ram {
+        /// Whether this widget is shown.
         #[serde(default = "default_true")]
         enabled: bool,
+        /// Icon text prepended to the widget.
         #[serde(default)]
         icon: String,
+        /// Text color (hex or named).
         #[serde(default)]
         color: String,
     },
     /// System CPU usage percentage.
     Cpu {
+        /// Whether this widget is shown.
         #[serde(default = "default_true")]
         enabled: bool,
+        /// Icon text prepended to the widget.
         #[serde(default)]
         icon: String,
+        /// Text color (hex or named).
         #[serde(default)]
         color: String,
     },
     /// Update availability notification.
     Update {
+        /// Whether this widget is shown.
         #[serde(default = "default_true")]
         enabled: bool,
+        /// Icon text prepended to the widget.
         #[serde(default)]
         icon: String,
+        /// Text color (hex or named).
         #[serde(default = "default_update_color")]
         color: String,
     },
     /// Icon of the currently focused window.
     #[serde(rename = "active_window")]
     ActiveWindow {
+        /// Whether this widget is shown.
         #[serde(default = "default_true")]
         enabled: bool,
+        /// Icon text prepended to the widget.
         #[serde(default)]
         icon: String,
+        /// Text color (hex or named).
         #[serde(default)]
         color: String,
     },
     /// Currently playing media (artist and track title).
     Media {
+        /// Whether this widget is shown.
         #[serde(default = "default_true")]
         enabled: bool,
+        /// Icon text prepended to the widget.
         #[serde(default = "default_media_icon")]
         icon: String,
+        /// Text color (hex or named).
         #[serde(default)]
         color: String,
+        /// Maximum display length in characters.
         #[serde(default = "default_media_max_length")]
         max_length: usize,
     },
