@@ -13,9 +13,7 @@ pub(crate) fn run_message_pump(hotkeys: &HotkeyManager) {
     loop {
         // Drain all pending WM_HOTKEY messages first so shortcuts
         // are never starved by a backlog of WinEvent callbacks.
-        while unsafe {
-            PeekMessageW(&mut msg, None, WM_HOTKEY, WM_HOTKEY, PM_REMOVE).as_bool()
-        } {
+        while unsafe { PeekMessageW(&mut msg, None, WM_HOTKEY, WM_HOTKEY, PM_REMOVE).as_bool() } {
             hotkeys.dispatch(msg.wParam.0 as i32);
         }
 

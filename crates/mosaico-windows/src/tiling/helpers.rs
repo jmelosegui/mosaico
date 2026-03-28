@@ -21,7 +21,9 @@ impl TilingManager {
             let class = window.class().unwrap_or_default();
             mosaico_core::log_info!(
                 "~skip 0x{:X} [{}] \"{}\" (elevated, mosaico is not)",
-                hwnd, class, title,
+                hwnd,
+                class,
+                title,
             );
             return false;
         }

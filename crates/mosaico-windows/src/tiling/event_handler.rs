@@ -57,10 +57,7 @@ impl TilingManager {
                     return;
                 }
                 if Window::from_raw(*hwnd).is_valid() {
-                    mosaico_core::log_debug!(
-                        "hide-ignored 0x{:X} (window still valid)",
-                        hwnd
-                    );
+                    mosaico_core::log_debug!("hide-ignored 0x{:X} (window still valid)", hwnd);
                     return;
                 }
                 frame::reset_corner_preference(Window::from_raw(*hwnd).hwnd());

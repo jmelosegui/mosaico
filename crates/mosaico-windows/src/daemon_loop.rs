@@ -159,11 +159,7 @@ pub(super) fn daemon_loop() -> WindowResult<()> {
                     );
                 }
                 DaemonMsg::Tick => {
-                    daemon_loop_handlers::handle_tick(
-                        &mut manager,
-                        &mut bar_mgr,
-                        &get_update,
-                    );
+                    daemon_loop_handlers::handle_tick(&mut manager, &mut bar_mgr, &get_update);
                 }
             }
         }

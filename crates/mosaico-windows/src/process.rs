@@ -32,7 +32,9 @@ pub fn is_process_alive(pid: u32) -> bool {
 /// Called once at startup so the tiling manager knows whether to skip
 /// elevated windows (which cannot be repositioned via UIPI).
 pub fn is_current_process_elevated() -> bool {
-    use windows::Win32::Security::{GetTokenInformation, TokenElevation, TOKEN_ELEVATION, TOKEN_QUERY};
+    use windows::Win32::Security::{
+        GetTokenInformation, TOKEN_ELEVATION, TOKEN_QUERY, TokenElevation,
+    };
     use windows::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
 
     unsafe {

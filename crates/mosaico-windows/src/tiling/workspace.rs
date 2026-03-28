@@ -45,8 +45,7 @@ impl TilingManager {
         // first would leave the old foreground window cloaked, and DWM
         // may auto-uncloak it during rapid switching if no new window
         // takes foreground before the next switch.
-        let prev_handles: Vec<usize> =
-            self.monitors[mon_idx].active_ws().handles().to_vec();
+        let prev_handles: Vec<usize> = self.monitors[mon_idx].active_ws().handles().to_vec();
         let prev_ws = self.monitors[mon_idx].active_workspace;
 
         // Switch active workspace.

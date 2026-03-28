@@ -39,10 +39,10 @@ impl TilingManager {
     /// enabled.  Called after move/swap operations where the focused window
     /// changes position but the focus itself does not change.
     pub(super) fn move_cursor_to_focused(&self) {
-        if self.mouse_follows_focus {
-            if let Some(hwnd) = self.focused_window {
-                Self::move_cursor_to_window(hwnd);
-            }
+        if self.mouse_follows_focus
+            && let Some(hwnd) = self.focused_window
+        {
+            Self::move_cursor_to_window(hwnd);
         }
     }
 

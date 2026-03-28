@@ -14,9 +14,9 @@ const LOGO: [&str; 6] = [
 
 /// ANSI color constants.
 const BORDER: &str = "\x1b[38;5;8m";
-const BODY: &str = "\x1b[38;2;137;180;250m";    // Catppuccin Mocha blue #89b4fa
+const BODY: &str = "\x1b[38;2;137;180;250m"; // Catppuccin Mocha blue #89b4fa
 const SHADOW: &str = "\x1b[38;2;180;190;254m"; // Catppuccin Mocha lavender #b4befe
-const SHINE: &str = "\x1b[38;2;245;224;220m";  // Catppuccin Mocha rosewater #f5e0dc
+const SHINE: &str = "\x1b[38;2;245;224;220m"; // Catppuccin Mocha rosewater #f5e0dc
 const HEADER: &str = "\x1b[38;5;15m";
 const RESET: &str = "\x1b[0m";
 
@@ -143,21 +143,45 @@ pub fn print_logo() {
     }
 
     // Stage 4: Version slide-in.
-    draw_frame(&mut out, frame, header_full, total_logo_cols, &ver, true, None);
+    draw_frame(
+        &mut out,
+        frame,
+        header_full,
+        total_logo_cols,
+        &ver,
+        true,
+        None,
+    );
     frame += 1;
     thread::sleep(Duration::from_millis(50));
 
     // Stage 5: Shine sweep — 3-column highlight moves left to right.
     let mut col = 0;
     while col <= total_logo_cols + 3 {
-        draw_frame(&mut out, frame, header_full, total_logo_cols, &ver, true, Some(col));
+        draw_frame(
+            &mut out,
+            frame,
+            header_full,
+            total_logo_cols,
+            &ver,
+            true,
+            Some(col),
+        );
         frame += 1;
         col += 2;
         thread::sleep(Duration::from_millis(35));
     }
 
     // Stage 6: Final static frame (no shine).
-    draw_frame(&mut out, frame, header_full, total_logo_cols, &ver, true, None);
+    draw_frame(
+        &mut out,
+        frame,
+        header_full,
+        total_logo_cols,
+        &ver,
+        true,
+        None,
+    );
 
     // Show cursor.
     write!(out, "\x1b[?25h").unwrap();

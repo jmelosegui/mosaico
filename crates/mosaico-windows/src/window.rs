@@ -3,8 +3,8 @@ use mosaico_core::{Rect, WindowResult};
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::{
     GetWindowTextLengthW, GetWindowTextW, IsWindow, IsWindowVisible, RealGetWindowClassW,
-    SWP_FRAMECHANGED,
-    SWP_NOACTIVATE, SWP_NOCOPYBITS, SWP_NOSENDCHANGING, SWP_NOZORDER, SetWindowPos,
+    SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOCOPYBITS, SWP_NOSENDCHANGING, SWP_NOZORDER,
+    SetWindowPos,
 };
 
 use crate::frame;
@@ -170,8 +170,12 @@ impl Window {
     /// if we can't query the token we can't control the window either.
     pub fn is_elevated(&self) -> bool {
         use windows::Win32::Foundation::CloseHandle;
-        use windows::Win32::Security::{GetTokenInformation, TokenElevation, TOKEN_ELEVATION, TOKEN_QUERY};
-        use windows::Win32::System::Threading::{OpenProcess, OpenProcessToken, PROCESS_QUERY_LIMITED_INFORMATION};
+        use windows::Win32::Security::{
+            GetTokenInformation, TOKEN_ELEVATION, TOKEN_QUERY, TokenElevation,
+        };
+        use windows::Win32::System::Threading::{
+            OpenProcess, OpenProcessToken, PROCESS_QUERY_LIMITED_INFORMATION,
+        };
         use windows::Win32::UI::WindowsAndMessaging::GetWindowThreadProcessId;
 
         unsafe {
