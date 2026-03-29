@@ -2,7 +2,11 @@
 ///
 /// Contains layout, border, mouse, and corner-style types shared
 /// across the configuration subsystem.
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
+
+use crate::layout::LayoutKind;
 
 /// Layout algorithm settings.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -14,6 +18,11 @@ pub struct LayoutConfig {
     pub ratio: f64,
     /// How windows are hidden during workspace switches.
     pub hiding: HidingBehaviour,
+    /// Default layout for workspaces without an explicit override.
+    pub default: LayoutKind,
+    /// Per-workspace layout overrides (workspace number 1–8 → layout).
+    #[serde(default)]
+    pub workspaces: HashMap<u8, LayoutKind>,
 }
 
 impl Default for LayoutConfig {
@@ -22,6 +31,8 @@ impl Default for LayoutConfig {
             gap: 8,
             ratio: 0.5,
             hiding: HidingBehaviour::default(),
+            default: LayoutKind::default(),
+            workspaces: HashMap::new(),
         }
     }
 }

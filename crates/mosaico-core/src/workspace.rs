@@ -1,5 +1,5 @@
 use crate::Rect;
-use crate::layout::Layout;
+use crate::layout::{Layout, LayoutKind};
 
 /// A workspace manages a set of tiled windows on a single monitor.
 ///
@@ -17,16 +17,28 @@ pub struct Workspace {
     /// Saved when switching away, restored when switching back so the
     /// user returns to the window they were working on.
     last_focused: Option<usize>,
+    /// The active layout algorithm for this workspace.
+    layout_kind: LayoutKind,
 }
 
 impl Workspace {
     /// Creates an empty workspace.
+    /// Creates an empty workspace with the default layout.
     pub fn new() -> Self {
         Self {
             handles: Vec::new(),
             monocle: false,
             monocle_window: None,
             last_focused: None,
+            layout_kind: LayoutKind::default(),
+        }
+    }
+
+    /// Creates an empty workspace with the given layout.
+    pub fn with_layout(layout_kind: LayoutKind) -> Self {
+        Self {
+            layout_kind,
+            ..Self::new()
         }
     }
 
@@ -58,6 +70,16 @@ impl Workspace {
     /// Sets the last focused window on this workspace.
     pub fn set_last_focused(&mut self, value: Option<usize>) {
         self.last_focused = value;
+    }
+
+    /// Returns the active layout kind for this workspace.
+    pub fn layout_kind(&self) -> LayoutKind {
+        self.layout_kind
+    }
+
+    /// Sets the active layout kind for this workspace.
+    pub fn set_layout_kind(&mut self, kind: LayoutKind) {
+        self.layout_kind = kind;
     }
 
     /// Adds a window to the end of the workspace.

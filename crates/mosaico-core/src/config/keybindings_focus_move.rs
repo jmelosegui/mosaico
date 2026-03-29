@@ -63,5 +63,11 @@ modifiers = ["alt"]
 action = "minimize-focused"
 key = "M"
 modifiers = ["alt"]
+
+# Cycle layout: Alt + N
+[[keybinding]]
+action = "cycle-layout"
+key = "N"
+modifiers = ["alt"]
 "##
 }

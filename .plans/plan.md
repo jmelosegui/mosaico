@@ -43,7 +43,7 @@ Mosaico is structured as a Cargo workspace with multiple crates:
 | [24](phase-24.md) | Single-Instance Daemon Guard | Complete |
 | [25](phase-25.md) | Interactive Window Resizing | Pending |
 | [26](phase-26.md) | Floating Window Toggle | Pending |
-| [27](phase-27.md) | Additional Layouts & Layout Cycling | Pending |
+| [27](phase-27.md) | Additional Layouts & Layout Cycling | Complete |
 | [28](phase-28.md) | API Hygiene & Safety Audit | Complete |
 | [29](phase-29.md) | Toggle Pause (Stop/Resume Daemon) | Pending |
 | [30](phase-30.md) | Windows Installer & Winget Distribution | Pending |

@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::sync::mpsc;
 
-use mosaico_core::BspLayout;
 use mosaico_core::WindowResult;
 use mosaico_core::config;
 use mosaico_core::ipc::Command;
@@ -32,11 +31,6 @@ pub(super) fn daemon_loop() -> WindowResult<()> {
         config.logging.level
     );
 
-    let layout = BspLayout {
-        gap: config.layout.gap,
-        ratio: config.layout.ratio,
-    };
-
     let mut current_theme = config.theme.resolve();
 
     let bar_config = config::load_bar();
@@ -49,10 +43,9 @@ pub(super) fn daemon_loop() -> WindowResult<()> {
     let (tx, rx) = mpsc::channel::<DaemonMsg>();
 
     let mut manager = TilingManager::new(
-        layout,
+        &config.layout,
         rules,
         config.borders,
-        config.layout.hiding,
         config.mouse.follows_focus,
     )?;
     let bar_height = bar_mgr.bar_height();

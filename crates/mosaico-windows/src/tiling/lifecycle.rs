@@ -1,6 +1,5 @@
 //! Lifecycle and configuration reload for the tiling manager.
 
-use mosaico_core::BspLayout;
 use mosaico_core::config::WindowRule;
 
 use crate::frame;
@@ -50,10 +49,21 @@ impl TilingManager {
 
     /// Applies a new layout and border config, then retiles all windows.
     pub fn reload_config(&mut self, config: &mosaico_core::config::Config) {
-        self.layout = BspLayout {
-            gap: config.layout.gap,
-            ratio: config.layout.ratio,
-        };
+        self.layout_gap = config.layout.gap;
+        self.layout_ratio = config.layout.ratio;
+        // Reset workspace layouts to config values.
+        for mon in &mut self.monitors {
+            for (i, ws) in mon.workspaces.iter_mut().enumerate() {
+                let ws_num = (i + 1) as u8;
+                let kind = config
+                    .layout
+                    .workspaces
+                    .get(&ws_num)
+                    .copied()
+                    .unwrap_or(config.layout.default);
+                ws.set_layout_kind(kind);
+            }
+        }
         self.hiding = config.layout.hiding;
         self.border_config = config.borders.clone();
         self.mouse_follows_focus = config.mouse.follows_focus;

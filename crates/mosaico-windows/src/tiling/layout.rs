@@ -4,12 +4,50 @@
 //! applies them via Win32. Skips windows whose position is already
 //! correct to avoid unnecessary repaints.
 
-use mosaico_core::Rect;
 use mosaico_core::window::Window as WindowTrait;
+use mosaico_core::{BspLayout, LayoutKind, Rect, VerticalStackLayout};
 
 use super::{TilingManager, Window};
 
 impl TilingManager {
+    pub(super) fn gap(&self) -> i32 {
+        self.layout_gap
+    }
+
+    pub(super) fn ratio(&self) -> f64 {
+        self.layout_ratio
+    }
+
+    /// Computes the layout positions for the active workspace on the given monitor.
+    pub(super) fn compute_positions(&self, monitor_idx: usize) -> Vec<(usize, mosaico_core::Rect)> {
+        let Some(state) = self.monitors.get(monitor_idx) else {
+            return Vec::new();
+        };
+        let gap = self.gap();
+        let ratio = self.ratio();
+        match state.active_ws().layout_kind() {
+            LayoutKind::Bsp => {
+                let layout = BspLayout { gap, ratio };
+                state.active_ws().compute_layout(&layout, &state.work_area)
+            }
+            LayoutKind::VerticalStack => {
+                let layout = VerticalStackLayout { gap, ratio };
+                state.active_ws().compute_layout(&layout, &state.work_area)
+            }
+        }
+    }
+
+    pub(super) fn cycle_layout(&mut self) {
+        if self.monitors.is_empty() {
+            return;
+        }
+        let idx = self.focused_monitor;
+        let ws = self.monitors[idx].active_ws_mut();
+        let next = ws.layout_kind().next();
+        ws.set_layout_kind(next);
+        self.apply_layout_on(idx);
+    }
+
     pub(super) fn toggle_monocle(&mut self) {
         if self.monitors.is_empty() {
             return;
@@ -48,7 +86,7 @@ impl TilingManager {
             if let Some(hwnd) = monocle_hwnd
                 && state.active_ws().contains(hwnd)
             {
-                let gap = self.layout.gap;
+                let gap = self.gap();
                 let area = Rect::new(
                     state.work_area.x + gap,
                     state.work_area.y + gap,
@@ -65,9 +103,7 @@ impl TilingManager {
                 return;
             }
         }
-        let positions = state
-            .active_ws()
-            .compute_layout(&self.layout, &state.work_area);
+        let positions = self.compute_positions(monitor_idx);
         for (hwnd, rect) in &positions {
             let window = Window::from_raw(*hwnd);
             // Always call set_rect for maximized windows — it clears

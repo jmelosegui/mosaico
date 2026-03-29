@@ -9,10 +9,7 @@ impl TilingManager {
     /// monitor. Returns `None` at boundaries.
     pub(super) fn find_same_monitor_neighbor(&self, dir: Direction) -> Option<usize> {
         let focused_hwnd = self.focused_window?;
-        let state = &self.monitors[self.focused_monitor];
-        let positions = state
-            .active_ws()
-            .compute_layout(&self.layout, &state.work_area);
+        let positions = self.compute_positions(self.focused_monitor);
         let focused_rect = positions
             .iter()
             .find(|(h, _)| *h == focused_hwnd)
@@ -47,10 +44,7 @@ impl TilingManager {
     pub(super) fn resolve_horizontal_target(&self, dir: Direction) -> Option<SpatialTarget> {
         let focused_hwnd = self.focused_window?;
 
-        let state = &self.monitors[self.focused_monitor];
-        let positions = state
-            .active_ws()
-            .compute_layout(&self.layout, &state.work_area);
+        let positions = self.compute_positions(self.focused_monitor);
 
         mosaico_core::log_debug!(
             "resolve_horizontal dir={} mon={} focused=0x{:X} windows={}",
@@ -106,10 +100,7 @@ impl TilingManager {
     }
 
     pub(super) fn find_entry_window(&self, monitor_idx: usize, dir: Direction) -> Option<usize> {
-        let state = &self.monitors[monitor_idx];
-        let positions = state
-            .active_ws()
-            .compute_layout(&self.layout, &state.work_area);
+        let positions = self.compute_positions(monitor_idx);
         mosaico_core::spatial::find_entry(&positions, dir)
     }
 }

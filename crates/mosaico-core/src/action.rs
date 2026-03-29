@@ -71,6 +71,8 @@ pub enum Action {
     SendToWorkspace(u8),
     /// Minimize the currently focused window.
     MinimizeFocused,
+    /// Cycle to the next layout on the focused workspace.
+    CycleLayout,
 }
 
 impl FromStr for Action {
@@ -94,6 +96,7 @@ impl FromStr for Action {
             "toggle-monocle" => Ok(Action::ToggleMonocle),
             "close-focused" => Ok(Action::CloseFocused),
             "minimize-focused" => Ok(Action::MinimizeFocused),
+            "cycle-layout" => Ok(Action::CycleLayout),
             _ => Err(format!("unknown action: {s}")),
         }
     }
@@ -108,6 +111,7 @@ impl fmt::Display for Action {
             Action::ToggleMonocle => write!(f, "toggle-monocle"),
             Action::CloseFocused => write!(f, "close-focused"),
             Action::MinimizeFocused => write!(f, "minimize-focused"),
+            Action::CycleLayout => write!(f, "cycle-layout"),
             Action::GoToWorkspace(n) => write!(f, "goto-workspace-{n}"),
             Action::SendToWorkspace(n) => write!(f, "send-to-workspace-{n}"),
         }
@@ -165,6 +169,7 @@ mod tests {
             Action::GoToWorkspace(8),
             Action::SendToWorkspace(1),
             Action::SendToWorkspace(8),
+            Action::CycleLayout,
         ];
         for action in &actions {
             let s = action.to_string();

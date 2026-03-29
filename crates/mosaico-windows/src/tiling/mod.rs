@@ -12,8 +12,8 @@ use std::collections::HashSet;
 use std::time::Instant;
 
 use mosaico_core::action::MAX_WORKSPACES;
-use mosaico_core::config::{BorderConfig, HidingBehaviour, WindowRule};
-use mosaico_core::{Action, BspLayout, Rect, WindowResult, Workspace};
+use mosaico_core::config::{BorderConfig, HidingBehaviour, LayoutConfig, WindowRule};
+use mosaico_core::{Action, Rect, WindowResult, Workspace};
 
 use crate::bar::BarState;
 use crate::border::Border;
@@ -54,7 +54,8 @@ enum SpatialTarget {
 /// Manages tiled windows across all connected monitors.
 pub struct TilingManager {
     monitors: Vec<MonitorState>,
-    layout: BspLayout,
+    layout_gap: i32,
+    layout_ratio: f64,
     rules: Vec<WindowRule>,
     border: Option<Border>,
     border_config: BorderConfig,
@@ -108,11 +109,11 @@ pub struct TilingManager {
 
 impl TilingManager {
     /// Creates a new tiling manager with the given layout, rules, and borders.
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
-        layout: BspLayout,
+        layout_config: &LayoutConfig,
         rules: Vec<WindowRule>,
         border_config: BorderConfig,
-        hiding: HidingBehaviour,
         mouse_follows_focus: bool,
     ) -> WindowResult<Self> {
         let monitors: Vec<MonitorState> = monitor::enumerate_monitors()?
@@ -120,7 +121,17 @@ impl TilingManager {
             .map(|info| MonitorState {
                 id: info.id,
                 work_area: info.work_area,
-                workspaces: (0..MAX_WORKSPACES).map(|_| Workspace::new()).collect(),
+                workspaces: (0..MAX_WORKSPACES)
+                    .map(|i| {
+                        let ws_num = i + 1;
+                        let kind = layout_config
+                            .workspaces
+                            .get(&ws_num)
+                            .copied()
+                            .unwrap_or(layout_config.default);
+                        Workspace::with_layout(kind)
+                    })
+                    .collect(),
                 active_workspace: 0,
             })
             .collect();
@@ -130,7 +141,8 @@ impl TilingManager {
 
         let mut manager = Self {
             monitors,
-            layout,
+            layout_gap: layout_config.gap,
+            layout_ratio: layout_config.ratio,
             rules,
             border,
             border_config,
@@ -140,7 +152,7 @@ impl TilingManager {
             mouse_follows_focus,
             focus_from_mouse: false,
             applying_layout: false,
-            hiding,
+            hiding: layout_config.hiding,
             hidden_by_switch: HashSet::new(),
             ws_switch_cooldown: None,
             self_elevated,
@@ -174,6 +186,7 @@ impl TilingManager {
             Action::ToggleMonocle => self.toggle_monocle(),
             Action::CloseFocused => self.close_focused(),
             Action::MinimizeFocused => self.minimize_focused(),
+            Action::CycleLayout => self.cycle_layout(),
             Action::GoToWorkspace(n) => self.goto_workspace(*n),
             Action::SendToWorkspace(n) => self.send_to_workspace(*n),
         }
@@ -258,7 +271,7 @@ impl TilingManager {
             .map(|(i, m)| BarState {
                 active_workspace: m.active_workspace,
                 workspace_count: m.workspaces.len(),
-                layout_name: "BSP".into(),
+                layout_name: m.active_ws().layout_kind().name().into(),
                 monocle: m.active_ws().monocle(),
                 cpu_usage: 0,
                 update_text: update_text.to_string(),
