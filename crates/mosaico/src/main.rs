@@ -93,6 +93,8 @@ enum ActionCommands {
     ToggleMonocle,
     /// Close the currently focused window
     CloseFocused,
+    /// Cycle to the next layout on the focused workspace
+    CycleLayout,
     /// Switch to workspace N (1-8) on the focused monitor
     GoToWorkspace {
         /// Workspace number (1-8)
@@ -160,6 +162,7 @@ fn main() {
                 ActionCommands::Retile => Action::Retile,
                 ActionCommands::ToggleMonocle => Action::ToggleMonocle,
                 ActionCommands::CloseFocused => Action::CloseFocused,
+                ActionCommands::CycleLayout => Action::CycleLayout,
                 ActionCommands::GoToWorkspace { n } => Action::GoToWorkspace(n),
                 ActionCommands::SendToWorkspace { n } => Action::SendToWorkspace(n),
             };
