@@ -1,6 +1,6 @@
 # Phase 19: Media Widget
 
-**Status:** Blocked
+**Status:** Pending
 
 **Goal:** Add a bar widget that displays the currently playing media
 (track title, artist) from system media sources (Spotify, browsers,
@@ -40,17 +40,26 @@ message pumping resolves the issue.
 
 ### Path Forward
 
-To unblock this phase, one of the following approaches is needed:
+Two single-binary approaches remain untested:
 
-1. **Separate GUI helper process** — a small executable (e.g., built
-   with `eframe`/`egui`) that queries GSMTC and sends the result to
-   the daemon via IPC (named pipe or shared memory).
-2. **WinRT dispatcher integration** — use `DispatcherQueue` or
-   `CoreDispatcher` from the Windows Runtime, which requires hosting
-   a WinRT application context inside the daemon.
-3. **Alternative API** — find a non-WinRT way to read media session
-   info (e.g., scraping Spotify window titles), though this is
-   fragile and app-specific.
+1. **`DispatcherQueueController::CreateOnDedicatedThread`** — this
+   Windows 10 1709+ API creates a WinRT-compatible dispatcher on a
+   background thread with its own message pump. Unlike the manual
+   `MsgWaitForMultipleObjectsEx` approaches tested above, this is
+   specifically designed for background threads that need WinRT async
+   completion callbacks. None of the previous tests used this API.
+
+2. **Raw COM vtable calls** — the cloaking feature already uses raw
+   COM vtable manipulation to call undocumented IApplicationView
+   methods synchronously, bypassing the `windows` crate's async
+   wrappers. The same technique could work for GSMTC: query the
+   `IGlobalSystemMediaTransportControlsSessionManager` interface
+   through raw vtable offsets, reading session properties directly
+   without `IAsyncOperation`. This avoids the dispatcher requirement
+   entirely.
+
+Try approach 1 first (proper WinRT integration). Fall back to
+approach 2 if the dispatcher still doesn't satisfy GSMTC.
 
 ## Current State
 
