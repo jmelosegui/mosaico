@@ -31,7 +31,7 @@ pub use action::{Action, Direction};
 pub use config::{BarConfig, Config};
 pub use event::WindowEvent;
 pub use ipc::{Command, Response};
-pub use layout::{BspLayout, Layout, LayoutKind, VerticalStackLayout};
+pub use layout::{BspLayout, Layout, LayoutKind, ThreeColumnLayout, VerticalStackLayout};
 pub use rect::Rect;
 pub use window::{Window, WindowResult};
 pub use workspace::Workspace;

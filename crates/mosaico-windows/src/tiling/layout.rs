@@ -5,7 +5,7 @@
 //! correct to avoid unnecessary repaints.
 
 use mosaico_core::window::Window as WindowTrait;
-use mosaico_core::{BspLayout, LayoutKind, Rect, VerticalStackLayout};
+use mosaico_core::{BspLayout, LayoutKind, Rect, ThreeColumnLayout, VerticalStackLayout};
 
 use super::{TilingManager, Window};
 
@@ -32,6 +32,10 @@ impl TilingManager {
             }
             LayoutKind::VerticalStack => {
                 let layout = VerticalStackLayout { gap, ratio };
+                state.active_ws().compute_layout(&layout, &state.work_area)
+            }
+            LayoutKind::ThreeColumn => {
+                let layout = ThreeColumnLayout { gap, ratio };
                 state.active_ws().compute_layout(&layout, &state.work_area)
             }
         }

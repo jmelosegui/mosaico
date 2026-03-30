@@ -22,7 +22,7 @@ ratio = 0.5
 # "hide": SW_HIDE, removes taskbar icon.
 # "minimize": SW_MINIMIZE, keeps taskbar icon but shows as minimized.
 hiding = "cloak"
-# Default layout algorithm: "bsp" or "vertical-stack".
+# Default layout algorithm: "bsp", "vertical-stack", or "three-column".
 default = "bsp"
 
 # Per-workspace layout overrides (workspace number 1-8).
