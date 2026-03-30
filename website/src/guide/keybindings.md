@@ -21,6 +21,7 @@ L=right):
 | `Alt + Shift + L` | Move right |
 | `Alt + Shift + R` | Retile |
 | `Alt + T` | Toggle monocle |
+| `Alt + N` | Cycle layout |
 | `Alt + Q` | Close focused window |
 | `Alt + 1` -- `Alt + 8` | Switch to workspace 1-8 |
 | `Alt + Shift + 1` -- `Alt + Shift + 8` | Send window to workspace 1-8 |
@@ -55,6 +56,7 @@ modifiers = ["alt", "shift"]
 | `move-down` | Move window down |
 | `retile` | Re-apply the tiling layout |
 | `toggle-monocle` | Toggle monocle (full-screen) mode |
+| `cycle-layout` | Cycle to the next tiling layout |
 | `close-focused` | Close the focused window |
 | `goto-workspace-N` | Switch to workspace N (1-8) |
 | `send-to-workspace-N` | Send focused window to workspace N (1-8) |

@@ -85,7 +85,7 @@ errors).
 
 ## Default Keybindings
 
-Defined in `keybinding::defaults()` (27 bindings total), using vim-style
+Defined in `keybinding::defaults()` (28 bindings total), using vim-style
 spatial motions plus workspace switching:
 
 | Shortcut | Action |
@@ -100,14 +100,16 @@ spatial motions plus workspace switching:
 | Alt + Shift + L | Move(Right) |
 | Alt + Shift + R | Retile |
 | Alt + T | ToggleMonocle |
+| Alt + N | CycleLayout |
 | Alt + Q | CloseFocused |
 | Alt + 1-8 | GoToWorkspace(1-8) |
 | Alt + Shift + 1-8 | SendToWorkspace(1-8) |
 
 The H/J/K/L keys follow vim conventions: H=left, J=down, K=up, L=right.
 Focus navigates spatially; Move swaps or transfers windows in the same
-direction. Alt+N switches to workspace N on the focused monitor;
-Alt+Shift+N sends the focused window to workspace N.
+direction. Alt+<number> switches to workspace N on the focused monitor;
+Alt+Shift+<number> sends the focused window to workspace N. Alt+N cycles
+through available tiling layouts on the current workspace.
 
 ## Tests
 

@@ -21,8 +21,9 @@ All settings have sensible defaults, so configuration files are optional.
 
 - `Config` -- top-level config: `layout: LayoutConfig`, `borders: BorderConfig`,
   `logging: LogConfig`, `theme: ThemeConfig`
-- `LayoutConfig` -- `gap: i32` (default 8), `ratio: f64` (default 0.5),
-  `hiding: HidingBehaviour` (default `Cloak`)
+- `LayoutConfig` -- `default: String` (default `"bsp"`), `gap: i32` (default 8),
+  `ratio: f64` (default 0.5), `hiding: HidingBehaviour` (default `Cloak`),
+  `workspaces: HashMap<u32, String>` (per-workspace layout overrides)
 - `HidingBehaviour` (enum) -- `Cloak`, `Hide`, `Minimize`
 - `BorderConfig` -- `width: i32` (default 4), `focused: String` (default
   `"#00b4d8"`), `monocle: String` (default `"#2d6a4f"`)
@@ -48,9 +49,14 @@ Controls layout, borders, logging, and theme:
 
 ```toml
 [layout]
-gap = 8         # Pixel gap between windows (0-200)
-ratio = 0.5     # BSP split ratio (0.1-0.9)
+default = "bsp"  # Default layout algorithm: "bsp", "vertical-stack", "three-column"
+gap = 8          # Pixel gap between windows (0-200)
+ratio = 0.5      # BSP split ratio (0.1-0.9)
 hiding = "cloak" # How windows hide on workspace switch: "cloak", "hide", "minimize"
+
+[layout.workspaces]  # Per-workspace layout overrides
+1 = "vertical-stack"
+3 = "three-column"
 
 [borders]
 width = 4              # Border thickness in pixels (0-32)
@@ -217,8 +223,8 @@ detected and applied while the daemon is running. The config file watcher
 (see [daemon.md](daemon.md)) polls for modification time changes every
 2 seconds.
 
-- **config.toml**: layout gap/ratio, hiding behaviour, border settings, and
-  theme are reloaded. The tiling manager calls `reload_config()` which
+- **config.toml**: layout algorithm, gap/ratio, hiding behaviour, border
+  settings, and theme are reloaded. The tiling manager calls `reload_config()` which
   updates the `BspLayout`, hiding strategy, and `BorderConfig`, then retiles
   all windows. If the theme changed, bar colors are re-resolved. Hiding
   changes take effect on the next workspace switch.

@@ -1,8 +1,9 @@
 # Tiling Layout
 
-Mosaico uses a Binary Space Partitioning (BSP) algorithm to arrange windows on
-each monitor. The layout system is split into platform-agnostic types in
-`mosaico-core` and orchestration logic in `mosaico-windows`.
+Mosaico ships three tiling layout algorithms -- BSP, VerticalStack, and
+ThreeColumn -- that can be assigned per workspace and cycled at runtime. The
+layout system is split into platform-agnostic types in `mosaico-core` and
+orchestration logic in `mosaico-windows`.
 
 ## Architecture
 
@@ -10,31 +11,58 @@ each monitor. The layout system is split into platform-agnostic types in
 
 | File | Purpose |
 |------|---------|
-| `crates/mosaico-core/src/layout.rs` | `Layout` trait and `BspLayout` implementation |
-| `crates/mosaico-core/src/workspace.rs` | `Workspace` -- ordered collection of window handles per monitor |
+| `crates/mosaico-core/src/layout/mod.rs` | `Layout` trait, `LayoutKind` enum, re-exports |
+| `crates/mosaico-core/src/layout/bsp.rs` | `BspLayout` -- recursive binary space partitioning |
+| `crates/mosaico-core/src/layout/vertical_stack.rs` | `VerticalStackLayout` -- master/stack layout |
+| `crates/mosaico-core/src/layout/three_column.rs` | `ThreeColumnLayout` -- center master with side stacks |
+| `crates/mosaico-core/src/layout/tests.rs` | Unit tests for all three layouts and `LayoutKind` |
+| `crates/mosaico-core/src/workspace.rs` | `Workspace` -- ordered collection of window handles per monitor, tracks `LayoutKind` |
 | `crates/mosaico-core/src/rect.rs` | `Rect` -- rectangle type with spatial helpers |
 | `crates/mosaico-core/src/spatial.rs` | Pure spatial navigation functions (`find_neighbor`, `find_entry`) |
 | `crates/mosaico-windows/src/tiling/mod.rs` | `TilingManager`, `MonitorState` -- core orchestration, event/action dispatch |
 | `crates/mosaico-windows/src/tiling/navigation.rs` | `focus_direction()`, `move_direction()` -- spatial navigation and cross-monitor moves |
-| `crates/mosaico-windows/src/tiling/layout.rs` | `apply_layout_on()`, `retile_all()`, `toggle_monocle()` -- layout application |
+| `crates/mosaico-windows/src/tiling/layout.rs` | `apply_layout_on()`, `retile_all()`, `toggle_monocle()`, `cycle_layout()` -- layout application |
 | `crates/mosaico-windows/src/tiling/workspace.rs` | `goto_workspace()`, `send_to_workspace()` -- workspace switching |
 
 ### Key Types
 
 - `Layout` (trait) -- defines `fn apply(&self, handles: &[usize], work_area: &Rect) -> Vec<(usize, Rect)>`
+- `LayoutKind` (enum) -- `Bsp`, `VerticalStack`, `ThreeColumn`; provides
+  `next()` for cycling and `name()` for status-bar display
 - `BspLayout` -- implements `Layout` with configurable `gap` and `ratio`
+- `VerticalStackLayout` -- implements `Layout`: master pane left, vertical
+  stack right
+- `ThreeColumnLayout` -- implements `Layout`: master pane center, stacks on
+  both sides; extra windows alternate left/right
 - `Workspace` -- maintains an ordered `Vec<usize>` of window handles for a
-  monitor; provides `add()`, `insert()`, `remove()`, `swap()`,
-  `compute_layout()`
+  monitor plus a `layout_kind: LayoutKind` field; provides `add()`,
+  `insert()`, `remove()`, `swap()`, `compute_layout()`,
+  `layout_kind()` / `set_layout_kind()`
 - `Rect` -- fields: `x`, `y`, `width`, `height`; methods: `center_x()`,
   `center_y()`, `vertical_overlap()`, `horizontal_overlap()`
-- `TilingManager` -- central orchestrator holding `Vec<MonitorState>`, the
-  layout instance, rules, border, focus state, `applying_layout` flag, and
-  `hidden_by_switch: HashSet<usize>` for workspace tracking
+- `TilingManager` -- central orchestrator holding `Vec<MonitorState>`,
+  `layout_gap`, `layout_ratio`, rules, border, focus state,
+  `applying_layout` flag
 - `MonitorState` -- per-monitor state: `id`, `work_area`,
-  `workspaces: Vec<Workspace>` (up to 8), `active_workspace: usize`, `monocle`
+  `workspaces: Vec<Workspace>` (up to 8), `active_workspace: usize`
 
-## BSP Layout Algorithm
+## Layout Algorithms
+
+All three layouts share the same `gap` and `ratio` configuration and the same
+gap-handling rules:
+
+- **Outer gap**: applied around the entire work area
+- **Inner gap**: half-gap spacing between adjacent windows
+- Dimensions are clamped to `max(1)` to prevent zero/negative sizes when gaps
+  exceed available space
+
+### Configuration
+
+- `gap: i32` -- pixel gap between windows (default: 8, range: 0-200)
+- `ratio: f64` -- split ratio for the primary partition (default: 0.5,
+  range: 0.1-0.9)
+
+### BSP (Binary Space Partitioning)
 
 `BspLayout::split()` recursively divides the available area:
 
@@ -46,18 +74,91 @@ each monitor. The layout system is split into platform-agnostic types in
    default 0.5)
 4. Remaining windows are recursively laid out in the second partition
 
-### Gap Handling
+```text
++-----------+-----------+
+|           |     2     |
+|     1     +-----------+
+|           |     3     |
++-----------+-----------+
+```
 
-- Outer gap: applied around the entire work area
-- Inner gap: half-gap spacing between adjacent windows
-- Dimensions are clamped to `max(1)` to prevent zero/negative sizes when gaps
-  exceed available space
+### VerticalStack
 
-### Configuration
+A master/stack layout with one master pane on the left and remaining windows
+stacked vertically on the right:
 
-- `gap: i32` -- pixel gap between windows (default: 8, range: 0-200)
-- `ratio: f64` -- split ratio for the primary partition (default: 0.5,
-  range: 0.1-0.9)
+1. **One window** -- fills the entire area (minus gaps)
+2. **Two or more windows** -- the first window gets the left `ratio` portion
+   (the master pane); all remaining windows share the right portion, divided
+   into equal-height slots
+
+```text
++-----------+-----------+
+|           |     2     |
+|     1     +-----------+
+| (master)  |     3     |
++-----------+-----------+
+```
+
+### ThreeColumn
+
+A center-master layout with stacks on both sides. Extra windows alternate
+between the left and right stacks:
+
+1. **One window** -- fills the entire area
+2. **Two windows** -- master left, second right (behaves like VerticalStack)
+3. **Three or more windows** -- the first window occupies the center column
+   (width set by `ratio`); subsequent windows alternate into the left and
+   right side columns, each divided into equal-height slots
+
+```text
++------+-----------+------+
+|  2   |           |  3   |
++------+     1     +------+
+|  4   | (master)  |  5   |
++------+-----------+------+
+```
+
+## LayoutKind and Cycling
+
+Each `Workspace` stores a `layout_kind: LayoutKind` field that determines
+which algorithm is used when tiling its windows. The default is `Bsp`.
+
+### Cycling
+
+The `CycleLayout` action (default binding: `Alt+N`) advances the active
+workspace's layout to the next variant:
+
+    Bsp -> VerticalStack -> ThreeColumn -> Bsp -> ...
+
+`LayoutKind::next()` implements this rotation. After cycling, the workspace
+is immediately retiled with the new algorithm.
+
+The current layout name is available via `LayoutKind::name()` for status-bar
+display (`"BSP"`, `"VStack"`, `"3Col"`).
+
+### Per-Workspace Configuration
+
+The `[layout]` section of `config.toml` supports:
+
+```toml
+[layout]
+gap = 8
+ratio = 0.5
+default = "bsp"            # default layout for all workspaces
+
+[layout.workspaces]
+3 = "vertical-stack"       # workspace 3 uses VerticalStack
+5 = "three-column"         # workspace 5 uses ThreeColumn
+```
+
+- `default` -- the `LayoutKind` used for workspaces without an explicit
+  override (default: `"bsp"`)
+- `workspaces` -- a map of workspace number (1-8) to `LayoutKind`; workspaces
+  listed here start with the specified layout instead of `default`
+
+`LayoutKind` is serialized in kebab-case: `"bsp"`, `"vertical-stack"`,
+`"three-column"`.
 
 ## TilingManager
 
@@ -91,7 +192,10 @@ the split tiling modules:
   monitors
 - `ToggleMonocle` -> `toggle_monocle()` (in `layout.rs`) -- toggles monocle
   mode
+- `CycleLayout` -> `cycle_layout()` (in `layout.rs`) -- advances the active
+  workspace's layout to the next variant and retiles
 - `CloseFocused` -> `close_focused()` -- sends `WM_CLOSE`
+- `MinimizeFocused` -> `minimize_focused()` -- minimizes the focused window
 - `GoToWorkspace(n)` -> `goto_workspace(n)` (in `workspace.rs`) -- switches
   to workspace N on the focused monitor
 - `SendToWorkspace(n)` -> `send_to_workspace(n)` (in `workspace.rs`) -- sends
@@ -101,7 +205,7 @@ the split tiling modules:
 
 The `TilingManager` supports hot-reloading of configuration:
 
-- `reload_config(config)` -- updates the `BspLayout` gap/ratio and
+- `reload_config(config)` -- updates the layout gap/ratio and
   `BorderConfig`, then retiles all windows and updates the border
 - `reload_rules(rules)` -- replaces the window rules used for tileability
   checks on new windows
@@ -120,9 +224,12 @@ The `TilingManager` supports hot-reloading of configuration:
 `apply_layout_on(monitor_idx)`:
 
 1. Prunes stale handles (windows that closed without firing destroy events)
-2. In **monocle mode**: positions only the focused window to fill the work area
-3. In **normal mode**: calls `BspLayout::apply()` to compute positions, then
-   calls `set_rect()` + `invalidate()` on each window
+2. In **monocle mode**: positions only the monocle window to fill the work area
+3. In **normal mode**: reads the workspace's `layout_kind` and instantiates
+   the corresponding layout (`BspLayout`, `VerticalStackLayout`, or
+   `ThreeColumnLayout`) via `compute_positions()`, then calls `set_rect()` +
+   `invalidate()` on each window. Windows whose position has not changed are
+   skipped to avoid unnecessary repaints.
 
 The `applying_layout` flag suppresses `Moved` events during programmatic layout
 to prevent re-entrant tiling.
@@ -142,10 +249,12 @@ A per-monitor toggle that makes the focused window fill the entire work area
 
 - Toggled via `Alt+T` (default) or `mosaico action toggle-monocle`
 - The border color changes to the configured `monocle` color when active
-- Tracked by the `monocle: bool` field on `MonitorState`
+- Tracked by the `monocle: bool` field on `Workspace`
 
-When monocle is active, `apply_layout_on()` skips BSP computation and directly
-positions the focused window to fill the monitor's work area with gap padding.
+When monocle is active, `apply_layout_on()` skips the normal layout computation
+and directly positions the monocle window to fill the monitor's work area with
+gap padding. The monocle window is remembered per workspace via the
+`monocle_window` field so it persists across workspace switches.
 
 ## Workspace Management
 
@@ -196,19 +305,22 @@ treated as destroyed when the `EVENT_OBJECT_HIDE` event fires.
 - BSP alternates horizontal/vertical splits by recursion depth, producing a
   balanced grid-like layout.
 - The first window always gets the primary partition, making the "main" window
-  consistently positioned.
+  consistently positioned across all three layouts.
+- `LayoutKind` is stored per workspace (not per monitor or globally), so
+  different workspaces on the same monitor can use different layouts.
+- Layout cycling wraps around: `Bsp -> VerticalStack -> ThreeColumn -> Bsp`.
+- All three layouts share the same `gap` and `ratio` parameters; only the
+  spatial algorithm differs.
 - `applying_layout` flag prevents infinite loops from programmatic window
   moves triggering `Moved` events.
 - Stale handle pruning runs before every layout application to handle UWP apps
   that close without firing destroy events.
-- `Workspace` is intentionally simple (just a `Vec<usize>`) -- the layout
-  algorithm determines spatial positioning, not insertion order.
-- The tiling module is split into four files (`mod.rs`, `navigation.rs`,
-  `layout.rs`, `workspace.rs`) to keep each file under ~150 lines with one
-  concern per file.
-- `hidden_by_switch` is a `HashSet<usize>` on the `TilingManager` (not per
-  workspace) because the event handler needs to check all hidden windows
-  regardless of which workspace they belong to.
+- `Workspace` stores a `layout_kind` alongside its `Vec<usize>` handle list
+  -- the layout algorithm determines spatial positioning, not insertion order.
+- The core layout module is split into sub-files (`mod.rs`, `bsp.rs`,
+  `vertical_stack.rs`, `three_column.rs`, `tests.rs`) with one layout per
+  file. The tiling orchestration module is similarly split into four files
+  (`mod.rs`, `navigation.rs`, `layout.rs`, `workspace.rs`).
 - `restore_all_windows()` iterates all workspaces on all monitors to ensure
   no window remains invisible after daemon shutdown.
 
@@ -216,6 +328,11 @@ treated as destroyed when the `EVENT_OBJECT_HIDE` event fires.
 
 - 5 unit tests for `BspLayout`: single window, two windows, three windows,
   empty input, large gap safety
+- 5 unit tests for `VerticalStackLayout`: single window, two windows, three
+  windows, five windows, empty input
+- 5 unit tests for `ThreeColumnLayout`: single window, two windows, three
+  windows (center master), five windows (alternating sides), empty input
+- 2 unit tests for `LayoutKind`: cycle order, display names
 - 3 unit tests for `Workspace`: add/remove, insert at position, layout
   delegation
 - 13 unit tests in `tiling/mod.rs`: event handling, action dispatch,

@@ -56,6 +56,7 @@ Directions parse from and serialize to lowercase strings: `"left"`, `"right"`,
 | `Move(Down)` | Swap window down (same monitor only) | Alt+Shift+J |
 | `Retile` | Re-apply layout on all monitors | Alt+Shift+R |
 | `ToggleMonocle` | Toggle monocle mode on focused monitor | Alt+T |
+| `CycleLayout` | Cycle to the next layout on the focused monitor | Alt+N |
 | `CloseFocused` | Close the focused window via `WM_CLOSE` | Alt+Q |
 | `GoToWorkspace(1-8)` | Switch to workspace N on focused monitor | Alt+1 - Alt+8 |
 | `SendToWorkspace(1-8)` | Send focused window to workspace N | Alt+Shift+1 - Alt+Shift+8 |
@@ -95,6 +96,7 @@ Both paths converge at `TilingManager::handle_action()`.
 | `Move(dir)` | `move_direction(dir)` (in `navigation.rs`) |
 | `Retile` | `retile_all()` (in `layout.rs`) |
 | `ToggleMonocle` | `toggle_monocle()` (in `layout.rs`) |
+| `CycleLayout` | `cycle_layout()` (in `mod.rs`) |
 | `CloseFocused` | `close_focused()` |
 | `GoToWorkspace(n)` | `goto_workspace(n)` (in `workspace.rs`) |
 | `SendToWorkspace(n)` | `send_to_workspace(n)` (in `workspace.rs`) |
@@ -111,6 +113,7 @@ Actions use custom `FromStr`/`Display` implementations for serde:
 - `Move(Right)` -> `"move-right"`
 - `Retile` -> `"retile"`
 - `ToggleMonocle` -> `"toggle-monocle"`
+- `CycleLayout` -> `"cycle-layout"`
 - `CloseFocused` -> `"close-focused"`
 - `GoToWorkspace(3)` -> `"goto-workspace-3"`
 - `SendToWorkspace(1)` -> `"send-to-workspace-1"`
