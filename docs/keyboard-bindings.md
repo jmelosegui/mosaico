@@ -25,14 +25,17 @@ Keyboard binding handling spans two crates:
 
 - `Keybinding` -- fields: `action: Action`, `key: String`, `modifiers: Vec<Modifier>`
 - `Modifier` -- enum: `Alt`, `Shift`, `Ctrl`, `Win`
-- `HotkeyManager` -- fields: `hotkeys: Vec<Hotkey>`, `sender: Sender<Action>`
-- `Hotkey` (private) -- fields: `id: i32`, `action: Action`
+- `HotkeyManager` -- fields: `hotkeys: Vec<Hotkey>`, `sender: Sender<Action>`,
+  `paused: bool`, `pause_hotkey_id: Option<i32>`
+- `Hotkey` (private) -- fields: `id: i32`, `modifiers: HOT_KEY_MODIFIERS`,
+  `vk: u32`, `action: Action`
 
 ## Registration Flow
 
-1. **Config loading** -- `daemon_loop()` calls `config::load_keybindings()`,
-   which reads `~/.config/mosaico/keybindings.toml` or falls back to
-   `keybinding::defaults()`
+1. **Config loading** -- `daemon_loop()` calls `config::merge_missing_keybindings()`,
+   which reads `~/.config/mosaico/keybindings.toml`, appends any missing default
+   actions (new bindings added by future versions) to the file, then returns the
+   merged set. Falls back to `keybinding::defaults()` if the file is absent.
 
 2. **Pass to event loop** -- keybindings are passed to `event_loop::start()`
 
@@ -47,7 +50,9 @@ Keyboard binding handling spans two crates:
    - Always adds `MOD_NOREPEAT` to prevent key-repeat flooding
    - Calls `RegisterHotKey(None, id, modifiers, vk)` -- `None` HWND means
      registration on the current thread's message queue
-   - Stores a `Hotkey { id, action }` for later dispatch
+   - Stores a `Hotkey { id, modifiers, vk, action }` for later dispatch
+   - After the loop, scans for a `TogglePause` action and saves its ID as
+     `pause_hotkey_id` so it can be preserved during pause
 
 5. **Cleanup** -- `HotkeyManager` implements `Drop`, calling
    `UnregisterHotKey` for every registered hotkey on shutdown
@@ -65,6 +70,47 @@ User presses Alt+J
   -> Bridge thread wraps as DaemonMsg::Action
   -> TilingManager::handle_action()
 ```
+
+## Pause / Unpause
+
+Mosaico can temporarily release all its global hotkeys to the OS so another
+application can use those same key combinations.
+
+### How it works
+
+- **`toggle-pause` action** -- when triggered, sends a `WM_APP+2` message
+  (`WM_HOTKEY_PAUSE`) to the event loop thread via `PostThreadMessageW`.
+- **On pause** -- `HotkeyManager::pause()` calls `UnregisterHotKey` for every
+  hotkey *except* the `toggle-pause` binding (so you can always unpause).
+  Sets `paused = true`.
+- **On unpause** -- `HotkeyManager::unpause()` calls `RegisterHotKey` for every
+  previously unregistered hotkey. Sets `paused = false`.
+- **State mirroring** -- the daemon main thread tracks a `hotkeys_paused: bool`
+  local variable and passes it to the bar so the `paused` widget shows while
+  paused.
+- **CLI** -- `mosaico pause` / `mosaico unpause` send `PauseHotkeys` /
+  `UnpauseHotkeys` IPC commands. The daemon forwards them to the event loop
+  via the same `WM_HOTKEY_PAUSE` mechanism.
+
+### Lockout prevention
+
+The `toggle-pause` hotkey stays registered while paused. If no `toggle-pause`
+binding is configured, pausing via keyboard isn't possible, but `mosaico unpause`
+always works.
+
+### Configuration
+
+Add to `~/.config/mosaico/keybindings.toml`:
+
+```toml
+[[keybinding]]
+action = "toggle-pause"
+key = "P"
+modifiers = ["alt", "shift"]
+```
+
+Then restart the daemon. The status bar shows a red **PAUSED** indicator while
+hotkeys are suspended.
 
 ## Key Name Resolution
 
@@ -105,7 +151,8 @@ spatial motions plus workspace switching:
 | Alt + 1-8 | GoToWorkspace(1-8) |
 | Alt + Shift + 1-8 | SendToWorkspace(1-8) |
 
-The H/J/K/L keys follow vim conventions: H=left, J=down, K=up, L=right.
+The H/J/K/L keys follow vim conventions: H=left, J=down, K=up, L=right. The
+`toggle-pause` action is not bound by default; add it manually.
 Focus navigates spatially; Move swaps or transfers windows in the same
 direction. Alt+<number> switches to workspace N on the focused monitor;
 Alt+Shift+<number> sends the focused window to workspace N. Alt+N cycles

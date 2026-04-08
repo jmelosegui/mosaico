@@ -23,6 +23,7 @@ dedicated handler module under `crates/mosaico/src/commands/`.
 | `crates/mosaico/src/commands/doctor.rs` | `mosaico doctor` handler |
 | `crates/mosaico/src/commands/daemon.rs` | `mosaico daemon` handler (hidden) |
 | `crates/mosaico/src/commands/action.rs` | `mosaico action <verb>` handler |
+| `crates/mosaico/src/commands/pause.rs` | `mosaico pause` / `mosaico unpause` handler |
 | `crates/mosaico/src/commands/banner.rs` | Shared ASCII logo used by `start` and `doctor` |
 | `crates/mosaico/src/commands/update.rs` | `mosaico update` handler |
 | `crates/mosaico/src/commands/debug/list.rs` | `mosaico debug list` handler |
@@ -33,7 +34,7 @@ dedicated handler module under `crates/mosaico/src/commands/`.
 
 - `Cli` -- top-level `clap::Parser` struct
 - `Commands` -- enum of all subcommands: `Init`, `Start`, `Stop`, `Status`,
-  `Doctor`, `Update`, `Action`, `Debug`, `Daemon`
+  `Doctor`, `Update`, `Action`, `Pause`, `Unpause`, `Debug`, `Daemon`
 - `ActionCommands` -- enum: `Focus { direction }`, `Move { direction }`,
   `Retile`, `ToggleMonocle`, `CloseFocused`, `GoToWorkspace { n }`,
   `SendToWorkspace { n }`
@@ -148,6 +149,26 @@ The self-replacement works by renaming the running `mosaico.exe` to
 `mosaico.exe.old` (Windows allows renaming but not overwriting a locked file),
 then writing the new binary in its place. The `.old` backup is cleaned up
 immediately or on the next daemon start.
+
+### `mosaico pause`
+
+Pauses all mosaico global hotkeys by unregistering them from the system. While
+paused, mosaico's key combinations are fully released to the OS and can be used
+by other applications. The `toggle-pause` hotkey (if configured) remains
+registered so you can resume without a terminal.
+
+```sh
+mosaico pause
+```
+
+### `mosaico unpause`
+
+Re-registers all hotkeys that were paused. Mosaico resumes normal hotkey
+handling immediately.
+
+```sh
+mosaico unpause
+```
 
 ### `mosaico daemon` (hidden)
 

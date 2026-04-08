@@ -25,3 +25,5 @@ resolver = "3"
 strip = true          # Remove symbols and debug info
 lto = true            # Link-time optimization across all crates
 codegen-units = 1     # Better optimization (slower compile)
+opt-level = "z"       # Optimize for binary size
+panic = "abort"       # Remove panic unwinding machinery

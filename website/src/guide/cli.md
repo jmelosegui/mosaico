@@ -107,6 +107,21 @@ mosaico action send-to-workspace <1-8>
 These are the same actions triggered by keyboard shortcuts, useful for
 scripting or integration with other tools.
 
+## `mosaico pause` / `mosaico unpause`
+
+Temporarily suspends all mosaico global hotkeys so another application can use
+those key combinations, then restores them.
+
+```sh
+mosaico pause     # Unregister all hotkeys (releases them to the OS)
+mosaico unpause   # Re-register all hotkeys
+```
+
+While paused, the status bar shows a red **PAUSED** indicator. You can also
+toggle pause from the keyboard by binding the `toggle-pause` action — the
+toggle hotkey remains registered while paused so you can resume without opening
+a terminal. See [Keyboard Bindings](keybindings.md#pause--unpause) for setup.
+
 ## `mosaico debug list`
 
 Displays a formatted table of all visible windows showing:
