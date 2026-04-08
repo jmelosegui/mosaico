@@ -60,6 +60,7 @@ modifiers = ["alt", "shift"]
 | `close-focused` | Close the focused window |
 | `goto-workspace-N` | Switch to workspace N (1-8) |
 | `send-to-workspace-N` | Send focused window to workspace N (1-8) |
+| `toggle-pause` | Toggle hotkey pause on/off |
 
 ### Modifiers
 
@@ -82,6 +83,37 @@ modifiers = ["alt", "shift"]
 | Punctuation | `Minus`, `Plus`, `Comma`, `Period` |
 
 Unknown key names are skipped with a log message.
+
+## Pause / Unpause
+
+If another application uses the same global shortcuts as mosaico, you can
+temporarily release mosaico's hotkeys so that application can receive them:
+
+```toml
+[[keybinding]]
+action = "toggle-pause"
+key = "P"
+modifiers = ["alt", "shift"]
+```
+
+Press `Alt+Shift+P` to pause — the status bar shows a red **PAUSED** indicator.
+Press it again to resume. You can also use the CLI:
+
+```sh
+mosaico pause
+mosaico unpause
+```
+
+The `toggle-pause` hotkey stays registered while paused so you can always
+resume from the keyboard without opening a terminal.
+
+## Auto-merge
+
+On each daemon start, any default keybinding actions not present in your
+`keybindings.toml` are automatically appended to the file. This ensures you
+pick up new shortcuts added in future versions without overwriting any of your
+customizations. Actions you've already bound (even to different keys) are
+never touched.
 
 ## Reloading
 

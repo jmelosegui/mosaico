@@ -82,8 +82,14 @@ pixel buffer using geometry helpers (`in_rounded_rect`, `is_border_pixel`).
 | `cpu` | CPU usage percentage via `GetSystemTimes` delta tracking | -- |
 | `update` | Update notification when newer version is available | -- |
 | `media` | Currently playing track via GSMTC | `max_length` (default 40) |
+| `paused` | Indicator shown when mosaico hotkeys are paused | `color` (default `"red"`) |
 
 Each widget can be independently enabled/disabled and assigned a custom icon.
+
+The `paused` widget is auto-hidden when hotkeys are not paused (`should_skip()`
+returns `true` unless `state.paused`). It is included in the default bar config
+and added automatically to existing `bar.toml` files via the widget auto-merge
+mechanism (see below).
 
 ### Active Window Icon
 
@@ -129,9 +135,19 @@ The `BarState` struct provides the data each widget needs:
 - `cpu_usage` -- current CPU percentage (from `CpuTracker`)
 - `update_text` -- update notification string (empty if up to date)
 - `media_text` -- formatted media info, e.g. "Artist - Title" (empty if nothing playing)
+- `paused` -- whether mosaico hotkeys are currently paused
 
 `TilingManager::bar_states()` produces a `Vec<BarState>` snapshot for all
 monitors on each render cycle.
+
+## Widget Auto-Merge
+
+On daemon startup, `merge_missing_bar_widgets()` compares the widget types
+present in the user's `bar.toml` against the built-in defaults. Any widget
+type not already present is appended to the file automatically, so new widgets
+added in future versions are picked up without requiring users to edit their
+config. The comparison uses `std::mem::discriminant` (enum variant identity)
+so a user who intentionally removes a widget type will not have it re-added.
 
 ## Bar Manager
 

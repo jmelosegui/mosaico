@@ -66,6 +66,7 @@ Widgets are placed in `[[left]]`, `[[center]]`, or `[[right]]` arrays.
 | `cpu` | CPU usage percentage | -- |
 | `update` | Update indicator | -- |
 | `media` | Currently playing track | `max_length` |
+| `paused` | Shown (in red) when hotkeys are paused | `color` |
 
 The `active_window` widget displays the application icon of the currently
 focused window. It extracts the icon from the running process and renders
@@ -118,6 +119,11 @@ type = "ram"
 type = "date"
 format = "%a %d %b"
 ```
+
+The `paused` widget is auto-hidden when hotkeys are active and shown in red
+when they are paused. It is included in the default config and is added
+automatically to existing `bar.toml` files on daemon startup (along with any
+other new default widgets from future versions).
 
 ## Work Area
 
