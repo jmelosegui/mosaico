@@ -12,6 +12,8 @@ use crate::keys;
 /// A registered global hotkey.
 struct Hotkey {
     id: i32,
+    modifiers: HOT_KEY_MODIFIERS,
+    vk: u32,
     action: Action,
 }
 
@@ -23,6 +25,8 @@ struct Hotkey {
 pub struct HotkeyManager {
     hotkeys: Vec<Hotkey>,
     sender: Sender<Action>,
+    paused: bool,
+    pause_hotkey_id: Option<i32>,
 }
 
 impl HotkeyManager {
@@ -33,6 +37,8 @@ impl HotkeyManager {
         Self {
             hotkeys: Vec::new(),
             sender,
+            paused: false,
+            pause_hotkey_id: None,
         }
     }
 
@@ -57,6 +63,11 @@ impl HotkeyManager {
 
             self.register(id, modifiers, vk, binding.action);
         }
+
+        self.pause_hotkey_id = self.hotkeys
+            .iter()
+            .find(|h| h.action == Action::TogglePause)
+            .map(|h| h.id);
     }
 
     /// Dispatches a `WM_HOTKEY` message by hotkey ID.
@@ -80,7 +91,63 @@ impl HotkeyManager {
             return;
         }
 
-        self.hotkeys.push(Hotkey { id, action });
+        self.hotkeys.push(Hotkey { id, modifiers, vk, action });
+    }
+
+    /// Returns true if hotkeys are currently paused.
+    pub fn is_paused(&self) -> bool {
+        self.paused
+    }
+
+    /// Unregisters all hotkeys except the toggle-pause one (if configured).
+    ///
+    /// No-op if already paused. When no `toggle-pause` keybinding is configured,
+    /// all hotkeys are unregistered — the user must unpause via the CLI.
+    pub fn pause(&mut self) {
+        if self.paused {
+            return;
+        }
+        self.paused = true;
+        for hotkey in &self.hotkeys {
+            if Some(hotkey.id) == self.pause_hotkey_id {
+                continue;
+            }
+            // SAFETY: UnregisterHotKey removes a previously registered hotkey.
+            // Failures are ignored — the OS will silently release it on process exit.
+            unsafe {
+                let _ = UnregisterHotKey(None, hotkey.id);
+            }
+        }
+    }
+
+    /// Re-registers all hotkeys that were unregistered by `pause()`.
+    ///
+    /// No-op if not paused.
+    pub fn unpause(&mut self) {
+        if !self.paused {
+            return;
+        }
+        self.paused = false;
+        for hotkey in &self.hotkeys {
+            if Some(hotkey.id) == self.pause_hotkey_id {
+                continue;
+            }
+            // SAFETY: RegisterHotKey registers a system-wide hotkey on the
+            // current thread's message queue using the original id, modifiers, vk.
+            let result = unsafe { RegisterHotKey(None, hotkey.id, hotkey.modifiers, hotkey.vk) };
+            if result.is_err() {
+                eprintln!("Failed to re-register hotkey {} (vk=0x{:02X})", hotkey.id, hotkey.vk);
+            }
+        }
+    }
+
+    /// Toggles pause state: pauses if unpaused, unpauses if paused.
+    pub fn toggle_pause(&mut self) {
+        if self.paused {
+            self.unpause();
+        } else {
+            self.pause();
+        }
     }
 }
 

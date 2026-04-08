@@ -73,6 +73,8 @@ pub enum Action {
     MinimizeFocused,
     /// Cycle to the next layout on the focused workspace.
     CycleLayout,
+    /// Toggle hotkey pause: unregister all hotkeys (paused) or re-register them (unpaused).
+    TogglePause,
 }
 
 impl FromStr for Action {
@@ -97,6 +99,7 @@ impl FromStr for Action {
             "close-focused" => Ok(Action::CloseFocused),
             "minimize-focused" => Ok(Action::MinimizeFocused),
             "cycle-layout" => Ok(Action::CycleLayout),
+            "toggle-pause" => Ok(Action::TogglePause),
             _ => Err(format!("unknown action: {s}")),
         }
     }
@@ -112,6 +115,7 @@ impl fmt::Display for Action {
             Action::CloseFocused => write!(f, "close-focused"),
             Action::MinimizeFocused => write!(f, "minimize-focused"),
             Action::CycleLayout => write!(f, "cycle-layout"),
+            Action::TogglePause => write!(f, "toggle-pause"),
             Action::GoToWorkspace(n) => write!(f, "goto-workspace-{n}"),
             Action::SendToWorkspace(n) => write!(f, "send-to-workspace-{n}"),
         }
@@ -170,6 +174,7 @@ mod tests {
             Action::SendToWorkspace(1),
             Action::SendToWorkspace(8),
             Action::CycleLayout,
+            Action::TogglePause,
         ];
         for action in &actions {
             let s = action.to_string();

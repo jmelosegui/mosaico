@@ -52,6 +52,10 @@ enum Commands {
         #[command(subcommand)]
         command: DebugCommands,
     },
+    /// Pause all mosaico hotkeys until unpaused
+    Pause,
+    /// Resume all mosaico hotkeys
+    Unpause,
     /// Update mosaico to the latest release
     Update {
         /// Reinstall even if already on the latest version
@@ -152,6 +156,8 @@ fn main() {
             AutostartCommands::Disable => commands::autostart::disable(),
             AutostartCommands::Status => commands::autostart::status(),
         },
+        Commands::Pause => commands::pause::pause(),
+        Commands::Unpause => commands::pause::unpause(),
         Commands::Banner => commands::banner::execute(),
         Commands::Update { force } => commands::update::execute(force),
         Commands::Daemon => commands::daemon::execute(),

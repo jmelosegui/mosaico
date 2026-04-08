@@ -21,8 +21,9 @@ pub use bar::{BarColors, BarConfig, WidgetConfig};
 pub use keybinding::{Keybinding, Modifier};
 pub use loader::{
     bar_path, config_dir, config_path, keybindings_path, load, load_bar, load_keybindings,
-    load_merged_rules, load_rules, load_user_rules, rules_path, try_load, try_load_bar,
-    try_load_keybindings, try_load_rules, try_load_user_rules, user_rules_path,
+    load_merged_rules, load_rules, load_user_rules, merge_missing_bar_widgets,
+    merge_missing_keybindings, rules_path, try_load, try_load_bar, try_load_keybindings,
+    try_load_rules, try_load_user_rules, user_rules_path,
 };
 pub use rules::{WindowRule, default_rules, should_manage, validate_rules};
 pub use theme::{Theme, ThemeConfig};

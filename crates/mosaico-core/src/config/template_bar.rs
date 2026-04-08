@@ -100,6 +100,11 @@ type = \"update\"\n\
 icon = \"\\uF019\"\n\
 color = \"green\"  # custom color for text and border (hex or named)\n\
 \n\
+[[right]]\n\
+type = \"paused\"\n\
+# enabled = true  # auto-hidden when hotkeys are not paused\n\
+color = \"red\"  # shown in red while mosaico hotkeys are paused\n\
+\n\
 # Media widget -- shows currently playing track from Spotify, YouTube Music, etc.\n\
 # Auto-hidden when nothing is playing.\n\
 # [[right]]\n\

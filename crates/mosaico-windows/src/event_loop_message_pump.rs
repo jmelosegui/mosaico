@@ -1,13 +1,18 @@
 use windows::Win32::UI::WindowsAndMessaging::{
-    DispatchMessageW, GetMessageW, MSG, PM_REMOVE, PeekMessageW, TranslateMessage, WM_HOTKEY,
+    DispatchMessageW, GetMessageW, MSG, PM_REMOVE, PeekMessageW, TranslateMessage, WM_APP,
+    WM_HOTKEY,
 };
 
 use crate::hotkey::HotkeyManager;
 
+/// `PostThreadMessageW` message for pause/unpause control.
+/// wParam: 0 = unpause, 1 = pause, 2 = toggle.
+pub(crate) const WM_HOTKEY_PAUSE: u32 = WM_APP + 2;
+
 /// The Win32 message pump. Prioritises hotkey messages so that
 /// keyboard shortcuts remain responsive even when the event queue
 /// is flooded (e.g. during a virus scan or heavy WPF event storm).
-pub(crate) fn run_message_pump(hotkeys: &HotkeyManager) {
+pub(crate) fn run_message_pump(hotkeys: &mut HotkeyManager) {
     let mut msg = MSG::default();
 
     loop {
@@ -28,6 +33,15 @@ pub(crate) fn run_message_pump(hotkeys: &HotkeyManager) {
 
         if msg.message == WM_HOTKEY {
             hotkeys.dispatch(msg.wParam.0 as i32);
+            continue;
+        }
+
+        if msg.message == WM_HOTKEY_PAUSE {
+            match msg.wParam.0 {
+                0 => hotkeys.unpause(),
+                1 => hotkeys.pause(),
+                _ => hotkeys.toggle_pause(),
+            }
             continue;
         }
 
