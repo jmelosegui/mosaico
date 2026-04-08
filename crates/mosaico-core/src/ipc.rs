@@ -19,6 +19,10 @@ pub enum Command {
     },
     /// Dump the daemon's internal workspace state for debugging.
     Inspect,
+    /// Pause all hotkeys (unregister all except toggle-pause).
+    PauseHotkeys,
+    /// Re-register all hotkeys that were paused.
+    UnpauseHotkeys,
 }
 
 /// A response sent from the daemon back to the CLI.

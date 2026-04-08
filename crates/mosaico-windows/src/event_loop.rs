@@ -111,7 +111,7 @@ pub fn start(
         let _ = ready_tx.send(Ok((thread_id, event_sink.0 as usize)));
 
         // Run the message pump with hotkey dispatching.
-        event_loop_message_pump::run_message_pump(&hotkeys);
+        event_loop_message_pump::run_message_pump(&mut hotkeys);
 
         // Cleanup: destroy event sink, hotkeys unregistered in Drop.
         if !event_sink.is_invalid() {
@@ -149,6 +149,44 @@ pub struct EventLoopHandle {
 }
 
 impl EventLoopHandle {
+    /// Pauses all hotkeys (unregisters all except toggle-pause).
+    pub fn pause_hotkeys(&self) {
+        // SAFETY: PostThreadMessageW sends a thread message that is picked up
+        // by GetMessageW in the event loop's message pump (run_message_pump).
+        unsafe {
+            let _ = PostThreadMessageW(
+                self.thread_id,
+                event_loop_message_pump::WM_HOTKEY_PAUSE,
+                WPARAM(1),
+                LPARAM(0),
+            );
+        }
+    }
+
+    /// Unpauses all hotkeys (re-registers all previously paused hotkeys).
+    pub fn unpause_hotkeys(&self) {
+        unsafe {
+            let _ = PostThreadMessageW(
+                self.thread_id,
+                event_loop_message_pump::WM_HOTKEY_PAUSE,
+                WPARAM(0),
+                LPARAM(0),
+            );
+        }
+    }
+
+    /// Toggles hotkey pause state.
+    pub fn toggle_pause_hotkeys(&self) {
+        unsafe {
+            let _ = PostThreadMessageW(
+                self.thread_id,
+                event_loop_message_pump::WM_HOTKEY_PAUSE,
+                WPARAM(2),
+                LPARAM(0),
+            );
+        }
+    }
+
     /// Enables or disables focus-follows-mouse on the event loop thread.
     pub fn toggle_focus_follows_mouse(&self, enabled: bool) {
         if self.event_sink == 0 {

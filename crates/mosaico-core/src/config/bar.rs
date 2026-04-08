@@ -200,6 +200,18 @@ pub enum WidgetConfig {
         #[serde(default = "default_media_max_length")]
         max_length: usize,
     },
+    /// Hotkey-paused indicator — only visible while mosaico hotkeys are paused.
+    Paused {
+        /// Whether this widget is shown.
+        #[serde(default = "default_true")]
+        enabled: bool,
+        /// Icon text prepended to the widget.
+        #[serde(default)]
+        icon: String,
+        /// Text color (hex or named). Defaults to red.
+        #[serde(default = "default_paused_color")]
+        color: String,
+    },
 }
 
 fn default_true() -> bool {
@@ -208,6 +220,10 @@ fn default_true() -> bool {
 
 fn default_update_color() -> String {
     "green".into()
+}
+
+fn default_paused_color() -> String {
+    "red".into()
 }
 
 impl WidgetConfig {
@@ -222,7 +238,8 @@ impl WidgetConfig {
             | Self::Cpu { icon, .. }
             | Self::Update { icon, .. }
             | Self::ActiveWindow { icon, .. }
-            | Self::Media { icon, .. } => icon,
+            | Self::Media { icon, .. }
+            | Self::Paused { icon, .. } => icon,
         }
     }
 
@@ -237,7 +254,8 @@ impl WidgetConfig {
             | Self::Cpu { enabled, .. }
             | Self::Update { enabled, .. }
             | Self::ActiveWindow { enabled, .. }
-            | Self::Media { enabled, .. } => *enabled,
+            | Self::Media { enabled, .. }
+            | Self::Paused { enabled, .. } => *enabled,
         }
     }
 
@@ -252,7 +270,8 @@ impl WidgetConfig {
             | Self::Cpu { color, .. }
             | Self::Update { color, .. }
             | Self::ActiveWindow { color, .. }
-            | Self::Media { color, .. } => color,
+            | Self::Media { color, .. }
+            | Self::Paused { color, .. } => color,
         }
     }
 
@@ -267,7 +286,8 @@ impl WidgetConfig {
             | Self::Cpu { color, .. }
             | Self::Update { color, .. }
             | Self::ActiveWindow { color, .. }
-            | Self::Media { color, .. } => color,
+            | Self::Media { color, .. }
+            | Self::Paused { color, .. } => color,
         };
         if !color.is_empty()
             && let Some(hex) = theme.named_color(color)
@@ -315,6 +335,11 @@ fn default_left_widgets() -> Vec<WidgetConfig> {
 
 fn default_right_widgets() -> Vec<WidgetConfig> {
     vec![
+        WidgetConfig::Paused {
+            enabled: true,
+            icon: String::new(),
+            color: default_paused_color(),
+        },
         WidgetConfig::Clock {
             enabled: true,
             format: default_clock_format(),
@@ -474,7 +499,7 @@ mod tests {
         assert_eq!(config.background_opacity, 0);
         assert!(config.monitors.is_empty());
         assert_eq!(config.left.len(), 3);
-        assert_eq!(config.right.len(), 5);
+        assert_eq!(config.right.len(), 6);
     }
 
     #[test]

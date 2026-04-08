@@ -88,6 +88,195 @@ pub fn load_keybindings() -> Vec<Keybinding> {
     )
 }
 
+/// Loads keybindings and appends any missing defaults to the user's file.
+///
+/// Compares the user's configured actions against the built-in defaults.
+/// Any default action not already bound by the user is appended to the
+/// keybindings file so new bindings from future versions are picked up
+/// automatically, without overwriting anything the user has configured.
+///
+/// Falls back to `load_keybindings()` if the file cannot be read or written.
+pub fn merge_missing_keybindings() -> Vec<Keybinding> {
+    let path = match keybindings_path() {
+        Some(p) if p.exists() => p,
+        _ => return load_keybindings(),
+    };
+
+    let user = match try_load_keybindings() {
+        Ok(kb) => kb,
+        Err(e) => {
+            eprintln!("Warning: {e}");
+            return keybinding::defaults();
+        }
+    };
+
+    let defaults = keybinding::defaults();
+    let missing: Vec<&Keybinding> = defaults
+        .iter()
+        .filter(|d| !user.iter().any(|u| u.action == d.action))
+        .collect();
+
+    if missing.is_empty() {
+        return user;
+    }
+
+    // Append missing bindings to the file.
+    let mut addition = String::from("\n# Added automatically — new defaults from this version of mosaico\n");
+    for kb in &missing {
+        addition.push_str(&keybinding_toml_entry(kb));
+    }
+
+    match std::fs::OpenOptions::new().append(true).open(&path) {
+        Ok(mut f) => {
+            use std::io::Write;
+            if let Err(e) = f.write_all(addition.as_bytes()) {
+                eprintln!("Warning: could not append missing keybindings: {e}");
+                return user;
+            }
+        }
+        Err(e) => {
+            eprintln!("Warning: could not open keybindings file for appending: {e}");
+            return user;
+        }
+    }
+
+    eprintln!(
+        "Info: appended {} missing default keybinding(s) to keybindings.toml",
+        missing.len()
+    );
+
+    // Return the full merged set.
+    let mut merged = user;
+    merged.extend(missing.into_iter().cloned());
+    merged
+}
+
+/// Formats a single keybinding as a `[[keybinding]]` TOML entry.
+fn keybinding_toml_entry(kb: &Keybinding) -> String {
+    let modifiers: Vec<String> = kb
+        .modifiers
+        .iter()
+        .map(|m| {
+            let s = match m {
+                keybinding::Modifier::Alt => "alt",
+                keybinding::Modifier::Shift => "shift",
+                keybinding::Modifier::Ctrl => "ctrl",
+                keybinding::Modifier::Win => "win",
+            };
+            format!("\"{s}\"")
+        })
+        .collect();
+    format!(
+        "\n[[keybinding]]\naction = \"{}\"\nkey = \"{}\"\nmodifiers = [{}]\n",
+        kb.action,
+        kb.key,
+        modifiers.join(", ")
+    )
+}
+
+/// Loads bar config and appends any missing default widgets to the user's file.
+///
+/// Compares the user's `[[left]]` and `[[right]]` widget lists against the
+/// built-in defaults by widget type. Any default widget type not already
+/// present in the user's file is appended so new widgets from future versions
+/// are picked up automatically, without overwriting anything the user has set.
+///
+/// Falls back to `load_bar()` if the file cannot be read or written.
+pub fn merge_missing_bar_widgets() -> super::bar::BarConfig {
+    use super::bar::{BarConfig, WidgetConfig};
+    use serde::Serialize;
+
+    let path = match bar_path() {
+        Some(p) if p.exists() => p,
+        _ => return load_bar(),
+    };
+
+    let mut user = match try_load_bar() {
+        Ok(cfg) => cfg,
+        Err(e) => {
+            eprintln!("Warning: {e}");
+            return BarConfig::default();
+        }
+    };
+
+    let defaults = BarConfig::default();
+
+    // Find widget types (by enum discriminant) present in defaults but missing
+    // from the user's left/right lists. Users may intentionally remove widgets,
+    // but a type that never existed before must be a new default.
+    let missing_left: Vec<&WidgetConfig> = defaults
+        .left
+        .iter()
+        .filter(|d| {
+            !user
+                .left
+                .iter()
+                .any(|u| std::mem::discriminant(u) == std::mem::discriminant(*d))
+        })
+        .collect();
+
+    let missing_right: Vec<&WidgetConfig> = defaults
+        .right
+        .iter()
+        .filter(|d| {
+            !user
+                .right
+                .iter()
+                .any(|u| std::mem::discriminant(u) == std::mem::discriminant(*d))
+        })
+        .collect();
+
+    if missing_left.is_empty() && missing_right.is_empty() {
+        return user;
+    }
+
+    // Serialize missing entries as TOML using a wrapper struct.
+    #[derive(Serialize)]
+    struct BarSideDiff<'a> {
+        #[serde(skip_serializing_if = "Vec::is_empty")]
+        left: Vec<&'a WidgetConfig>,
+        #[serde(skip_serializing_if = "Vec::is_empty")]
+        right: Vec<&'a WidgetConfig>,
+    }
+
+    let diff = BarSideDiff {
+        left: missing_left.clone(),
+        right: missing_right.clone(),
+    };
+
+    let toml_addition = match toml::to_string(&diff) {
+        Ok(s) => format!(
+            "\n# Added automatically — new defaults from this version of mosaico\n{s}"
+        ),
+        Err(e) => {
+            eprintln!("Warning: could not serialize missing bar widgets: {e}");
+            return user;
+        }
+    };
+
+    match std::fs::OpenOptions::new().append(true).open(&path) {
+        Ok(mut f) => {
+            use std::io::Write;
+            if let Err(e) = f.write_all(toml_addition.as_bytes()) {
+                eprintln!("Warning: could not append missing bar widgets: {e}");
+                return user;
+            }
+        }
+        Err(e) => {
+            eprintln!("Warning: could not open bar.toml for appending: {e}");
+            return user;
+        }
+    }
+
+    let total = missing_left.len() + missing_right.len();
+    eprintln!("Info: appended {total} missing default bar widget(s) to bar.toml");
+
+    // Return merged config.
+    user.left.extend(missing_left.into_iter().cloned());
+    user.right.extend(missing_right.into_iter().cloned());
+    user
+}
+
 /// Tries to load and parse `rules.toml`.
 ///
 /// Returns the parsed rules or an error string.

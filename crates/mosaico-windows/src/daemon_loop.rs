@@ -19,7 +19,7 @@ pub(super) fn daemon_loop() -> WindowResult<()> {
     let config = config::load();
     mosaico_core::log::init(&config.logging);
 
-    let keybindings = config::load_keybindings();
+    let keybindings = config::merge_missing_keybindings();
     let rules = config::load_merged_rules();
 
     mosaico_core::log_info!("Daemon started (PID: {})", std::process::id());
@@ -33,7 +33,7 @@ pub(super) fn daemon_loop() -> WindowResult<()> {
 
     let mut current_theme = config.theme.resolve();
 
-    let bar_config = config::load_bar();
+    let bar_config = config::merge_missing_bar_widgets();
     let monitor_rects: Vec<_> = monitor::enumerate_monitors()?
         .iter()
         .map(|m| m.work_area)
@@ -62,7 +62,7 @@ pub(super) fn daemon_loop() -> WindowResult<()> {
     daemon_threads::spawn_rules_download(tx.clone());
 
     let get_update = || update_text.lock().map_or(String::new(), |t| t.clone());
-    bar_mgr.update(&manager.bar_states(&get_update()));
+    bar_mgr.update(&manager.bar_states(&get_update(), false));
     mosaico_core::log_info!("Managing {} windows", manager.window_count());
 
     // Start the Win32 event loop + hotkeys on its own thread.
@@ -100,6 +100,7 @@ pub(super) fn daemon_loop() -> WindowResult<()> {
     // remain responsive even when the event queue is flooded.
     let mut events = Vec::new();
     let mut should_stop = false;
+    let mut hotkeys_paused = false;
 
     while !should_stop {
         // Block until at least one message arrives.
@@ -125,6 +126,8 @@ pub(super) fn daemon_loop() -> WindowResult<()> {
                         action,
                         &mut manager,
                         &mut bar_mgr,
+                        &event_loop,
+                        &mut hotkeys_paused,
                         &get_update,
                     );
                 }
@@ -133,6 +136,8 @@ pub(super) fn daemon_loop() -> WindowResult<()> {
                         &command,
                         &mut manager,
                         &mut bar_mgr,
+                        &event_loop,
+                        &mut hotkeys_paused,
                         &get_update,
                     ) {
                         let _ = reply_tx.send(response);
@@ -148,11 +153,17 @@ pub(super) fn daemon_loop() -> WindowResult<()> {
                         &mut bar_mgr,
                         &mut current_theme,
                         &event_loop,
+                        hotkeys_paused,
                         &get_update,
                     );
                 }
                 DaemonMsg::Tick => {
-                    daemon_loop_handlers::handle_tick(&mut manager, &mut bar_mgr, &get_update);
+                    daemon_loop_handlers::handle_tick(
+                        &mut manager,
+                        &mut bar_mgr,
+                        hotkeys_paused,
+                        &get_update,
+                    );
                 }
             }
         }
@@ -174,7 +185,7 @@ pub(super) fn daemon_loop() -> WindowResult<()> {
             );
         }
         if needs_bar_update {
-            bar_mgr.update(&manager.bar_states(&get_update()));
+            bar_mgr.update(&manager.bar_states(&get_update(), hotkeys_paused));
         }
     }
 

@@ -1,5 +1,6 @@
 pub mod action;
 pub mod autostart;
+pub mod pause;
 pub mod banner;
 pub mod daemon;
 pub mod debug;

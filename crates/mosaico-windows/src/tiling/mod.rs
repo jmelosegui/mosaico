@@ -189,6 +189,8 @@ impl TilingManager {
             Action::CycleLayout => self.cycle_layout(),
             Action::GoToWorkspace(n) => self.goto_workspace(*n),
             Action::SendToWorkspace(n) => self.send_to_workspace(*n),
+            // TogglePause is handled by the daemon before reaching here.
+            Action::TogglePause => {}
         }
     }
 
@@ -264,7 +266,7 @@ impl TilingManager {
     }
 
     /// Returns a snapshot of bar state for each monitor.
-    pub fn bar_states(&self, update_text: &str) -> Vec<BarState> {
+    pub fn bar_states(&self, update_text: &str, paused: bool) -> Vec<BarState> {
         self.monitors
             .iter()
             .enumerate()
@@ -281,6 +283,7 @@ impl TilingManager {
                     None
                 },
                 media_text: String::new(),
+                paused,
             })
             .collect()
     }
