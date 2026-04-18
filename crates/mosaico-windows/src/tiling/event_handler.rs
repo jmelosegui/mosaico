@@ -1,6 +1,6 @@
 //! Event handling for the tiling manager.
 
-use mosaico_core::WindowEvent;
+use mosaico_core::{Window as _, WindowEvent};
 
 use crate::frame;
 use crate::window::Window;
@@ -56,8 +56,10 @@ impl TilingManager {
                 if self.hidden_by_switch.contains(hwnd) {
                     return;
                 }
-                if Window::from_raw(*hwnd).is_valid() {
-                    mosaico_core::log_debug!("hide-ignored 0x{:X} (window still valid)", hwnd);
+                // Skip spurious hides (e.g. Chromium repainting a child surface):
+                // a real hide-to-tray leaves IsWindowVisible false.
+                if Window::from_raw(*hwnd).is_visible() {
+                    mosaico_core::log_debug!("hide-ignored 0x{:X} (still visible)", hwnd);
                     return;
                 }
                 frame::reset_corner_preference(Window::from_raw(*hwnd).hwnd());
@@ -244,11 +246,24 @@ impl TilingManager {
             self.monitors[mon_idx].workspaces[ws_idx].set_monocle_window(None);
         }
 
+        let on_active = ws_idx == self.monitors[mon_idx].active_workspace;
+
         if self.focused_window == Some(hwnd) {
             self.focused_window = None;
+            // Promote a sibling to focus so the border stays visible.
+            if on_active {
+                let ws = &self.monitors[mon_idx].workspaces[ws_idx];
+                let replacement = ws
+                    .last_focused()
+                    .filter(|&h| ws.contains(h))
+                    .or_else(|| ws.handles().first().copied());
+                if let Some(new_hwnd) = replacement {
+                    self.focus_and_update_border(new_hwnd);
+                }
+            }
         }
 
-        if ws_idx == self.monitors[mon_idx].active_workspace {
+        if on_active {
             self.apply_layout_on(mon_idx);
         }
     }
