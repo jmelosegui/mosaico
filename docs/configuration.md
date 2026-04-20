@@ -223,11 +223,14 @@ detected and applied while the daemon is running. The config file watcher
 (see [daemon.md](daemon.md)) polls for modification time changes every
 2 seconds.
 
-- **config.toml**: layout algorithm, gap/ratio, hiding behaviour, border
-  settings, and theme are reloaded. The tiling manager calls `reload_config()` which
-  updates the `BspLayout`, hiding strategy, and `BorderConfig`, then retiles
-  all windows. If the theme changed, bar colors are re-resolved. Hiding
-  changes take effect on the next workspace switch.
+- **config.toml**: gap/ratio, hiding behaviour, border settings, and theme
+  are reloaded. The tiling manager calls `reload_config()` which updates the
+  layout gap/ratio, hiding strategy, and `BorderConfig`, then retiles all
+  windows. If the theme changed, bar colors are re-resolved. Hiding changes
+  take effect on the next workspace switch. Per-workspace layout overrides
+  (`[layout.workspaces]` and `layout.default`) are applied at startup only —
+  reloading does not override the active layout chosen via `cycle-layout`
+  or `set-layout`; restart the daemon to pick up changes.
 - **rules.toml**: window rules are replaced via `reload_rules()`. New rules
   apply to newly created windows; existing managed windows are not re-evaluated.
 - **bar.toml**: the `BarManager` is recreated with `reload()`, colors are
