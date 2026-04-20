@@ -35,6 +35,7 @@ pub enum Modifier {
 /// Workspaces: Alt + 1..8 (switch), Alt + Shift + 1..8 (send)
 /// Monocle: Alt + T
 /// Retile: Alt + Shift + R
+/// Pause hotkeys: Alt + Shift + P
 pub fn defaults() -> Vec<Keybinding> {
     use Modifier::{Alt, Shift};
 
@@ -58,6 +59,8 @@ pub fn defaults() -> Vec<Keybinding> {
         bind(Action::MinimizeFocused, "M", &[Alt]),
         // Cycle layout
         bind(Action::CycleLayout, "N", &[Alt]),
+        // Pause/unpause all hotkeys
+        bind(Action::TogglePause, "P", &[Alt, Shift]),
     ];
 
     // Workspaces: Alt+1..8 to switch, Alt+Shift+1..8 to send
