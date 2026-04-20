@@ -69,5 +69,11 @@ modifiers = ["alt"]
 action = "cycle-layout"
 key = "N"
 modifiers = ["alt"]
+
+# Pause/unpause all hotkeys: Alt + Shift + P
+[[keybinding]]
+action = "toggle-pause"
+key = "P"
+modifiers = ["alt", "shift"]
 "##
 }
