@@ -165,6 +165,8 @@ impl EventLoopHandle {
 
     /// Unpauses all hotkeys (re-registers all previously paused hotkeys).
     pub fn unpause_hotkeys(&self) {
+        // SAFETY: PostThreadMessageW sends a thread message that is picked up
+        // by GetMessageW in the event loop's message pump (run_message_pump).
         unsafe {
             let _ = PostThreadMessageW(
                 self.thread_id,
@@ -177,6 +179,8 @@ impl EventLoopHandle {
 
     /// Toggles hotkey pause state.
     pub fn toggle_pause_hotkeys(&self) {
+        // SAFETY: PostThreadMessageW sends a thread message that is picked up
+        // by GetMessageW in the event loop's message pump (run_message_pump).
         unsafe {
             let _ = PostThreadMessageW(
                 self.thread_id,
