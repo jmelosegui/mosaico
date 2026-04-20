@@ -27,22 +27,24 @@ impl Default for ThreeColumnLayout {
 }
 
 impl ThreeColumnLayout {
-    /// Fills a vertical stack of windows into the given area.
+    /// Fills a vertical stack of windows into the given area, separating
+    /// adjacent slots by a full `gap` so the inner spacing matches the
+    /// outer padding.
     fn fill_stack(
         &self,
         handles: &[usize],
         area: &Rect,
-        half: i32,
+        gap: i32,
         results: &mut Vec<(usize, Rect)>,
     ) {
         if handles.is_empty() {
             return;
         }
         let count = handles.len() as i32;
-        let slot_h = (area.height - half * (count - 1)) / count;
+        let slot_h = (area.height - gap * (count - 1)) / count;
 
         for (i, &hwnd) in handles.iter().enumerate() {
-            let sy = area.y + (i as i32) * (slot_h + half);
+            let sy = area.y + (i as i32) * (slot_h + gap);
             let sh = if i as i32 == count - 1 {
                 (area.y + area.height - sy).max(1)
             } else {
@@ -86,11 +88,12 @@ impl Layout for ThreeColumnLayout {
         }
 
         // 3+ windows: master in center, extras alternate left/right.
+        // Reserve a full `gap` on each side of the master (2 × gap total).
         let master_w = (padded.width as f64 * self.ratio) as i32;
-        let side_w = (padded.width - master_w - half * 2) / 2;
+        let side_w = (padded.width - master_w - self.gap * 2) / 2;
         let left_x = padded.x;
-        let master_x = padded.x + side_w + half;
-        let right_x = master_x + master_w + half;
+        let master_x = padded.x + side_w + self.gap;
+        let right_x = master_x + master_w + self.gap;
         let right_w = (padded.x + padded.width - right_x).max(1);
 
         let mut results = Vec::with_capacity(handles.len());
@@ -111,10 +114,10 @@ impl Layout for ThreeColumnLayout {
         }
 
         let left_area = Rect::new(left_x, padded.y, side_w.max(1), padded.height);
-        self.fill_stack(&left_handles, &left_area, half, &mut results);
+        self.fill_stack(&left_handles, &left_area, self.gap, &mut results);
 
         let right_area = Rect::new(right_x, padded.y, right_w, padded.height);
-        self.fill_stack(&right_handles, &right_area, half, &mut results);
+        self.fill_stack(&right_handles, &right_area, self.gap, &mut results);
 
         results
     }

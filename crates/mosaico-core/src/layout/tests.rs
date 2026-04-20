@@ -194,3 +194,50 @@ fn three_col_empty_returns_empty() {
     let area = Rect::new(0, 0, 1920, 1080);
     assert!(layout.apply(&[], &area).is_empty());
 }
+
+#[test]
+fn three_col_inner_gap_matches_outer_padding() {
+    let gap = 8;
+    let layout = ThreeColumnLayout { gap, ratio: 0.5 };
+    let area = Rect::new(0, 0, 1920, 1080);
+    let result = layout.apply(&[1, 2, 3, 4, 5], &area);
+
+    // result order: master, left[0], left[1], right[0], right[1]
+    let master = &result[0].1;
+    let left0 = &result[1].1;
+    let left1 = &result[2].1;
+    let right0 = &result[3].1;
+    let right1 = &result[4].1;
+
+    // Outer padding: left column's left edge sits `gap` from the area left.
+    assert_eq!(left0.x - area.x, gap);
+    // Outer padding: right column's right edge sits `gap` from the area right.
+    assert_eq!(area.x + area.width - (right0.x + right0.width), gap);
+    // Inner column gaps (left↔master and master↔right) equal `gap`.
+    assert_eq!(master.x - (left0.x + left0.width), gap);
+    assert_eq!(right0.x - (master.x + master.width), gap);
+    // Inner stack gaps (between slots within a side column) equal `gap`.
+    assert_eq!(left1.y - (left0.y + left0.height), gap);
+    assert_eq!(right1.y - (right0.y + right0.height), gap);
+}
+
+#[test]
+fn vstack_inner_gap_matches_outer_padding() {
+    let gap = 8;
+    let layout = VerticalStackLayout { gap, ratio: 0.5 };
+    let area = Rect::new(0, 0, 1920, 1080);
+    let result = layout.apply(&[1, 2, 3], &area);
+
+    let master = &result[0].1;
+    let stack0 = &result[1].1;
+    let stack1 = &result[2].1;
+
+    // Outer padding on all four sides.
+    assert_eq!(master.x - area.x, gap);
+    assert_eq!(master.y - area.y, gap);
+    assert_eq!(area.x + area.width - (stack0.x + stack0.width), gap);
+    // Inner master↔stack horizontal gap.
+    assert_eq!(stack0.x - (master.x + master.width), gap);
+    // Inner stack slot vertical gap.
+    assert_eq!(stack1.y - (stack0.y + stack0.height), gap);
+}
