@@ -1,12 +1,12 @@
 pub mod action;
 pub mod autostart;
-pub mod pause;
 pub mod banner;
 pub mod daemon;
 pub mod debug;
 pub mod doctor;
 mod doctor_runtime;
 pub mod init;
+pub mod pause;
 pub mod start;
 pub mod status;
 pub mod stop;

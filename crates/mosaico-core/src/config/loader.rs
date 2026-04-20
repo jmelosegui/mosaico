@@ -121,7 +121,8 @@ pub fn merge_missing_keybindings() -> Vec<Keybinding> {
     }
 
     // Append missing bindings to the file.
-    let mut addition = String::from("\n# Added automatically — new defaults from this version of mosaico\n");
+    let mut addition =
+        String::from("\n# Added automatically — new defaults from this version of mosaico\n");
     for kb in &missing {
         addition.push_str(&keybinding_toml_entry(kb));
     }
@@ -245,9 +246,9 @@ pub fn merge_missing_bar_widgets() -> super::bar::BarConfig {
     };
 
     let toml_addition = match toml::to_string(&diff) {
-        Ok(s) => format!(
-            "\n# Added automatically — new defaults from this version of mosaico\n{s}"
-        ),
+        Ok(s) => {
+            format!("\n# Added automatically — new defaults from this version of mosaico\n{s}")
+        }
         Err(e) => {
             eprintln!("Warning: could not serialize missing bar widgets: {e}");
             return user;
