@@ -70,20 +70,35 @@ pub fn find_neighbor(
 
 /// Finds the best window to focus when entering a monitor.
 ///
-/// Picks the topmost window first, breaking ties by the edge closest
-/// to the direction of travel (leftmost when entering from the left,
-/// rightmost when entering from the right).
+/// Picks the window geometrically nearest to the edge being crossed
+/// (leftmost for Direction::Right, rightmost for Direction::Left,
+/// topmost for Direction::Down, bottommost for Direction::Up). Ties
+/// on that axis are broken by the perpendicular axis, preferring
+/// topmost/leftmost.
 pub fn find_entry(positions: &[(usize, Rect)], direction: Direction) -> Option<usize> {
+    let horizontal = matches!(direction, Direction::Left | Direction::Right);
     let positive = matches!(direction, Direction::Right | Direction::Down);
     positions
         .iter()
         .max_by_key(|(_, r)| {
-            let x = if positive {
-                -r.center_x()
+            let (primary_axis, perp_axis) = if horizontal {
+                (r.center_x(), r.center_y())
             } else {
-                r.center_x()
+                (r.center_y(), r.center_x())
             };
-            (-r.center_y(), x)
+            // Primary: window nearest the crossing edge. For positive
+            // directions (Right, Down) we enter from the low end of the
+            // axis, so we want the SMALLEST coordinate → negate to fit
+            // max_by_key. For negative directions we want the largest
+            // coordinate directly.
+            let primary = if positive {
+                -primary_axis
+            } else {
+                primary_axis
+            };
+            // Tiebreaker: prefer topmost (smallest y) for horizontal
+            // crossings, leftmost (smallest x) for vertical crossings.
+            (primary, -perp_axis)
         })
         .map(|(h, _)| *h)
 }
@@ -289,20 +304,50 @@ mod tests {
     #[test]
     fn entry_from_left_three_windows() {
         let pos = three_windows();
-        // Topmost first → Win 2 (center_y=270).
-        assert_eq!(find_entry(&pos, Direction::Right), Some(2));
+        // Entering from the left → leftmost wins → Win 1 (the full-height
+        // master on the left half), not Win 2 (top-right quadrant).
+        assert_eq!(find_entry(&pos, Direction::Right), Some(1));
     }
 
     #[test]
     fn entry_from_right_three_windows() {
         let pos = three_windows();
+        // Entering from the right → rightmost wins. Win 2 (top-right) and
+        // Win 3 (bot-right) share the rightmost center_x; topmost
+        // tiebreaker picks Win 2.
         assert_eq!(find_entry(&pos, Direction::Left), Some(2));
     }
 
     #[test]
     fn entry_from_right_four_windows() {
         let pos = four_windows();
-        assert_eq!(find_entry(&pos, Direction::Left), Some(2));
+        // Entering from the right → rightmost wins → Win 4 (bot-right-R
+        // at center_x=1680), not Win 2 (top-right at center_x=1440).
+        assert_eq!(find_entry(&pos, Direction::Left), Some(4));
+    }
+
+    #[test]
+    fn entry_from_left_two_windows_vstack_like() {
+        // Master (left, full height) + single stack window (right, full
+        // height) — same as BSP/VStack with 2 windows.
+        let pos = vec![
+            (10, Rect::new(0, 0, 960, 1080)),
+            (20, Rect::new(960, 0, 960, 1080)),
+        ];
+        assert_eq!(find_entry(&pos, Direction::Right), Some(10));
+    }
+
+    #[test]
+    fn entry_from_left_vstack_three_windows() {
+        // VStack 3 windows: master on left (full height), two stack slots
+        // on the right. Entering from the left must land on the master,
+        // not on the topmost stack slot.
+        let pos = vec![
+            (1, Rect::new(0, 0, 960, 1080)),    // master
+            (2, Rect::new(960, 0, 960, 540)),   // stack top
+            (3, Rect::new(960, 540, 960, 540)), // stack bot
+        ];
+        assert_eq!(find_entry(&pos, Direction::Right), Some(1));
     }
 
     #[test]
