@@ -48,22 +48,15 @@ impl TilingManager {
     }
 
     /// Applies a new layout and border config, then retiles all windows.
+    ///
+    /// Per-workspace `layout_kind` is intentionally not touched: after
+    /// startup the active layout is runtime state owned by `cycle-layout`
+    /// and explicit `set-layout` actions. Config reload must not silently
+    /// undo those choices when the user tweaks unrelated settings like gap
+    /// or borders. Changes to `[layout.workspaces]` take effect on restart.
     pub fn reload_config(&mut self, config: &mosaico_core::config::Config) {
         self.layout_gap = config.layout.gap;
         self.layout_ratio = config.layout.ratio;
-        // Reset workspace layouts to config values.
-        for mon in &mut self.monitors {
-            for (i, ws) in mon.workspaces.iter_mut().enumerate() {
-                let ws_num = (i + 1) as u8;
-                let kind = config
-                    .layout
-                    .workspaces
-                    .get(&ws_num)
-                    .copied()
-                    .unwrap_or(config.layout.default);
-                ws.set_layout_kind(kind);
-            }
-        }
         self.hiding = config.layout.hiding;
         self.border_config = config.borders.clone();
         self.mouse_follows_focus = config.mouse.follows_focus;

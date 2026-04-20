@@ -51,13 +51,15 @@ impl Layout for VerticalStackLayout {
         let stack_x = padded.x + master_w + half;
         let stack_w = (padded.width - master_w - half).max(1);
         let stack_count = handles.len() - 1;
-        let slot_h = (padded.height - half * (stack_count as i32 - 1)) / stack_count as i32;
+        // Stack slots are separated by a full `gap` so inner spacing matches
+        // the outer padding.
+        let slot_h = (padded.height - self.gap * (stack_count as i32 - 1)) / stack_count as i32;
 
         let mut results = Vec::with_capacity(handles.len());
         results.push((handles[0], master));
 
         for (i, &hwnd) in handles[1..].iter().enumerate() {
-            let y = padded.y + (i as i32) * (slot_h + half);
+            let y = padded.y + (i as i32) * (slot_h + self.gap);
             let h = if i == stack_count - 1 {
                 (padded.y + padded.height - y).max(1)
             } else {
