@@ -64,7 +64,8 @@ impl HotkeyManager {
             self.register(id, modifiers, vk, binding.action);
         }
 
-        self.pause_hotkey_id = self.hotkeys
+        self.pause_hotkey_id = self
+            .hotkeys
             .iter()
             .find(|h| h.action == Action::TogglePause)
             .map(|h| h.id);
@@ -91,7 +92,12 @@ impl HotkeyManager {
             return;
         }
 
-        self.hotkeys.push(Hotkey { id, modifiers, vk, action });
+        self.hotkeys.push(Hotkey {
+            id,
+            modifiers,
+            vk,
+            action,
+        });
     }
 
     /// Returns true if hotkeys are currently paused.
@@ -136,7 +142,10 @@ impl HotkeyManager {
             // current thread's message queue using the original id, modifiers, vk.
             let result = unsafe { RegisterHotKey(None, hotkey.id, hotkey.modifiers, hotkey.vk) };
             if result.is_err() {
-                eprintln!("Failed to re-register hotkey {} (vk=0x{:02X})", hotkey.id, hotkey.vk);
+                eprintln!(
+                    "Failed to re-register hotkey {} (vk=0x{:02X})",
+                    hotkey.id, hotkey.vk
+                );
             }
         }
     }
