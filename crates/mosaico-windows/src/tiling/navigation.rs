@@ -83,6 +83,7 @@ impl TilingManager {
         } else {
             self.focused_window = None;
             self.update_border();
+            self.anchor_focus_to_monitor(idx);
         }
     }
 

@@ -44,6 +44,10 @@ impl TilingManager {
     pub(super) fn focus_and_update_border(&mut self, hwnd: usize) {
         self.focused_window = Some(hwnd);
         self.focused_maximized = Window::from_raw(hwnd).is_maximized();
+        self.pending_empty_spawn = None;
+        if let Some(anchor) = &self.focus_anchor {
+            anchor.hide();
+        }
         self.pending_foreground = Some((hwnd, self.focus_from_mouse));
         self.focus_from_mouse = false;
         self.update_border();
@@ -125,6 +129,32 @@ impl TilingManager {
         while self.focus_intents.len() > 8 {
             self.focus_intents.pop_front();
         }
+    }
+
+    /// Anchors focus to the given monitor when its active workspace is
+    /// empty.  Positions the cursor at the work-area center (if
+    /// `mouse_follows_focus`), activates the hidden focus-holder window,
+    /// and records the anchored monitor so subsequent transient focus
+    /// events (e.g. from PowerToys Run closing) do not drag
+    /// `focused_monitor` back to the previous monitor before a
+    /// user-launched app can spawn.
+    pub(super) fn anchor_focus_to_monitor(&mut self, idx: usize) {
+        let Some(mon) = self.monitors.get(idx) else {
+            return;
+        };
+        let work_area = mon.work_area;
+        if let Some(anchor) = &self.focus_anchor {
+            anchor.activate_on(&work_area);
+        }
+        if self.mouse_follows_focus {
+            let cx = work_area.x + work_area.width / 2;
+            let cy = work_area.y + work_area.height / 2;
+            // SAFETY: SetCursorPos is safe to call with screen coordinates.
+            unsafe {
+                let _ = SetCursorPos(cx, cy);
+            }
+        }
+        self.pending_empty_spawn = Some(idx);
     }
 
     /// Returns true if `hwnd` matches a previously issued
