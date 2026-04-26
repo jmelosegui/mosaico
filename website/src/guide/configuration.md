@@ -49,7 +49,10 @@ unfocused = "#6c7086"  # Color drawn around unfocused tiled windows;
                        # set to "none" to disable unfocused borders
 
 [theme]
-flavor = "mocha"   # Catppuccin flavor: latte, frappe, macchiato, mocha
+name = "catppuccin"  # catppuccin, rose-pine, tokyo-night
+flavor = "mocha"     # catppuccin: mocha | macchiato | frappe | latte
+                     # rose-pine:  main | moon | dawn
+                     # tokyo-night: night | storm | day
 
 [logging]
 enabled = false    # Enable file logging

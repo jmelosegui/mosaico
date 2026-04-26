@@ -1,32 +1,57 @@
 # Theming
 
-Mosaico includes a built-in theme system based on the
-[Catppuccin](https://catppuccin.com/) color palette. Themes provide a
-consistent color scheme across focus borders, monocle borders, and the
-status bar.
+Mosaico ships with three built-in theme families: [Catppuccin](https://catppuccin.com/),
+[Rosé Pine](https://rosepinetheme.com/), and [Tokyo Night](https://github.com/folke/tokyonight.nvim).
+Each family has multiple flavors that share a common palette and only differ
+in shading, so the focus borders, monocle border, unfocused borders, and the
+status bar all stay coordinated.
 
 ## Configuration
 
-Set the theme flavor in `config.toml`:
+Set the theme name and flavor in `config.toml`:
 
 ```toml
 [theme]
-flavor = "mocha"   # latte, frappe, macchiato, mocha
+name = "catppuccin"   # catppuccin, rose-pine, tokyo-night
+flavor = "mocha"
 ```
 
-## Available Flavors
+## Available Themes
+
+### Catppuccin
 
 | Flavor | Style |
 |--------|-------|
-| `latte` | Light theme |
-| `frappe` | Medium-dark theme |
-| `macchiato` | Dark theme |
-| `mocha` | Darkest theme (default) |
+| `latte` | Light |
+| `frappe` | Medium-dark |
+| `macchiato` | Dark |
+| `mocha` | Darkest (default) |
+
+### Rosé Pine (`name = "rose-pine"`)
+
+| Flavor | Style |
+|--------|-------|
+| `main` | Dark, default |
+| `moon` | Slightly lighter dark |
+| `dawn` | Light |
+
+### Tokyo Night (`name = "tokyo-night"`)
+
+| Flavor | Style |
+|--------|-------|
+| `night` | Dark, default |
+| `storm` | Dark with bluish tint |
+| `day` | Light |
 
 ## Named Colors
 
 When a theme is active, you can use named colors anywhere a color value is
-expected (borders, bar colors). The following 14 accent colors are available:
+expected (borders, bar colors). Each theme family exposes its own palette,
+plus a small set of common aliases (`red`, `green`, `blue`, `yellow`) that
+resolve under every theme so portable configs like `focused = "blue"` look
+right regardless of which theme you pick.
+
+### Catppuccin (14 accent colors)
 
 | Name | Description |
 |------|-------------|
@@ -44,6 +69,30 @@ expected (borders, bar colors). The following 14 accent colors are available:
 | `sapphire` | Blue |
 | `blue` | Vivid blue |
 | `lavender` | Soft purple |
+
+### Rosé Pine
+
+| Name | Description |
+|------|-------------|
+| `love` | Red/pink accent (alias `red`) |
+| `gold` | Warm yellow (alias `yellow`) |
+| `rose` | Soft pink |
+| `pine` | Teal/blue accent (alias `blue`) |
+| `foam` | Cyan (alias `green`, `teal`) |
+| `iris` | Purple (alias `mauve`, `purple`, `magenta`) |
+
+### Tokyo Night
+
+| Name | Description |
+|------|-------------|
+| `red` | Red |
+| `orange` | Orange |
+| `yellow` | Yellow |
+| `green` | Green |
+| `cyan` | Cyan |
+| `teal` | Teal |
+| `blue` | Blue |
+| `purple` | Purple (alias `mauve`, `magenta`) |
 
 Additional named colors for surfaces and text:
 

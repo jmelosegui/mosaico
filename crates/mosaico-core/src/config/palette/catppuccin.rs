@@ -1,37 +1,27 @@
-//! Catppuccin color palettes for each theme flavor.
+//! Catppuccin color palettes (Mocha, Macchiato, Frappé, Latte).
 //!
-//! Provides the full named-color palette and the [`BarColors`]
-//! mapping for each theme.
+//! See <https://catppuccin.com/palette/> for the canonical hex values.
 
-use super::bar::BarColors;
-use super::theme::Theme;
+use crate::config::bar::BarColors;
+use crate::config::theme::CatppuccinFlavor;
 
-/// Resolves a Catppuccin color name (e.g. "blue", "green") to its
-/// hex value for the given theme. Returns `None` for unknown names.
-pub fn named_color(theme: Theme, name: &str) -> Option<&'static str> {
-    let table = match theme {
-        Theme::Mocha => MOCHA,
-        Theme::Macchiato => MACCHIATO,
-        Theme::Frappe => FRAPPE,
-        Theme::Latte => LATTE,
-    };
-    table
-        .iter()
-        .find(|(n, _)| n.eq_ignore_ascii_case(name))
-        .map(|(_, hex)| *hex)
-}
-
-/// Returns the bar color palette for the given theme.
-pub fn bar_colors(theme: Theme) -> BarColors {
-    match theme {
-        Theme::Mocha => mocha_bar(),
-        Theme::Macchiato => macchiato_bar(),
-        Theme::Frappe => frappe_bar(),
-        Theme::Latte => latte_bar(),
+pub(super) fn table(flavor: CatppuccinFlavor) -> &'static [(&'static str, &'static str)] {
+    match flavor {
+        CatppuccinFlavor::Mocha => MOCHA,
+        CatppuccinFlavor::Macchiato => MACCHIATO,
+        CatppuccinFlavor::Frappe => FRAPPE,
+        CatppuccinFlavor::Latte => LATTE,
     }
 }
 
-// -- Named color tables (14 accent colors per flavor) ----------------
+pub(super) fn bar_colors(flavor: CatppuccinFlavor) -> BarColors {
+    match flavor {
+        CatppuccinFlavor::Mocha => mocha_bar(),
+        CatppuccinFlavor::Macchiato => macchiato_bar(),
+        CatppuccinFlavor::Frappe => frappe_bar(),
+        CatppuccinFlavor::Latte => latte_bar(),
+    }
+}
 
 const MOCHA: &[(&str, &str)] = &[
     ("rosewater", "#f5e0dc"),
@@ -101,8 +91,6 @@ const LATTE: &[(&str, &str)] = &[
     ("lavender", "#7287fd"),
 ];
 
-// -- Bar color mappings per theme ------------------------------------
-
 fn mocha_bar() -> BarColors {
     BarColors {
         background: "#1e1e2e".into(),
@@ -164,28 +152,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn named_color_resolves_blue() {
-        assert_eq!(named_color(Theme::Mocha, "blue"), Some("#89b4fa"));
-        assert_eq!(named_color(Theme::Latte, "blue"), Some("#1e66f5"));
-    }
-
-    #[test]
-    fn named_color_is_case_insensitive() {
-        assert_eq!(named_color(Theme::Mocha, "Blue"), Some("#89b4fa"));
-        assert_eq!(named_color(Theme::Mocha, "GREEN"), Some("#a6e3a1"));
-    }
-
-    #[test]
-    fn named_color_returns_none_for_unknown() {
-        assert_eq!(named_color(Theme::Mocha, "chartreuse"), None);
-        assert_eq!(named_color(Theme::Mocha, "#89b4fa"), None);
-    }
-
-    #[test]
-    fn each_theme_has_14_named_colors() {
+    fn each_flavor_has_14_named_colors() {
         assert_eq!(MOCHA.len(), 14);
         assert_eq!(MACCHIATO.len(), 14);
         assert_eq!(FRAPPE.len(), 14);
         assert_eq!(LATTE.len(), 14);
+    }
+
+    #[test]
+    fn mocha_blue_matches_catppuccin_palette() {
+        let blue = MOCHA.iter().find(|(n, _)| *n == "blue").map(|(_, h)| *h);
+        assert_eq!(blue, Some("#89b4fa"));
     }
 }

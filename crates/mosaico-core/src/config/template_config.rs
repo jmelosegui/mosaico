@@ -7,7 +7,10 @@ pub fn generate_config() -> String {
 # Location: ~/.config/mosaico/config.toml
 
 # Color theme. Controls border colors and status bar colors.
-# Available: name = "catppuccin", flavor = mocha | macchiato | frappe | latte
+# Available themes:
+#   name = "catppuccin"   flavor = mocha | macchiato | frappe | latte
+#   name = "rose-pine"    flavor = main | moon | dawn
+#   name = "tokyo-night"  flavor = night | storm | day
 [theme]
 name = "catppuccin"
 flavor = "mocha"
