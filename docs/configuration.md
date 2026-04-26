@@ -27,9 +27,12 @@ All settings have sensible defaults, so configuration files are optional.
 - `HidingBehaviour` (enum) -- `Cloak`, `Hide`, `Minimize`
 - `BorderConfig` -- `width: i32` (default 4), `corner_style: CornerStyle`,
   `colors: BorderColors`
-- `BorderColors` -- `focused: String` and `monocle: String`. Both default
-  to empty strings and resolve from the active theme (`"#89b4fa"` blue and
-  `"#a6e3a1"` green for Mocha)
+- `BorderColors` -- `focused: String`, `monocle: String`, and
+  `unfocused: String`. Empty strings resolve from the active theme
+  (Mocha defaults: `"#89b4fa"` blue, `"#a6e3a1"` green, `"#6c7086"`
+  muted gray). The literal `"none"` on `unfocused` disables borders
+  for unfocused windows entirely; `BorderColors::unfocused_enabled()`
+  reports the toggle state
 - `LogConfig` -- `enabled: bool` (default false), `level: String` (default
   `"info"`), `max_file_mb: u64` (default 10)
 - `WindowRule` -- `match_class: Option<String>`, `match_title: Option<String>`,
@@ -72,6 +75,8 @@ corner_style = "small" # "square", "small", or "round"
 [borders.colors]
 focused = "#00b4d8"    # Color of the focused window in tiled layouts
 monocle = "#2d6a4f"    # Color of the focused window in monocle mode
+unfocused = "#6c7086"  # Color drawn around unfocused tiled windows
+                       # (set to "none" to disable unfocused borders)
 
 [theme]
 flavor = "mocha"   # Catppuccin flavor: latte, frappe, macchiato, mocha

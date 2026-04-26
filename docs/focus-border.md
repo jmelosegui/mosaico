@@ -1,8 +1,14 @@
-# Focus Border Overlay
+# Window Border Overlays
 
-Mosaico displays a colored rectangular border around the focused window to
-provide clear visual feedback. The border is a transparent overlay window that
-uses `UpdateLayeredWindow` with per-pixel alpha for flicker-free rendering.
+Mosaico draws a colored rectangular border around every visible tiled
+window. The focused window is highlighted with the focused (or monocle)
+color; other tiled windows on every monitor's active workspace are drawn
+in a muted unfocused color so tile boundaries stay readable, especially
+with small gaps. Each border is a transparent overlay window that uses
+`UpdateLayeredWindow` with per-pixel alpha for flicker-free rendering.
+
+Unfocused borders can be turned off entirely (see
+[Configuration](#configuration) below) when a minimal look is preferred.
 
 ## Architecture
 
@@ -62,20 +68,36 @@ a stale bitmap from the previous size would briefly appear at the new position.
 The `Color` struct represents an RGB color:
 
 - `Color::from_hex(s)` -- parses `"#RRGGBB"` or `"RRGGBB"` format strings
-- Default focused color: `#00b4d8` (cyan)
-- Default monocle color: `#2d6a4f` (dark green)
+- Default focused color: theme-resolved (Mocha: `#89b4fa` blue)
+- Default monocle color: theme-resolved (Mocha: `#a6e3a1` green)
+- Default unfocused color: theme-resolved (Mocha: `#6c7086` muted gray)
+
+The literal `"none"` on `unfocused` disables unfocused borders;
+`BorderColors::unfocused_enabled()` reports the toggle state.
 
 ## Integration
 
-The `TilingManager` creates one `Border` instance at startup and manages its
-lifecycle:
+The `TilingManager` keeps a `HashMap<usize, Border>` keyed by `hwnd`,
+with one entry per visible tiled window. The lifecycle is unified
+through a single entry point:
 
-- `update_border()` -- called on focus changes; shows the border around the
-  focused window with the appropriate color (normal or monocle)
-- `hide_border()` -- called when focus leaves all managed windows
+- `update_border()` -- called after every layout, focus, workspace, or
+  display event. It snapshots the active workspace on every monitor,
+  drops borders for windows that are no longer visible, creates
+  borders for new windows, and recolors each surviving border based on
+  whether it owns focus.
+- `hide_border()` -- hides every overlay without dropping them
+  (used on pause and shutdown).
 
-The border color changes between the configured `focused` color and `monocle`
-color depending on whether monocle mode is active on the focused monitor.
+Color selection per window:
+
+- The focused window uses the configured `focused` color, or the
+  `monocle` color if its monitor is in monocle mode.
+- Every other window on the active workspace of every monitor uses the
+  `unfocused` color, unless that color is set to the `"none"` sentinel
+  (in which case unfocused windows have no border).
+- Maximized focused windows skip rendering, and on the focused monitor
+  only the monocle window renders while monocle mode is active.
 
 ## Configuration
 
@@ -87,11 +109,14 @@ width = 4              # Border thickness in pixels (0-32)
 corner_style = "small" # "square", "small", or "round"
 
 [borders.colors]
-focused = "#00b4d8"    # Color for normal focused window
+focused = "#00b4d8"    # Color for the focused window in tiled layouts
 monocle = "#2d6a4f"    # Color when monocle mode is active
+unfocused = "#6c7086"  # Color drawn around unfocused tiled windows;
+                       # set to "none" to disable unfocused borders
 ```
 
-Setting `width = 0` effectively disables the border.
+Setting `width = 0` disables every border. To keep the focused border
+but hide unfocused ones, set `unfocused = "none"`.
 
 ### Rounded Corners
 
@@ -121,10 +146,15 @@ overlay is affected.
   would cause recursive tiling loops.
 - **DIB section rendering** gives full control over per-pixel alpha without
   depending on GDI drawing primitives, which have limited alpha support.
-- **Single border instance** is reused and repositioned rather than creating
-  a new window for each focus change, avoiding window creation overhead.
+- **One overlay per visible window**, keyed by `hwnd` in a `HashMap`.
+  Borders are created lazily when a window is first added to a visible
+  workspace and dropped (via `Drop`, which calls `DestroyWindow`) when
+  the window leaves it. This avoids scanning a Vec on every update at
+  the cost of one layered window per tile.
 
 ## Tests
 
-1 unit test for `Color::from_hex()` covering both `#RRGGBB` and `RRGGBB`
-formats.
+`Color::from_hex()` is covered by unit tests for both `#RRGGBB` and
+`RRGGBB` formats. Theme tests assert that `border_focused`,
+`border_monocle`, and `border_unfocused` are distinct per flavor and
+match their Catppuccin palette values.

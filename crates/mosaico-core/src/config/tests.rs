@@ -61,6 +61,7 @@ fn named_color_in_border_resolves_to_hex() {
             colors: BorderColors {
                 focused: "mauve".into(),
                 monocle: "teal".into(),
+                ..Default::default()
             },
             ..Default::default()
         },
@@ -159,6 +160,57 @@ abc = "bsp"
         config.workspaces.layouts.get(&1).copied(),
         Some(LayoutKind::ThreeColumn)
     );
+}
+
+#[test]
+fn unfocused_border_defaults_to_theme_when_unset() {
+    // A bare config with no [borders.colors] section should resolve
+    // unfocused to the Mocha theme's muted gray (Overlay0).
+    let mut config = Config::default();
+    config.validate();
+    assert_eq!(config.borders.colors.unfocused, "#6c7086");
+    assert!(config.borders.colors.unfocused_enabled());
+}
+
+#[test]
+fn unfocused_none_sentinel_disables_unfocused_borders() {
+    // The literal value "none" is preserved verbatim through validation
+    // and reported as disabled.
+    let toml_str = r#"
+[borders.colors]
+unfocused = "none"
+"#;
+    let mut config: Config = toml::from_str(toml_str).unwrap();
+    config.validate();
+    assert_eq!(config.borders.colors.unfocused, "none");
+    assert!(!config.borders.colors.unfocused_enabled());
+}
+
+#[test]
+fn explicit_unfocused_hex_passes_through_unchanged() {
+    let toml_str = r##"
+[borders.colors]
+unfocused = "#deadbe"
+"##;
+    let mut config: Config = toml::from_str(toml_str).unwrap();
+    config.validate();
+    assert_eq!(config.borders.colors.unfocused, "#deadbe");
+    assert!(config.borders.colors.unfocused_enabled());
+}
+
+#[test]
+fn named_unfocused_color_resolves_via_theme_palette() {
+    // Named accent colors are resolved through the active theme.
+    // Mocha's mauve is a known Catppuccin hex.
+    let toml_str = r#"
+[borders.colors]
+unfocused = "mauve"
+"#;
+    let mut config: Config = toml::from_str(toml_str).unwrap();
+    config.validate();
+    // Mocha mauve = #cba6f7
+    assert_eq!(config.borders.colors.unfocused, "#cba6f7");
+    assert!(config.borders.colors.unfocused_enabled());
 }
 
 #[test]

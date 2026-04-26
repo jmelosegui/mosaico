@@ -101,6 +101,20 @@ impl Theme {
         }
     }
 
+    /// Returns the unfocused window border color (Catppuccin Overlay0).
+    ///
+    /// Chosen to be visible but understated against each theme's base
+    /// background, so unfocused tile boundaries remain readable
+    /// without competing with the focused-window highlight.
+    pub fn border_unfocused(self) -> &'static str {
+        match self {
+            Self::Mocha => "#6c7086",
+            Self::Macchiato => "#6e738d",
+            Self::Frappe => "#737994",
+            Self::Latte => "#9ca0b0",
+        }
+    }
+
     /// Resolves a named Catppuccin color (e.g. "blue", "green") to its
     /// hex value for this theme. Returns `None` for unknown names.
     ///
@@ -216,6 +230,25 @@ mod tests {
         assert_eq!(Theme::Mocha.border_monocle(), "#a6e3a1");
         assert_eq!(Theme::Latte.border_focused(), "#1e66f5");
         assert_eq!(Theme::Latte.border_monocle(), "#40a02b");
+    }
+
+    #[test]
+    fn unfocused_border_is_distinct_per_theme() {
+        // Each theme picks a muted gray drawn from its own palette
+        // (Catppuccin Overlay0).
+        let cases = [
+            (Theme::Mocha, "#6c7086"),
+            (Theme::Macchiato, "#6e738d"),
+            (Theme::Frappe, "#737994"),
+            (Theme::Latte, "#9ca0b0"),
+        ];
+        for (theme, hex) in cases {
+            assert_eq!(theme.border_unfocused(), hex, "theme {theme:?}");
+            // Sanity: distinct from the theme's focused and monocle
+            // colors so the unfocused state is visually different.
+            assert_ne!(theme.border_unfocused(), theme.border_focused());
+            assert_ne!(theme.border_unfocused(), theme.border_monocle());
+        }
     }
 
     #[test]
