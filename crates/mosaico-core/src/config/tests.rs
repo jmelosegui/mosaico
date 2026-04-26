@@ -1,4 +1,5 @@
 use super::*;
+use crate::layout::LayoutKind;
 
 #[test]
 fn default_config_has_expected_values() {
@@ -91,6 +92,85 @@ fn partial_toml_uses_defaults_for_missing_sections() {
     // Assert
     assert_eq!(config.layout.gap, 16);
     assert_eq!(config.layout.ratio, 0.5);
+}
+
+#[test]
+fn workspaces_layouts_parses_string_keys_as_u8() {
+    // Arrange
+    let toml_str = r#"
+[workspaces.layouts]
+1 = "vertical-stack"
+3 = "three-column"
+"#;
+
+    // Act
+    let config: Config = toml::from_str(toml_str).unwrap();
+
+    // Assert
+    assert_eq!(
+        config.workspaces.layouts.get(&1).copied(),
+        Some(LayoutKind::VerticalStack)
+    );
+    assert_eq!(
+        config.workspaces.layouts.get(&3).copied(),
+        Some(LayoutKind::ThreeColumn)
+    );
+    assert!(!config.workspaces.layouts.contains_key(&2));
+}
+
+#[test]
+fn workspaces_layouts_drops_out_of_range_keys() {
+    // Arrange: 0 and 9 are out of the valid 1..=8 range; 2 is valid.
+    let toml_str = r#"
+[workspaces.layouts]
+0 = "bsp"
+2 = "vertical-stack"
+9 = "three-column"
+"#;
+
+    // Act
+    let config: Config = toml::from_str(toml_str).unwrap();
+
+    // Assert
+    assert!(!config.workspaces.layouts.contains_key(&0));
+    assert!(!config.workspaces.layouts.contains_key(&9));
+    assert_eq!(
+        config.workspaces.layouts.get(&2).copied(),
+        Some(LayoutKind::VerticalStack)
+    );
+}
+
+#[test]
+fn workspaces_layouts_drops_non_numeric_keys() {
+    // Arrange: a non-numeric key should be skipped without failing the
+    // whole parse.
+    let toml_str = r#"
+[workspaces.layouts]
+abc = "bsp"
+1 = "three-column"
+"#;
+
+    // Act
+    let config: Config = toml::from_str(toml_str).unwrap();
+
+    // Assert
+    assert_eq!(config.workspaces.layouts.len(), 1);
+    assert_eq!(
+        config.workspaces.layouts.get(&1).copied(),
+        Some(LayoutKind::ThreeColumn)
+    );
+}
+
+#[test]
+fn workspaces_layouts_missing_section_is_empty_default() {
+    // Arrange: no [workspaces.layouts] section at all.
+    let toml_str = "[layout]\ngap = 8\n";
+
+    // Act
+    let config: Config = toml::from_str(toml_str).unwrap();
+
+    // Assert
+    assert!(config.workspaces.layouts.is_empty());
 }
 
 #[test]

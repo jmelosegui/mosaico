@@ -4,8 +4,9 @@
 /// across the configuration subsystem.
 use std::collections::HashMap;
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
+use crate::action::MAX_WORKSPACES;
 use crate::layout::LayoutKind;
 
 /// Layout algorithm settings.
@@ -42,8 +43,45 @@ impl Default for LayoutConfig {
 pub struct WorkspacesConfig {
     /// How a workspace switch is applied across monitors.
     pub mode: WorkspaceMode,
-    /// Per-workspace layout overrides (workspace number 1–8 → layout).
+    /// Per-workspace layout overrides (workspace number 1-8 to layout).
+    ///
+    /// TOML keys are always strings, so we deserialize via a helper that
+    /// parses each key as a `u8` and silently drops keys outside the
+    /// valid `1..=MAX_WORKSPACES` range (logging a warning for each).
+    /// This lets users write `[workspaces.layouts]\n1 = "vertical-stack"`
+    /// while the internal lookup remains `u8`-keyed.
+    #[serde(deserialize_with = "deserialize_layouts_map")]
     pub layouts: HashMap<u8, LayoutKind>,
+}
+
+/// Deserializes a TOML table whose string keys represent workspace
+/// numbers (`1`..=`MAX_WORKSPACES`). Invalid keys are dropped with a
+/// warning so a typo on one workspace never fails the whole config.
+fn deserialize_layouts_map<'de, D>(deserializer: D) -> Result<HashMap<u8, LayoutKind>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let raw: HashMap<String, LayoutKind> = HashMap::deserialize(deserializer)?;
+    let mut out = HashMap::with_capacity(raw.len());
+    for (key, value) in raw {
+        match key.parse::<u8>() {
+            Ok(n) if (1..=MAX_WORKSPACES).contains(&n) => {
+                out.insert(n, value);
+            }
+            Ok(n) => {
+                eprintln!(
+                    "Warning: ignoring [workspaces.layouts] entry for workspace {n}: \
+                     must be in 1..={MAX_WORKSPACES}"
+                );
+            }
+            Err(_) => {
+                eprintln!(
+                    "Warning: ignoring [workspaces.layouts] entry with non-numeric key {key:?}"
+                );
+            }
+        }
+    }
+    Ok(out)
 }
 
 /// How windows are hidden when switching away from their workspace.
