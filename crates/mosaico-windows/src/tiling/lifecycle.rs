@@ -53,11 +53,12 @@ impl TilingManager {
     /// startup the active layout is runtime state owned by `cycle-layout`
     /// and explicit `set-layout` actions. Config reload must not silently
     /// undo those choices when the user tweaks unrelated settings like gap
-    /// or borders. Changes to `[layout.workspaces]` take effect on restart.
+    /// or borders. Changes to `[workspaces.layouts]` take effect on restart.
     pub fn reload_config(&mut self, config: &mosaico_core::config::Config) {
         self.layout_gap = config.layout.gap;
         self.layout_ratio = config.layout.ratio;
         self.hiding = config.layout.hiding;
+        self.workspace_mode = config.workspaces.mode;
         self.border_config = config.borders.clone();
         self.mouse_follows_focus = config.mouse.follows_focus;
         self.apply_corner_preference_all();

@@ -25,9 +25,18 @@ hiding = "cloak"
 # Default layout algorithm: "bsp", "vertical-stack", or "three-column".
 default = "bsp"
 
+[workspaces]
+# How a workspace switch is applied across monitors.
+# "per-monitor" (default): only the focused monitor switches.
+# "global": all monitors switch in lockstep, like Windows virtual desktops.
+mode = "per-monitor"
+
 # Per-workspace layout overrides (workspace number 1-8).
-# [layout.workspaces]
+# Available layouts: "bsp", "vertical-stack", "three-column".
+# Workspaces without an entry use the [layout] default above.
+# [workspaces.layouts]
 # 1 = "vertical-stack"
+# 3 = "three-column"
 
 [borders]
 # Border width in pixels around the focused window.

@@ -54,7 +54,11 @@ gap = 8          # Pixel gap between windows (0-200)
 ratio = 0.5      # BSP split ratio (0.1-0.9)
 hiding = "cloak" # How windows hide on workspace switch: "cloak", "hide", "minimize"
 
-[layout.workspaces]  # Per-workspace layout overrides
+[workspaces]
+mode = "per-monitor"  # "per-monitor" (default) or "global"
+
+[workspaces.layouts]  # Per-workspace layout overrides
+# Available values: "bsp", "vertical-stack", "three-column"
 1 = "vertical-stack"
 3 = "three-column"
 
@@ -227,8 +231,9 @@ detected and applied while the daemon is running. The config file watcher
   are reloaded. The tiling manager calls `reload_config()` which updates the
   layout gap/ratio, hiding strategy, and `BorderConfig`, then retiles all
   windows. If the theme changed, bar colors are re-resolved. Hiding changes
-  take effect on the next workspace switch. Per-workspace layout overrides
-  (`[layout.workspaces]` and `layout.default`) are applied at startup only —
+  take effect on the next workspace switch. The workspace mode
+  (`workspaces.mode`) is reloaded live. Per-workspace layout overrides
+  (`[workspaces.layouts]` and `layout.default`) are applied at startup only;
   reloading does not override the active layout chosen via `cycle-layout`
   or `set-layout`; restart the daemon to pick up changes.
 - **rules.toml**: window rules are replaced via `reload_rules()`. New rules

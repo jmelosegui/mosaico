@@ -101,20 +101,50 @@ default = "bsp"       # Default layout for all workspaces
 ### Per-Workspace Layout
 
 You can assign a specific layout to individual workspaces using the
-`[layout.workspaces]` section. Workspace numbers range from 1 to 8.
+`[workspaces.layouts]` section. Workspace numbers range from 1 to 8.
+
+The available layout values are:
+
+| Value | Layout |
+|-------|--------|
+| `"bsp"` | Binary Space Partitioning (default) |
+| `"vertical-stack"` | Master pane left, vertical stack right |
+| `"three-column"` | Master pane center, stacks on both sides |
 
 ```toml
 [layout]
 default = "bsp"
 
-[layout.workspaces]
+[workspaces.layouts]
 1 = "three-column"     # Workspace 1 always uses ThreeColumn
 3 = "vertical-stack"   # Workspace 3 always uses VerticalStack
 ```
 
-Workspaces without an entry in this table use the `default` layout. You
+Workspaces without an entry in this table use the `layout.default`. You
 can still cycle layouts at runtime with **Alt + N** -- the per-workspace
 config only controls the initial layout when the daemon starts.
+
+### Workspace Mode
+
+`workspaces.mode` controls how a workspace switch propagates across
+monitors:
+
+```toml
+[workspaces]
+mode = "per-monitor"   # default
+# mode = "global"
+```
+
+- **per-monitor** (default) -- a workspace switch only affects the focused
+  monitor. Other monitors keep their current workspace, so you can flip
+  one screen without disturbing the others.
+- **global** -- a workspace switch flips every monitor to the same
+  workspace number in lockstep, mirroring Windows virtual desktops. Each
+  monitor still owns its own window list per workspace; the mode just
+  syncs which workspace number every monitor is showing.
+
+The mode is hot-reloaded: edit `config.toml` and the next workspace
+switch follows the new mode without restarting the daemon.
 
 ## Monocle Mode
 

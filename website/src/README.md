@@ -12,7 +12,8 @@ line or via global keyboard shortcuts.
 - **Automatic tiling** -- windows are arranged in a BSP layout the moment
   they open, close, or are moved between monitors.
 - **Vim-style navigation** -- focus and move windows with `Alt + H/J/K/L`.
-- **Workspaces** -- up to 8 independent workspaces per monitor.
+- **Workspaces** -- up to 8 workspaces, switching either per-monitor
+  (default) or globally across every display, like Windows virtual desktops.
 - **Multi-monitor** -- each monitor is managed independently with
   cross-monitor navigation.
 - **Focus borders** -- colored overlay border around the focused window.
