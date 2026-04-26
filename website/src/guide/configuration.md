@@ -26,10 +26,17 @@ gap = 8          # Pixel gap between windows (0-200)
 ratio = 0.5      # BSP split ratio (0.1-0.9)
 hiding = "cloak" # How windows hide on workspace switch: "cloak", "hide", "minimize"
 
-[layout.workspaces]
+[workspaces]
+# How a workspace switch is applied across monitors.
+# "per-monitor" (default): only the focused monitor switches.
+# "global": all monitors switch in lockstep, like Windows virtual desktops.
+mode = "per-monitor"
+
+[workspaces.layouts]
+# Available: "bsp", "vertical-stack", "three-column"
 1 = "three-column"    # Override layout for workspace 1
 3 = "vertical-stack"  # Override layout for workspace 3
-# Workspaces without an entry use the default layout
+# Workspaces without an entry use [layout].default
 
 [borders]
 width = 4              # Border thickness in pixels (0-32)

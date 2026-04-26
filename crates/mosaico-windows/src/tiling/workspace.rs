@@ -6,7 +6,7 @@
 
 use std::time::{Duration, Instant};
 
-use mosaico_core::config::HidingBehaviour;
+use mosaico_core::config::{HidingBehaviour, WorkspaceMode};
 
 use super::TilingManager;
 
@@ -19,26 +19,56 @@ use super::TilingManager;
 const WS_SWITCH_COOLDOWN: Duration = Duration::from_millis(500);
 
 impl TilingManager {
-    /// Switches to workspace `n` (1-indexed) on the focused monitor.
+    /// Switches to workspace `n` (1-indexed).
     ///
-    /// Hides windows on the current workspace, shows windows on the
-    /// target, retiles, and focuses the first window.
+    /// In `per-monitor` mode (the default) this only switches the focused
+    /// monitor. In `global` mode every monitor switches in lockstep so all
+    /// monitors mirror the same workspace number, like Windows virtual
+    /// desktops.
     pub(super) fn goto_workspace(&mut self, n: u8) {
         let idx = (n - 1) as usize;
-        let mon_idx = self.focused_monitor;
+
+        match self.workspace_mode {
+            WorkspaceMode::PerMonitor => {
+                let mon_idx = self.focused_monitor;
+                self.goto_workspace_on(mon_idx, idx, /* refocus */ true);
+            }
+            WorkspaceMode::Global => {
+                let focused = self.focused_monitor;
+                // Switch every monitor's active workspace in lockstep.
+                // Refocus only on the previously focused monitor so the
+                // cursor/foreground stays where the user was working.
+                for mon_idx in 0..self.monitors.len() {
+                    let refocus = mon_idx == focused;
+                    self.goto_workspace_on(mon_idx, idx, refocus);
+                }
+            }
+        }
+    }
+
+    /// Performs the goto-workspace operation on a single monitor.
+    ///
+    /// Hides the previous workspace's windows, shows the target workspace's
+    /// windows, retiles, and (when `refocus` is true) restores keyboard
+    /// focus to the remembered or first window. A no-op when the monitor
+    /// is already on `idx`.
+    fn goto_workspace_on(&mut self, mon_idx: usize, idx: usize, refocus: bool) {
         let Some(mon) = self.monitors.get(mon_idx) else {
             return;
         };
         if mon.active_workspace == idx {
-            return; // already there
+            return;
         }
 
         self.ws_switch_cooldown = Some(Instant::now() + WS_SWITCH_COOLDOWN);
 
-        // Remember which window was focused before leaving.
+        // Remember which window was focused before leaving -- only meaningful
+        // on the focused monitor, but harmless on others (last_focused gets
+        // set to None on monitors where the user wasn't focused).
+        let last_focused_value = if refocus { self.focused_window } else { None };
         self.monitors[mon_idx]
             .active_ws_mut()
-            .set_last_focused(self.focused_window);
+            .set_last_focused(last_focused_value);
 
         // Collect the previous workspace's handles so we can hide them
         // AFTER the target workspace's window is foregrounded. Hiding
@@ -61,26 +91,30 @@ impl TilingManager {
 
         self.apply_layout_on(mon_idx);
 
-        // Restore focus to the last focused window on this workspace.
-        // In monocle mode, prefer the monocle window. Fall back to the
-        // first window if the remembered window is no longer present.
-        let ws = self.monitors[mon_idx].active_ws();
-        let target = if ws.monocle() {
-            ws.monocle_window()
-                .filter(|&h| ws.contains(h))
-                .or_else(|| ws.last_focused().filter(|&h| ws.contains(h)))
-                .or_else(|| ws.handles().first().copied())
-        } else {
-            ws.last_focused()
-                .filter(|&h| ws.contains(h))
-                .or_else(|| ws.handles().first().copied())
-        };
+        // Restore focus only on the focused monitor -- in global mode the
+        // other monitors retile silently without stealing foreground.
+        if refocus {
+            // Restore focus to the last focused window on this workspace.
+            // In monocle mode, prefer the monocle window. Fall back to the
+            // first window if the remembered window is no longer present.
+            let ws = self.monitors[mon_idx].active_ws();
+            let target = if ws.monocle() {
+                ws.monocle_window()
+                    .filter(|&h| ws.contains(h))
+                    .or_else(|| ws.last_focused().filter(|&h| ws.contains(h)))
+                    .or_else(|| ws.handles().first().copied())
+            } else {
+                ws.last_focused()
+                    .filter(|&h| ws.contains(h))
+                    .or_else(|| ws.handles().first().copied())
+            };
 
-        if let Some(hwnd) = target {
-            self.focus_and_update_border(hwnd);
-        } else {
-            self.focused_window = None;
-            self.update_border();
+            if let Some(hwnd) = target {
+                self.focus_and_update_border(hwnd);
+            } else {
+                self.focused_window = None;
+                self.update_border();
+            }
         }
 
         // Now hide the previous workspace's windows. Doing this AFTER
@@ -95,7 +129,7 @@ impl TilingManager {
 
         mosaico_core::log_debug!(
             "goto-workspace {} on mon {} (from ws {}, {} windows)",
-            n,
+            idx + 1,
             mon_idx,
             prev_ws + 1,
             self.monitors[mon_idx].active_ws().len()
@@ -106,7 +140,9 @@ impl TilingManager {
     /// same monitor, then follows it there.
     ///
     /// Moves the window to the target workspace, switches to that
-    /// workspace, and focuses the moved window.
+    /// workspace, and focuses the moved window. In `global` mode every
+    /// other monitor also switches its active workspace to `n` so the
+    /// view stays in sync.
     pub(super) fn send_to_workspace(&mut self, n: u8) {
         let target_ws = (n - 1) as usize;
         let Some(hwnd) = self.focused_window else {
@@ -138,7 +174,7 @@ impl TilingManager {
             self.hide_window(h);
         }
 
-        // Switch to the target workspace.
+        // Switch to the target workspace on the focused monitor.
         self.monitors[mon_idx].active_workspace = target_ws;
 
         // Show all windows on the target workspace.
@@ -160,5 +196,17 @@ impl TilingManager {
 
         self.apply_layout_on(mon_idx);
         self.focus_and_update_border(hwnd);
+
+        // In global mode, flip every other monitor to the same workspace
+        // so the user follows the window into a coherent virtual-desktop
+        // view across all displays.
+        if self.workspace_mode == WorkspaceMode::Global {
+            for other_idx in 0..self.monitors.len() {
+                if other_idx == mon_idx {
+                    continue;
+                }
+                self.goto_workspace_on(other_idx, target_ws, /* refocus */ false);
+            }
+        }
     }
 }

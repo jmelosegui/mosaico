@@ -12,7 +12,9 @@ use std::collections::HashSet;
 use std::time::Instant;
 
 use mosaico_core::action::MAX_WORKSPACES;
-use mosaico_core::config::{BorderConfig, HidingBehaviour, LayoutConfig, WindowRule};
+use mosaico_core::config::{
+    BorderConfig, HidingBehaviour, LayoutConfig, WindowRule, WorkspaceMode, WorkspacesConfig,
+};
 use mosaico_core::{Action, Rect, WindowResult, Workspace};
 
 use crate::bar::BarState;
@@ -75,6 +77,8 @@ pub struct TilingManager {
     focus_from_mouse: bool,
     /// How windows are hidden during workspace switches.
     hiding: HidingBehaviour,
+    /// Whether workspace switches affect one monitor or all monitors.
+    pub(super) workspace_mode: WorkspaceMode,
     /// Windows hidden programmatically by workspace switching.
     ///
     /// Events for these hwnds are ignored until they are shown again.
@@ -112,6 +116,7 @@ impl TilingManager {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         layout_config: &LayoutConfig,
+        workspaces_config: &WorkspacesConfig,
         rules: Vec<WindowRule>,
         border_config: BorderConfig,
         mouse_follows_focus: bool,
@@ -124,8 +129,8 @@ impl TilingManager {
                 workspaces: (0..MAX_WORKSPACES)
                     .map(|i| {
                         let ws_num = i + 1;
-                        let kind = layout_config
-                            .workspaces
+                        let kind = workspaces_config
+                            .layouts
                             .get(&ws_num)
                             .copied()
                             .unwrap_or(layout_config.default);
@@ -153,6 +158,7 @@ impl TilingManager {
             focus_from_mouse: false,
             applying_layout: false,
             hiding: layout_config.hiding,
+            workspace_mode: workspaces_config.mode,
             hidden_by_switch: HashSet::new(),
             ws_switch_cooldown: None,
             self_elevated,

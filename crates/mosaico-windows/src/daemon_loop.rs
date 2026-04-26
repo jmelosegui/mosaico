@@ -16,6 +16,11 @@ use super::daemon_types::DaemonMsg;
 
 /// The inner daemon loop, separated so cleanup always runs in `run()`.
 pub(super) fn daemon_loop() -> WindowResult<()> {
+    // Append any missing top-level config sections introduced by newer
+    // versions of mosaico (e.g. [workspaces]) before loading, so the
+    // user's config.toml visibly tracks the latest schema.
+    config::merge_missing_config_sections();
+
     let config = config::load();
     mosaico_core::log::init(&config.logging);
 
@@ -44,6 +49,7 @@ pub(super) fn daemon_loop() -> WindowResult<()> {
 
     let mut manager = TilingManager::new(
         &config.layout,
+        &config.workspaces,
         rules,
         config.borders,
         config.mouse.follows_focus,

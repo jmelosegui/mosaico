@@ -139,7 +139,9 @@ display (`"BSP"`, `"VStack"`, `"3Col"`).
 
 ### Per-Workspace Configuration
 
-The `[layout]` section of `config.toml` supports:
+The `[layout]` section sets defaults that apply to every workspace, and the
+`[workspaces.layouts]` section overrides those defaults for specific workspace
+numbers:
 
 ```toml
 [layout]
@@ -147,18 +149,25 @@ gap = 8
 ratio = 0.5
 default = "bsp"            # default layout for all workspaces
 
-[layout.workspaces]
+[workspaces.layouts]
 3 = "vertical-stack"       # workspace 3 uses VerticalStack
 5 = "three-column"         # workspace 5 uses ThreeColumn
 ```
 
-- `default` -- the `LayoutKind` used for workspaces without an explicit
-  override (default: `"bsp"`)
-- `workspaces` -- a map of workspace number (1-8) to `LayoutKind`; workspaces
-  listed here start with the specified layout instead of `default`
+- `layout.default` -- the `LayoutKind` used for workspaces without an
+  explicit override (default: `"bsp"`)
+- `workspaces.layouts` -- a map of workspace number (1-8) to `LayoutKind`;
+  workspaces listed here start with the specified layout instead of
+  `layout.default`
 
-`LayoutKind` is serialized in kebab-case: `"bsp"`, `"vertical-stack"`,
-`"three-column"`.
+Both fields accept any of the three `LayoutKind` values, serialized in
+kebab-case:
+
+| TOML value | Layout |
+|------------|--------|
+| `"bsp"` | `LayoutKind::Bsp` -- recursive binary space partitioning (default) |
+| `"vertical-stack"` | `LayoutKind::VerticalStack` -- master pane left, vertical stack right |
+| `"three-column"` | `LayoutKind::ThreeColumn` -- master pane center, stacks on both sides |
 
 ## TilingManager
 

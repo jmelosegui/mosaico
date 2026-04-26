@@ -1,7 +1,9 @@
 # Workspaces
 
-Mosaico supports up to 8 independent workspaces per monitor. Each workspace
-maintains its own set of tiled windows.
+Mosaico supports up to 8 workspaces. Each workspace maintains its own set
+of tiled windows. By default each monitor switches workspaces independently;
+you can opt into a global mode where every monitor switches in lockstep
+(see [Workspace Mode](#workspace-mode) below).
 
 ## Switching Workspaces
 
@@ -61,10 +63,32 @@ hiding = "cloak"   # "cloak", "hide", or "minimize"
 their taskbar icons, so you can still see all running apps. Clicking a
 cloaked window's taskbar icon automatically switches to its workspace.
 
-## Per-Monitor Workspaces
+## Workspace Mode
 
-Each monitor has its own independent set of 8 workspaces. Switching
-workspaces on one monitor does not affect other monitors.
+`workspaces.mode` in `config.toml` controls how a workspace switch
+propagates across monitors:
+
+```toml
+[workspaces]
+mode = "per-monitor"   # default
+# mode = "global"
+```
+
+| Mode | Behavior |
+|------|----------|
+| `"per-monitor"` (default) | Switching workspaces only affects the focused monitor. The other monitors keep showing whatever workspace they were on. |
+| `"global"` | Every monitor switches to the same workspace number in lockstep, mirroring Windows virtual desktops. |
+
+In both modes each monitor still owns its own window list per workspace;
+windows do not jump between displays. The mode only controls which
+monitors flip when you press `Alt + N` or run `mosaico action goto-workspace N`.
+
+`send-to-workspace` in `global` mode moves the window to the target
+workspace on its current monitor, then flips every other monitor to the
+same workspace number so the view stays in sync.
+
+The mode is hot-reloaded: change it in `config.toml` and the next
+workspace switch follows the new mode without restarting the daemon.
 
 ## Status Bar Integration
 

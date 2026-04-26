@@ -20,9 +20,6 @@ pub struct LayoutConfig {
     pub hiding: HidingBehaviour,
     /// Default layout for workspaces without an explicit override.
     pub default: LayoutKind,
-    /// Per-workspace layout overrides (workspace number 1–8 → layout).
-    #[serde(default)]
-    pub workspaces: HashMap<u8, LayoutKind>,
 }
 
 impl Default for LayoutConfig {
@@ -32,9 +29,21 @@ impl Default for LayoutConfig {
             ratio: 0.5,
             hiding: HidingBehaviour::default(),
             default: LayoutKind::default(),
-            workspaces: HashMap::new(),
         }
     }
+}
+
+/// Workspace-level configuration.
+///
+/// Holds the workspace switching mode and per-workspace layout
+/// overrides. See [`WorkspaceMode`] for the available modes.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct WorkspacesConfig {
+    /// How a workspace switch is applied across monitors.
+    pub mode: WorkspaceMode,
+    /// Per-workspace layout overrides (workspace number 1–8 → layout).
+    pub layouts: HashMap<u8, LayoutKind>,
 }
 
 /// How windows are hidden when switching away from their workspace.
@@ -124,4 +133,16 @@ impl Default for BorderConfig {
             monocle: String::new(),
         }
     }
+}
+
+/// How a workspace switch is applied across monitors.
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "kebab-case")]
+pub enum WorkspaceMode {
+    /// Switching workspaces only affects the focused monitor (default).
+    #[default]
+    PerMonitor,
+    /// Switching workspaces affects every monitor in lockstep, mirroring
+    /// how Windows virtual desktops work.
+    Global,
 }

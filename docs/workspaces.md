@@ -1,8 +1,17 @@
 # Workspaces
 
-Each monitor in Mosaico supports up to 8 independent workspaces. Only one
-workspace is active per monitor at a time. Switching workspaces hides the
-current windows and shows the target workspace's windows.
+Mosaico supports up to 8 workspaces. Each monitor has its own per-workspace
+window list; windows never migrate between monitors as part of a switch.
+Only one workspace is active per monitor at a time. Switching workspaces
+hides the current windows and shows the target workspace's windows.
+
+The `workspaces.mode` config field controls how a switch propagates across
+monitors:
+
+- `"per-monitor"` (default) -- only the focused monitor's
+  `active_workspace` advances.
+- `"global"` -- every monitor's `active_workspace` advances to the same
+  index in lockstep, mirroring Windows virtual desktops.
 
 ## Architecture
 
@@ -13,14 +22,18 @@ current windows and shows the target workspace's windows.
 | `crates/mosaico-core/src/action.rs` | `GoToWorkspace(u8)`, `SendToWorkspace(u8)`, `MAX_WORKSPACES` |
 | `crates/mosaico-core/src/workspace.rs` | `Workspace` -- ordered window handle collection |
 | `crates/mosaico-core/src/config/keybinding.rs` | Default workspace keybindings |
-| `crates/mosaico-windows/src/tiling/mod.rs` | `MonitorState` with `Vec<Workspace>`, `active_workspace` |
-| `crates/mosaico-windows/src/tiling/workspace.rs` | `goto_workspace()`, `send_to_workspace()` |
+| `crates/mosaico-windows/src/tiling/mod.rs` | `MonitorState` with `Vec<Workspace>`, `active_workspace`; `TilingManager.workspace_mode` |
+| `crates/mosaico-windows/src/tiling/workspace.rs` | `goto_workspace()`, `goto_workspace_on()`, `send_to_workspace()` |
+| `crates/mosaico-core/src/config/types.rs` | `WorkspacesConfig`, `WorkspaceMode` |
 
 ### Key Types
 
 - `MonitorState` -- per-monitor state holding `Vec<Workspace>` (8 workspaces),
   `active_workspace: usize` (0-indexed), and `monocle: bool`
 - `MAX_WORKSPACES: u8 = 8` -- public constant in `mosaico-core`
+- `WorkspacesConfig` -- top-level `[workspaces]` section: `mode: WorkspaceMode`
+  and `layouts: HashMap<u8, LayoutKind>` (per-workspace layout overrides)
+- `WorkspaceMode` -- `PerMonitor` (default) or `Global`
 
 ## Actions
 
@@ -34,20 +47,30 @@ Actions use 1-based indexing in the user-facing interface (config, CLI) and
 
 ## Switching Workspaces
 
-`goto_workspace(n)` (in `tiling/workspace.rs`):
+`goto_workspace(n)` (in `tiling/workspace.rs`) dispatches on
+`workspace_mode`:
 
-1. If already on workspace N, does nothing
+- `PerMonitor` -- calls `goto_workspace_on(focused_monitor, n, refocus=true)`.
+- `Global` -- iterates every monitor and calls `goto_workspace_on(i, n,
+  refocus = (i == focused_monitor))`. Only the previously-focused monitor
+  takes keyboard focus; the other monitors retile silently.
+
+`goto_workspace_on(mon_idx, idx, refocus)` performs the per-monitor work:
+
+1. If the monitor is already on workspace `idx`, does nothing
 2. Hides all windows in the current workspace using the configured hiding
    strategy (see below)
 3. For `Hide` and `Minimize` strategies: adds hidden windows to
    `hidden_by_switch` set to prevent spurious event handlers from removing
    them. Skipped for `Cloak` because cloaking does not fire events.
-4. Sets `active_workspace` to N
+4. Sets `active_workspace` to `idx`
 5. Shows all windows in the target workspace (reverses the hiding strategy)
 6. For `Hide` and `Minimize` strategies: removes shown windows from
    `hidden_by_switch`
 7. Retiles the monitor
-8. Focuses the first window in the new workspace
+8. When `refocus` is true, focuses the first window in the new workspace
+   (or the remembered `last_focused`); otherwise leaves keyboard focus
+   alone
 
 ### Hiding Behaviour
 
@@ -98,12 +121,15 @@ workspace and automatically switches to that workspace.
 `send_to_workspace(n)` (in `tiling/workspace.rs`):
 
 1. Removes the focused window from the current workspace
-2. Adds it to workspace N
-3. Hides the window and adds it to `hidden_by_switch`
-4. Retiles the current workspace
-5. Focuses the next available window
+2. Adds it to workspace N on the same monitor
+3. Hides the source workspace's remaining windows
+4. Sets `active_workspace = n` on the focused monitor
+5. Shows the target workspace's windows and focuses the moved window
+6. In `Global` mode, calls `goto_workspace_on` for every other monitor
+   (with `refocus=false`) so all monitors converge on workspace N
 
-The sent window will appear when the user switches to workspace N.
+The window itself never crosses monitors. It stays on the monitor it was
+on; global mode just keeps the *view* coherent across displays.
 
 ## Workspace Initialization
 
@@ -159,7 +185,13 @@ N is 1-8. Parsing validates the range and rejects invalid workspace numbers.
 - **`hidden_by_switch` tracking** is essential for Hide and Minimize modes
   to prevent the tiling manager from interpreting programmatic hides as
   window closures. Skipped for Cloak mode which fires no events.
-- **Per-monitor workspaces** rather than global workspaces match the
-  multi-monitor mental model where each monitor is independent.
+- **Per-monitor by default, global as opt-in.** Per-monitor matches the
+  mental model where each monitor is independent (you can flip one screen
+  without disturbing the others). The `Global` mode is for users who
+  prefer Windows-virtual-desktop semantics. The choice is one config field
+  (`workspaces.mode`); window ownership is unchanged across modes.
+- **Windows never migrate between monitors during a switch.** Each
+  monitor owns its own per-workspace window list. Global mode only
+  synchronizes the *active workspace index*, not window placement.
 - **Workspace 1 is always the initial active workspace**. New windows
   created after startup go to the active workspace of the focused monitor.

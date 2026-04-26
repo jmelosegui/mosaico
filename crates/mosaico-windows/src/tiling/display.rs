@@ -2,6 +2,7 @@
 
 use mosaico_core::Workspace;
 use mosaico_core::action::MAX_WORKSPACES;
+use mosaico_core::config::WorkspaceMode;
 
 use crate::monitor::MonitorInfo;
 
@@ -128,6 +129,20 @@ impl TilingManager {
         // Clamp focused monitor.
         if self.focused_monitor >= self.monitors.len() {
             self.focused_monitor = 0;
+        }
+
+        // In global mode, every monitor must share the same active
+        // workspace. New monitors default to workspace 0; align them to
+        // the focused monitor's workspace so the lockstep invariant holds.
+        if self.workspace_mode == WorkspaceMode::Global
+            && let Some(target) = self
+                .monitors
+                .get(self.focused_monitor)
+                .map(|m| m.active_workspace)
+        {
+            for mon in &mut self.monitors {
+                mon.active_workspace = target;
+            }
         }
 
         // Re-apply bar offsets and retile.
