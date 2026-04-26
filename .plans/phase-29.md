@@ -1,6 +1,6 @@
 # Phase 29: Toggle Pause (Stop/Resume Daemon)
 
-**Status:** Pending
+**Status:** Complete
 
 **Goal:** Add a single command that pauses the daemon (stops managing
 windows) and can be resumed later, effectively a toggle.

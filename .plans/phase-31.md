@@ -1,6 +1,6 @@
 # Phase 31: Unfocused Window Borders
 
-**Status:** Pending
+**Status:** Complete
 
 **Goal:** Add subtle borders around non-focused tiled windows so users can
 visually distinguish window boundaries, especially with small gaps.
