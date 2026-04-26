@@ -6,7 +6,10 @@ fn default_config_has_expected_values() {
     let mut config = Config::default();
     config.validate();
 
-    assert_eq!(config.theme.resolve(), Theme::Mocha);
+    assert_eq!(
+        config.theme.resolve(),
+        Theme::Catppuccin(CatppuccinFlavor::Mocha)
+    );
     assert_eq!(config.layout.gap, 8);
     assert_eq!(config.borders.width, 4);
 }

@@ -19,22 +19,39 @@ and the status bar -- from a single configuration line.
 
 - `ThemeConfig` -- user-facing config: `name: String` (default `"catppuccin"`),
   `flavor: String` (default `"mocha"`)
-- `Theme` -- resolved enum: `Mocha`, `Macchiato`, `Frappe`, `Latte`
+- `Theme` -- resolved enum, one variant per family carrying its
+  flavor enum: `Catppuccin(CatppuccinFlavor)`, `RosePine(RosePineFlavor)`,
+  `TokyoNight(TokyoNightFlavor)`. The nesting keeps invalid
+  combinations (e.g. Rosé Pine with a Mocha flavor) unrepresentable
+  at the type level
+- `CatppuccinFlavor` -- `Mocha` (default), `Macchiato`, `Frappe`, `Latte`
+- `RosePineFlavor` -- `Main` (default), `Moon`, `Dawn`
+- `TokyoNightFlavor` -- `Night` (default), `Storm`, `Day`
 
-## Catppuccin Flavors
+## Theme Families
 
-| Flavor | Description |
-|--------|-------------|
-| Latte | Light theme |
-| Frappe | Mid-light dark theme |
-| Macchiato | Mid-dark theme |
-| Mocha | Darkest theme (default) |
+| Family | Flavors | Style |
+|--------|---------|-------|
+| Catppuccin | Latte / Frappé / Macchiato / Mocha | Light through darkest |
+| Rosé Pine | Main / Moon / Dawn | Two darks, one light |
+| Tokyo Night | Night / Storm / Day | Two darks, one light |
 
-Each flavor provides 14 named accent colors, all compiled into the binary
-as constants in `palette.rs`:
+Each flavor has its own named-color table and bar color mapping,
+defined in `crates/mosaico-core/src/config/palette/<family>.rs`.
 
-Rosewater, Flamingo, Pink, Mauve, Red, Maroon, Peach, Yellow, Green, Teal,
-Sky, Sapphire, Blue, Lavender
+### Common Color Aliases
+
+To keep portable configs (`focused = "blue"`) working across themes,
+every family exposes the four most common color names: `red`, `blue`,
+`green`, `yellow`. The exact shade differs per theme so the highlight
+reads well against that theme's base background.
+
+Catppuccin additionally exposes 14 native accent colors (rosewater,
+flamingo, pink, mauve, red, maroon, peach, yellow, green, teal, sky,
+sapphire, blue, lavender). Rosé Pine exposes its six native names
+(love, gold, rose, pine, foam, iris). Tokyo Night exposes red, orange,
+yellow, green, cyan, teal, blue, purple plus aliases `mauve` and
+`magenta` for `purple`.
 
 ## Named Color Resolution
 
@@ -79,7 +96,8 @@ This applies to border colors in `config.toml` and all color fields in
 | Widget background | `#313244` (Surface0) |
 | Pill border | `#45475a` (Surface1) |
 
-Each flavor has its own complete bar color palette defined in `palette.rs`.
+Each flavor has its own complete bar color palette defined in
+`palette/<family>.rs` (one file per theme family).
 
 ## Configuration
 
@@ -87,11 +105,22 @@ In `config.toml`:
 
 ```toml
 [theme]
-name = "catppuccin"
-flavor = "mocha"       # latte, frappe, macchiato, mocha
+name = "catppuccin"   # catppuccin, rose-pine, tokyo-night
+flavor = "mocha"
 ```
 
-Flavor names are case-insensitive. Unknown values fall back to Mocha.
+Recognized name + flavor combinations:
+
+| name | flavor |
+|------|--------|
+| `catppuccin` | `mocha`, `macchiato`, `frappe`, `latte` |
+| `rose-pine` (alias `rosepine`, `rose_pine`) | `main`, `moon`, `dawn` |
+| `tokyo-night` (alias `tokyonight`, `tokyo_night`) | `night`, `storm`, `day` |
+
+Both name and flavor are case-insensitive. Unknown values fall back
+to the family default (e.g. `name = "rose-pine"` with an unknown
+flavor resolves to Main); unknown family names fall back to Catppuccin
+Mocha.
 
 ## Color Precedence
 
