@@ -11,8 +11,10 @@ Border settings are in `config.toml`:
 [borders]
 width = 4              # Border thickness in pixels (0-32)
 corner_style = "small" # "square", "small", or "round"
-focused = "#00b4d8"    # Color for focused window
-monocle = "#2d6a4f"    # Color for monocle mode
+
+[borders.colors]
+focused = "#00b4d8"    # Color for focused window in tiled layouts
+monocle = "#2d6a4f"    # Color for focused window in monocle mode
 ```
 
 - **width** -- thickness of the border in pixels. Set to `0` to disable
@@ -27,9 +29,9 @@ monocle = "#2d6a4f"    # Color for monocle mode
   | `"small"` | Subtle rounding (8 px) | `ROUNDSMALL` (~4 px) |
   | `"round"` | Standard rounding (16 px) | `ROUND` (~8 px) |
 
-- **focused** -- the border color during normal tiling. Accepts hex colors
-  or named Catppuccin colors (see [Theming](theming.md)).
-- **monocle** -- the border color when monocle mode is active.
+- **borders.colors.focused** -- the border color during normal tiling.
+  Accepts hex colors or named Catppuccin colors (see [Theming](theming.md)).
+- **borders.colors.monocle** -- the border color when monocle mode is active.
 
 ## Behavior
 
@@ -44,7 +46,7 @@ monocle = "#2d6a4f"    # Color for monocle mode
 With a theme active, you can use named colors:
 
 ```toml
-[borders]
+[borders.colors]
 focused = "blue"
 monocle = "green"
 ```
@@ -52,4 +54,4 @@ monocle = "green"
 ## Hot-Reload
 
 Border settings are hot-reloaded. Changes to `width`, `corner_style`,
-`focused`, and `monocle` colors take effect immediately.
+and the `[borders.colors]` entries take effect immediately.

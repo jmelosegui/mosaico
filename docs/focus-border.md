@@ -85,6 +85,8 @@ In `config.toml`:
 [borders]
 width = 4              # Border thickness in pixels (0-32)
 corner_style = "small" # "square", "small", or "round"
+
+[borders.colors]
 focused = "#00b4d8"    # Color for normal focused window
 monocle = "#2d6a4f"    # Color when monocle mode is active
 ```

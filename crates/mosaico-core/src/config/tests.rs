@@ -16,23 +16,26 @@ fn validate_resolves_border_colors_from_theme() {
     config.validate();
 
     // Mocha defaults: Blue for focused, Green for monocle
-    assert_eq!(config.borders.focused, "#89b4fa");
-    assert_eq!(config.borders.monocle, "#a6e3a1");
+    assert_eq!(config.borders.colors.focused, "#89b4fa");
+    assert_eq!(config.borders.colors.monocle, "#a6e3a1");
 }
 
 #[test]
 fn explicit_border_color_overrides_theme() {
     let mut config = Config {
         borders: BorderConfig {
-            focused: "#ff0000".into(),
+            colors: BorderColors {
+                focused: "#ff0000".into(),
+                ..Default::default()
+            },
             ..Default::default()
         },
         ..Default::default()
     };
     config.validate();
 
-    assert_eq!(config.borders.focused, "#ff0000");
-    assert_eq!(config.borders.monocle, "#a6e3a1"); // still from theme
+    assert_eq!(config.borders.colors.focused, "#ff0000");
+    assert_eq!(config.borders.colors.monocle, "#a6e3a1"); // still from theme
 }
 
 #[test]
@@ -46,24 +49,26 @@ fn latte_theme_resolves_different_borders() {
     };
     config.validate();
 
-    assert_eq!(config.borders.focused, "#1e66f5");
-    assert_eq!(config.borders.monocle, "#40a02b");
+    assert_eq!(config.borders.colors.focused, "#1e66f5");
+    assert_eq!(config.borders.colors.monocle, "#40a02b");
 }
 
 #[test]
 fn named_color_in_border_resolves_to_hex() {
     let mut config = Config {
         borders: BorderConfig {
-            focused: "mauve".into(),
-            monocle: "teal".into(),
+            colors: BorderColors {
+                focused: "mauve".into(),
+                monocle: "teal".into(),
+            },
             ..Default::default()
         },
         ..Default::default()
     };
     config.validate();
 
-    assert_eq!(config.borders.focused, "#cba6f7");
-    assert_eq!(config.borders.monocle, "#94e2d5");
+    assert_eq!(config.borders.colors.focused, "#cba6f7");
+    assert_eq!(config.borders.colors.monocle, "#94e2d5");
 }
 
 #[test]

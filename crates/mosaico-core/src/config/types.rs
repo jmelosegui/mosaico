@@ -117,10 +117,8 @@ pub struct BorderConfig {
     pub width: i32,
     /// Corner style for borders and tiled windows.
     pub corner_style: CornerStyle,
-    /// Hex color for the focused window border (e.g. "#00b4d8").
-    pub focused: String,
-    /// Hex color for the monocle mode border (e.g. "#2d6a4f").
-    pub monocle: String,
+    /// Border colors for focused windows in different layout modes.
+    pub colors: BorderColors,
 }
 
 /// Default border colors are empty — resolved from the theme in `validate()`.
@@ -129,10 +127,23 @@ impl Default for BorderConfig {
         Self {
             width: 4,
             corner_style: CornerStyle::default(),
-            focused: String::new(),
-            monocle: String::new(),
+            colors: BorderColors::default(),
         }
     }
+}
+
+/// Border colors for the focused window across layout modes.
+///
+/// Both fields hold a hex string (e.g. `"#00b4d8"`) or a named theme
+/// color. Empty strings resolve to the active theme's defaults during
+/// validation.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct BorderColors {
+    /// Focused-window border color while a tiled layout is active.
+    pub focused: String,
+    /// Focused-window border color while monocle mode is active.
+    pub monocle: String,
 }
 
 /// How a workspace switch is applied across monitors.

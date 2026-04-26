@@ -63,11 +63,11 @@ impl Config {
     /// Resolves border colors: empty → theme default, named → theme hex.
     fn resolve_borders(&mut self) {
         let theme = self.theme.resolve();
-        self.borders.focused = theme
-            .resolve_color(&self.borders.focused, theme.border_focused())
+        self.borders.colors.focused = theme
+            .resolve_color(&self.borders.colors.focused, theme.border_focused())
             .to_string();
-        self.borders.monocle = theme
-            .resolve_color(&self.borders.monocle, theme.border_monocle())
+        self.borders.colors.monocle = theme
+            .resolve_color(&self.borders.colors.monocle, theme.border_monocle())
             .to_string();
     }
 }

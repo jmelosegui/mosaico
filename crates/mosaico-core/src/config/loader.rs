@@ -63,24 +63,33 @@ pub fn try_load() -> Result<Config, String> {
     Ok(config)
 }
 
-/// Migrates a legacy `[layout.workspaces]` section to `[workspaces.layouts]`.
+/// Detects and applies all legacy -> current schema migrations:
 ///
-/// On detection: backs up the original file (aborting if the backup write
-/// fails), rewrites the config in place using `toml_edit` so comments and
-/// formatting survive, and returns the new content for the caller to parse.
+/// - `[layout.workspaces]` -> `[workspaces.layouts]`
+/// - `[borders] focused = ...` / `monocle = ...` -> `[borders.colors]`
 ///
-/// Returns `Ok(None)` when no migration was needed (no legacy section).
+/// On detection of any legacy pattern: backs up the original file
+/// (aborting if the backup write fails), rewrites the config in place
+/// using `toml_edit` so comments and formatting survive, and returns
+/// the new content for the caller to parse.
+///
+/// Returns `Ok(None)` when no migration was needed.
 fn migrate_config_if_needed(path: &Path, content: &str) -> Result<Option<String>, String> {
     let mut doc: toml_edit::DocumentMut = content
         .parse()
         .map_err(|e| format!("{}: {e}", path.display()))?;
 
-    let has_legacy = doc
+    let has_legacy_workspaces = doc
         .get("layout")
         .and_then(|t| t.as_table())
         .is_some_and(|t| t.contains_key("workspaces"));
 
-    if !has_legacy {
+    let has_legacy_borders = doc
+        .get("borders")
+        .and_then(|t| t.as_table())
+        .is_some_and(|t| t.contains_key("focused") || t.contains_key("monocle"));
+
+    if !has_legacy_workspaces && !has_legacy_borders {
         return Ok(None);
     }
 
@@ -95,33 +104,16 @@ fn migrate_config_if_needed(path: &Path, content: &str) -> Result<Option<String>
         )
     })?;
 
-    // Pull [layout.workspaces] out and place it under [workspaces.layouts].
-    let legacy = doc
-        .get_mut("layout")
-        .and_then(|t| t.as_table_mut())
-        .and_then(|t| t.remove("workspaces"));
+    let mut applied: Vec<&'static str> = Vec::new();
 
-    if let Some(legacy_item) = legacy {
-        if doc.get("workspaces").is_none() {
-            doc.insert(
-                "workspaces",
-                toml_edit::Item::Table(toml_edit::Table::new()),
-            );
-        }
-        // If the user already has [workspaces.layouts], keep it and drop
-        // the legacy section. Otherwise install the legacy values there.
-        let workspaces = doc
-            .get_mut("workspaces")
-            .and_then(|t| t.as_table_mut())
-            .ok_or_else(|| {
-                format!(
-                    "{}: [workspaces] is not a table -- cannot migrate",
-                    path.display()
-                )
-            })?;
-        if !workspaces.contains_key("layouts") {
-            workspaces.insert("layouts", legacy_item);
-        }
+    if has_legacy_workspaces {
+        migrate_workspaces_section(&mut doc, path)?;
+        applied.push("[layout.workspaces] -> [workspaces.layouts]");
+    }
+
+    if has_legacy_borders {
+        migrate_border_colors(&mut doc, path)?;
+        applied.push("[borders] focused/monocle -> [borders.colors]");
     }
 
     let new_content = doc.to_string();
@@ -129,11 +121,91 @@ fn migrate_config_if_needed(path: &Path, content: &str) -> Result<Option<String>
         .map_err(|e| format!("could not write migrated config to {}: {e}", path.display()))?;
 
     eprintln!(
-        "Info: migrated [layout.workspaces] -> [workspaces.layouts]. Backup saved at {}",
+        "Info: migrated config keys ({}). Backup saved at {}",
+        applied.join(", "),
         backup.display()
     );
 
     Ok(Some(new_content))
+}
+
+/// Moves `[layout.workspaces]` to `[workspaces.layouts]`.
+///
+/// If the user already has `[workspaces.layouts]`, keeps it and drops
+/// the legacy mapping (the new section wins).
+fn migrate_workspaces_section(doc: &mut toml_edit::DocumentMut, path: &Path) -> Result<(), String> {
+    let legacy = doc
+        .get_mut("layout")
+        .and_then(|t| t.as_table_mut())
+        .and_then(|t| t.remove("workspaces"));
+
+    let Some(legacy_item) = legacy else {
+        return Ok(());
+    };
+
+    if doc.get("workspaces").is_none() {
+        doc.insert(
+            "workspaces",
+            toml_edit::Item::Table(toml_edit::Table::new()),
+        );
+    }
+    let workspaces = doc
+        .get_mut("workspaces")
+        .and_then(|t| t.as_table_mut())
+        .ok_or_else(|| {
+            format!(
+                "{}: [workspaces] is not a table -- cannot migrate",
+                path.display()
+            )
+        })?;
+
+    if !workspaces.contains_key("layouts") {
+        workspaces.insert("layouts", legacy_item);
+    }
+    Ok(())
+}
+
+/// Moves top-level `focused` / `monocle` keys from `[borders]` into a
+/// `[borders.colors]` sub-table.
+///
+/// If the user already has `[borders.colors].focused` or `.monocle`,
+/// the existing nested values win and the legacy keys are dropped.
+fn migrate_border_colors(doc: &mut toml_edit::DocumentMut, path: &Path) -> Result<(), String> {
+    let borders = doc.get_mut("borders").and_then(|t| t.as_table_mut());
+    let Some(borders) = borders else {
+        return Ok(());
+    };
+
+    let legacy_focused = borders.remove("focused");
+    let legacy_monocle = borders.remove("monocle");
+    if legacy_focused.is_none() && legacy_monocle.is_none() {
+        return Ok(());
+    }
+
+    if !borders.contains_key("colors") {
+        borders.insert("colors", toml_edit::Item::Table(toml_edit::Table::new()));
+    }
+    let colors = borders
+        .get_mut("colors")
+        .and_then(|t| t.as_table_mut())
+        .ok_or_else(|| {
+            format!(
+                "{}: [borders.colors] is not a table -- cannot migrate",
+                path.display()
+            )
+        })?;
+
+    if let Some(item) = legacy_focused
+        && !colors.contains_key("focused")
+    {
+        colors.insert("focused", item);
+    }
+    if let Some(item) = legacy_monocle
+        && !colors.contains_key("monocle")
+    {
+        colors.insert("monocle", item);
+    }
+    Ok(())
 }
 
 /// Returns a non-clobbering backup path next to `path`.
@@ -793,6 +865,120 @@ mode = \"global\"
             "second backup should append .1 suffix, got {}",
             second.display()
         );
+
+        cleanup(&path);
+    }
+
+    #[test]
+    fn migrates_legacy_border_colors() {
+        let path = unique_temp_path();
+        let original = "\
+[borders]
+width = 4
+focused = \"#ff0000\"
+monocle = \"#00ff00\"
+";
+        std::fs::write(&path, original).unwrap();
+
+        let migrated = migrate_config_if_needed(&path, original)
+            .unwrap()
+            .expect("migration should run");
+
+        // Re-parse and assert the values landed in the new shape.
+        let cfg: super::Config = toml::from_str(&migrated).unwrap();
+        assert_eq!(cfg.borders.width, 4);
+        assert_eq!(cfg.borders.colors.focused, "#ff0000");
+        assert_eq!(cfg.borders.colors.monocle, "#00ff00");
+
+        // Backup preserved.
+        let backup = path.with_extension("toml.pre-0.9.bak");
+        assert!(backup.exists());
+        assert_eq!(std::fs::read_to_string(&backup).unwrap(), original);
+
+        cleanup(&path);
+    }
+
+    #[test]
+    fn border_migration_is_idempotent() {
+        let path = unique_temp_path();
+        let original = "\
+[borders]
+width = 4
+focused = \"blue\"
+";
+        std::fs::write(&path, original).unwrap();
+
+        migrate_config_if_needed(&path, original).unwrap().unwrap();
+        let after_first = std::fs::read_to_string(&path).unwrap();
+        let second = migrate_config_if_needed(&path, &after_first).unwrap();
+        assert!(second.is_none(), "second border migration must be a no-op");
+
+        cleanup(&path);
+    }
+
+    #[test]
+    fn existing_border_colors_wins_over_legacy() {
+        let path = unique_temp_path();
+        let original = "\
+[borders]
+width = 4
+focused = \"red\"
+monocle = \"green\"
+
+[borders.colors]
+focused = \"blue\"
+";
+        std::fs::write(&path, original).unwrap();
+
+        let migrated = migrate_config_if_needed(&path, original).unwrap().unwrap();
+        let cfg: super::Config = toml::from_str(&migrated).unwrap();
+
+        // Existing nested focused wins over legacy.
+        assert_eq!(cfg.borders.colors.focused, "blue");
+        // Legacy monocle migrates because no nested value existed.
+        assert_eq!(cfg.borders.colors.monocle, "green");
+
+        cleanup(&path);
+    }
+
+    #[test]
+    fn workspace_and_border_migrations_run_together() {
+        let path = unique_temp_path();
+        let original = "\
+[layout]
+gap = 8
+
+[layout.workspaces]
+1 = \"vertical-stack\"
+
+[borders]
+width = 4
+focused = \"#abcdef\"
+";
+        std::fs::write(&path, original).unwrap();
+
+        let migrated = migrate_config_if_needed(&path, original).unwrap().unwrap();
+
+        // Both legacy patterns are gone after migration.
+        assert!(!migrated.contains("[layout.workspaces]"));
+        assert!(migrated.contains("[workspaces.layouts]"));
+        assert!(migrated.contains("[borders.colors]"));
+        // Top-level `focused` under [borders] should not be there anymore;
+        // the only remaining `focused = ...` line lives under [borders.colors].
+        let bare_focused_lines = migrated
+            .lines()
+            .filter(|l| l.trim_start().starts_with("focused = "))
+            .count();
+        assert_eq!(
+            bare_focused_lines, 1,
+            "exactly one focused = line, under [borders.colors]"
+        );
+
+        // Only one backup created for the combined run.
+        let backup = path.with_extension("toml.pre-0.9.bak");
+        let collision = path.with_extension("toml.pre-0.9.bak.1");
+        assert!(backup.exists());
+        assert!(!collision.exists(), "single backup, not one per migration");
 
         cleanup(&path);
     }

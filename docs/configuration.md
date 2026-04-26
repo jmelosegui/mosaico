@@ -25,8 +25,11 @@ All settings have sensible defaults, so configuration files are optional.
   `ratio: f64` (default 0.5), `hiding: HidingBehaviour` (default `Cloak`),
   `workspaces: HashMap<u32, String>` (per-workspace layout overrides)
 - `HidingBehaviour` (enum) -- `Cloak`, `Hide`, `Minimize`
-- `BorderConfig` -- `width: i32` (default 4), `focused: String` (default
-  `"#00b4d8"`), `monocle: String` (default `"#2d6a4f"`)
+- `BorderConfig` -- `width: i32` (default 4), `corner_style: CornerStyle`,
+  `colors: BorderColors`
+- `BorderColors` -- `focused: String` and `monocle: String`. Both default
+  to empty strings and resolve from the active theme (`"#89b4fa"` blue and
+  `"#a6e3a1"` green for Mocha)
 - `LogConfig` -- `enabled: bool` (default false), `level: String` (default
   `"info"`), `max_file_mb: u64` (default 10)
 - `WindowRule` -- `match_class: Option<String>`, `match_title: Option<String>`,
@@ -65,8 +68,10 @@ mode = "per-monitor"  # "per-monitor" (default) or "global"
 [borders]
 width = 4              # Border thickness in pixels (0-32)
 corner_style = "small" # "square", "small", or "round"
-focused = "#00b4d8"    # Hex color for focused window
-monocle = "#2d6a4f"    # Hex color for monocle mode
+
+[borders.colors]
+focused = "#00b4d8"    # Color of the focused window in tiled layouts
+monocle = "#2d6a4f"    # Color of the focused window in monocle mode
 
 [theme]
 flavor = "mocha"   # Catppuccin flavor: latte, frappe, macchiato, mocha

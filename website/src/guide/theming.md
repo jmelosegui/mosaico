@@ -87,7 +87,7 @@ accent = "blue"
 Using named colors for borders in `config.toml`:
 
 ```toml
-[borders]
+[borders.colors]
 focused = "blue"
 monocle = "green"
 ```
