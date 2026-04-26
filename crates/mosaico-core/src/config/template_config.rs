@@ -43,7 +43,12 @@ mode = "per-monitor"
 width = 4
 # Corner style for borders and tiled windows: "square", "small", or "round".
 corner_style = "small"
-# Override theme border colors (hex or named: blue, green, mauve, etc.):
+
+# Override theme border colors. Both fields accept a hex color
+# ("#00b4d8") or a named theme color (blue, green, mauve, teal, etc.).
+# focused: color while a tiled layout is active
+# monocle: color while monocle mode is active
+# [borders.colors]
 # focused = "blue"
 # monocle = "green"
 

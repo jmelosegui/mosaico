@@ -41,8 +41,10 @@ mode = "per-monitor"
 [borders]
 width = 4              # Border thickness in pixels (0-32)
 corner_style = "small" # "square", "small", or "round"
-focused = "#00b4d8"    # Hex color for focused window
-monocle = "#2d6a4f"    # Hex color for monocle mode
+
+[borders.colors]
+focused = "#00b4d8"    # Color of the focused window in tiled layouts
+monocle = "#2d6a4f"    # Color of the focused window in monocle mode
 
 [theme]
 flavor = "mocha"   # Catppuccin flavor: latte, frappe, macchiato, mocha

@@ -40,8 +40,14 @@ fn config_template_matches_default_values() {
         defaults.mouse.focus_follows_mouse
     );
     // Border colors should resolve from the default Mocha theme.
-    assert_eq!(config.borders.focused, defaults.borders.focused);
-    assert_eq!(config.borders.monocle, defaults.borders.monocle);
+    assert_eq!(
+        config.borders.colors.focused,
+        defaults.borders.colors.focused
+    );
+    assert_eq!(
+        config.borders.colors.monocle,
+        defaults.borders.colors.monocle
+    );
 }
 
 #[test]

@@ -69,9 +69,9 @@ impl TilingManager {
         };
         let is_monocle = mon.active_ws().monocle();
         let hex = if is_monocle {
-            &self.border_config.monocle
+            &self.border_config.colors.monocle
         } else {
-            &self.border_config.focused
+            &self.border_config.colors.focused
         };
         let color = Color::from_hex(hex).unwrap_or(Color {
             r: 0,
