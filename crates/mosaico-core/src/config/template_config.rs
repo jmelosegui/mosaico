@@ -44,13 +44,17 @@ width = 4
 # Corner style for borders and tiled windows: "square", "small", or "round".
 corner_style = "small"
 
-# Override theme border colors. Both fields accept a hex color
+# Override theme border colors. Each field accepts a hex color
 # ("#00b4d8") or a named theme color (blue, green, mauve, teal, etc.).
-# focused: color while a tiled layout is active
-# monocle: color while monocle mode is active
+# focused:   color while a tiled layout is active
+# monocle:   color while monocle mode is active
+# unfocused: color drawn around unfocused tiled windows. Set to "none"
+#            to disable unfocused borders entirely; leave empty (or
+#            unset) to use the theme's muted gray default.
 # [borders.colors]
 # focused = "blue"
 # monocle = "green"
+# unfocused = "none"
 
 [mouse]
 # Move the cursor to the center of the focused window on keyboard navigation.

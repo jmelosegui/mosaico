@@ -277,7 +277,37 @@ pub fn merge_missing_config_sections() {
         Ok(false) => {}
         Err(e) => eprintln!("Warning: {e}"),
     }
+
+    match append_missing_unfocused_border_hint(&path) {
+        Ok(true) => eprintln!(
+            "Info: appended unfocused border hint to {} (new in this version)",
+            path.display()
+        ),
+        Ok(false) => {}
+        Err(e) => eprintln!("Warning: {e}"),
+    }
 }
+
+/// Comment block appended to `config.toml` when the file has no
+/// reference to the `unfocused` border color, so existing users
+/// discover the new option without having to read release notes.
+const UNFOCUSED_BORDER_HINT_SNIPPET: &str = r##"
+# Added automatically -- new in this version of mosaico
+# The `unfocused` color under [borders.colors] sets the border drawn
+# around tiled windows that do not currently have focus. Recognized
+# values:
+#   ""           use the active theme's muted gray default (Mocha:
+#                #6c7086). This is the default when the field is
+#                absent.
+#   "none"       disable unfocused borders entirely; only the focused
+#                window will get a border.
+#   "#RRGGBB"    explicit hex color.
+#   "blue"       any named theme color (mauve, teal, lavender, etc.).
+#
+# Example:
+#   [borders.colors]
+#   unfocused = "none"
+"##;
 
 /// Path-pure helper for [`merge_missing_config_sections`]: returns
 /// `Ok(true)` when an append happened, `Ok(false)` when the file already
@@ -310,6 +340,90 @@ fn append_missing_workspaces_section(path: &Path) -> Result<bool, String> {
     f.write_all(to_append.as_bytes())
         .map_err(|e| format!("could not append to {}: {e}", path.display()))?;
     Ok(true)
+}
+
+/// Adds a documented `unfocused` field to the user's config so the
+/// new option is discoverable.
+///
+/// Two strategies, in order:
+/// 1. If `[borders.colors]` is an active table, insert `unfocused = ""`
+///    into it with a leading comment. Empty string preserves current
+///    behavior (theme-default muted gray).
+/// 2. Otherwise (no active table, or the table is commented out), if
+///    the file does not already mention `unfocused`, append a
+///    standalone comment block at the end of the file.
+///
+/// Both paths are idempotent: a second run finds the key (or the
+/// substring) already present and does nothing.
+fn append_missing_unfocused_border_hint(path: &Path) -> Result<bool, String> {
+    let content = std::fs::read_to_string(path)
+        .map_err(|e| format!("could not read {}: {e}", path.display()))?;
+
+    if let Some(updated) = insert_unfocused_into_active_section(&content)? {
+        std::fs::write(path, updated)
+            .map_err(|e| format!("could not write {}: {e}", path.display()))?;
+        return Ok(true);
+    }
+
+    // Fall back to the comment-only hint when there is no active
+    // [borders.colors] section to extend. Skip when any reference to
+    // `unfocused` already exists (active key, comment, prior hint).
+    if content.contains("unfocused") {
+        return Ok(false);
+    }
+
+    let mut to_append = String::new();
+    if !content.ends_with('\n') {
+        to_append.push('\n');
+    }
+    to_append.push_str(UNFOCUSED_BORDER_HINT_SNIPPET);
+
+    use std::io::Write;
+    let mut f = std::fs::OpenOptions::new()
+        .append(true)
+        .open(path)
+        .map_err(|e| format!("could not open {} for appending: {e}", path.display()))?;
+    f.write_all(to_append.as_bytes())
+        .map_err(|e| format!("could not append to {}: {e}", path.display()))?;
+    Ok(true)
+}
+
+/// Inline comment placed above the inserted `unfocused` key. Kept on
+/// its own constant so the tests can pin the wording without growing
+/// the inline path.
+const UNFOCUSED_INLINE_PREFIX: &str = "\n\
+    # Color drawn around unfocused tiled windows.\n\
+    # \"none\" disables unfocused borders; \"\" (empty) uses the\n\
+    # theme default (muted gray); a hex code or named theme color\n\
+    # works too.\n";
+
+/// If `content` has an active `[borders.colors]` table that is missing
+/// the `unfocused` key, returns the rewritten file contents with the
+/// key inserted. Returns `Ok(None)` when no edit is needed.
+fn insert_unfocused_into_active_section(content: &str) -> Result<Option<String>, String> {
+    let mut doc: toml_edit::DocumentMut =
+        content.parse().map_err(|e| format!("parse error: {e}"))?;
+
+    let Some(colors) = doc
+        .get_mut("borders")
+        .and_then(|t| t.as_table_mut())
+        .and_then(|t| t.get_mut("colors"))
+        .and_then(|t| t.as_table_mut())
+    else {
+        return Ok(None);
+    };
+
+    if colors.contains_key("unfocused") {
+        return Ok(None);
+    }
+
+    colors.insert("unfocused", toml_edit::value(""));
+    if let Some(mut key) = colors.key_mut("unfocused") {
+        key.leaf_decor_mut()
+            .set_prefix(toml_edit::RawString::from(UNFOCUSED_INLINE_PREFIX));
+    }
+
+    Ok(Some(doc.to_string()))
 }
 
 /// Tries to load and parse `keybindings.toml`.
@@ -845,6 +959,152 @@ mode = \"global\"
         // `gap = 8`.
         assert!(on_disk.contains("gap = 8\n"));
         assert!(on_disk.contains("[workspaces]"));
+
+        cleanup(&path);
+    }
+
+    #[test]
+    fn unfocused_inserted_inline_when_borders_colors_active() {
+        let path = unique_temp_path();
+        // Active [borders.colors] with focused/monocle but no unfocused.
+        let original = "\
+[borders]
+width = 4
+
+[borders.colors]
+focused = \"blue\"
+monocle = \"red\"
+";
+        std::fs::write(&path, original).unwrap();
+
+        let updated = append_missing_unfocused_border_hint(&path).unwrap();
+        assert!(updated, "should insert unfocused when section is active");
+
+        let on_disk = std::fs::read_to_string(&path).unwrap();
+
+        // Round-trips through serde with the new field set to "".
+        let cfg: super::Config = toml::from_str(&on_disk).unwrap();
+        assert_eq!(cfg.borders.colors.focused, "blue");
+        assert_eq!(cfg.borders.colors.monocle, "red");
+        assert_eq!(cfg.borders.colors.unfocused, "");
+
+        // The key sits inside [borders.colors] alongside focused and
+        // monocle, not as an orphan block at the end of the file.
+        let colors_idx = on_disk.find("[borders.colors]").unwrap();
+        let unfocused_idx = on_disk.find("unfocused").unwrap();
+        assert!(unfocused_idx > colors_idx);
+
+        // The leading comment block survived the rewrite.
+        assert!(on_disk.contains("Color drawn around unfocused tiled windows."));
+        // No fallback bottom hint was added.
+        assert!(!on_disk.contains("Added automatically"));
+
+        cleanup(&path);
+    }
+
+    #[test]
+    fn unfocused_inline_insertion_is_idempotent() {
+        let path = unique_temp_path();
+        let original = "\
+[borders.colors]
+focused = \"blue\"
+";
+        std::fs::write(&path, original).unwrap();
+
+        assert!(append_missing_unfocused_border_hint(&path).unwrap());
+        let after_first = std::fs::read_to_string(&path).unwrap();
+
+        assert!(!append_missing_unfocused_border_hint(&path).unwrap());
+        let after_second = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(after_first, after_second);
+
+        cleanup(&path);
+    }
+
+    #[test]
+    fn appends_unfocused_border_hint_when_section_missing() {
+        let path = unique_temp_path();
+        // No [borders.colors] section at all; the section in the file
+        // is commented out.
+        let original = "\
+[borders]
+width = 4
+corner_style = \"small\"
+# [borders.colors]
+# focused = \"blue\"
+";
+        std::fs::write(&path, original).unwrap();
+
+        let appended = append_missing_unfocused_border_hint(&path).unwrap();
+        assert!(appended, "should append bottom hint when no active section");
+
+        let on_disk = std::fs::read_to_string(&path).unwrap();
+        assert!(on_disk.starts_with(original), "existing content preserved");
+        assert!(on_disk.contains("unfocused"));
+        assert!(on_disk.contains("\"none\""));
+        // Existing [borders.colors] is still commented out.
+        assert!(!on_disk.contains("\nfocused = \"blue\""));
+
+        cleanup(&path);
+    }
+
+    #[test]
+    fn unfocused_bottom_hint_is_idempotent() {
+        let path = unique_temp_path();
+        let original = "[borders]\nwidth = 4\n";
+        std::fs::write(&path, original).unwrap();
+
+        assert!(append_missing_unfocused_border_hint(&path).unwrap());
+        let after_first = std::fs::read_to_string(&path).unwrap();
+
+        assert!(!append_missing_unfocused_border_hint(&path).unwrap());
+        let after_second = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(after_first, after_second);
+
+        cleanup(&path);
+    }
+
+    #[test]
+    fn unfocused_hint_not_appended_when_user_already_set_it() {
+        let path = unique_temp_path();
+        let original = "\
+[borders.colors]
+unfocused = \"#deadbe\"
+";
+        std::fs::write(&path, original).unwrap();
+
+        let appended = append_missing_unfocused_border_hint(&path).unwrap();
+        assert!(
+            !appended,
+            "active 'unfocused' key should suppress all updates"
+        );
+
+        let on_disk = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(on_disk, original, "file untouched when user already set it");
+
+        cleanup(&path);
+    }
+
+    #[test]
+    fn unfocused_hint_not_appended_when_template_already_mentions_it() {
+        let path = unique_temp_path();
+        // Mirrors the new commented template generated by `mosaico init`.
+        let original = "\
+[borders]
+width = 4
+
+# [borders.colors]
+# focused = \"blue\"
+# monocle = \"green\"
+# unfocused = \"none\"
+";
+        std::fs::write(&path, original).unwrap();
+
+        let appended = append_missing_unfocused_border_hint(&path).unwrap();
+        assert!(
+            !appended,
+            "commented template mentioning 'unfocused' should suppress the hint"
+        );
 
         cleanup(&path);
     }

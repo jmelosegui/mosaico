@@ -60,7 +60,12 @@ impl Config {
         self.borders.width = self.borders.width.clamp(0, 32);
     }
 
-    /// Resolves border colors: empty → theme default, named → theme hex.
+    /// Resolves border colors: empty -> theme default, named -> theme hex.
+    ///
+    /// `unfocused` accepts a sentinel value of `BorderColors::NONE`
+    /// ("none") meaning "do not draw borders around unfocused windows";
+    /// the sentinel is preserved verbatim so downstream code can detect
+    /// it via `BorderColors::unfocused_enabled()`.
     fn resolve_borders(&mut self) {
         let theme = self.theme.resolve();
         self.borders.colors.focused = theme
@@ -69,6 +74,11 @@ impl Config {
         self.borders.colors.monocle = theme
             .resolve_color(&self.borders.colors.monocle, theme.border_monocle())
             .to_string();
+        if self.borders.colors.unfocused != BorderColors::NONE {
+            self.borders.colors.unfocused = theme
+                .resolve_color(&self.borders.colors.unfocused, theme.border_unfocused())
+                .to_string();
+        }
     }
 }
 

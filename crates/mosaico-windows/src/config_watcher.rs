@@ -24,8 +24,9 @@ const WAIT_TIMEOUT_MS: u32 = 5000;
 
 /// A validated config reload ready to be applied.
 pub enum ConfigReload {
-    /// Layout and border settings changed.
-    Config(Config),
+    /// Layout and border settings changed. Boxed because `Config` is
+    /// substantially larger than the other variants.
+    Config(Box<Config>),
     /// Window rules changed.
     Rules(Vec<WindowRule>),
     /// Bar configuration changed.
@@ -108,7 +109,7 @@ fn check_and_reload(
             match config::try_load() {
                 Ok(cfg) => {
                     mosaico_core::log_info!("config.toml changed, reloading");
-                    if tx.send(ConfigReload::Config(cfg)).is_err() {
+                    if tx.send(ConfigReload::Config(Box::new(cfg))).is_err() {
                         return true;
                     }
                 }

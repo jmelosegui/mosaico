@@ -170,11 +170,13 @@ impl Default for BorderConfig {
     }
 }
 
-/// Border colors for the focused window across layout modes.
+/// Border colors across focus and layout states.
 ///
-/// Both fields hold a hex string (e.g. `"#00b4d8"`) or a named theme
+/// Each field holds a hex string (e.g. `"#00b4d8"`) or a named theme
 /// color. Empty strings resolve to the active theme's defaults during
-/// validation.
+/// validation. The `unfocused` field also accepts the literal value
+/// `"none"` to disable rendering borders around unfocused windows
+/// (only the focused window will then have a border).
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct BorderColors {
@@ -182,6 +184,21 @@ pub struct BorderColors {
     pub focused: String,
     /// Focused-window border color while monocle mode is active.
     pub monocle: String,
+    /// Border color drawn around unfocused tiled windows. Empty string
+    /// uses the theme default (a muted gray); `"none"` disables
+    /// unfocused borders entirely.
+    pub unfocused: String,
+}
+
+impl BorderColors {
+    /// Sentinel value for `unfocused` meaning "no border around
+    /// unfocused windows".
+    pub const NONE: &'static str = "none";
+
+    /// Returns true when unfocused borders should be rendered.
+    pub fn unfocused_enabled(&self) -> bool {
+        self.unfocused != Self::NONE
+    }
 }
 
 /// How a workspace switch is applied across monitors.

@@ -8,7 +8,7 @@ mod navigation;
 mod navigation_helpers;
 mod workspace;
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::time::Instant;
 
 use mosaico_core::action::MAX_WORKSPACES;
@@ -59,7 +59,14 @@ pub struct TilingManager {
     layout_gap: i32,
     layout_ratio: f64,
     rules: Vec<WindowRule>,
-    border: Option<Border>,
+    /// One overlay per visible tiled window keyed by hwnd.
+    ///
+    /// The focused window's border is drawn in the focused (or monocle)
+    /// color; the rest are drawn in the unfocused color when that
+    /// state is enabled (`BorderColors::unfocused_enabled`). Borders
+    /// are created lazily as windows are added to a visible workspace
+    /// and dropped when they leave.
+    borders: HashMap<usize, Border>,
     border_config: BorderConfig,
     focused_monitor: usize,
     focused_window: Option<usize>,
@@ -141,7 +148,6 @@ impl TilingManager {
             })
             .collect();
 
-        let border = Border::new().ok();
         let self_elevated = crate::process::is_current_process_elevated();
 
         let mut manager = Self {
@@ -149,7 +155,7 @@ impl TilingManager {
             layout_gap: layout_config.gap,
             layout_ratio: layout_config.ratio,
             rules,
-            border,
+            borders: HashMap::new(),
             border_config,
             focused_monitor: 0,
             focused_window: None,

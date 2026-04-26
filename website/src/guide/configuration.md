@@ -45,6 +45,8 @@ corner_style = "small" # "square", "small", or "round"
 [borders.colors]
 focused = "#00b4d8"    # Color of the focused window in tiled layouts
 monocle = "#2d6a4f"    # Color of the focused window in monocle mode
+unfocused = "#6c7086"  # Color drawn around unfocused tiled windows;
+                       # set to "none" to disable unfocused borders
 
 [theme]
 flavor = "mocha"   # Catppuccin flavor: latte, frappe, macchiato, mocha
