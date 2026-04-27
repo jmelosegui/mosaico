@@ -4,6 +4,11 @@ Mosaico manages each monitor independently with its own workspaces, layout,
 and monocle state. Windows can be navigated and moved across monitors
 seamlessly.
 
+By default, switching workspaces only flips the focused monitor (per-monitor
+mode). Set `workspaces.mode = "global"` in `config.toml` to make every
+monitor switch to the same workspace number in lockstep, like Windows
+virtual desktops. See [Workspaces -> Workspace Mode](workspaces.md#workspace-mode).
+
 ## Monitor Detection
 
 Monitors are automatically enumerated and sorted left-to-right by their

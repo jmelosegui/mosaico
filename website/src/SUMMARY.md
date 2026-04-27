@@ -6,6 +6,7 @@
 
 - [Installation](guide/installation.md)
 - [Getting Started](guide/getting-started.md)
+- [Cheatsheet](guide/cheatsheet.md)
 - [CLI Commands](guide/cli.md)
 - [Configuration](guide/configuration.md)
     - [Keyboard Bindings](guide/keybindings.md)
