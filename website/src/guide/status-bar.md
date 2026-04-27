@@ -11,7 +11,7 @@ height = 28
 monitor = "all"      # "all", "primary", or 0-based index
 
 [colors]
-background = "base"      # Named Catppuccin color or hex
+background = "base"      # Named theme color or hex
 foreground = "text"
 accent = "blue"
 
@@ -41,9 +41,10 @@ The `monitor` field accepts:
 
 ## Colors
 
-Colors can be specified as hex values (`"#1e1e2e"`) or as named Catppuccin
-colors (`"base"`, `"text"`, `"blue"`, etc.). See [Theming](theming.md) for
-the full list of named colors.
+Colors can be specified as hex values (`"#1e1e2e"`) or as named theme
+colors (`"blue"`, `"green"`, `"mauve"`, etc.). The named-color palette
+depends on the active theme family (Catppuccin, Rosé Pine, Tokyo Night);
+see [Theming](theming.md) for the full list per family.
 
 | Setting | Description |
 |---------|-------------|

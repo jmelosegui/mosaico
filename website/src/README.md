@@ -2,27 +2,37 @@
 
 A cross-platform tiling window manager, written in Rust.
 
+<img alt="Mosaico screenshot" src="https://github.com/user-attachments/assets/13b02a9c-cbd5-4fc7-9498-f3399556fc7d" />
+
 Mosaico automatically arranges your windows into a non-overlapping tiled
-layout using a Binary Space Partitioning (BSP) algorithm. It runs as a
-lightweight background daemon and is controlled entirely from the command
-line or via global keyboard shortcuts.
+layout. It ships three tiling algorithms (BSP, VerticalStack, ThreeColumn)
+that you can cycle per workspace at runtime, runs as a lightweight
+background daemon, and is controlled entirely from the command line or
+via global keyboard shortcuts.
 
 ## Features
 
-- **Automatic tiling** -- windows are arranged in a BSP layout the moment
-  they open, close, or are moved between monitors.
+- **Automatic tiling with three algorithms** -- BSP (default),
+  VerticalStack, and ThreeColumn. Cycle on the fly with `Alt + N` or
+  pin a layout per workspace.
 - **Vim-style navigation** -- focus and move windows with `Alt + H/J/K/L`.
 - **Workspaces** -- up to 8 workspaces, switching either per-monitor
   (default) or globally across every display, like Windows virtual desktops.
 - **Multi-monitor** -- each monitor is managed independently with
   cross-monitor navigation.
-- **Focus borders** -- colored overlay border around the focused window.
+- **Per-window borders** -- focused, monocle, and unfocused color states
+  under `[borders.colors]`.
 - **Monocle mode** -- full-screen single-window mode per monitor.
 - **Status bar** -- configurable per-monitor bar with workspace indicators,
-  clock, CPU, RAM, and more.
-- **Catppuccin theming** -- built-in theme system with four flavors.
-- **Hot-reload** -- configuration changes are applied without restarting.
-- **Window rules** -- exclude specific applications from tiling.
+  clock, CPU, RAM, focused window icon, pause indicator, and more.
+- **Three theme families** -- Catppuccin, Rosé Pine, and Tokyo Night
+  with multiple flavors each.
+- **Pause / unpause hotkeys** -- `Alt + Shift + P` releases every Mosaico
+  shortcut so full-screen applications can claim the same combinations.
+- **Hot-reload** -- changes to `config.toml`, `bar.toml`, and
+  `user-rules.toml` are applied without restarting.
+- **Window rules** -- community-maintained rules plus user overrides to
+  exclude specific applications from tiling.
 
 ## Quick Start
 

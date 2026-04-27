@@ -7,7 +7,8 @@ application has focus. Keybindings are configured in
 ## Default Keybindings
 
 The defaults use vim-style spatial navigation (H=left, J=down, K=up,
-L=right):
+L=right). For a printable one-page reference, see the
+[Cheatsheet](cheatsheet.md).
 
 | Shortcut | Action |
 |----------|--------|
@@ -22,9 +23,11 @@ L=right):
 | `Alt + Shift + R` | Retile |
 | `Alt + T` | Toggle monocle |
 | `Alt + N` | Cycle layout |
+| `Alt + M` | Minimize focused window |
 | `Alt + Q` | Close focused window |
-| `Alt + 1` -- `Alt + 8` | Switch to workspace 1-8 |
-| `Alt + Shift + 1` -- `Alt + Shift + 8` | Send window to workspace 1-8 |
+| `Alt + 1` .. `Alt + 8` | Switch to workspace 1-8 |
+| `Alt + Shift + 1` .. `Alt + Shift + 8` | Send window to workspace 1-8 |
+| `Alt + Shift + P` | Toggle pause / resume |
 
 ## Configuration Format
 
@@ -56,8 +59,9 @@ modifiers = ["alt", "shift"]
 | `move-down` | Move window down |
 | `retile` | Re-apply the tiling layout |
 | `toggle-monocle` | Toggle monocle (full-screen) mode |
-| `cycle-layout` | Cycle to the next tiling layout |
+| `cycle-layout` | Cycle to the next tiling layout (BSP -> VStack -> 3Col) |
 | `close-focused` | Close the focused window |
+| `minimize-focused` | Minimize the focused window |
 | `goto-workspace-N` | Switch to workspace N (1-8) |
 | `send-to-workspace-N` | Send focused window to workspace N (1-8) |
 | `toggle-pause` | Toggle hotkey pause on/off |
