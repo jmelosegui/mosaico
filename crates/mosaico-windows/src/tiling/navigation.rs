@@ -144,8 +144,8 @@ impl TilingManager {
         if self.monitors[target].active_ws().monocle() {
             self.exit_monocle(target);
         }
-        self.apply_layout_on(source);
-        self.apply_layout_on(target);
+        self.mark_retile(source);
+        self.mark_retile(target);
         self.focused_monitor = target;
         self.update_border();
         self.move_cursor_to_focused();
@@ -156,7 +156,7 @@ impl TilingManager {
         self.monitors[self.focused_monitor]
             .active_ws_mut()
             .swap(a, b);
-        self.apply_layout_on(self.focused_monitor);
+        self.mark_retile(self.focused_monitor);
         self.update_border();
         self.move_cursor_to_focused();
     }

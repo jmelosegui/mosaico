@@ -116,6 +116,15 @@ pub struct TilingManager {
     /// that will never be managed (e.g. elevated Visual Studio).
     /// Cleared on rule reload; entries removed on `Destroyed`.
     adopt_rejected: HashSet<usize>,
+    /// Monitors that have outstanding layout work to apply.
+    ///
+    /// `move_direction` and `move_to_monitor` mutate the workspace
+    /// data structure (swap / remove / insert) but defer the actual
+    /// `SetWindowPos` storm to `flush_pending_retile`. Several rapid
+    /// move actions therefore touch the data structure many times
+    /// but only repaint window positions once, after the daemon's
+    /// coalescing quiet window.
+    pending_retile: HashSet<usize>,
     /// Deferred `SetForegroundWindow` target for the current batch.
     ///
     /// When several focus actions are processed back-to-back, calling
@@ -191,6 +200,7 @@ impl TilingManager {
             ws_switch_cooldown: None,
             self_elevated,
             adopt_rejected: HashSet::new(),
+            pending_retile: HashSet::new(),
             pending_foreground: None,
             focus_intents: std::collections::VecDeque::new(),
         };

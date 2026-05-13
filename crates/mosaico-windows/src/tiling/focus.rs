@@ -55,6 +55,28 @@ impl TilingManager {
         self.pending_foreground.is_some()
     }
 
+    /// Marks a monitor as needing its layout re-applied. The actual
+    /// `SetWindowPos` storm is run by `flush_pending_retile` after
+    /// the daemon's coalescing quiet window.
+    pub(super) fn mark_retile(&mut self, monitor_idx: usize) {
+        self.pending_retile.insert(monitor_idx);
+    }
+
+    /// Returns true if at least one monitor is waiting to be retiled.
+    pub fn has_pending_retile(&self) -> bool {
+        !self.pending_retile.is_empty()
+    }
+
+    /// Applies the deferred layout on every monitor marked dirty by
+    /// `mark_retile`. Called by the daemon loop together with
+    /// `flush_pending_foreground`.
+    pub fn flush_pending_retile(&mut self) {
+        let monitors: Vec<usize> = self.pending_retile.drain().collect();
+        for idx in monitors {
+            self.apply_layout_on(idx);
+        }
+    }
+
     /// Applies the deferred `SetForegroundWindow` (and cursor move,
     /// if `mouse_follows_focus` is on) for the last focus request in
     /// the current batch. Called by the daemon loop after each
