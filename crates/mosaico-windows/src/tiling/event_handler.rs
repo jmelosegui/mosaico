@@ -111,6 +111,10 @@ impl TilingManager {
                                 self.goto_workspace((ws_idx + 1) as u8);
                                 self.focus_from_mouse = true;
                                 self.focus_and_update_border(*hwnd);
+                                let ws = self.monitors[mon_idx].active_ws();
+                                if ws.monocle() && ws.monocle_window() != Some(*hwnd) {
+                                    self.exit_monocle(mon_idx);
+                                }
                             }
                         } else {
                             // Inside cooldown: stale deferred focus event
@@ -127,7 +131,12 @@ impl TilingManager {
                     self.focused_window = Some(*hwnd);
                     self.focused_monitor = idx;
                     self.focused_maximized = Window::from_raw(*hwnd).is_maximized();
-                    self.update_border();
+                    let ws = self.monitors[idx].active_ws();
+                    if ws.monocle() && ws.monocle_window() != Some(*hwnd) {
+                        self.exit_monocle(idx);
+                    } else {
+                        self.update_border();
+                    }
                     self.focus_from_mouse = false;
                 } else if let Some(owner) = Window::from_raw(*hwnd).owner()
                     && let Some(idx) = self.owning_monitor(owner)
@@ -213,6 +222,16 @@ impl TilingManager {
                 // Handled by the daemon loop, not here.
             }
         }
+    }
+
+    /// Exits monocle mode on the active workspace of `mon_idx` and
+    /// re-applies the tiled layout so the prior monocle window is
+    /// restored to its tiled rect.
+    fn exit_monocle(&mut self, mon_idx: usize) {
+        let ws = self.monitors[mon_idx].active_ws_mut();
+        ws.set_monocle(false);
+        ws.set_monocle_window(None);
+        self.apply_layout_on(mon_idx);
     }
 
     /// Removes a window from the tiling layout, clears focus/monocle state
