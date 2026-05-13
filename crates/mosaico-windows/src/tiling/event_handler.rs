@@ -87,6 +87,13 @@ impl TilingManager {
                 }
             }
             WindowEvent::Focused { hwnd } => {
+                if self.is_stale_focus_echo(*hwnd) {
+                    mosaico_core::log_debug!(
+                        "focus-suppressed 0x{:X} (stale Win32 echo of our own set_foreground)",
+                        hwnd
+                    );
+                    return;
+                }
                 if let Some(idx) = self.owning_monitor(*hwnd) {
                     // Check if the window is on a non-active workspace
                     // (e.g. user clicked a cloaked window's taskbar icon).

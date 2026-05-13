@@ -37,6 +37,7 @@ impl TilingManager {
     pub(super) fn focus_and_update_border(&mut self, hwnd: usize) {
         self.focused_window = Some(hwnd);
         self.focused_maximized = Window::from_raw(hwnd).is_maximized();
+        self.record_focus_intent(hwnd);
         Window::from_raw(hwnd).set_foreground();
         if self.mouse_follows_focus && !self.focus_from_mouse {
             Self::move_cursor_to_window(hwnd);
@@ -54,6 +55,32 @@ impl TilingManager {
         {
             Self::move_cursor_to_window(hwnd);
         }
+    }
+
+    /// Records that we just asked Win32 to focus `hwnd`, so the
+    /// `Focused` event handler can recognize stale OS echoes and
+    /// discard them. Keeps at most 8 entries from the last 1.5s.
+    pub(super) fn record_focus_intent(&mut self, hwnd: usize) {
+        let now = std::time::Instant::now();
+        let cutoff = now - std::time::Duration::from_millis(1500);
+        self.focus_intents.retain(|(_, t)| *t >= cutoff);
+        self.focus_intents.push_back((hwnd, now));
+        while self.focus_intents.len() > 8 {
+            self.focus_intents.pop_front();
+        }
+    }
+
+    /// Returns true if `hwnd` matches a previously issued
+    /// `set_foreground` intent that is no longer the most recent —
+    /// i.e. a stale Win32 focus echo we should ignore.
+    pub(super) fn is_stale_focus_echo(&mut self, hwnd: usize) -> bool {
+        let cutoff = std::time::Instant::now() - std::time::Duration::from_millis(1500);
+        self.focus_intents.retain(|(_, t)| *t >= cutoff);
+        let latest = self.focus_intents.back().map(|(h, _)| *h);
+        if latest == Some(hwnd) {
+            return false;
+        }
+        self.focus_intents.iter().any(|(h, _)| *h == hwnd)
     }
 
     /// Refreshes every border overlay to match the current layout and
