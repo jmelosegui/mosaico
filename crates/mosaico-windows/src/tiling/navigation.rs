@@ -141,6 +141,9 @@ impl TilingManager {
         } else {
             self.monitors[target].active_ws_mut().add(hwnd);
         }
+        if self.monitors[target].active_ws().monocle() {
+            self.exit_monocle(target);
+        }
         self.apply_layout_on(source);
         self.apply_layout_on(target);
         self.focused_monitor = target;

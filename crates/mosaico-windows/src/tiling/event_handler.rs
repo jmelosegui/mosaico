@@ -227,7 +227,7 @@ impl TilingManager {
     /// Exits monocle mode on the active workspace of `mon_idx` and
     /// re-applies the tiled layout so the prior monocle window is
     /// restored to its tiled rect.
-    fn exit_monocle(&mut self, mon_idx: usize) {
+    pub(super) fn exit_monocle(&mut self, mon_idx: usize) {
         let ws = self.monitors[mon_idx].active_ws_mut();
         ws.set_monocle(false);
         ws.set_monocle_window(None);
