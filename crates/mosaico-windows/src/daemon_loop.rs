@@ -109,10 +109,27 @@ pub(super) fn daemon_loop() -> WindowResult<()> {
     let mut hotkeys_paused = false;
 
     while !should_stop {
-        // Block until at least one message arrives.
-        let first = match rx.recv() {
-            Ok(msg) => msg,
-            Err(_) => break,
+        // Block until at least one message arrives. If a foreground
+        // change is pending from the previous iteration, only wait
+        // briefly: if no new action arrives, flush the deferred
+        // `SetForegroundWindow` and go back to a normal blocking
+        // recv. This coalesces rapid focus navigation so the OS only
+        // sees the *final* target while the border and bar icon keep
+        // up with every keypress.
+        let first = if manager.has_pending_foreground() {
+            match rx.recv_timeout(std::time::Duration::from_millis(25)) {
+                Ok(msg) => msg,
+                Err(mpsc::RecvTimeoutError::Timeout) => {
+                    manager.flush_pending_foreground();
+                    continue;
+                }
+                Err(mpsc::RecvTimeoutError::Disconnected) => break,
+            }
+        } else {
+            match rx.recv() {
+                Ok(msg) => msg,
+                Err(_) => break,
+            }
         };
 
         // Drain all queued messages so we can prioritise.
@@ -193,6 +210,12 @@ pub(super) fn daemon_loop() -> WindowResult<()> {
         if needs_bar_update {
             bar_mgr.update(&manager.bar_states(&get_update(), hotkeys_paused));
         }
+
+        // The deferred `SetForegroundWindow` for the final focus
+        // target is flushed by the recv-timeout path at the top of
+        // the next iteration, after a short quiet window. That way
+        // rapid focus navigation coalesces across iterations, not
+        // just within a single drained batch.
     }
 
     manager.restore_all_windows();
