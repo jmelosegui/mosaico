@@ -116,6 +116,16 @@ pub struct TilingManager {
     /// that will never be managed (e.g. elevated Visual Studio).
     /// Cleared on rule reload; entries removed on `Destroyed`.
     adopt_rejected: HashSet<usize>,
+    /// Recent `set_foreground` targets with the time they were issued.
+    ///
+    /// Win32 delivers `EVENT_OBJECT_FOCUS` for each window we focus
+    /// asynchronously, often hundreds of milliseconds late. When the
+    /// user navigates rapidly (e.g. several `alt+h` presses in quick
+    /// succession), stale echoes for intermediate windows arrive after
+    /// we've already advanced and would rewind `focused_window` if
+    /// processed. We keep the last few intents here so the `Focused`
+    /// handler can recognize and discard those echoes.
+    focus_intents: std::collections::VecDeque<(usize, Instant)>,
 }
 
 impl TilingManager {
@@ -169,6 +179,7 @@ impl TilingManager {
             ws_switch_cooldown: None,
             self_elevated,
             adopt_rejected: HashSet::new(),
+            focus_intents: std::collections::VecDeque::new(),
         };
 
         for win in enumerate::enumerate_windows()? {
