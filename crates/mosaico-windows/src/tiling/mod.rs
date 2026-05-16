@@ -116,6 +116,18 @@ pub struct TilingManager {
     /// that will never be managed (e.g. elevated Visual Studio).
     /// Cleared on rule reload; entries removed on `Destroyed`.
     adopt_rejected: HashSet<usize>,
+    /// Deferred `SetForegroundWindow` target for the current batch.
+    ///
+    /// When several focus actions are processed back-to-back, calling
+    /// `SetForegroundWindow` on every intermediate window is expensive
+    /// (Win32 cross-process IPC + foreground-window policy checks,
+    /// often 50–150 ms per call). The internal `focused_window`,
+    /// border, and bar are updated synchronously, but the actual OS
+    /// foreground change is deferred and only run for the *last*
+    /// target in the batch by `flush_pending_foreground`. The boolean
+    /// snapshots `focus_from_mouse` at the time of the request so the
+    /// flush can decide whether to move the cursor.
+    pending_foreground: Option<(usize, bool)>,
     /// Recent `set_foreground` targets with the time they were issued.
     ///
     /// Win32 delivers `EVENT_OBJECT_FOCUS` for each window we focus
@@ -179,6 +191,7 @@ impl TilingManager {
             ws_switch_cooldown: None,
             self_elevated,
             adopt_rejected: HashSet::new(),
+            pending_foreground: None,
             focus_intents: std::collections::VecDeque::new(),
         };
 

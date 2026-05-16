@@ -32,18 +32,42 @@ impl TilingManager {
         }
     }
 
-    /// Sets the focused window, brings it to the foreground, and
-    /// refreshes the focus border.
+    /// Sets the focused window and refreshes the focus border
+    /// immediately, but defers the cross-process `SetForegroundWindow`
+    /// call until the end of the current daemon batch.
+    ///
+    /// When several focus actions are processed in quick succession,
+    /// only the final target ends up reaching the OS, so the user
+    /// sees the border (and bar icon, which reads `focused_window`)
+    /// race across windows at full keyboard speed while the slow
+    /// foreground change happens once.
     pub(super) fn focus_and_update_border(&mut self, hwnd: usize) {
         self.focused_window = Some(hwnd);
         self.focused_maximized = Window::from_raw(hwnd).is_maximized();
-        self.record_focus_intent(hwnd);
-        Window::from_raw(hwnd).set_foreground();
-        if self.mouse_follows_focus && !self.focus_from_mouse {
-            Self::move_cursor_to_window(hwnd);
-        }
+        self.pending_foreground = Some((hwnd, self.focus_from_mouse));
         self.focus_from_mouse = false;
         self.update_border();
+    }
+
+    /// Returns true if a deferred `SetForegroundWindow` is waiting
+    /// to be flushed.
+    pub fn has_pending_foreground(&self) -> bool {
+        self.pending_foreground.is_some()
+    }
+
+    /// Applies the deferred `SetForegroundWindow` (and cursor move,
+    /// if `mouse_follows_focus` is on) for the last focus request in
+    /// the current batch. Called by the daemon loop after each
+    /// iteration of action + event processing.
+    pub fn flush_pending_foreground(&mut self) {
+        let Some((hwnd, from_mouse)) = self.pending_foreground.take() else {
+            return;
+        };
+        self.record_focus_intent(hwnd);
+        Window::from_raw(hwnd).set_foreground();
+        if self.mouse_follows_focus && !from_mouse {
+            Self::move_cursor_to_window(hwnd);
+        }
     }
 
     /// Moves the cursor to the focused window if `mouse_follows_focus` is
