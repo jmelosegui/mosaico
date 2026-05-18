@@ -75,6 +75,27 @@ impl TilingManager {
     }
 
     pub(super) fn apply_layout_on(&mut self, monitor_idx: usize) {
+        self.apply_layout_positions(monitor_idx);
+        self.update_border();
+    }
+
+    /// Applies the layout on `monitor_idx` without running the full
+    /// `update_border` pass at the end.
+    ///
+    /// Each `set_rect` call is followed by an inline border
+    /// reposition for that window so the border's `SetWindowPos`
+    /// lands in the same DWM compositor frame as the window's,
+    /// closing the visible one-frame lag where the window has
+    /// reached its new slot but the border still sits at the old one.
+    ///
+    /// Used by `flush_pending_retile` so a cross-monitor move can
+    /// retile both monitors before any border update runs. Otherwise
+    /// the trailing `update_border` from `apply_layout_on(source)`
+    /// would draw the moved window's border at the moved window's
+    /// still-old physical position (now occupied by the window that
+    /// filled the gap), one frame before `apply_layout_on(target)`
+    /// finally moves it.
+    pub(super) fn apply_layout_positions(&mut self, monitor_idx: usize) {
         self.prune_stale_handles(monitor_idx);
         self.applying_layout = true;
 
@@ -102,8 +123,8 @@ impl TilingManager {
                     eprintln!("Failed to position window 0x{hwnd:X}: {e}");
                 }
                 window.invalidate();
+                self.show_border_for(hwnd, &area, monitor_idx);
                 self.applying_layout = false;
-                self.update_border();
                 return;
             }
         }
@@ -119,9 +140,9 @@ impl TilingManager {
                 eprintln!("Failed to position window 0x{hwnd:X}: {e}");
             }
             window.invalidate();
+            self.show_border_for(*hwnd, rect, monitor_idx);
         }
         self.applying_layout = false;
-        self.update_border();
     }
 
     /// Removes handles from the workspace that are no longer valid windows.

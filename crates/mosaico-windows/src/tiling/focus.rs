@@ -70,11 +70,22 @@ impl TilingManager {
     /// Applies the deferred layout on every monitor marked dirty by
     /// `mark_retile`. Called by the daemon loop together with
     /// `flush_pending_foreground`.
+    ///
+    /// All monitors are retiled before a single trailing
+    /// `update_border` runs. On a cross-monitor move this ensures the
+    /// moved window has reached its new physical position before any
+    /// `update_border` pass would otherwise read its stale rect and
+    /// draw the focus border at the old slot (now occupied by the
+    /// window that filled the gap on the source monitor).
     pub fn flush_pending_retile(&mut self) {
         let monitors: Vec<usize> = self.pending_retile.drain().collect();
-        for idx in monitors {
-            self.apply_layout_on(idx);
+        if monitors.is_empty() {
+            return;
         }
+        for idx in monitors {
+            self.apply_layout_positions(idx);
+        }
+        self.update_border();
     }
 
     /// Applies the deferred `SetForegroundWindow` (and cursor move,
@@ -154,80 +165,16 @@ impl TilingManager {
         // runs `DestroyWindow`, which atomically hides + cleans up.
         self.borders.retain(|hwnd, _| visible_set.contains(hwnd));
 
-        let focused_window = self.focused_window;
-        let focused_monitor = self.focused_monitor;
-        let focused_is_maximized = focused_window
-            .map(|h| Window::from_raw(h).is_maximized())
-            .unwrap_or(false);
-        let focused_monocle = self
-            .monitors
-            .get(focused_monitor)
-            .is_some_and(|m| m.active_ws().monocle());
-
-        let unfocused_enabled = self.border_config.colors.unfocused_enabled();
         let width = self.border_config.width;
         let radius = self.border_config.corner_style.border_radius();
 
-        let focused_color = parse_color(&self.border_config.colors.focused);
-        let monocle_color = parse_color(&self.border_config.colors.monocle);
-        let unfocused_color = parse_color(&self.border_config.colors.unfocused);
-
         for (hwnd, mon_idx, rect) in visible {
-            let window = Window::from_raw(hwnd);
-            // Skip windows that are visually absent: minimized windows
-            // and any window covered by a focused-maximized neighbor on
-            // the same monitor.
-            if window.is_minimized()
-                || (focused_is_maximized
-                    && Some(hwnd) != focused_window
-                    && mon_idx == focused_monitor)
-            {
+            let Some(color) = self.decide_border_color(hwnd, mon_idx) else {
                 if let Some(border) = self.borders.get(&hwnd) {
                     border.hide();
                 }
                 continue;
-            }
-
-            let is_focused = Some(hwnd) == focused_window;
-
-            // In monocle mode, only the monocle window on the focused
-            // monitor renders. Other windows on the focused monitor are
-            // visually covered; windows on other monitors keep their
-            // normal borders.
-            if focused_monocle && mon_idx == focused_monitor && !is_focused {
-                if let Some(border) = self.borders.get(&hwnd) {
-                    border.hide();
-                }
-                continue;
-            }
-
-            // Skip unfocused borders entirely when disabled by config.
-            if !is_focused && !unfocused_enabled {
-                if let Some(border) = self.borders.get(&hwnd) {
-                    border.hide();
-                }
-                continue;
-            }
-
-            let color = if is_focused {
-                if focused_monocle && mon_idx == focused_monitor {
-                    monocle_color
-                } else {
-                    focused_color
-                }
-            } else {
-                unfocused_color
             };
-
-            // Maximized focused windows skip border rendering (the
-            // border would be invisible against the work-area edges or
-            // overflow off-screen).
-            if is_focused && focused_is_maximized {
-                if let Some(border) = self.borders.get(&hwnd) {
-                    border.hide();
-                }
-                continue;
-            }
 
             let border = match self.borders.get(&hwnd) {
                 Some(b) => b,
@@ -240,7 +187,80 @@ impl TilingManager {
                 },
             };
 
-            border.show(&rect, color, width, radius, window.hwnd());
+            border.show(&rect, color, width, radius, Window::from_raw(hwnd).hwnd());
+        }
+    }
+
+    /// Returns the color the border for `hwnd` on monitor `mon_idx`
+    /// should render with, or `None` if the border should be hidden.
+    ///
+    /// Encapsulates the visibility/color rules so single-window border
+    /// updates (e.g. inline after `set_rect`) match what
+    /// `update_border` would have decided in a full pass.
+    fn decide_border_color(&self, hwnd: usize, mon_idx: usize) -> Option<Color> {
+        let window = Window::from_raw(hwnd);
+        let focused_window = self.focused_window;
+        let focused_monitor = self.focused_monitor;
+        let is_focused = Some(hwnd) == focused_window;
+        let focused_is_maximized = focused_window
+            .map(|h| Window::from_raw(h).is_maximized())
+            .unwrap_or(false);
+        let focused_monocle = self
+            .monitors
+            .get(focused_monitor)
+            .is_some_and(|m| m.active_ws().monocle());
+        let unfocused_enabled = self.border_config.colors.unfocused_enabled();
+
+        if window.is_minimized()
+            || (focused_is_maximized && !is_focused && mon_idx == focused_monitor)
+        {
+            return None;
+        }
+        if focused_monocle && mon_idx == focused_monitor && !is_focused {
+            return None;
+        }
+        if !is_focused && !unfocused_enabled {
+            return None;
+        }
+        if is_focused && focused_is_maximized {
+            return None;
+        }
+
+        Some(if is_focused {
+            if focused_monocle && mon_idx == focused_monitor {
+                parse_color(&self.border_config.colors.monocle)
+            } else {
+                parse_color(&self.border_config.colors.focused)
+            }
+        } else {
+            parse_color(&self.border_config.colors.unfocused)
+        })
+    }
+
+    /// Repositions a single existing border immediately after the
+    /// window it tracks has been moved via `set_rect`.
+    ///
+    /// Called inside the `apply_layout_positions` loop so the border's
+    /// `SetWindowPos` lands in the same DWM compositor frame as the
+    /// window's `SetWindowPos`, avoiding the visible one-frame lag
+    /// where the window has reached its new slot but the border still
+    /// sits at the previous position.
+    ///
+    /// Does not create new borders; that remains the responsibility of
+    /// `update_border`, which runs after the layout loop to handle
+    /// creation, destruction, and color/visibility transitions for
+    /// windows that did not move.
+    pub(super) fn show_border_for(&self, hwnd: usize, rect: &Rect, mon_idx: usize) {
+        let Some(border) = self.borders.get(&hwnd) else {
+            return;
+        };
+        match self.decide_border_color(hwnd, mon_idx) {
+            Some(color) => {
+                let width = self.border_config.width;
+                let radius = self.border_config.corner_style.border_radius();
+                border.show(rect, color, width, radius, Window::from_raw(hwnd).hwnd());
+            }
+            None => border.hide(),
         }
     }
 
