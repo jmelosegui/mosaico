@@ -17,8 +17,8 @@ use std::sync::Once;
 use mosaico_core::{Rect, WindowResult};
 use windows::Win32::Foundation::{COLORREF, HWND, LPARAM, LRESULT, WPARAM};
 use windows::Win32::UI::WindowsAndMessaging::{
-    CreateWindowExW, DefWindowProcW, DestroyWindow, HWND_TOP, LWA_ALPHA, RegisterClassW,
-    SW_HIDE, SW_SHOWNA, SWP_NOSIZE, SetForegroundWindow, SetLayeredWindowAttributes, SetWindowPos,
+    CreateWindowExW, DefWindowProcW, DestroyWindow, HWND_TOP, LWA_ALPHA, RegisterClassW, SW_HIDE,
+    SW_SHOWNA, SWP_NOSIZE, SetForegroundWindow, SetLayeredWindowAttributes, SetWindowPos,
     ShowWindow, WNDCLASSW, WS_EX_LAYERED, WS_EX_TOOLWINDOW, WS_POPUP,
 };
 use windows::core::PCWSTR;
