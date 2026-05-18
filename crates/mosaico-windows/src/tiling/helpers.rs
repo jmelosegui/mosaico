@@ -32,6 +32,67 @@ impl TilingManager {
         mosaico_core::config::should_manage(&class, &title, &self.rules)
     }
 
+    /// Adds `hwnd` to the active workspace of monitor `mi` and updates
+    /// the `hwnd_location` index.  Returns `true` if the window was
+    /// newly added.
+    pub(super) fn ws_add_active(&mut self, mi: usize, hwnd: usize) -> bool {
+        let wi = self.monitors[mi].active_workspace;
+        self.ws_add_at(mi, wi, hwnd)
+    }
+
+    /// Inserts `hwnd` at position `pos` in the active workspace of
+    /// monitor `mi` and updates the `hwnd_location` index.
+    pub(super) fn ws_insert_active(&mut self, mi: usize, pos: usize, hwnd: usize) -> bool {
+        let wi = self.monitors[mi].active_workspace;
+        if self.monitors[mi].workspaces[wi].insert(pos, hwnd) {
+            self.hwnd_location.insert(hwnd, (mi, wi));
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Adds `hwnd` to a specific workspace and updates the index.
+    pub(super) fn ws_add_at(&mut self, mi: usize, wi: usize, hwnd: usize) -> bool {
+        if self.monitors[mi].workspaces[wi].add(hwnd) {
+            self.hwnd_location.insert(hwnd, (mi, wi));
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Removes `hwnd` from the active workspace of monitor `mi` and
+    /// updates the `hwnd_location` index.
+    pub(super) fn ws_remove_active(&mut self, mi: usize, hwnd: usize) -> bool {
+        let wi = self.monitors[mi].active_workspace;
+        self.ws_remove_at(mi, wi, hwnd)
+    }
+
+    /// Removes `hwnd` from a specific workspace and updates the index.
+    pub(super) fn ws_remove_at(&mut self, mi: usize, wi: usize, hwnd: usize) -> bool {
+        if self.monitors[mi].workspaces[wi].remove(hwnd) {
+            self.hwnd_location.remove(&hwnd);
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Rebuilds the `hwnd_location` index from scratch.  Called after
+    /// bulk monitor reconfiguration (display change) where workspaces
+    /// are moved between monitor slots via `std::mem::take`.
+    pub(super) fn rebuild_hwnd_location(&mut self) {
+        self.hwnd_location.clear();
+        for (mi, mon) in self.monitors.iter().enumerate() {
+            for (wi, ws) in mon.workspaces.iter().enumerate() {
+                for &hwnd in ws.handles() {
+                    self.hwnd_location.insert(hwnd, (mi, wi));
+                }
+            }
+        }
+    }
+
     /// Re-assigns a window to the correct monitor after it was moved.
     ///
     /// If the window moved to a different monitor, it is removed from
@@ -43,8 +104,8 @@ impl TilingManager {
 
         match (old, new) {
             (Some(from), Some(to)) if from != to => {
-                self.monitors[from].active_ws_mut().remove(hwnd);
-                self.monitors[to].active_ws_mut().add(hwnd);
+                self.ws_remove_active(from, hwnd);
+                self.ws_add_active(to, hwnd);
                 self.apply_layout_on(from);
                 self.apply_layout_on(to);
             }
@@ -54,7 +115,7 @@ impl TilingManager {
             }
             (None, Some(to)) if self.is_tileable(hwnd) => {
                 // Window wasn't tracked but appeared on a monitor.
-                self.monitors[to].active_ws_mut().add(hwnd);
+                self.ws_add_active(to, hwnd);
                 self.apply_layout_on(to);
             }
             _ => {}
@@ -73,9 +134,7 @@ impl TilingManager {
     }
 
     pub(super) fn owning_monitor(&self, hwnd: usize) -> Option<usize> {
-        self.monitors
-            .iter()
-            .position(|m| m.workspaces.iter().any(|ws| ws.contains(hwnd)))
+        self.hwnd_location.get(&hwnd).map(|&(mi, _)| mi)
     }
 
     /// Finds which monitor and workspace contain the given window.
@@ -83,14 +142,7 @@ impl TilingManager {
     /// Returns `(monitor_index, workspace_index)` or `None` if the
     /// window is not managed anywhere.
     pub(super) fn find_window(&self, hwnd: usize) -> Option<(usize, usize)> {
-        for (mi, mon) in self.monitors.iter().enumerate() {
-            for (wi, ws) in mon.workspaces.iter().enumerate() {
-                if ws.contains(hwnd) {
-                    return Some((mi, wi));
-                }
-            }
-        }
-        None
+        self.hwnd_location.get(&hwnd).copied()
     }
 
     /// Adopts an untracked window into the tiling layout if it is tileable.
@@ -109,7 +161,7 @@ impl TilingManager {
         let Some(idx) = self.monitor_index_for(hwnd) else {
             return;
         };
-        if !self.monitors[idx].active_ws_mut().add(hwnd) {
+        if !self.ws_add_active(idx, hwnd) {
             return;
         }
         let w = Window::from_raw(hwnd);
@@ -135,7 +187,7 @@ impl TilingManager {
         // Place new windows on the focused monitor so they appear
         // where the user is working, not wherever the OS spawns them.
         let idx = self.focused_monitor;
-        if self.monitors.get(idx).is_some() && self.monitors[idx].active_ws_mut().add(hwnd) {
+        if self.monitors.get(idx).is_some() && self.ws_add_active(idx, hwnd) {
             let w = Window::from_raw(hwnd);
             let title = w.title().unwrap_or_default();
             let class = w.class().unwrap_or_default();

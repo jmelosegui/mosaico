@@ -164,8 +164,8 @@ impl TilingManager {
         self.ws_switch_cooldown = Some(Instant::now() + WS_SWITCH_COOLDOWN);
 
         // Remove from current workspace, add to target.
-        self.monitors[mon_idx].active_ws_mut().remove(hwnd);
-        self.monitors[mon_idx].workspaces[target_ws].add(hwnd);
+        self.ws_remove_active(mon_idx, hwnd);
+        self.ws_add_at(mon_idx, target_ws, hwnd);
 
         // Hide remaining windows on the source workspace.
         for &h in self.monitors[mon_idx].active_ws().handles() {

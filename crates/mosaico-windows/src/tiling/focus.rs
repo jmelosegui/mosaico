@@ -162,7 +162,13 @@ impl TilingManager {
     /// i.e. a stale Win32 focus echo we should ignore.
     pub(super) fn is_stale_focus_echo(&mut self, hwnd: usize) -> bool {
         let cutoff = std::time::Instant::now() - std::time::Duration::from_millis(1500);
-        self.focus_intents.retain(|(_, t)| *t >= cutoff);
+        // The deque is push_back-ordered by time, so the front is the
+        // oldest entry.  Skip the full `retain` scan whenever the
+        // oldest is still within the staleness window — the common
+        // case during rapid navigation.
+        if self.focus_intents.front().is_some_and(|(_, t)| *t < cutoff) {
+            self.focus_intents.retain(|(_, t)| *t >= cutoff);
+        }
         let latest = self.focus_intents.back().map(|(h, _)| *h);
         if latest == Some(hwnd) {
             return false;
@@ -183,13 +189,24 @@ impl TilingManager {
     ///   mode, all unfocused windows when unfocused borders are
     ///   disabled).
     pub(super) fn update_border(&mut self) {
-        // Snapshot the current active-workspace contents per monitor so
-        // we can compute color/visibility decisions without re-borrowing
-        // self while we render.
-        let visible: Vec<(usize, usize, mosaico_core::Rect)> = self.collect_visible_tiles();
+        // Move the scratch buffers out so we can borrow `&self.monitors`
+        // while we fill them.  The fields are left empty until we put
+        // the (now-populated) buffers back at the end — preserving the
+        // allocated capacity across calls so no allocation happens on
+        // steady-state focus changes.
+        let mut visible = std::mem::take(&mut self.scratch_visible);
+        let mut visible_set = std::mem::take(&mut self.scratch_visible_set);
+        visible.clear();
+        visible_set.clear();
 
-        let visible_set: std::collections::HashSet<usize> =
-            visible.iter().map(|(h, _, _)| *h).collect();
+        for (mi, mon) in self.monitors.iter().enumerate() {
+            for &hwnd in mon.active_ws().handles() {
+                if let Ok(rect) = Window::from_raw(hwnd).rect() {
+                    visible.push((hwnd, mi, rect));
+                    visible_set.insert(hwnd);
+                }
+            }
+        }
 
         // Drop borders whose owning window is no longer visible. Drop
         // runs `DestroyWindow`, which atomically hides + cleans up.
@@ -198,7 +215,7 @@ impl TilingManager {
         let width = self.border_config.width;
         let radius = self.border_config.corner_style.border_radius();
 
-        for (hwnd, mon_idx, rect) in visible {
+        for &(hwnd, mon_idx, rect) in &visible {
             let Some(color) = self.decide_border_color(hwnd, mon_idx) else {
                 if let Some(border) = self.borders.get(&hwnd) {
                     border.hide();
@@ -219,6 +236,9 @@ impl TilingManager {
 
             border.show(&rect, color, width, radius, Window::from_raw(hwnd).hwnd());
         }
+
+        self.scratch_visible = visible;
+        self.scratch_visible_set = visible_set;
     }
 
     /// Returns the color the border for `hwnd` on monitor `mon_idx`
@@ -292,20 +312,6 @@ impl TilingManager {
             }
             None => border.hide(),
         }
-    }
-
-    /// Returns `(hwnd, monitor_idx, rect)` for every window currently
-    /// laid out on its monitor's active workspace.
-    fn collect_visible_tiles(&self) -> Vec<(usize, usize, Rect)> {
-        let mut out = Vec::new();
-        for (mi, mon) in self.monitors.iter().enumerate() {
-            for &hwnd in mon.active_ws().handles() {
-                if let Ok(rect) = Window::from_raw(hwnd).rect() {
-                    out.push((hwnd, mi, rect));
-                }
-            }
-        }
-        out
     }
 
     /// Hides every border overlay without dropping them. Called on

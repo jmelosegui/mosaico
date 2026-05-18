@@ -91,14 +91,12 @@ impl TilingManager {
         if removals.is_empty() {
             return;
         }
-        let mut affected: Vec<usize> = Vec::new();
+        let mut affected: std::collections::HashSet<usize> = std::collections::HashSet::new();
         for &(mi, wi, hwnd) in &removals {
             frame::reset_corner_preference(Window::from_raw(hwnd).hwnd());
-            self.monitors[mi].workspaces[wi].remove(hwnd);
+            self.ws_remove_at(mi, wi, hwnd);
             mosaico_core::log_info!("-rule 0x{hwnd:X} (unmanaged by new rules)");
-            if !affected.contains(&mi) {
-                affected.push(mi);
-            }
+            affected.insert(mi);
         }
         for idx in affected {
             self.apply_layout_on(idx);

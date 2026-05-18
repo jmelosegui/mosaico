@@ -160,6 +160,20 @@ pub struct TilingManager {
     /// processed. We keep the last few intents here so the `Focused`
     /// handler can recognize and discard those echoes.
     focus_intents: std::collections::VecDeque<(usize, Instant)>,
+    /// `hwnd -> (monitor_index, workspace_index)` index of every
+    /// managed window.
+    ///
+    /// Maintained by `ws_add_*` / `ws_remove_*` helpers so `find_window`
+    /// and `owning_monitor` resolve to a single HashMap lookup instead
+    /// of scanning monitors × workspaces × handles on every Win32 event.
+    hwnd_location: HashMap<usize, (usize, usize)>,
+    /// Reusable scratch buffer for `update_border` to avoid allocating
+    /// a fresh `Vec` on every focus change.  Lives on the manager so
+    /// the underlying capacity is preserved across calls.
+    scratch_visible: Vec<(usize, usize, Rect)>,
+    /// Reusable scratch buffer mirroring `scratch_visible`'s hwnds so
+    /// `borders.retain` can do `O(1)` membership checks.
+    scratch_visible_set: HashSet<usize>,
 }
 
 impl TilingManager {
@@ -219,6 +233,9 @@ impl TilingManager {
             pending_retile: HashSet::new(),
             pending_foreground: None,
             focus_intents: std::collections::VecDeque::new(),
+            hwnd_location: HashMap::new(),
+            scratch_visible: Vec::new(),
+            scratch_visible_set: HashSet::new(),
         };
 
         for win in enumerate::enumerate_windows()? {
@@ -226,7 +243,7 @@ impl TilingManager {
             if manager.is_tileable(hwnd)
                 && let Some(idx) = manager.monitor_index_for(hwnd)
             {
-                manager.monitors[idx].active_ws_mut().add(hwnd);
+                manager.ws_add_active(idx, hwnd);
                 frame::set_corner_preference(win.hwnd(), manager.border_config.corner_style);
             }
         }

@@ -126,6 +126,11 @@ impl TilingManager {
 
         self.monitors = new_states;
 
+        // Workspaces moved between monitor slots via std::mem::take, and
+        // windows from removed monitors were migrated.  Both invalidate
+        // hwnd_location, so rebuild it from the new layout.
+        self.rebuild_hwnd_location();
+
         // Clamp focused monitor.
         if self.focused_monitor >= self.monitors.len() {
             self.focused_monitor = 0;

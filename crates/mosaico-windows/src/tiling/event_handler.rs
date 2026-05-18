@@ -183,7 +183,7 @@ impl TilingManager {
                     // owner is queryable, clean up if the dialog was
                     // incorrectly added.
                     if let Some((mon_idx, ws_idx)) = self.find_window(*hwnd) {
-                        self.monitors[mon_idx].workspaces[ws_idx].remove(*hwnd);
+                        self.ws_remove_at(mon_idx, ws_idx, *hwnd);
                         mosaico_core::log_info!(
                             "-fix 0x{:X} (owned dialog removed from tiling)",
                             hwnd
@@ -281,7 +281,7 @@ impl TilingManager {
             return;
         }
 
-        self.monitors[mon_idx].workspaces[ws_idx].remove(hwnd);
+        self.ws_remove_at(mon_idx, ws_idx, hwnd);
         mosaico_core::log_info!(
             "-{} 0x{:X} from mon {} ws {} (now {})",
             reason,

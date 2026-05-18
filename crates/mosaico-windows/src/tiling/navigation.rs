@@ -136,11 +136,11 @@ impl TilingManager {
     /// Moves the focused window to a specific target monitor.
     fn move_to_monitor(&mut self, hwnd: usize, target: usize, dir: Direction) {
         let source = self.focused_monitor;
-        self.monitors[source].active_ws_mut().remove(hwnd);
+        self.ws_remove_active(source, hwnd);
         if dir == Direction::Right {
-            self.monitors[target].active_ws_mut().insert(0, hwnd);
+            self.ws_insert_active(target, 0, hwnd);
         } else {
-            self.monitors[target].active_ws_mut().add(hwnd);
+            self.ws_add_active(target, hwnd);
         }
         if self.monitors[target].active_ws().monocle() {
             self.exit_monocle(target);

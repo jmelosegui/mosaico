@@ -154,7 +154,7 @@ impl TilingManager {
     /// ensures stale or minimized handles don't leave phantom slots in
     /// the layout.
     fn prune_stale_handles(&mut self, monitor_idx: usize) {
-        let Some(state) = self.monitors.get_mut(monitor_idx) else {
+        let Some(state) = self.monitors.get(monitor_idx) else {
             return;
         };
         let stale: Vec<usize> = state
@@ -167,8 +167,8 @@ impl TilingManager {
                 !w.is_visible() || w.is_minimized()
             })
             .collect();
-        for hwnd in &stale {
-            state.active_ws_mut().remove(*hwnd);
+        for &hwnd in &stale {
+            self.ws_remove_active(monitor_idx, hwnd);
             mosaico_core::log_info!("-prune 0x{:X} (stale or minimized)", hwnd);
         }
     }
