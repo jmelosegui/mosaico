@@ -87,6 +87,16 @@ impl TilingManager {
                 }
             }
             WindowEvent::Focused { hwnd } => {
+                // Ignore focus events fired by our own hidden focus
+                // anchor — it's not a managed window, and running the
+                // adopt/owner fallbacks on it is pointless work.
+                if self
+                    .focus_anchor
+                    .as_ref()
+                    .is_some_and(|a| a.hwnd() == *hwnd)
+                {
+                    return;
+                }
                 if self.is_stale_focus_echo(*hwnd) {
                     mosaico_core::log_debug!(
                         "focus-suppressed 0x{:X} (stale Win32 echo of our own set_foreground)",
@@ -95,6 +105,17 @@ impl TilingManager {
                     return;
                 }
                 if let Some(idx) = self.owning_monitor(*hwnd) {
+                    // If the user just jumped to an empty workspace on
+                    // another monitor and a transient event (e.g. a
+                    // launcher closing) is pulling foreground back to
+                    // the previous monitor, suppress the update so the
+                    // imminent Created window still targets the anchored
+                    // monitor via `focused_monitor`.
+                    if let Some(anchored) = self.pending_empty_spawn
+                        && anchored != idx
+                    {
+                        return;
+                    }
                     // Check if the window is on a non-active workspace
                     // (e.g. user clicked a cloaked window's taskbar icon).
                     // Switch to that workspace so the window becomes visible.
@@ -148,6 +169,11 @@ impl TilingManager {
                 } else if let Some(owner) = Window::from_raw(*hwnd).owner()
                     && let Some(idx) = self.owning_monitor(owner)
                 {
+                    if let Some(anchored) = self.pending_empty_spawn
+                        && anchored != idx
+                    {
+                        return;
+                    }
                     // An owned window (dialog, property sheet) got focus.
                     //
                     // Due to a Win32 race condition, dialogs created on
@@ -285,6 +311,13 @@ impl TilingManager {
                     .or_else(|| ws.handles().first().copied());
                 if let Some(new_hwnd) = replacement {
                     self.focus_and_update_border(new_hwnd);
+                } else {
+                    // Active workspace is now empty.  Re-anchor focus so
+                    // Windows restoring foreground to a window on another
+                    // monitor (which it does when the last window closes)
+                    // doesn't drag `focused_monitor` away before the next
+                    // launcher-spawned window is created.
+                    self.anchor_focus_to_monitor(mon_idx);
                 }
             }
         }

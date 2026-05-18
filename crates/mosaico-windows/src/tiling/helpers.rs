@@ -149,6 +149,16 @@ impl TilingManager {
                 self.monitors[idx].active_ws().len()
             );
             frame::set_corner_preference(w.hwnd(), self.border_config.corner_style);
+            // Cloak the window during the reposition so the user doesn't
+            // see it flash at the OS-picked spawn location (e.g. apps
+            // that remember their last position on another monitor)
+            // before being tiled onto the focused monitor.  DWM cloaking
+            // is composition-level, so the window is hidden without
+            // firing Hidden events or losing the taskbar icon.
+            let needs_uncloak = !w.is_cloaked();
+            if needs_uncloak {
+                w.cloak();
+            }
             // Focus the new window before layout so monocle
             // mode sizes the correct window.
             self.focused_window = Some(hwnd);
@@ -162,6 +172,9 @@ impl TilingManager {
             self.apply_layout_on(idx);
             self.focus_from_mouse = false;
             self.focus_and_update_border(hwnd);
+            if needs_uncloak {
+                w.uncloak();
+            }
         }
     }
 

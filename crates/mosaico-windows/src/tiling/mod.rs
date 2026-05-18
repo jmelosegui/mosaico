@@ -20,6 +20,7 @@ use mosaico_core::{Action, Rect, WindowResult, Workspace};
 use crate::bar::BarState;
 use crate::border::Border;
 use crate::enumerate;
+use crate::focus_anchor::FocusAnchor;
 use crate::frame;
 use crate::monitor;
 use crate::window::Window;
@@ -68,6 +69,18 @@ pub struct TilingManager {
     /// and dropped when they leave.
     borders: HashMap<usize, Border>,
     border_config: BorderConfig,
+    /// Hidden anchor window used to hold foreground on a monitor whose
+    /// active workspace has no real windows.  Without this, transient
+    /// launchers (e.g. PowerToys Run) restore focus to the previous
+    /// monitor when they close, and newly spawned apps land there.
+    focus_anchor: Option<FocusAnchor>,
+    /// Set to `Some(idx)` after focus jumps to an empty workspace on
+    /// monitor `idx`.  While set, the `Focused` handler ignores events
+    /// from other monitors (they are transient — e.g. Windows restoring
+    /// focus after PowerToys Run closes) so the next `Created` window
+    /// lands on the anchored monitor via `focused_monitor`.  Cleared by
+    /// any explicit focus change or when a new window is adopted.
+    pending_empty_spawn: Option<usize>,
     focused_monitor: usize,
     focused_window: Option<usize>,
     /// Suppresses `Moved` event handling during programmatic layout.
@@ -179,6 +192,7 @@ impl TilingManager {
             })
             .collect();
 
+        let focus_anchor = FocusAnchor::new().ok();
         let self_elevated = crate::process::is_current_process_elevated();
 
         let mut manager = Self {
@@ -188,6 +202,8 @@ impl TilingManager {
             rules,
             borders: HashMap::new(),
             border_config,
+            focus_anchor,
+            pending_empty_spawn: None,
             focused_monitor: 0,
             focused_window: None,
             focused_maximized: false,

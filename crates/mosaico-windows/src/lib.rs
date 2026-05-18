@@ -16,6 +16,9 @@ pub mod bar_manager;
 /// Border overlay windows for visual focus indicators.
 pub mod border;
 
+/// Hidden focus-holder window for anchoring foreground to a monitor.
+pub mod focus_anchor;
+
 /// Downloads community rules from the mosaico-rules repository.
 pub mod community_rules;
 
