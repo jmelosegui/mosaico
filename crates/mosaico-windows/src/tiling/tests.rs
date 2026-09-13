@@ -16,6 +16,9 @@ mod monitor_tests;
 #[path = "tests/monocle_tests.rs"]
 mod monocle_tests;
 #[cfg(test)]
+#[path = "tests/pre_placed_tests.rs"]
+mod pre_placed_tests;
+#[cfg(test)]
 #[path = "tests/workspace_tests.rs"]
 mod workspace_tests;
 

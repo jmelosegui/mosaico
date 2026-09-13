@@ -8,10 +8,32 @@ use crate::window::Window;
 
 use super::TilingManager;
 
+/// Whether a window that Windows has created but not shown yet should
+/// be moved into the slot it is going to occupy.
+///
+/// Monocle is excluded on purpose. `compute_positions` lays out every
+/// window in the workspace, while monocle only ever shows one, so the
+/// rect it would produce is not where the window is going to end up.
+/// Leaving monocle alone keeps it on the existing path, where the show
+/// event adopts the window normally.
+pub(super) fn should_pre_place(monocle: bool, tracked: bool, passes_rules: bool) -> bool {
+    !monocle && !tracked && passes_rules
+}
+
 impl TilingManager {
     pub(super) fn is_tileable(&self, hwnd: usize) -> bool {
+        Window::from_raw(hwnd).is_visible() && self.passes_tiling_rules(hwnd)
+    }
+
+    /// Everything `is_tileable` checks except visibility.
+    ///
+    /// Split out so the `Created` handler can evaluate a window that
+    /// Windows has created but not shown yet. Such a window fails the
+    /// visibility test by definition, yet it is exactly the window we
+    /// want to position before its first frame reaches the screen.
+    pub(super) fn passes_tiling_rules(&self, hwnd: usize) -> bool {
         let window = Window::from_raw(hwnd);
-        if !window.is_visible() || !window.is_app_window() || window.is_cloaked() {
+        if !window.is_app_window() || window.is_cloaked() {
             return false;
         }
         // When mosaico runs as a regular user, SetWindowPos silently fails
@@ -163,6 +185,60 @@ impl TilingManager {
             self.focus_from_mouse = false;
             self.focus_and_update_border(hwnd);
         }
+    }
+
+    /// Moves a window that Windows has created but not shown yet into
+    /// the slot it is going to occupy.
+    ///
+    /// Windows maps and paints a new window wherever it likes, often
+    /// on the monitor the application was last used on, and only tells
+    /// us afterwards. Moving it here, while it is still invisible,
+    /// means the very first frame the user sees is already in place.
+    ///
+    /// Nothing is adopted. The workspace, the focus and the borders
+    /// are all left untouched, and the window is only really taken
+    /// over when its show event arrives and `add_and_focus` runs as
+    /// usual. That matters because most invisible windows never become
+    /// anything: applications routinely create hidden helper windows
+    /// that carry a caption and would otherwise look adoptable. Moving
+    /// one of those is harmless, whereas putting it in the layout
+    /// would reflow every real window around a window that is never
+    /// going to appear.
+    ///
+    /// The target rect is computed by asking the layout what it would
+    /// produce with this window included. The handle is appended and
+    /// removed again around that pure calculation, and no positions
+    /// from it are applied to anything else, so the workspace is left
+    /// exactly as it was.
+    pub(super) fn pre_place(&mut self, hwnd: usize) {
+        let idx = self.focused_monitor;
+        if self.monitors.get(idx).is_none() {
+            return;
+        }
+        if !self.monitors[idx].active_ws_mut().add(hwnd) {
+            return;
+        }
+        let positions = self.compute_positions(idx);
+        self.monitors[idx].active_ws_mut().remove(hwnd);
+
+        let Some((_, rect)) = positions.into_iter().find(|(h, _)| *h == hwnd) else {
+            return;
+        };
+        let w = Window::from_raw(hwnd);
+        if let Err(e) = w.set_rect(&rect) {
+            mosaico_core::log_debug!("~pre 0x{:X} set_rect failed: {}", hwnd, e);
+            return;
+        }
+        mosaico_core::log_debug!(
+            "~pre 0x{:X} [{}] moved to mon {} ({},{} {}x{}) before it was shown",
+            hwnd,
+            w.class().unwrap_or_default(),
+            idx,
+            rect.x,
+            rect.y,
+            rect.width,
+            rect.height
+        );
     }
 
     pub(super) fn close_focused(&mut self) {

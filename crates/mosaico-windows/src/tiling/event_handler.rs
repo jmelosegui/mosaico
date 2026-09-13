@@ -17,6 +17,30 @@ impl TilingManager {
                 // so child element SHOW events share the parent hwnd
                 // and would poison the cache before the real window is
                 // ready.
+                if !Window::from_raw(*hwnd).is_visible() {
+                    // EVENT_OBJECT_CREATE arrives before the window is
+                    // shown. Moving it now means Windows paints its
+                    // first frame in the right place instead of
+                    // wherever the OS decided to put it. Only the
+                    // window itself is touched: it is not adopted, so
+                    // the many hidden helper windows that applications
+                    // create and never show cost nothing more than one
+                    // SetWindowPos. The real adoption still runs on the
+                    // show event, where the full is_tileable check is
+                    // applied and the title is finally set.
+                    let monocle = self
+                        .monitors
+                        .get(self.focused_monitor)
+                        .is_some_and(|mon| mon.active_ws().monocle());
+                    if super::helpers::should_pre_place(
+                        monocle,
+                        self.find_window(*hwnd).is_some(),
+                        self.passes_tiling_rules(*hwnd),
+                    ) {
+                        self.pre_place(*hwnd);
+                    }
+                    return;
+                }
                 if !self.is_tileable(*hwnd) {
                     return;
                 }
@@ -94,6 +118,28 @@ impl TilingManager {
                     );
                     return;
                 }
+                // A focus change we have already decided on is waiting
+                // to be applied. Since the foreground call is deferred
+                // to the end of the batch, Windows can raise its own
+                // foreground change in that gap, which it does when a
+                // closing window hands focus to whatever sits behind
+                // it, often on another monitor. Acting on that event
+                // would move the border to a monitor we are about to
+                // leave again, so the user sees it flash there and
+                // jump back. Drop it and let the queued target win.
+                //
+                // This cannot get stuck: pending_foreground is always
+                // consumed by the flush on the next daemon iteration.
+                if let Some((target, _)) = self.pending_foreground
+                    && target != *hwnd
+                {
+                    mosaico_core::log_debug!(
+                        "focus-suppressed 0x{:X} (0x{:X} already queued for foreground)",
+                        hwnd,
+                        target
+                    );
+                    return;
+                }
                 if let Some(idx) = self.owning_monitor(*hwnd) {
                     // Check if the window is on a non-active workspace
                     // (e.g. user clicked a cloaked window's taskbar icon).
@@ -134,6 +180,7 @@ impl TilingManager {
                         }
                         return;
                     }
+                    mosaico_core::log_debug!("focus 0x{:X} on mon {}", hwnd, idx);
                     self.focus_from_mouse = true;
                     self.focused_window = Some(*hwnd);
                     self.focused_monitor = idx;
