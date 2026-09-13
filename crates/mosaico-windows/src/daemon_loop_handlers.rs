@@ -161,8 +161,5 @@ pub(super) fn handle_tick(
     hotkeys_paused: bool,
     get_update: &dyn Fn() -> String,
 ) {
-    // Reclaim the slots of windows that were tiled before Windows
-    // showed them but never actually appeared.
-    manager.sweep_pre_placed();
     bar_mgr.update(&manager.bar_states(&get_update(), hotkeys_paused));
 }

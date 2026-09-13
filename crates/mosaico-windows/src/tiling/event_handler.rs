@@ -19,12 +19,15 @@ impl TilingManager {
                 // ready.
                 if !Window::from_raw(*hwnd).is_visible() {
                     // EVENT_OBJECT_CREATE arrives before the window is
-                    // shown. Tiling it now means Windows paints its
+                    // shown. Moving it now means Windows paints its
                     // first frame in the right place instead of
-                    // wherever the OS decided to put it. The title is
-                    // often still empty at this point, which is fine:
-                    // the real adoption runs on the show event, where
-                    // the full is_tileable check is applied again.
+                    // wherever the OS decided to put it. Only the
+                    // window itself is touched: it is not adopted, so
+                    // the many hidden helper windows that applications
+                    // create and never show cost nothing more than one
+                    // SetWindowPos. The real adoption still runs on the
+                    // show event, where the full is_tileable check is
+                    // applied and the title is finally set.
                     let monocle = self
                         .monitors
                         .get(self.focused_monitor)
@@ -46,10 +49,6 @@ impl TilingManager {
                 // child elements; without this guard the window gets added
                 // to every workspace that happens to be active at the time.
                 if self.find_window(*hwnd).is_some() {
-                    // A pre placed window lands here on its show
-                    // event: it is already in a workspace but nothing
-                    // has focused it yet. Finish that half now.
-                    self.finish_pre_placed(*hwnd);
                     return;
                 }
                 self.add_and_focus(*hwnd);
@@ -74,7 +73,6 @@ impl TilingManager {
             }
             WindowEvent::Destroyed { hwnd } => {
                 self.adopt_rejected.remove(hwnd);
-                self.forget_pre_placed(*hwnd);
                 frame::reset_corner_preference(Window::from_raw(*hwnd).hwnd());
                 self.remove_from_tiling(*hwnd, "del", false);
             }
@@ -89,7 +87,6 @@ impl TilingManager {
                     return;
                 }
                 frame::reset_corner_preference(Window::from_raw(*hwnd).hwnd());
-                self.forget_pre_placed(*hwnd);
                 self.remove_from_tiling(*hwnd, "hide", false);
             }
             WindowEvent::Minimized { hwnd } => {
@@ -118,6 +115,28 @@ impl TilingManager {
                     mosaico_core::log_debug!(
                         "focus-suppressed 0x{:X} (stale Win32 echo of our own set_foreground)",
                         hwnd
+                    );
+                    return;
+                }
+                // A focus change we have already decided on is waiting
+                // to be applied. Since the foreground call is deferred
+                // to the end of the batch, Windows can raise its own
+                // foreground change in that gap, which it does when a
+                // closing window hands focus to whatever sits behind
+                // it, often on another monitor. Acting on that event
+                // would move the border to a monitor we are about to
+                // leave again, so the user sees it flash there and
+                // jump back. Drop it and let the queued target win.
+                //
+                // This cannot get stuck: pending_foreground is always
+                // consumed by the flush on the next daemon iteration.
+                if let Some((target, _)) = self.pending_foreground
+                    && target != *hwnd
+                {
+                    mosaico_core::log_debug!(
+                        "focus-suppressed 0x{:X} (0x{:X} already queued for foreground)",
+                        hwnd,
+                        target
                     );
                     return;
                 }
@@ -161,6 +180,7 @@ impl TilingManager {
                         }
                         return;
                     }
+                    mosaico_core::log_debug!("focus 0x{:X} on mon {}", hwnd, idx);
                     self.focus_from_mouse = true;
                     self.focused_window = Some(*hwnd);
                     self.focused_monitor = idx;

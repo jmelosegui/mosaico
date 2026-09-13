@@ -147,17 +147,6 @@ pub struct TilingManager {
     /// processed. We keep the last few intents here so the `Focused`
     /// handler can recognize and discard those echoes.
     focus_intents: std::collections::VecDeque<(usize, Instant)>,
-    /// Windows added to a workspace before Windows made them visible,
-    /// with the time they were placed.
-    ///
-    /// The `Created` handler tiles a brand new window while it is
-    /// still invisible so it never flashes at the position the OS
-    /// picked. Entries are removed when the show event completes the
-    /// adoption, when the window is destroyed, or by the TTL sweep on
-    /// `Tick` for windows that are never shown. While an entry is
-    /// present the window is exempt from stale-handle pruning, which
-    /// would otherwise drop it for not being visible.
-    pre_placed: HashMap<usize, Instant>,
 }
 
 impl TilingManager {
@@ -214,7 +203,6 @@ impl TilingManager {
             pending_retile: HashSet::new(),
             pending_foreground: None,
             focus_intents: std::collections::VecDeque::new(),
-            pre_placed: HashMap::new(),
         };
 
         for win in enumerate::enumerate_windows()? {
