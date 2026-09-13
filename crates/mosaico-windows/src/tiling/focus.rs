@@ -270,7 +270,14 @@ impl TilingManager {
         let mut out = Vec::new();
         for (mi, mon) in self.monitors.iter().enumerate() {
             for &hwnd in mon.active_ws().handles() {
-                if let Ok(rect) = Window::from_raw(hwnd).rect() {
+                let window = Window::from_raw(hwnd);
+                // A pre placed window is in the layout before Windows
+                // has shown it. A border for it would be drawn around
+                // nothing, so leave anything still off screen out.
+                if !window.is_visible() {
+                    continue;
+                }
+                if let Ok(rect) = window.rect() {
                     out.push((hwnd, mi, rect));
                 }
             }

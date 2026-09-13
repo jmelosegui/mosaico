@@ -17,6 +17,27 @@ impl TilingManager {
                 // so child element SHOW events share the parent hwnd
                 // and would poison the cache before the real window is
                 // ready.
+                if !Window::from_raw(*hwnd).is_visible() {
+                    // EVENT_OBJECT_CREATE arrives before the window is
+                    // shown. Tiling it now means Windows paints its
+                    // first frame in the right place instead of
+                    // wherever the OS decided to put it. The title is
+                    // often still empty at this point, which is fine:
+                    // the real adoption runs on the show event, where
+                    // the full is_tileable check is applied again.
+                    let monocle = self
+                        .monitors
+                        .get(self.focused_monitor)
+                        .is_some_and(|mon| mon.active_ws().monocle());
+                    if super::helpers::should_pre_place(
+                        monocle,
+                        self.find_window(*hwnd).is_some(),
+                        self.passes_tiling_rules(*hwnd),
+                    ) {
+                        self.pre_place(*hwnd);
+                    }
+                    return;
+                }
                 if !self.is_tileable(*hwnd) {
                     return;
                 }
@@ -25,6 +46,10 @@ impl TilingManager {
                 // child elements; without this guard the window gets added
                 // to every workspace that happens to be active at the time.
                 if self.find_window(*hwnd).is_some() {
+                    // A pre placed window lands here on its show
+                    // event: it is already in a workspace but nothing
+                    // has focused it yet. Finish that half now.
+                    self.finish_pre_placed(*hwnd);
                     return;
                 }
                 self.add_and_focus(*hwnd);
@@ -49,6 +74,7 @@ impl TilingManager {
             }
             WindowEvent::Destroyed { hwnd } => {
                 self.adopt_rejected.remove(hwnd);
+                self.forget_pre_placed(*hwnd);
                 frame::reset_corner_preference(Window::from_raw(*hwnd).hwnd());
                 self.remove_from_tiling(*hwnd, "del", false);
             }
@@ -63,6 +89,7 @@ impl TilingManager {
                     return;
                 }
                 frame::reset_corner_preference(Window::from_raw(*hwnd).hwnd());
+                self.forget_pre_placed(*hwnd);
                 self.remove_from_tiling(*hwnd, "hide", false);
             }
             WindowEvent::Minimized { hwnd } => {
