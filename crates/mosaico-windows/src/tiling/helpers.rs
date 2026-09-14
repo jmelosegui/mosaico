@@ -11,13 +11,14 @@ use super::TilingManager;
 /// Whether a window that Windows has created but not shown yet should
 /// be moved into the slot it is going to occupy.
 ///
-/// Monocle is excluded on purpose. `compute_positions` lays out every
-/// window in the workspace, while monocle only ever shows one, so the
-/// rect it would produce is not where the window is going to end up.
-/// Leaving monocle alone keeps it on the existing path, where the show
-/// event adopts the window normally.
-pub(super) fn should_pre_place(monocle: bool, tracked: bool, passes_rules: bool) -> bool {
-    !monocle && !tracked && passes_rules
+/// Monocle used to be excluded here, because `compute_positions` lays
+/// out every window in the workspace while monocle only ever shows one,
+/// so the rect it produced was not where the window would end up.
+/// `pre_place` now asks `monocle_rect` instead on a monocle workspace,
+/// so the destination is right either way and the caller no longer has
+/// to know which mode it is in.
+pub(super) fn should_pre_place(tracked: bool, passes_rules: bool) -> bool {
+    !tracked && passes_rules
 }
 
 impl TilingManager {
@@ -212,17 +213,31 @@ impl TilingManager {
     /// exactly as it was.
     pub(super) fn pre_place(&mut self, hwnd: usize) {
         let idx = self.focused_monitor;
-        if self.monitors.get(idx).is_none() {
+        let Some(state) = self.monitors.get(idx) else {
             return;
-        }
-        if !self.monitors[idx].active_ws_mut().add(hwnd) {
-            return;
-        }
-        let positions = self.compute_positions(idx);
-        self.monitors[idx].active_ws_mut().remove(hwnd);
+        };
 
-        let Some((_, rect)) = positions.into_iter().find(|(h, _)| *h == hwnd) else {
-            return;
+        let rect = if state.active_ws().monocle() {
+            // Monocle positions only its target and ignores the layout,
+            // so asking compute_positions would return a slot that
+            // nothing ever moves the window into. A window adopted onto
+            // a monocle workspace becomes the monocle target itself, and
+            // the target always fills the work area, so the destination
+            // is known without adding the window to anything.
+            self.monocle_rect(idx)
+        } else {
+            // Ask the layout where this window would go by adding it,
+            // computing, and taking it straight back out again.
+            if !self.monitors[idx].active_ws_mut().add(hwnd) {
+                return;
+            }
+            let positions = self.compute_positions(idx);
+            self.monitors[idx].active_ws_mut().remove(hwnd);
+
+            let Some((_, rect)) = positions.into_iter().find(|(h, _)| *h == hwnd) else {
+                return;
+            };
+            rect
         };
         let w = Window::from_raw(hwnd);
         // Move asynchronously. These windows have been created but not
