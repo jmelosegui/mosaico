@@ -127,6 +127,14 @@ impl TilingManager {
             self.hide_window(hwnd);
         }
 
+        // Landing on an empty workspace leaves nothing able to hold
+        // foreground, so pin the monitor until something resolves it.
+        // Only on the monitor the user is actually on: in global mode
+        // the others switch in lockstep without being navigated to.
+        if refocus {
+            self.park_focus_if_empty();
+        }
+
         mosaico_core::log_debug!(
             "goto-workspace {} on mon {} (from ws {}, {} windows)",
             idx + 1,
