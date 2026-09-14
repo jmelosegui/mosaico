@@ -61,6 +61,54 @@ fn run_cli(args: &[&str]) -> Output {
         .unwrap_or_else(|e| panic!("failed to read output of mosaico {args:?}: {e}"))
 }
 
+/// Whether the daemon is answering on its IPC pipe.
+fn daemon_is_running() -> bool {
+    let stdout = run_cli(&["status"]).stdout;
+    String::from_utf8_lossy(&stdout).contains("is running")
+}
+
+/// Starts the daemon and does not return until it answers on its pipe.
+///
+/// `mosaico stop` returns as soon as the daemon acknowledges the IPC
+/// request and it deletes the pid file straight away, but the process
+/// holds the single instance mutex until it has finished unwinding. A
+/// start issued inside that window is rejected and leaves nothing
+/// running, so the start is retried until the daemon is actually up.
+fn start_daemon() {
+    let deadline = Instant::now() + CLI_TIMEOUT;
+    loop {
+        run_cli_detached(&["start"]);
+
+        // Give this attempt a moment to come up before trying again.
+        let attempt_deadline = Instant::now() + Duration::from_secs(3);
+        while Instant::now() < attempt_deadline {
+            if daemon_is_running() {
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
+
+        assert!(
+            Instant::now() < deadline,
+            "daemon did not come up within {CLI_TIMEOUT:?}"
+        );
+    }
+}
+
+/// Stops the daemon and waits until it stops answering on its pipe.
+fn stop_daemon() {
+    let _ = run_cli(&["stop"]);
+
+    let deadline = Instant::now() + CLI_TIMEOUT;
+    while daemon_is_running() {
+        assert!(
+            Instant::now() < deadline,
+            "daemon still answering {CLI_TIMEOUT:?} after stop"
+        );
+        std::thread::sleep(Duration::from_millis(100));
+    }
+}
+
 /// Runs a CLI command that leaves a daemon behind, returning only whether
 /// it succeeded.
 ///
@@ -118,7 +166,7 @@ fn start_and_stop_lifecycle() {
     let _guard = test_guard();
 
     // Arrange — make sure no daemon is already running
-    let _ = run_cli(&["stop"]);
+    stop_daemon();
 
     // Act — start the daemon
     let started = run_cli_detached(&["start"]);
@@ -126,8 +174,17 @@ fn start_and_stop_lifecycle() {
     // Assert — start should succeed
     assert!(started);
 
-    // Give the daemon a moment to create its pipe
-    std::thread::sleep(Duration::from_secs(1));
+    // Wait for the daemon to create its pipe rather than guessing at a
+    // fixed delay, which is slower than needed on a fast machine and not
+    // long enough on a loaded CI runner.
+    let deadline = Instant::now() + CLI_TIMEOUT;
+    while !daemon_is_running() {
+        assert!(
+            Instant::now() < deadline,
+            "daemon never answered within {CLI_TIMEOUT:?} of a successful start"
+        );
+        std::thread::sleep(Duration::from_millis(100));
+    }
 
     // Act — check status
     let status_output = run_cli(&["status"]);
@@ -155,14 +212,11 @@ fn start_and_stop_lifecycle() {
 fn second_daemon_is_rejected() {
     let _guard = test_guard();
 
-    // Arrange — stop any running daemon first
-    let _ = run_cli(&["stop"]);
-
-    // Start the daemon via `mosaico start` (detached process)
-    let _ = run_cli_detached(&["start"]);
-
-    // Wait for the daemon to acquire the mutex
-    std::thread::sleep(Duration::from_secs(1));
+    // Arrange — exactly one daemon must be holding the mutex, otherwise
+    // the second one is not rejected, it simply becomes the daemon and
+    // runs until the timeout kills it.
+    stop_daemon();
+    start_daemon();
 
     // Act — try to start a second daemon directly.
     // A rejected daemon prints to stderr and exits. If the guard ever
@@ -171,7 +225,7 @@ fn second_daemon_is_rejected() {
     let output = run_cli(&["daemon"]);
 
     // Cleanup — stop the running daemon
-    let _ = run_cli(&["stop"]);
+    stop_daemon();
 
     // Assert — second daemon should fail with "already running"
     assert!(
