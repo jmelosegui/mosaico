@@ -9,6 +9,19 @@ use mosaico_core::{BspLayout, LayoutKind, Rect, ThreeColumnLayout, VerticalStack
 
 use super::{TilingManager, Window};
 
+/// The rect a monocle window fills, given a work area and a gap.
+///
+/// Split out from the method so it can be tested: the tiling tests
+/// build monitor state directly and never construct a manager.
+pub(super) fn monocle_rect_for(work_area: &Rect, gap: i32) -> Rect {
+    Rect::new(
+        work_area.x + gap,
+        work_area.y + gap,
+        (work_area.width - gap * 2).max(1),
+        (work_area.height - gap * 2).max(1),
+    )
+}
+
 impl TilingManager {
     pub(super) fn gap(&self) -> i32 {
         self.layout_gap
@@ -16,6 +29,22 @@ impl TilingManager {
 
     pub(super) fn ratio(&self) -> f64 {
         self.layout_ratio
+    }
+
+    /// The rect a monocle window fills on the given monitor.
+    ///
+    /// Monocle ignores the layout entirely: whichever window is the
+    /// monocle target covers the work area inset by the gap. That makes
+    /// the destination knowable without consulting the workspace, which
+    /// is what lets a window be positioned before it is ever shown.
+    ///
+    /// Returns an empty rect for a monitor index that does not exist,
+    /// which callers already guard against.
+    pub(super) fn monocle_rect(&self, monitor_idx: usize) -> Rect {
+        let Some(state) = self.monitors.get(monitor_idx) else {
+            return Rect::new(0, 0, 0, 0);
+        };
+        monocle_rect_for(&state.work_area, self.gap())
     }
 
     /// Computes the layout positions for the active workspace on the given monitor.
@@ -111,13 +140,7 @@ impl TilingManager {
             if let Some(hwnd) = monocle_hwnd
                 && state.active_ws().contains(hwnd)
             {
-                let gap = self.gap();
-                let area = Rect::new(
-                    state.work_area.x + gap,
-                    state.work_area.y + gap,
-                    (state.work_area.width - gap * 2).max(1),
-                    (state.work_area.height - gap * 2).max(1),
-                );
+                let area = self.monocle_rect(monitor_idx);
                 let window = Window::from_raw(hwnd);
                 if let Err(e) = window.set_rect(&area) {
                     eprintln!("Failed to position window 0x{hwnd:X}: {e}");

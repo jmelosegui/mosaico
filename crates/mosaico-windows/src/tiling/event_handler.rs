@@ -28,12 +28,7 @@ impl TilingManager {
                     // SetWindowPos. The real adoption still runs on the
                     // show event, where the full is_tileable check is
                     // applied and the title is finally set.
-                    let monocle = self
-                        .monitors
-                        .get(self.focused_monitor)
-                        .is_some_and(|mon| mon.active_ws().monocle());
                     if super::helpers::should_pre_place(
-                        monocle,
                         self.find_window(*hwnd).is_some(),
                         self.passes_tiling_rules(*hwnd),
                     ) {
@@ -41,6 +36,15 @@ impl TilingManager {
                     }
                     return;
                 }
+                // Already visible at create time, which is what
+                // CreateWindowEx does when the caller passes WS_VISIBLE.
+                // There is no interval in which the window exists and is
+                // not yet on screen, so there is nothing to position
+                // early and it is adopted straight away, glimpse and
+                // all. Cloaking across the reposition would cover this,
+                // but it was measured at roughly 160ms invisible, which
+                // is a worse artifact than the 3ms glimpse it removes.
+                // See #28.
                 if !self.is_tileable(*hwnd) {
                     return;
                 }
