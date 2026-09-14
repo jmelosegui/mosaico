@@ -3,11 +3,24 @@ use mosaico_core::{Rect, WindowResult};
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::{
     GetWindowTextLengthW, GetWindowTextW, IsWindow, IsWindowVisible, RealGetWindowClassW,
-    SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOCOPYBITS, SWP_NOSENDCHANGING, SWP_NOZORDER,
-    SetWindowPos,
+    SET_WINDOW_POS_FLAGS, SWP_ASYNCWINDOWPOS, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOCOPYBITS,
+    SWP_NOSENDCHANGING, SWP_NOZORDER, SetWindowPos,
 };
 
 use crate::frame;
+
+/// Flags used when moving a window that has been created but not shown.
+///
+/// `SWP_ASYNCWINDOWPOS` is the load bearing one: without it the call is
+/// delivered to the owning thread synchronously and blocks until that
+/// thread pumps its message queue, which some of these windows never do.
+const PRE_PLACE_FLAGS: SET_WINDOW_POS_FLAGS = SET_WINDOW_POS_FLAGS(
+    SWP_NOZORDER.0
+        | SWP_NOACTIVATE.0
+        | SWP_NOSENDCHANGING.0
+        | SWP_NOCOPYBITS.0
+        | SWP_ASYNCWINDOWPOS.0,
+);
 
 /// A window on the Windows platform, wrapping a Win32 `HWND`.
 ///
@@ -47,6 +60,50 @@ impl Window {
         unsafe {
             let _ = SetForegroundWindow(self.hwnd);
         }
+    }
+
+    /// Moves the window without waiting for the thread that owns it.
+    ///
+    /// `SetWindowPos` delivers WM_WINDOWPOSCHANGED, WM_MOVE and WM_SIZE to
+    /// the owning thread and does not return until that thread has handled
+    /// them, so it blocks for as long as that thread refuses to pump. That
+    /// is fine for the windows we tile, which are real application windows
+    /// that pump, but pre placement runs against windows that have been
+    /// created and not yet shown, and some of those belong to threads that
+    /// never pump at all. Crash handler watchers and similar helper windows
+    /// are the common case. Blocking on one of those wedges the daemon
+    /// permanently: no tiling, no hotkeys, no IPC.
+    ///
+    /// `SWP_ASYNCWINDOWPOS` makes the system post the request to the owning
+    /// thread instead of sending it, so this returns immediately. The move
+    /// is applied whenever that thread gets around to it, which is exactly
+    /// the semantics pre placement wants, since nothing depends on the new
+    /// position having landed before the window is shown.
+    pub fn move_async(&self, rect: &Rect) -> WindowResult<()> {
+        // Compensate for invisible borders so the visible portion lands
+        // exactly at the requested position and size, as set_rect does.
+        let border = frame::border_offset(self.hwnd)?;
+        let x = rect.x - border.left;
+        let y = rect.y - border.top;
+        let cx = rect.width + border.left + border.right;
+        let cy = rect.height + border.top + border.bottom;
+
+        mosaico_core::log_debug!(
+            "move_async 0x{:X}: target({},{} {}x{})",
+            self.hwnd.0 as usize,
+            rect.x,
+            rect.y,
+            rect.width,
+            rect.height
+        );
+
+        // SAFETY: SetWindowPos is safe to call with a valid HWND.
+        // SWP_ASYNCWINDOWPOS posts the request rather than sending it, so
+        // this cannot block on an unresponsive owning thread.
+        unsafe {
+            SetWindowPos(self.hwnd, None, x, y, cx, cy, PRE_PLACE_FLAGS)?;
+        }
+        Ok(())
     }
 
     /// Returns whether this window needs `SWP_FRAMECHANGED` to update
@@ -375,5 +432,134 @@ impl mosaico_core::Window for Window {
     fn is_visible(&self) -> bool {
         // SAFETY: IsWindowVisible is a simple query that returns a BOOL.
         unsafe { IsWindowVisible(self.hwnd).as_bool() }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::mpsc;
+    use std::time::Duration;
+    use windows::Win32::Foundation::{LPARAM, LRESULT, WPARAM};
+    use windows::Win32::UI::WindowsAndMessaging::{
+        CreateWindowExW, DefWindowProcW, DestroyWindow, RegisterClassW, WNDCLASSW,
+        WS_EX_TOOLWINDOW, WS_POPUP, WS_VISIBLE,
+    };
+    use windows::core::PCWSTR;
+
+    /// Default handler, required because `WNDCLASSW` wants a
+    /// `extern "system"` function pointer rather than the raw import.
+    unsafe extern "system" fn test_wnd_proc(
+        hwnd: HWND,
+        msg: u32,
+        wparam: WPARAM,
+        lparam: LPARAM,
+    ) -> LRESULT {
+        // SAFETY: DefWindowProcW is the default handler required by WNDPROC.
+        unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) }
+    }
+
+    #[test]
+    fn pre_place_flags_post_instead_of_sending() {
+        // Arrange / Act / Assert -- the asynchronous flag is the whole
+        // point of the pre placement move. Without it the call is
+        // delivered synchronously and a window whose thread never pumps
+        // blocks the daemon for good.
+        assert_ne!(PRE_PLACE_FLAGS.0 & SWP_ASYNCWINDOWPOS.0, 0);
+    }
+
+    /// Creates a window on a thread that never pumps messages, which is
+    /// what hidden helper windows from Qt, Electron and WinForms do.
+    ///
+    /// Returns the handle plus a sender that tells the thread to destroy
+    /// the window, which has to happen on the thread that created it.
+    /// Returns `None` when a window cannot be created at all, so the test
+    /// skips rather than fails on a machine with no interactive desktop.
+    fn window_owned_by_a_thread_that_never_pumps()
+    -> Option<(usize, mpsc::Sender<()>, std::thread::JoinHandle<()>)> {
+        let class: Vec<u16> = "MosaicoNeverPumpsTestWindow\0".encode_utf16().collect();
+        let (ready_tx, ready_rx) = mpsc::channel::<usize>();
+        let (stop_tx, stop_rx) = mpsc::channel::<()>();
+
+        let handle = std::thread::spawn(move || {
+            // SAFETY: registers a class and creates one window, both with
+            // valid arguments. The window is destroyed on this same thread
+            // below, which is the only thread allowed to destroy it.
+            let hwnd = unsafe {
+                let wc = WNDCLASSW {
+                    lpfnWndProc: Some(test_wnd_proc),
+                    lpszClassName: PCWSTR(class.as_ptr()),
+                    ..Default::default()
+                };
+                RegisterClassW(&wc);
+                CreateWindowExW(
+                    WS_EX_TOOLWINDOW,
+                    PCWSTR(class.as_ptr()),
+                    PCWSTR::null(),
+                    WS_POPUP | WS_VISIBLE,
+                    0,
+                    0,
+                    1,
+                    1,
+                    None,
+                    None,
+                    None,
+                    None,
+                )
+            };
+            let hwnd = hwnd.unwrap_or_default();
+            let _ = ready_tx.send(hwnd.0 as usize);
+            // Park without ever calling GetMessage or PeekMessage. This is
+            // the condition the fix exists for.
+            let _ = stop_rx.recv();
+            if !hwnd.0.is_null() {
+                // SAFETY: destroying a window this thread created.
+                unsafe {
+                    let _ = DestroyWindow(hwnd);
+                }
+            }
+        });
+
+        match ready_rx.recv_timeout(Duration::from_secs(5)) {
+            Ok(raw) if raw != 0 => Some((raw, stop_tx, handle)),
+            _ => {
+                let _ = stop_tx.send(());
+                let _ = handle.join();
+                None
+            }
+        }
+    }
+
+    #[test]
+    fn move_async_returns_even_when_the_owner_never_pumps() {
+        // Arrange -- a window whose thread will never process messages.
+        let Some((raw, stop_tx, handle)) = window_owned_by_a_thread_that_never_pumps() else {
+            // No interactive desktop available, nothing to assert.
+            return;
+        };
+        // Act -- run the move on its own thread so that a regression
+        // fails this test instead of hanging it forever. A synchronous
+        // SetWindowPos against this window never returns at all.
+        let (done_tx, done_rx) = mpsc::channel::<()>();
+        let mover = std::thread::spawn(move || {
+            let window = Window::from_raw(raw);
+            let _ = window.move_async(&Rect::new(20, 20, 200, 200));
+            let _ = done_tx.send(());
+        });
+        let returned = done_rx.recv_timeout(Duration::from_secs(2)).is_ok();
+
+        // Cleanup before asserting so a failure cannot leak the window.
+        let _ = stop_tx.send(());
+        let _ = handle.join();
+        if returned {
+            let _ = mover.join();
+        }
+
+        // Assert
+        assert!(
+            returned,
+            "move_async did not return within 2s against a window whose thread never pumps, \
+             which means the move was sent synchronously instead of posted"
+        );
     }
 }

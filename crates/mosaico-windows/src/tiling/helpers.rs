@@ -225,8 +225,12 @@ impl TilingManager {
             return;
         };
         let w = Window::from_raw(hwnd);
-        if let Err(e) = w.set_rect(&rect) {
-            mosaico_core::log_debug!("~pre 0x{:X} set_rect failed: {}", hwnd, e);
+        // Move asynchronously. These windows have been created but not
+        // shown, and some of them belong to threads that never pump
+        // messages, so a synchronous SetWindowPos would never return and
+        // would take the whole daemon down with it.
+        if let Err(e) = w.move_async(&rect) {
+            mosaico_core::log_debug!("~pre 0x{:X} move failed: {}", hwnd, e);
             return;
         }
         mosaico_core::log_debug!(
