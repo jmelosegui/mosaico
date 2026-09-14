@@ -4,6 +4,9 @@ use super::*;
 #[path = "tests/display_tests.rs"]
 mod display_tests;
 #[cfg(test)]
+#[path = "tests/empty_focus_tests.rs"]
+mod empty_focus_tests;
+#[cfg(test)]
 #[path = "tests/hiding_tests.rs"]
 mod hiding_tests;
 #[cfg(test)]

@@ -1,4 +1,5 @@
 mod display;
+mod empty_focus;
 mod event_handler;
 mod focus;
 mod helpers;
@@ -104,6 +105,15 @@ pub struct TilingManager {
     /// suppress focus-triggered switches until a short cooldown
     /// elapses, preventing infinite workspace-switching loops.
     ws_switch_cooldown: Option<Instant>,
+    /// Pins `focused_monitor` while its active workspace is empty.
+    ///
+    /// An empty workspace has no mosaico window able to hold
+    /// foreground, so Win32 leaves it on another monitor and restores
+    /// it there after any transient overlay closes. Without this,
+    /// the `Focused` event that follows moves `focused_monitor`, and
+    /// `add_and_focus` then tiles the next window on the monitor the
+    /// user just navigated away from. See [`empty_focus`].
+    empty_focus_claim: Option<empty_focus::EmptyFocusClaim>,
     /// Whether the current process (mosaico) is running elevated.
     ///
     /// When `false`, elevated windows are skipped in `is_tileable`
@@ -198,6 +208,7 @@ impl TilingManager {
             workspace_mode: workspaces_config.mode,
             hidden_by_switch: HashSet::new(),
             ws_switch_cooldown: None,
+            empty_focus_claim: None,
             self_elevated,
             adopt_rejected: HashSet::new(),
             pending_retile: HashSet::new(),
