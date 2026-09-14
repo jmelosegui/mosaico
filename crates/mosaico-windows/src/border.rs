@@ -10,7 +10,7 @@ use windows::Win32::Graphics::Gdi::{
 use windows::Win32::UI::WindowsAndMessaging::{
     CW_USEDEFAULT, CreateWindowExW, DefWindowProcW, DestroyWindow, GWL_EXSTYLE, GetWindowLongPtrW,
     HWND_NOTOPMOST, HWND_TOPMOST, RegisterClassW, SW_HIDE, SWP_NOACTIVATE, SWP_SHOWWINDOW,
-    SetWindowPos, ShowWindow, ULW_ALPHA, UpdateLayeredWindow, WNDCLASSW, WS_EX_LAYERED,
+    SetWindowPos, ShowWindow, ULW_ALPHA, UpdateLayeredWindow, WM_CLOSE, WNDCLASSW, WS_EX_LAYERED,
     WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_EX_TRANSPARENT, WS_POPUP,
 };
 use windows::core::PCWSTR;
@@ -85,6 +85,14 @@ unsafe extern "system" fn border_wnd_proc(
     wparam: WPARAM,
     lparam: LPARAM,
 ) -> LRESULT {
+    // Borders are owned by the tiling manager and destroyed in Drop when
+    // their window leaves the active workspace. Now that the owning
+    // thread dispatches messages, DefWindowProcW would act on WM_CLOSE by
+    // destroying the window behind the owner's back, leaving a dangling
+    // handle. Ignore the request instead.
+    if msg == WM_CLOSE {
+        return LRESULT(0);
+    }
     // SAFETY: DefWindowProcW is the default handler required by WNDPROC.
     unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) }
 }
@@ -318,6 +326,7 @@ impl Drop for Border {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use windows::Win32::UI::WindowsAndMessaging::{IsWindow, SendMessageW};
 
     #[test]
     fn parse_hex_color() {
@@ -378,5 +387,65 @@ mod tests {
 
         // Act / Assert
         assert!(in_rounded_rect(5, 0, 10, 10, 3));
+    }
+
+    /// Creates a window of the real border class, so a message sent to
+    /// it goes through the registered window procedure.
+    ///
+    /// Returns `None` when the window cannot be created, so a machine
+    /// with no interactive desktop skips instead of failing.
+    fn border_class_window() -> Option<HWND> {
+        ensure_class_registered();
+
+        // SAFETY: creates a small popup of the already registered border
+        // class. The caller destroys it.
+        let hwnd = unsafe {
+            CreateWindowExW(
+                WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT,
+                PCWSTR(CLASS_NAME.as_ptr()),
+                PCWSTR::null(),
+                WS_POPUP,
+                0,
+                0,
+                1,
+                1,
+                None,
+                None,
+                None,
+                None,
+            )
+        }
+        .ok()?;
+
+        (!hwnd.is_invalid()).then_some(hwnd)
+    }
+
+    #[test]
+    fn wm_close_does_not_destroy_the_border() {
+        // Arrange
+        let Some(hwnd) = border_class_window() else {
+            return;
+        };
+
+        // Act -- the daemon thread pumps now, so this message reaches the
+        // window procedure instead of sitting in the queue.
+        // SAFETY: sending a message to a window this thread created.
+        unsafe {
+            SendMessageW(hwnd, WM_CLOSE, None, None);
+        }
+
+        // SAFETY: reading the state of a window this thread owns.
+        let alive = unsafe { IsWindow(Some(hwnd)).as_bool() };
+
+        // SAFETY: destroying a window this thread created.
+        unsafe {
+            let _ = DestroyWindow(hwnd);
+        }
+
+        // Assert
+        assert!(
+            alive,
+            "WM_CLOSE destroyed the border, which the tiling manager still holds a handle to"
+        );
     }
 }
