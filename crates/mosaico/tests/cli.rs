@@ -77,7 +77,10 @@ fn daemon_is_running() -> bool {
 fn start_daemon() {
     let deadline = Instant::now() + CLI_TIMEOUT;
     loop {
-        run_cli_detached(&["start"]);
+        assert!(
+            run_cli_detached(&["start"]),
+            "mosaico start exited with a failure"
+        );
 
         // Give this attempt a moment to come up before trying again.
         let attempt_deadline = Instant::now() + Duration::from_secs(3);
@@ -168,23 +171,9 @@ fn start_and_stop_lifecycle() {
     // Arrange — make sure no daemon is already running
     stop_daemon();
 
-    // Act — start the daemon
-    let started = run_cli_detached(&["start"]);
-
-    // Assert — start should succeed
-    assert!(started);
-
-    // Wait for the daemon to create its pipe rather than guessing at a
-    // fixed delay, which is slower than needed on a fast machine and not
-    // long enough on a loaded CI runner.
-    let deadline = Instant::now() + CLI_TIMEOUT;
-    while !daemon_is_running() {
-        assert!(
-            Instant::now() < deadline,
-            "daemon never answered within {CLI_TIMEOUT:?} of a successful start"
-        );
-        std::thread::sleep(Duration::from_millis(100));
-    }
+    // Act — start the daemon and wait for it to answer, rather than
+    // guessing at a fixed delay
+    start_daemon();
 
     // Act — check status
     let status_output = run_cli(&["status"]);
