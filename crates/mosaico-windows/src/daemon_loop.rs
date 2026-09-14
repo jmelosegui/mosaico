@@ -4,6 +4,9 @@ use std::sync::mpsc;
 use mosaico_core::WindowResult;
 use mosaico_core::config;
 use mosaico_core::ipc::Command;
+use windows::Win32::UI::WindowsAndMessaging::{
+    DispatchMessageW, MSG, PM_REMOVE, PeekMessageW, TranslateMessage,
+};
 
 use crate::bar_manager::BarManager;
 use crate::event_loop;
@@ -14,7 +17,19 @@ use super::daemon_loop_handlers;
 use super::daemon_threads;
 use super::daemon_types::DaemonMsg;
 
+/// How long the loop waits for a daemon message before draining the
+/// thread's Win32 message queue again.
+const PUMP_INTERVAL: std::time::Duration = std::time::Duration::from_millis(50);
+
 /// The inner daemon loop, separated so cleanup always runs in `run()`.
+///
+/// This thread owns the bar and border windows, so it has to pump its Win32
+/// message queue. Windows classifies every window whose owning thread is not
+/// pumping as not responding: the cursor turns into the busy spinner over the
+/// bar, clicking it pops the "mosaico.exe is not responding" dialog, and the
+/// desktop compositor paints an opaque ghost over what should be a
+/// transparent layered bar. Draining the queue on every iteration, and on
+/// every wait timeout, keeps those windows classified as alive.
 pub(super) fn daemon_loop() -> WindowResult<()> {
     // Append any missing top-level config sections introduced by newer
     // versions of mosaico (e.g. [workspaces]) before loading, so the
@@ -109,6 +124,10 @@ pub(super) fn daemon_loop() -> WindowResult<()> {
     let mut hotkeys_paused = false;
 
     while !should_stop {
+        // Keep the bar and border windows out of the not-responding
+        // state before doing anything else this iteration.
+        pump_thread_messages();
+
         // Block until at least one message arrives. If a foreground
         // change is pending from the previous iteration, only wait
         // briefly: if no new action arrives, flush the deferred
@@ -127,9 +146,24 @@ pub(super) fn daemon_loop() -> WindowResult<()> {
                 Err(mpsc::RecvTimeoutError::Disconnected) => break,
             }
         } else {
-            match rx.recv() {
-                Ok(msg) => msg,
-                Err(_) => break,
+            // Wait in short slices instead of blocking forever, so the
+            // message queue is drained on a regular cadence. The thread is
+            // parked inside `recv_timeout` between wakeups, so an idle
+            // daemon costs one wakeup per `PUMP_INTERVAL` and never spins.
+            let mut received = None;
+            loop {
+                match rx.recv_timeout(PUMP_INTERVAL) {
+                    Ok(msg) => {
+                        received = Some(msg);
+                        break;
+                    }
+                    Err(mpsc::RecvTimeoutError::Timeout) => pump_thread_messages(),
+                    Err(mpsc::RecvTimeoutError::Disconnected) => break,
+                }
+            }
+            match received {
+                Some(msg) => msg,
+                None => break,
             }
         };
 
@@ -234,6 +268,27 @@ pub(super) fn daemon_loop() -> WindowResult<()> {
     Ok(())
 }
 
+/// Drains every message currently queued for this thread.
+///
+/// Non-blocking: it returns as soon as the queue is empty, so it is cheap to
+/// call on every loop iteration. Each message is dispatched to the window
+/// procedure that owns it, which on this thread means the bar and border
+/// windows.
+fn pump_thread_messages() {
+    let mut msg = MSG::default();
+
+    // SAFETY: PeekMessageW removes one message from this thread's message
+    // queue without blocking and returns false once the queue is empty. The
+    // MSG struct is stack-allocated. TranslateMessage and DispatchMessageW
+    // then route that message to the appropriate window procedure.
+    unsafe {
+        while PeekMessageW(&mut msg, None, 0, 0, PM_REMOVE).as_bool() {
+            let _ = TranslateMessage(&msg);
+            DispatchMessageW(&msg);
+        }
+    }
+}
+
 /// Collapses duplicate high-frequency events in a batch.
 ///
 /// `LocationChanged` and `TitleChanged` fire many times per second for the
@@ -274,4 +329,49 @@ fn dedup_events(events: &mut Vec<mosaico_core::WindowEvent>) {
         i += 1;
         !dominated
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use windows::Win32::Foundation::{LPARAM, WPARAM};
+    use windows::Win32::System::Threading::GetCurrentThreadId;
+    use windows::Win32::UI::WindowsAndMessaging::{PM_NOREMOVE, PostThreadMessageW, WM_USER};
+
+    /// Looks at the queue without consuming anything.
+    fn queue_is_empty() -> bool {
+        let mut msg = MSG::default();
+
+        // SAFETY: PM_NOREMOVE inspects this thread's queue without
+        // removing a message. The MSG struct is stack allocated.
+        unsafe { !PeekMessageW(&mut msg, None, 0, 0, PM_NOREMOVE).as_bool() }
+    }
+
+    #[test]
+    fn pump_thread_messages_drains_the_queue() {
+        // Arrange -- the first peek is also what creates the queue for
+        // this thread, which PostThreadMessageW needs to exist.
+        pump_thread_messages();
+
+        // SAFETY: posting to the calling thread, which now has a queue.
+        let thread_id = unsafe { GetCurrentThreadId() };
+        for offset in 0..5 {
+            // SAFETY: posting to a thread that has a message queue.
+            unsafe {
+                PostThreadMessageW(thread_id, WM_USER + offset, WPARAM(0), LPARAM(0))
+                    .expect("failed to post a test message");
+            }
+        }
+        assert!(!queue_is_empty(), "the test failed to queue anything");
+
+        // Act
+        pump_thread_messages();
+
+        // Assert -- a queue left with anything in it is a thread Windows
+        // will mark as not responding, which is the whole defect.
+        assert!(
+            queue_is_empty(),
+            "pump_thread_messages left messages in the queue"
+        );
+    }
 }
