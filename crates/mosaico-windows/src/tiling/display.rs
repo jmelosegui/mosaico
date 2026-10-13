@@ -126,6 +126,10 @@ impl TilingManager {
 
         self.monitors = new_states;
 
+        // Monitor indices were just rebuilt, so any parked focus claim
+        // refers to a monitor that may no longer be the same one.
+        self.clear_focus_claim();
+
         // Clamp focused monitor.
         if self.focused_monitor >= self.monitors.len() {
             self.focused_monitor = 0;

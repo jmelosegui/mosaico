@@ -84,6 +84,7 @@ impl TilingManager {
             self.focused_window = None;
             self.update_border();
         }
+        self.park_focus_if_empty();
     }
 
     /// Moves (swaps) the focused window in the given spatial direction.

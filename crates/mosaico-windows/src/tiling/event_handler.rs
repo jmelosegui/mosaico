@@ -180,6 +180,28 @@ impl TilingManager {
                         }
                         return;
                     }
+                    // The focused monitor may be parked on an empty
+                    // workspace. Nothing there can hold foreground, so
+                    // Win32 restores it to whatever held it before,
+                    // usually on another monitor, and acting on that
+                    // would send the next new window to the monitor the
+                    // user just navigated away from.
+                    //
+                    // This sits below the off-active-workspace block on
+                    // purpose. Above it, clicking the taskbar button of
+                    // a window on an inactive workspace of another
+                    // monitor would return early, never reach
+                    // goto_workspace, and leave that window cloaked
+                    // while it holds foreground.
+                    if !self.focus_event_allowed(idx) {
+                        mosaico_core::log_debug!(
+                            "focus-suppressed 0x{:X} on mon {} (mon {} is parked on an empty workspace)",
+                            hwnd,
+                            idx,
+                            self.focused_monitor
+                        );
+                        return;
+                    }
                     mosaico_core::log_debug!("focus 0x{:X} on mon {}", hwnd, idx);
                     self.focus_from_mouse = true;
                     self.focused_window = Some(*hwnd);
