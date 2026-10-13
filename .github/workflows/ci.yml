@@ -3,8 +3,10 @@ name: CI
 on:
   push:
     branches: [main]
+  # Every pull request, not just those targeting main. A stacked branch
+  # opens its pull request against the branch below it, and with a
+  # branches filter here those got no checks at all.
   pull_request:
-    branches: [main]
   workflow_dispatch:
 
 env:
