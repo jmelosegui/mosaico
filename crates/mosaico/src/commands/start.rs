@@ -1,5 +1,6 @@
 use std::os::windows::process::CommandExt;
 use std::process::Command;
+use std::time::{Duration, Instant};
 
 /// Windows process creation flags for launching a fully detached daemon.
 ///
@@ -45,11 +46,49 @@ pub fn execute() {
 
     let pid = child.id();
 
-    // Detach: drop our handle so the daemon outlives the CLI process.
-    // We call try_wait() to acknowledge the child without blocking.
-    let _ = child.try_wait();
+    // Confirm it is actually up before claiming it started. The daemon
+    // takes the single instance mutex first thing, and a daemon that is
+    // still shutting down holds that mutex well after `mosaico stop`
+    // returned, so a start issued in that window is rejected and exits.
+    // Reporting success for a pid that is already dead is how that
+    // window went unnoticed.
+    if !wait_for_daemon(&mut child) {
+        eprintln!("Error: the daemon exited immediately after starting.");
+        eprintln!(
+            "A previous daemon may still be shutting down and holding the single instance lock."
+        );
+        eprintln!("Check 'mosaico status', then try again.");
+        std::process::exit(1);
+    }
 
     print_banner(pid);
+}
+
+/// How long to wait for a freshly spawned daemon to answer.
+const STARTUP_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// How often to check whether it is up yet.
+const POLL_INTERVAL: Duration = Duration::from_millis(50);
+
+/// Waits until the spawned daemon answers on its IPC pipe.
+///
+/// Returns false if it exits first, which is what a daemon rejected by
+/// the single instance guard does.
+fn wait_for_daemon(child: &mut std::process::Child) -> bool {
+    let deadline = Instant::now() + STARTUP_TIMEOUT;
+    loop {
+        if mosaico_windows::ipc::is_daemon_running() {
+            return true;
+        }
+        // Exited without ever answering.
+        if matches!(child.try_wait(), Ok(Some(_))) {
+            return false;
+        }
+        if Instant::now() >= deadline {
+            return false;
+        }
+        std::thread::sleep(POLL_INTERVAL);
+    }
 }
 
 /// Tips shown on startup, rotated by PID so users see a different
