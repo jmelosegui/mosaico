@@ -113,6 +113,7 @@ impl TilingManager {
             }
             self.show_window(hwnd);
         }
+        self.refresh_visible_windows();
 
         // Follow the focused window if it moved to another monitor and is
         // still visible there; otherwise it may now sit on a hidden

@@ -86,6 +86,7 @@ fn run_action(action: &mosaico_core::Action, manager: &mut TilingManager, bar_mg
         mosaico_core::log_info!("Retile: re-reading work areas");
         let indices = bar_mgr.bar_monitor_indices().to_vec();
         manager.reset_and_adjust_work_areas(bar_mgr.bar_height(), &indices);
+        manager.refresh_visible_windows();
         return;
     }
     manager.handle_action(action);

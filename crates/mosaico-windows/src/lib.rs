@@ -61,6 +61,9 @@ pub mod ipc;
 /// Monitor work area queries.
 pub mod monitor;
 
+/// Workarounds for Chromium-based windows.
+mod chromium;
+
 /// EDID and display-configuration string decoding.
 mod monitor_edid;
 

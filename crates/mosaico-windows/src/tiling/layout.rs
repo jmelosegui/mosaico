@@ -103,6 +103,21 @@ impl TilingManager {
         }
     }
 
+    /// Repaints every window on an active workspace, including the ones
+    /// the layout skipped because they were already in place.
+    ///
+    /// Used after a display change and on a user retile: an application
+    /// can be left drawing at a stale offset even though its window sits
+    /// exactly where it should, and the repaint is where the platform
+    /// repairs that.
+    pub fn refresh_visible_windows(&self) {
+        for mon in &self.monitors {
+            for &hwnd in mon.active_ws().handles() {
+                Window::from_raw(hwnd).invalidate();
+            }
+        }
+    }
+
     pub(super) fn apply_layout_on(&mut self, monitor_idx: usize) {
         self.apply_layout_positions(monitor_idx);
         self.update_border();

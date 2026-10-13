@@ -158,6 +158,17 @@ an inactive workspace are hidden before the retile and those on an active
 workspace are shown after it. Focus stays on the same physical monitor if
 it is still connected, otherwise it moves to the primary monitor.
 
+After the retile, `refresh_visible_windows()` calls `invalidate()` on every
+window of an active workspace, including those the layout skipped because
+they were already in place; a user retile does the same. On Windows,
+`invalidate()` also repairs Chromium windows (`chromium.rs`): Chromium
+presents through an `Intermediate D3D Window` child owned by its GPU
+process, which can be left at a stale offset after the window moves across
+displays with different DPI, such as the emulated display a KVM leaves
+behind. Input still lands in the right place but the picture is drawn
+shifted, and Chromium only resizes that child afterwards, never moves it,
+so the child is moved back to the client origin.
+
 Display changes are applied once the configuration settles. The daemon
 loop does not rebuild on each `DisplayChanged` event: it records it in a
 `DisplaySettle` (`daemon_settle.rs`) and rebuilds once no further change
