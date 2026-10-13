@@ -34,7 +34,10 @@ impl TilingManager {
     /// want to position before its first frame reaches the screen.
     pub(super) fn passes_tiling_rules(&self, hwnd: usize) -> bool {
         let window = Window::from_raw(hwnd);
-        if !window.is_app_window() || window.is_cloaked() {
+        let Some(has_caption) = window.app_window_caption() else {
+            return false;
+        };
+        if window.is_cloaked() {
             return false;
         }
         // When mosaico runs as a regular user, SetWindowPos silently fails
@@ -52,7 +55,13 @@ impl TilingManager {
         }
         let class = window.class().unwrap_or_default();
         let title = window.title().unwrap_or_default();
-        mosaico_core::config::should_manage(&class, &title, &self.rules)
+        let path = window.exe_path();
+        if has_caption {
+            mosaico_core::config::should_manage(&class, &title, &path, &self.rules)
+        } else {
+            // No WS_CAPTION: only tile when a rule explicitly asks for it.
+            mosaico_core::config::matching_rule(&class, &title, &path, &self.rules) == Some(true)
+        }
     }
 
     /// Re-assigns a window to the correct monitor after it was moved.

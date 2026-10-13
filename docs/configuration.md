@@ -36,7 +36,7 @@ All settings have sensible defaults, so configuration files are optional.
 - `LogConfig` -- `enabled: bool` (default false), `level: String` (default
   `"info"`), `max_file_mb: u64` (default 10)
 - `WindowRule` -- `match_class: Option<String>`, `match_title: Option<String>`,
-  `manage: bool`
+  `match_path: Option<String>`, `manage: bool`
 - `ThemeConfig` -- `flavor: Option<String>` (default `None`, resolves to
   `Theme::Mocha`)
 - `Theme` (enum) -- `Latte`, `Frappe`, `Macchiato`, `Mocha`
@@ -194,12 +194,18 @@ by default.
 
 ### Rule Matching
 
-`matches_rule(class, title, rule)`:
+`matches_rule(class, title, path, rule)`:
 
 - **Class match**: case-insensitive exact match
 - **Title match**: case-insensitive substring match
-- If a rule specifies both `match_class` and `match_title`, both must match
-- If a rule specifies neither, it matches everything
+- **Path match**: case-insensitive suffix match against the full path of
+  the window's executable, on a path component boundary. `"app.exe"`
+  matches `C:\Vendor\app.exe` but not `C:\Vendor\myapp.exe`. `/` and `\`
+  are treated the same. The path comes from
+  `Window::exe_path()` (`QueryFullProcessImageNameW`) and is empty when
+  the process cannot be opened, in which case path rules do not match
+- If a rule specifies more than one field, all of them must match
+- If a rule specifies none, it matches nothing
 
 ### Default Rules
 
@@ -209,16 +215,30 @@ by default.
 
 ### Evaluation
 
-`should_manage(class, title, rules)`:
+`should_manage(class, title, path, rules)`:
 
 1. Iterates rules in order
 2. Returns `rule.manage` for the first matching rule
 3. If no rule matches, returns `true` (manage the window)
 
+`matching_rule(class, title, path, rules)` returns the same decision as an
+`Option<bool>`, with `None` when no rule matches.
+
 ### Integration
 
-`TilingManager::is_tileable()` calls `should_manage()` as part of its
-tileability check, after verifying visibility and window style.
+`TilingManager::is_tileable()` evaluates rules as part of its tileability
+check, after verifying visibility and window style.
+
+`Window::app_window_caption()` rejects tool windows, owned windows, and
+modal dialogs outright. For the rest it reports whether the window has
+`WS_CAPTION`:
+
+- **With a caption**: `should_manage()` decides, so unmatched windows are
+  tiled.
+- **Without a caption**: apps that draw their own title bar look the same
+  as splash screens and borderless popups, so they are only tiled when
+  `matching_rule()` returns `Some(true)`, i.e. a rule explicitly opts
+  them in.
 
 ## Template Generation
 

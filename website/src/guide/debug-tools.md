@@ -39,12 +39,13 @@ The output is a formatted table showing:
 | Monitor | Which monitor the window is on |
 | Title | Window title |
 | Class | Window class name |
+| Path | Path of the program that owns the window |
 | Position | X, Y coordinates |
 | Size | Width and height |
 | Border Offset | Invisible frame compensation values |
 
-This is useful for finding window class names when writing
-[window rules](window-rules.md).
+This is useful for finding window class names and executable paths when
+writing [window rules](window-rules.md).
 
 ## `mosaico debug events`
 

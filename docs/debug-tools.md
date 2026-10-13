@@ -29,6 +29,7 @@ Displays a formatted table of all visible windows on the desktop.
 | Monitor | Monitor number (1-based) |
 | Title | Window title text |
 | Class | Window class name |
+| Path | Full path of the owning executable |
 | X, Y | Window position |
 | Width, Height | Window dimensions |
 | Border Offset | Invisible frame border offsets |
@@ -38,8 +39,9 @@ Displays a formatted table of all visible windows on the desktop.
 1. Enables DPI awareness for accurate coordinates
 2. Loads window rules from configuration
 3. Enumerates all visible windows via `EnumWindows`
-4. For each window: queries title, class, rect, border offset, monitor,
-   and evaluates rules
+4. For each window: queries title, class, executable path, rect, border
+   offset, monitor, and evaluates rules. Windows without a caption are
+   listed too, and show as managed only when a rule opts them in
 5. Formats the results in a table using `comfy-table`
 6. Prints a footer: `"Found N windows"` and monitor count
 

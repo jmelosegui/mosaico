@@ -1,5 +1,5 @@
 use mosaico_core::Window;
-use mosaico_core::config::{load_merged_rules, should_manage};
+use mosaico_core::config::{load_merged_rules, matching_rule, should_manage};
 use mosaico_windows::{frame, monitor};
 
 pub fn execute() {
@@ -14,11 +14,14 @@ pub fn execute() {
         let rect = window.rect().unwrap_or(mosaico_core::Rect::new(0, 0, 0, 0));
         let hwnd = window.hwnd().0 as usize;
         let monitor_num = monitor_index_for(&monitors, hwnd);
-        let managed = if should_manage(&class, &title, &rules) {
-            "yes"
+        let path = window.exe_path();
+        let has_caption = window.app_window_caption() == Some(true);
+        let managed = if has_caption {
+            should_manage(&class, &title, &path, &rules)
         } else {
-            "no"
+            matching_rule(&class, &title, &path, &rules) == Some(true)
         };
+        let managed = if managed { "yes" } else { "no" };
         let display_title = if title.is_empty() {
             "<untitled>"
         } else {
@@ -37,6 +40,7 @@ pub fn execute() {
 
         println!("  0x{hwnd:X}  {display_title}");
         println!("       Class: {class}");
+        println!("       Path: {path}");
         println!("       Managed: {managed}  Monitor: {monitor_num}  State: {state}");
         println!(
             "       Rect: {}x{} at ({}, {})  Border: {border}",

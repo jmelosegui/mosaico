@@ -52,6 +52,11 @@ pub fn generate_user_rules() -> String {
 # [[rule]]
 # match_title = "My Private Tool"
 # manage = false
+
+# Example: match by executable (file name, partial path, or full path)
+# [[rule]]
+# match_path = "mytool.exe"
+# manage = true
 "#
     .to_string()
 }

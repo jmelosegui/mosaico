@@ -19,6 +19,12 @@ pub struct WindowRule {
     /// Match windows whose title contains this string (case-insensitive).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub match_title: Option<String>,
+    /// Match windows whose executable path ends with this value
+    /// (case-insensitive, on a path component boundary). Accepts a bare
+    /// file name like `"app.exe"`, a partial path like
+    /// `"Vendor\\app.exe"`, or a full path.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub match_path: Option<String>,
     /// Whether matching windows should be managed (tiled).
     pub manage: bool,
 }
@@ -35,16 +41,26 @@ pub fn default_rules() -> Vec<WindowRule> {
 ///
 /// Returns `true` if the window should be tiled. When no rule matches,
 /// defaults to `true`.
-pub fn should_manage(class: &str, title: &str, rules: &[WindowRule]) -> bool {
-    for rule in rules {
-        if matches_rule(class, title, rule) {
-            return rule.manage;
-        }
-    }
-    true
+///
+/// `path` is the full path of the window's executable, or empty if it
+/// could not be determined.
+pub fn should_manage(class: &str, title: &str, path: &str, rules: &[WindowRule]) -> bool {
+    matching_rule(class, title, path, rules).unwrap_or(true)
 }
 
-fn matches_rule(class: &str, title: &str, rule: &WindowRule) -> bool {
+/// Returns the `manage` value of the first rule matching the window,
+/// or `None` when no rule matches.
+///
+/// Used for windows that only get tiled when a rule explicitly opts
+/// them in, such as app windows that draw their own title bar.
+pub fn matching_rule(class: &str, title: &str, path: &str, rules: &[WindowRule]) -> Option<bool> {
+    rules
+        .iter()
+        .find(|rule| matches_rule(class, title, path, rule))
+        .map(|rule| rule.manage)
+}
+
+fn matches_rule(class: &str, title: &str, path: &str, rule: &WindowRule) -> bool {
     if let Some(ref mc) = rule.match_class
         && !class.eq_ignore_ascii_case(mc)
     {
@@ -63,7 +79,27 @@ fn matches_rule(class: &str, title: &str, rule: &WindowRule) -> bool {
             return false;
         }
     }
-    rule.match_class.is_some() || rule.match_title.is_some()
+    if let Some(ref mp) = rule.match_path
+        && !path_ends_with(path, mp)
+    {
+        return false;
+    }
+    rule.match_class.is_some() || rule.match_title.is_some() || rule.match_path.is_some()
+}
+
+/// Case-insensitive check that `path` ends with `suffix` at a path
+/// component boundary, treating `/` and `\` as equivalent.
+///
+/// `"app.exe"` matches `C:\Vendor\app.exe` but not `C:\Vendor\myapp.exe`.
+fn path_ends_with(path: &str, suffix: &str) -> bool {
+    let normalize = |s: &str| s.replace('/', "\\").to_ascii_lowercase();
+    let path = normalize(path);
+    let suffix = normalize(suffix);
+    if suffix.is_empty() || !path.ends_with(&suffix) {
+        return false;
+    }
+    let rest = &path[..path.len() - suffix.len()];
+    rest.is_empty() || rest.ends_with('\\') || suffix.starts_with('\\')
 }
 
 /// Wrapper for deserializing the keybindings file.
