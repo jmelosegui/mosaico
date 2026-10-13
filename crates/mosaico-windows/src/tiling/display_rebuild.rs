@@ -1,7 +1,7 @@
 //! Pure monitor-list rebuild for display changes, kept free of Win32
 //! calls so it can be unit tested.
 
-use mosaico_core::{LayoutKind, MonitorKey, match_monitors};
+use mosaico_core::{LayoutKind, Monitor, MonitorKey, match_monitors};
 
 use crate::monitor::MonitorInfo;
 
@@ -44,20 +44,20 @@ pub(super) fn rebuild_monitors(
                 let prev = &mut old[*oi];
                 state.workspaces = std::mem::take(&mut prev.workspaces);
                 state.active_workspace = prev.active_workspace;
-            } else if let Some((workspaces, active)) = memory.unpark(&info.key) {
-                mosaico_core::log_info!("Monitor {} reconnected", info.key);
+            } else if let Some((workspaces, active)) = memory.unpark(info.key()) {
+                mosaico_core::log_info!("Monitor {} reconnected", info.key());
                 state.workspaces = workspaces;
                 state.active_workspace = active;
                 returned.push(ni);
             } else {
-                mosaico_core::log_info!("New monitor {}", info.key);
+                mosaico_core::log_info!("New monitor {}", info.key());
             }
             state
         })
         .collect();
 
     let mut moved = Vec::new();
-    let host = new.iter().position(|m| m.primary).unwrap_or(0);
+    let host = new.iter().position(|m| m.is_primary()).unwrap_or(0);
     for (oi, gone) in old.into_iter().enumerate() {
         if pairs.contains(&Some(oi)) {
             continue;
@@ -108,7 +108,7 @@ fn clear_stale_monocle(monitor: &mut MonitorState) {
 /// place, such as an office monitor taking over a home one.
 pub(super) fn pair_monitors(old: &[MonitorState], new: &[MonitorInfo]) -> Vec<Option<usize>> {
     let old_keys: Vec<MonitorKey> = old.iter().map(|m| m.key.clone()).collect();
-    let new_keys: Vec<MonitorKey> = new.iter().map(|m| m.key.clone()).collect();
+    let new_keys: Vec<MonitorKey> = new.iter().map(|m| m.key().clone()).collect();
     let mut pairs = match_monitors(&old_keys, &new_keys);
 
     let mut used = vec![false; old.len()];
@@ -120,7 +120,8 @@ pub(super) fn pair_monitors(old: &[MonitorState], new: &[MonitorInfo]) -> Vec<Op
         if pairs[ni].is_some() {
             continue;
         }
-        let eligible = |oi: usize| !used[oi] && (info.key.is_unknown() || old[oi].key.is_unknown());
+        let eligible =
+            |oi: usize| !used[oi] && (info.key().is_unknown() || old[oi].key.is_unknown());
         let found = (0..old.len())
             .find(|&oi| eligible(oi) && old[oi].id == info.id)
             .or_else(|| {
@@ -128,8 +129,8 @@ pub(super) fn pair_monitors(old: &[MonitorState], new: &[MonitorInfo]) -> Vec<Op
                 // shifted down by the bar and would never match.
                 (0..old.len()).find(|&oi| {
                     eligible(oi)
-                        && old[oi].os_work_area.x == info.work_area.x
-                        && old[oi].os_work_area.y == info.work_area.y
+                        && old[oi].os_work_area.x == info.work_area().x
+                        && old[oi].os_work_area.y == info.work_area().y
                 })
             });
         if let Some(oi) = found {

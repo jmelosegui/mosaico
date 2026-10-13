@@ -14,9 +14,10 @@ and monitors using vim-style H/J/K/L motions.
 | `crates/mosaico-core/src/rect.rs` | `Rect::vertical_overlap()`, `Rect::horizontal_overlap()` |
 | `crates/mosaico-core/src/monitor.rs` | `MonitorKey`, `EdidIdentity`, `Monitor` trait |
 | `crates/mosaico-core/src/monitor/matching.rs` | `match_monitors()` |
+| `crates/mosaico-core/src/monitor/edid.rs` | `EdidIdentity::from_edid()`, `pnp_manufacturer()` |
 | `crates/mosaico-windows/src/monitor.rs` | `MonitorInfo`, enumeration and query functions |
 | `crates/mosaico-windows/src/monitor_identity.rs` | Builds a `MonitorKey` from the display configuration |
-| `crates/mosaico-windows/src/monitor_edid.rs` | PNP ID and EDID serial decoding |
+| `crates/mosaico-windows/src/monitor_edid.rs` | Reads the EDID copy from the registry |
 | `crates/mosaico-windows/src/tiling/display.rs` | `handle_display_change()` |
 | `crates/mosaico-windows/src/tiling/display_rebuild.rs` | `rebuild_monitors()`, `pair_monitors()` (no Win32 calls, unit tested) |
 | `crates/mosaico-windows/src/tiling/mod.rs` | `TilingManager`, `MonitorState`, `SpatialTarget` |
@@ -85,7 +86,7 @@ What each platform is expected to supply:
 | Field | Windows | macOS | Linux |
 |-------|---------|-------|-------|
 | `stable_id` | Monitor device interface path (`DisplayConfigGetDeviceInfo`, target name) | `CGDisplayCreateUUIDFromDisplayID` | Connector name plus an EDID hash |
-| `edid` | `edidManufactureId` / `edidProductCodeId`, serial from the EDID copy under `Enum\DISPLAY` in the registry | `CGDisplayVendorNumber` / `ModelNumber` / `SerialNumber` | EDID from the RandR property or DRM sysfs |
+| `edid` | The EDID copy under `Enum\DISPLAY` in the registry, decoded by `EdidIdentity::from_edid()`; falls back to `edidManufactureId` / `edidProductCodeId` without a serial | `CGDisplayVendorNumber` / `ModelNumber` / `SerialNumber` | Raw EDID from the RandR property or DRM sysfs, decoded by `EdidIdentity::from_edid()` |
 | `connector` | Output technology and `connectorInstance`, e.g. `dp:1` | none | Connector name, e.g. `DP-1` |
 
 ### Matching

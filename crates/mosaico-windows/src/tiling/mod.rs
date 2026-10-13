@@ -52,9 +52,9 @@ impl MonitorState {
     fn new(info: &monitor::MonitorInfo, layouts: &[LayoutKind]) -> Self {
         Self {
             id: info.id,
-            key: info.key.clone(),
-            os_work_area: info.work_area,
-            work_area: info.work_area,
+            key: mosaico_core::Monitor::key(info).clone(),
+            os_work_area: mosaico_core::Monitor::work_area(info),
+            work_area: mosaico_core::Monitor::work_area(info),
             workspaces: layouts.iter().map(|&k| Workspace::with_layout(k)).collect(),
             active_workspace: 0,
         }

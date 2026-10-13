@@ -4,11 +4,11 @@ use crate::Rect;
 
 /// Identity of a physical display that survives reconnects.
 ///
-/// Platforms hand out a fresh handle for a display every time it is
-/// connected (`HMONITOR` on Windows, `CGDirectDisplayID` on macOS, RandR
-/// output XIDs on X11), and they do so for displays that never went
-/// away too. A `MonitorKey` is what lets the tiler recognise a display
-/// when it comes back, so its workspaces can be restored.
+/// Operating systems typically hand out a fresh per-session handle for a
+/// display every time the display configuration changes, including for
+/// displays that never went away. A `MonitorKey` is what lets the tiler
+/// recognise a display when it comes back, so its workspaces can be
+/// restored.
 ///
 /// # Contract for platform implementations
 ///
@@ -29,8 +29,8 @@ use crate::Rect;
 pub struct MonitorKey {
     /// The most specific stable identifier the platform offers.
     ///
-    /// Opaque to the core: only compared for equality. Windows uses the
-    /// monitor device interface path, macOS would use the display UUID.
+    /// Opaque to the core: only compared for equality. Typically a device
+    /// path or UUID the OS keeps for the physical display.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stable_id: Option<String>,
     /// Identity read from the display's EDID. Means the same on every OS.
@@ -72,7 +72,7 @@ impl MonitorKey {
     /// Whether the platform could not identify the display at all.
     ///
     /// Such a key never matches anything in [`match_monitors`]; callers
-    /// fall back to handle or position matching for it.
+    /// fall back to session handle or position matching for it.
     pub fn is_unknown(&self) -> bool {
         self.stable_id.is_none() && self.edid.is_none() && self.connector.is_none()
     }
@@ -116,12 +116,14 @@ pub trait Monitor {
 
     /// Whether this is the primary display.
     ///
-    /// Windows from displays that disconnect are moved here.
+    /// Application windows from displays that disconnect are moved here.
     fn is_primary(&self) -> bool;
 }
 
+mod edid;
 mod matching;
 
+pub use edid::pnp_manufacturer;
 pub use matching::match_monitors;
 
 #[cfg(test)]

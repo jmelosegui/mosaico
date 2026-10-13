@@ -8,7 +8,7 @@
 
 use std::collections::HashMap;
 
-use mosaico_core::{EdidIdentity, MonitorKey};
+use mosaico_core::{EdidIdentity, MonitorKey, pnp_manufacturer};
 use windows::Win32::Devices::Display::{
     DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME, DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_NAME,
     DISPLAYCONFIG_DEVICE_INFO_HEADER, DISPLAYCONFIG_MODE_INFO, DISPLAYCONFIG_PATH_INFO,
@@ -17,7 +17,7 @@ use windows::Win32::Devices::Display::{
 };
 use windows::Win32::Foundation::ERROR_SUCCESS;
 
-use crate::monitor_edid::{edid_serial, output_technology_name, pnp_id, wide_to_string};
+use crate::monitor_edid::{output_technology_name, registry_edid, wide_to_string};
 
 /// `edidIdsValid` bit of `DISPLAYCONFIG_TARGET_DEVICE_NAME_FLAGS`.
 const EDID_IDS_VALID: u32 = 0x4;
@@ -117,11 +117,18 @@ fn target_key(path: &DISPLAYCONFIG_PATH_INFO) -> Option<MonitorKey> {
     let device_path = wide_to_string(&target.monitorDevicePath);
     // SAFETY: Reading the plain integer view of a C bitfield union.
     let flags = unsafe { target.flags.Anonymous.value };
-    let edid = (flags & EDID_IDS_VALID != 0).then(|| EdidIdentity {
-        manufacturer: pnp_id(target.edidManufactureId),
-        product: target.edidProductCodeId,
-        serial: edid_serial(&device_path),
-    });
+    // Prefer the full EDID Windows keeps in the registry, which carries
+    // the serial. Fall back to the IDs the display stack reports, whose
+    // manufacturer field comes back with its two bytes swapped.
+    let edid = registry_edid(&device_path)
+        .and_then(|bytes| EdidIdentity::from_edid(&bytes))
+        .or_else(|| {
+            (flags & EDID_IDS_VALID != 0).then(|| EdidIdentity {
+                manufacturer: pnp_manufacturer(target.edidManufactureId.swap_bytes()),
+                product: target.edidProductCodeId,
+                serial: None,
+            })
+        });
     let connector = format!(
         "{}:{}",
         output_technology_name(target.outputTechnology.0),

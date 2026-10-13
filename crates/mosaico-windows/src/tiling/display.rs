@@ -61,7 +61,10 @@ impl TilingManager {
 
         // Stay on the same physical monitor if it is still connected,
         // otherwise follow the windows to the primary monitor.
-        let primary = new_monitors.iter().position(|m| m.primary).unwrap_or(0);
+        let primary = new_monitors
+            .iter()
+            .position(mosaico_core::Monitor::is_primary)
+            .unwrap_or(0);
         self.focused_monitor = focused_key
             .and_then(|key| {
                 self.monitors
