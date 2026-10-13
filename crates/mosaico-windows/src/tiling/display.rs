@@ -9,34 +9,6 @@ use crate::monitor::MonitorInfo;
 use super::{MonitorState, TilingManager};
 
 impl TilingManager {
-    /// Adjusts monitor work areas by subtracting bar height from the top.
-    ///
-    /// Only monitors whose index appears in `bar_monitors` are adjusted.
-    /// An empty slice means all monitors.
-    pub fn adjust_work_areas_for_bar(&mut self, bar_height: i32, bar_monitors: &[usize]) {
-        for (i, mon) in self.monitors.iter_mut().enumerate() {
-            if bar_monitors.is_empty() || bar_monitors.contains(&i) {
-                mon.work_area.y += bar_height;
-                mon.work_area.height -= bar_height;
-            }
-        }
-        self.retile_all();
-    }
-
-    /// Resets work areas to the OS values, then applies the bar offset.
-    ///
-    /// Used when bar config changes to avoid accumulating offsets.
-    pub fn reset_and_adjust_work_areas(&mut self, bar_height: i32, bar_monitors: &[usize]) {
-        if let Ok(os_monitors) = crate::monitor::enumerate_monitors() {
-            for mon in &mut self.monitors {
-                if let Some(os) = os_monitors.iter().find(|m| m.id == mon.id) {
-                    mon.work_area = os.work_area;
-                }
-            }
-        }
-        self.adjust_work_areas_for_bar(bar_height, bar_monitors);
-    }
-
     /// Rebuilds internal monitor state after a display configuration change.
     ///
     /// Preserves workspaces for monitors that still exist (matched by ID,
@@ -60,7 +32,7 @@ impl TilingManager {
             let ids_match = new_monitors
                 .iter()
                 .zip(self.monitors.iter())
-                .all(|(new, old)| new.id == old.id && new.work_area == old.work_area);
+                .all(|(new, old)| new.id == old.id && new.work_area == old.os_work_area);
             if ids_match {
                 return;
             }
@@ -77,8 +49,10 @@ impl TilingManager {
                 .iter()
                 .position(|m| m.id == info.id)
                 .or_else(|| {
+                    // Compare against the OS work area: the tiling area is
+                    // shifted down by the bar and would never match.
                     self.monitors.iter().position(|m| {
-                        m.work_area.x == info.work_area.x && m.work_area.y == info.work_area.y
+                        m.os_work_area.x == info.work_area.x && m.os_work_area.y == info.work_area.y
                     })
                 });
 
@@ -87,6 +61,7 @@ impl TilingManager {
                 let old = &mut self.monitors[idx];
                 new_states.push(MonitorState {
                     id: info.id,
+                    os_work_area: info.work_area,
                     work_area: info.work_area,
                     workspaces: std::mem::take(&mut old.workspaces),
                     active_workspace: old.active_workspace,
@@ -95,6 +70,7 @@ impl TilingManager {
                 // Brand new monitor — create fresh workspaces.
                 new_states.push(MonitorState {
                     id: info.id,
+                    os_work_area: info.work_area,
                     work_area: info.work_area,
                     workspaces: (0..MAX_WORKSPACES).map(|_| Workspace::new()).collect(),
                     active_workspace: 0,

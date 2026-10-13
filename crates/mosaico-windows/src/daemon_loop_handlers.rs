@@ -26,16 +26,15 @@ pub(super) fn handle_event(
         mosaico_core::WindowEvent::DisplayChanged => match monitor::enumerate_monitors() {
             Ok(new_monitors) => {
                 mosaico_core::log_info!("Display change detected, {} monitors", new_monitors.len());
+                // Rebuild the bars first: the tiler must reserve space on
+                // the monitors that have a bar *after* the change. Reading
+                // the indices beforehand leaves a newly connected monitor
+                // tiled underneath its bar.
+                let monitor_rects: Vec<_> = new_monitors.iter().map(|m| m.work_area).collect();
+                bar_mgr.rebuild_for_monitors(monitor_rects, *current_theme);
                 let bar_height = bar_mgr.bar_height();
                 let indices = bar_mgr.bar_monitor_indices().to_vec();
                 manager.handle_display_change(new_monitors, bar_height, &indices);
-
-                let monitor_rects: Vec<_> = monitor::enumerate_monitors()
-                    .unwrap_or_default()
-                    .iter()
-                    .map(|m| m.work_area)
-                    .collect();
-                bar_mgr.rebuild_for_monitors(monitor_rects, *current_theme);
                 true
             }
             Err(e) => {
@@ -73,8 +72,23 @@ pub(super) fn handle_action(
         bar_mgr.update(&manager.bar_states(&get_update(), *hotkeys_paused));
         return;
     }
-    manager.handle_action(&action);
+    run_action(&action, manager, bar_mgr);
     bar_mgr.update(&manager.bar_states(&get_update(), *hotkeys_paused));
+}
+
+/// Runs an action on the tiling manager.
+///
+/// Retile re-reads the OS work areas and re-reserves the bar before
+/// laying windows out again, so it repairs a tiling area that went stale
+/// (e.g. after a monitor reconnect) instead of re-applying it.
+fn run_action(action: &mosaico_core::Action, manager: &mut TilingManager, bar_mgr: &BarManager) {
+    if *action == mosaico_core::Action::Retile {
+        mosaico_core::log_info!("Retile: re-reading work areas");
+        let indices = bar_mgr.bar_monitor_indices().to_vec();
+        manager.reset_and_adjust_work_areas(bar_mgr.bar_height(), &indices);
+        return;
+    }
+    manager.handle_action(action);
 }
 
 pub(super) fn handle_command(
@@ -98,7 +112,7 @@ pub(super) fn handle_command(
             Some(Response::ok_with_message(msg))
         }
         Command::Action { action } => {
-            manager.handle_action(action);
+            run_action(action, manager, bar_mgr);
             bar_mgr.update(&manager.bar_states(&get_update(), *hotkeys_paused));
             Some(Response::ok())
         }

@@ -22,12 +22,16 @@ mod monocle_tests;
 #[path = "tests/pre_placed_tests.rs"]
 mod pre_placed_tests;
 #[cfg(test)]
+#[path = "tests/work_area_tests.rs"]
+mod work_area_tests;
+#[cfg(test)]
 #[path = "tests/workspace_tests.rs"]
 mod workspace_tests;
 
 pub(super) fn make_monitor(id: usize) -> MonitorState {
     MonitorState {
         id,
+        os_work_area: Rect::new(0, 0, 1920, 1080),
         work_area: Rect::new(0, 0, 1920, 1080),
         workspaces: (0..MAX_WORKSPACES).map(|_| Workspace::new()).collect(),
         active_workspace: 0,
@@ -113,13 +117,14 @@ pub(super) fn simulate_display_change(
         let old_idx = old_monitors.iter().position(|m| m.id == *id).or_else(|| {
             old_monitors
                 .iter()
-                .position(|m| m.work_area.x == work_area.x && m.work_area.y == work_area.y)
+                .position(|m| m.os_work_area.x == work_area.x && m.os_work_area.y == work_area.y)
         });
 
         if let Some(idx) = old_idx {
             let old = &mut old_monitors[idx];
             new_states.push(MonitorState {
                 id: *id,
+                os_work_area: *work_area,
                 work_area: *work_area,
                 workspaces: std::mem::take(&mut old.workspaces),
                 active_workspace: old.active_workspace,
@@ -127,6 +132,7 @@ pub(super) fn simulate_display_change(
         } else {
             new_states.push(MonitorState {
                 id: *id,
+                os_work_area: *work_area,
                 work_area: *work_area,
                 workspaces: (0..MAX_WORKSPACES).map(|_| Workspace::new()).collect(),
                 active_workspace: 0,

@@ -7,6 +7,7 @@ mod layout;
 mod lifecycle;
 mod navigation;
 mod navigation_helpers;
+mod work_area;
 mod workspace;
 
 use std::collections::{HashMap, HashSet};
@@ -28,6 +29,12 @@ use crate::window::Window;
 /// Per-monitor state: multiple workspaces and work area.
 pub(super) struct MonitorState {
     pub(super) id: usize,
+    /// Work area as reported by the OS, before the bar is reserved.
+    ///
+    /// Kept so the bar-adjusted `work_area` can always be re-derived
+    /// from it instead of offset in place, which would accumulate.
+    pub(super) os_work_area: Rect,
+    /// Space available for tiling: `os_work_area` minus the bar.
     pub(super) work_area: Rect,
     pub(super) workspaces: Vec<Workspace>,
     pub(super) active_workspace: usize,
@@ -173,6 +180,7 @@ impl TilingManager {
             .into_iter()
             .map(|info| MonitorState {
                 id: info.id,
+                os_work_area: info.work_area,
                 work_area: info.work_area,
                 workspaces: (0..MAX_WORKSPACES)
                     .map(|i| {
