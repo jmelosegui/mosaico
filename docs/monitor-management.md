@@ -142,6 +142,14 @@ an inactive workspace are hidden before the retile and those on an active
 workspace are shown after it. Focus stays on the same physical monitor if
 it is still connected, otherwise it moves to the primary monitor.
 
+Display changes are applied once the configuration settles. The daemon
+loop does not rebuild on each `DisplayChanged` event: it records it in a
+`DisplaySettle` (`daemon_settle.rs`) and rebuilds once no further change
+has arrived for 750 ms. A KVM switch or a dock sends several
+`WM_DISPLAYCHANGE` messages in a row, and rebuilding on each one would
+retile every window several times and could park a monitor that is only
+renegotiating its signal.
+
 The memory is not persisted: it survives sleep but not a daemon restart.
 `mosaico debug state` lists the parked monitors and the number of
 displaced windows.

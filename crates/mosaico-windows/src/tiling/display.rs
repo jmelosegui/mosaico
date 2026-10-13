@@ -111,8 +111,16 @@ impl TilingManager {
             self.show_window(hwnd);
         }
 
-        // The focused window may now sit on a hidden workspace.
-        if self.focused_window.is_some_and(|h| hidden.contains(&h)) {
+        // Follow the focused window if it moved to another monitor and is
+        // still visible there; otherwise it may now sit on a hidden
+        // workspace and focus falls back to the focused monitor.
+        if let Some((mi, _)) = self
+            .focused_window
+            .filter(|&h| self.is_on_active_workspace(h))
+            .and_then(|h| self.find_window(h))
+        {
+            self.focused_monitor = mi;
+        } else if self.focused_window.is_some_and(|h| hidden.contains(&h)) {
             let ws = self.monitors[self.focused_monitor].active_ws();
             self.focused_window = ws
                 .last_focused()
