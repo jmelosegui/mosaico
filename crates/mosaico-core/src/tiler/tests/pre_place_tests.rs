@@ -2,6 +2,8 @@ use super::super::adopt::should_pre_place;
 use super::super::layout::monocle_rect_for;
 use super::make_monitor;
 use crate::Rect;
+use crate::WindowId;
+use crate::id::wid;
 
 // -- should_pre_place --
 
@@ -32,41 +34,41 @@ fn skips_pre_placement_when_rules_reject_the_window() {
 #[test]
 fn add_then_remove_restores_the_handle_list() {
     let mut mon = make_monitor(1);
-    mon.workspaces[0].add(100);
-    mon.workspaces[0].add(200);
-    let before: Vec<usize> = mon.workspaces[0].handles().to_vec();
+    mon.workspaces[0].add(wid(100));
+    mon.workspaces[0].add(wid(200));
+    let before: Vec<WindowId> = mon.workspaces[0].windows().to_vec();
 
-    assert!(mon.active_ws_mut().add(300));
+    assert!(mon.active_ws_mut().add(wid(300)));
     assert_eq!(mon.active_ws().len(), 3);
-    mon.active_ws_mut().remove(300);
+    mon.active_ws_mut().remove(wid(300));
 
-    assert_eq!(mon.workspaces[0].handles().to_vec(), before);
-    assert!(!mon.workspaces[0].contains(300));
+    assert_eq!(mon.workspaces[0].windows().to_vec(), before);
+    assert!(!mon.workspaces[0].contains(wid(300)));
 }
 
 #[test]
 fn add_then_remove_leaves_last_focused_alone() {
     let mut mon = make_monitor(1);
-    mon.workspaces[0].add(100);
-    mon.active_ws_mut().set_last_focused(Some(100));
+    mon.workspaces[0].add(wid(100));
+    mon.active_ws_mut().set_last_focused(Some(wid(100)));
 
-    mon.active_ws_mut().add(300);
-    mon.active_ws_mut().remove(300);
+    mon.active_ws_mut().add(wid(300));
+    mon.active_ws_mut().remove(wid(300));
 
     // remove() only clears last_focused when it matches the handle
     // being removed, and a window that was never shown was never
     // focused, so the promotion target on close is unaffected.
-    assert_eq!(mon.active_ws().last_focused(), Some(100));
+    assert_eq!(mon.active_ws().last_focused(), Some(wid(100)));
 }
 
 #[test]
 fn a_window_that_is_already_tracked_is_not_added_twice() {
     let mut mon = make_monitor(1);
-    mon.workspaces[0].add(100);
+    mon.workspaces[0].add(wid(100));
 
     // pre_place bails out when add() reports the window is already
     // managed, so it never removes a handle it did not add.
-    assert!(!mon.active_ws_mut().add(100));
+    assert!(!mon.active_ws_mut().add(wid(100)));
     assert_eq!(mon.active_ws().len(), 1);
 }
 

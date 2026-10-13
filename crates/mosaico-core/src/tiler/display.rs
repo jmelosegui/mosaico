@@ -3,6 +3,8 @@
 use crate::Monitor;
 use crate::config::WorkspaceMode;
 
+use crate::WindowId;
+
 use super::display_rebuild::rebuild_monitors;
 use super::{BarReservation, Display, Effect, Plan, Tiler};
 
@@ -84,7 +86,7 @@ impl Tiler {
         // Windows that landed on an inactive workspace are hidden before
         // the retile; the ones on an active workspace are shown after it,
         // so they appear in their final place.
-        let (shown, hidden): (Vec<usize>, Vec<usize>) = rebuilt
+        let (shown, hidden): (Vec<WindowId>, Vec<WindowId>) = rebuilt
             .moved
             .into_iter()
             .partition(|&w| self.is_on_active_workspace(w));
@@ -114,7 +116,7 @@ impl Tiler {
             self.focused_window = ws
                 .last_focused()
                 .filter(|&w| ws.contains(w))
-                .or_else(|| ws.handles().first().copied());
+                .or_else(|| ws.windows().first().copied());
         }
         self.update_border(plan);
     }

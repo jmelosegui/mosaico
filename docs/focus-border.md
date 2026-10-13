@@ -77,7 +77,7 @@ The literal `"none"` on `unfocused` disables unfocused borders;
 
 ## Integration
 
-The `TilingManager` keeps a `HashMap<usize, Border>` keyed by `hwnd`,
+The applier in `mosaico-windows` keeps a `HashMap<WindowId, Border>` keyed by window id,
 with one entry per visible tiled window. The lifecycle is unified
 through a single entry point:
 
@@ -146,7 +146,7 @@ overlay is affected.
   would cause recursive tiling loops.
 - **DIB section rendering** gives full control over per-pixel alpha without
   depending on GDI drawing primitives, which have limited alpha support.
-- **One overlay per visible window**, keyed by `hwnd` in a `HashMap`.
+- **One overlay per visible window**, keyed by window id in a `HashMap`.
   Borders are created lazily when a window is first added to a visible
   workspace and dropped (via `Drop`, which calls `DestroyWindow`) when
   the window leaves it. This avoids scanning a Vec on every update at

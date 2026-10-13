@@ -1,22 +1,22 @@
-use crate::Rect;
 use crate::layout::{Layout, LayoutKind};
+use crate::{Rect, WindowId};
 
 /// A workspace manages a set of tiled windows on a single monitor.
 ///
 /// It maintains the window ordering (which determines layout positions)
 /// and delegates positioning to a `Layout` implementation.
 pub struct Workspace {
-    /// Ordered list of managed window handles.
-    handles: Vec<usize>,
+    /// Ordered list of managed window windows.
+    windows: Vec<WindowId>,
     /// Whether monocle (single-window fullscreen) mode is active.
     monocle: bool,
     /// The window shown fullscreen in monocle mode.
-    monocle_window: Option<usize>,
+    monocle_window: Option<WindowId>,
     /// The last focused window on this workspace.
     ///
     /// Saved when switching away, restored when switching back so the
     /// user returns to the window they were working on.
-    last_focused: Option<usize>,
+    last_focused: Option<WindowId>,
     /// The active layout algorithm for this workspace.
     layout_kind: LayoutKind,
 }
@@ -26,7 +26,7 @@ impl Workspace {
     /// Creates an empty workspace with the default layout.
     pub fn new() -> Self {
         Self {
-            handles: Vec::new(),
+            windows: Vec::new(),
             monocle: false,
             monocle_window: None,
             last_focused: None,
@@ -53,22 +53,22 @@ impl Workspace {
     }
 
     /// Returns the monocle window handle, if any.
-    pub fn monocle_window(&self) -> Option<usize> {
+    pub fn monocle_window(&self) -> Option<WindowId> {
         self.monocle_window
     }
 
     /// Sets the monocle window handle.
-    pub fn set_monocle_window(&mut self, value: Option<usize>) {
+    pub fn set_monocle_window(&mut self, value: Option<WindowId>) {
         self.monocle_window = value;
     }
 
     /// Returns the last focused window on this workspace.
-    pub fn last_focused(&self) -> Option<usize> {
+    pub fn last_focused(&self) -> Option<WindowId> {
         self.last_focused
     }
 
     /// Sets the last focused window on this workspace.
-    pub fn set_last_focused(&mut self, value: Option<usize>) {
+    pub fn set_last_focused(&mut self, value: Option<WindowId>) {
         self.last_focused = value;
     }
 
@@ -85,11 +85,11 @@ impl Workspace {
     /// Adds a window to the end of the workspace.
     ///
     /// Returns `false` if the window is already managed.
-    pub fn add(&mut self, hwnd: usize) -> bool {
-        if self.handles.contains(&hwnd) {
+    pub fn add(&mut self, window: WindowId) -> bool {
+        if self.windows.contains(&window) {
             return false;
         }
-        self.handles.push(hwnd);
+        self.windows.push(window);
         true
     }
 
@@ -97,22 +97,22 @@ impl Workspace {
     ///
     /// The index is clamped to the current length.
     /// Returns `false` if the window is already managed.
-    pub fn insert(&mut self, index: usize, hwnd: usize) -> bool {
-        if self.handles.contains(&hwnd) {
+    pub fn insert(&mut self, index: usize, window: WindowId) -> bool {
+        if self.windows.contains(&window) {
             return false;
         }
-        let pos = index.min(self.handles.len());
-        self.handles.insert(pos, hwnd);
+        let pos = index.min(self.windows.len());
+        self.windows.insert(pos, window);
         true
     }
 
     /// Removes a window from the workspace.
     ///
     /// Returns `true` if the window was found and removed.
-    pub fn remove(&mut self, hwnd: usize) -> bool {
-        if let Some(pos) = self.handles.iter().position(|&h| h == hwnd) {
-            self.handles.remove(pos);
-            if self.last_focused == Some(hwnd) {
+    pub fn remove(&mut self, window: WindowId) -> bool {
+        if let Some(pos) = self.windows.iter().position(|&h| h == window) {
+            self.windows.remove(pos);
+            if self.last_focused == Some(window) {
                 self.last_focused = None;
             }
             true
@@ -122,42 +122,42 @@ impl Workspace {
     }
 
     /// Returns whether the workspace manages the given window.
-    pub fn contains(&self, hwnd: usize) -> bool {
-        self.handles.contains(&hwnd)
+    pub fn contains(&self, window: WindowId) -> bool {
+        self.windows.contains(&window)
     }
 
     /// Returns the number of managed windows.
     pub fn len(&self) -> usize {
-        self.handles.len()
+        self.windows.len()
     }
 
     /// Returns whether the workspace has no managed windows.
     pub fn is_empty(&self) -> bool {
-        self.handles.is_empty()
+        self.windows.is_empty()
     }
 
-    /// Returns the ordered list of managed window handles.
-    pub fn handles(&self) -> &[usize] {
-        &self.handles
+    /// Returns the ordered list of managed window windows.
+    pub fn windows(&self) -> &[WindowId] {
+        &self.windows
     }
 
     /// Computes the layout for all managed windows in the given work area.
     ///
-    /// Returns a list of (handle, rect) pairs.
-    pub fn compute_layout(&self, layout: &dyn Layout, work_area: &Rect) -> Vec<(usize, Rect)> {
-        layout.apply(&self.handles, work_area)
+    /// Returns a list of (window, rect) pairs.
+    pub fn compute_layout(&self, layout: &dyn Layout, work_area: &Rect) -> Vec<(WindowId, Rect)> {
+        layout.apply(&self.windows, work_area)
     }
 
     /// Swaps two windows by their position indices.
     pub fn swap(&mut self, a: usize, b: usize) {
-        if a < self.handles.len() && b < self.handles.len() {
-            self.handles.swap(a, b);
+        if a < self.windows.len() && b < self.windows.len() {
+            self.windows.swap(a, b);
         }
     }
 
     /// Returns the index of the given window handle, if managed.
-    pub fn index_of(&self, hwnd: usize) -> Option<usize> {
-        self.handles.iter().position(|&h| h == hwnd)
+    pub fn index_of(&self, window: WindowId) -> Option<usize> {
+        self.windows.iter().position(|&h| h == window)
     }
 }
 
@@ -170,6 +170,7 @@ impl Default for Workspace {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::id::{wid, wids};
     use crate::layout::BspLayout;
 
     #[test]
@@ -178,42 +179,42 @@ mod tests {
         let mut ws = Workspace::new();
 
         // Act
-        assert!(ws.add(1));
-        assert!(ws.add(2));
-        assert!(!ws.add(1)); // duplicate
+        assert!(ws.add(wid(1)));
+        assert!(ws.add(wid(2)));
+        assert!(!ws.add(wid(1))); // duplicate
 
         // Assert
         assert_eq!(ws.len(), 2);
-        assert!(ws.contains(1));
-        assert!(ws.remove(1));
+        assert!(ws.contains(wid(1)));
+        assert!(ws.remove(wid(1)));
         assert_eq!(ws.len(), 1);
-        assert!(!ws.contains(1));
+        assert!(!ws.contains(wid(1)));
     }
 
     #[test]
     fn insert_at_position() {
         let mut ws = Workspace::new();
-        ws.add(1);
-        ws.add(2);
+        ws.add(wid(1));
+        ws.add(wid(2));
 
         // Insert at front
-        assert!(ws.insert(0, 3));
-        assert_eq!(ws.handles(), &[3, 1, 2]);
+        assert!(ws.insert(0, wid(3)));
+        assert_eq!(ws.windows(), wids(&[3, 1, 2]));
 
         // Duplicate rejected
-        assert!(!ws.insert(0, 1));
+        assert!(!ws.insert(0, wid(1)));
 
         // Index clamped to len
-        assert!(ws.insert(100, 4));
-        assert_eq!(ws.handles(), &[3, 1, 2, 4]);
+        assert!(ws.insert(100, wid(4)));
+        assert_eq!(ws.windows(), wids(&[3, 1, 2, 4]));
     }
 
     #[test]
     fn compute_layout_delegates_to_layout() {
         // Arrange
         let mut ws = Workspace::new();
-        ws.add(100);
-        ws.add(200);
+        ws.add(wid(100));
+        ws.add(wid(200));
         let layout = BspLayout { gap: 0, ratio: 0.5 };
         let area = Rect::new(0, 0, 1920, 1080);
 
@@ -222,7 +223,7 @@ mod tests {
 
         // Assert
         assert_eq!(positions.len(), 2);
-        assert_eq!(positions[0].0, 100);
-        assert_eq!(positions[1].0, 200);
+        assert_eq!(positions[0].0, wid(100));
+        assert_eq!(positions[1].0, wid(200));
     }
 }

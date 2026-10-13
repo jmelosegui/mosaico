@@ -1,5 +1,5 @@
-use crate::Rect;
 use crate::config::{CornerStyle, HidingBehaviour};
+use crate::{Rect, WindowId};
 
 /// A change the tiler wants made to the desktop.
 ///
@@ -13,7 +13,7 @@ pub enum Effect {
     /// Move and resize a window, then repaint it.
     Place {
         /// The window.
-        window: usize,
+        window: WindowId,
         /// Where its visible bounds go.
         rect: Rect,
         /// Whether the platform may hold the move back. See [`Timing`].
@@ -23,21 +23,21 @@ pub enum Effect {
     /// waiting for its owner to respond. Must never block.
     PrePlace {
         /// The window.
-        window: usize,
+        window: WindowId,
         /// Where its visible bounds go.
         rect: Rect,
     },
     /// Hide a window whose workspace was switched away from.
     Hide {
         /// The window.
-        window: usize,
+        window: WindowId,
         /// How to hide it.
         how: HidingBehaviour,
     },
     /// Show a window hidden by [`Effect::Hide`] again.
     Show {
         /// The window.
-        window: usize,
+        window: WindowId,
         /// How it was hidden.
         how: HidingBehaviour,
     },
@@ -45,7 +45,7 @@ pub enum Effect {
     /// tiler shuts down, so nothing is left invisible.
     Reveal {
         /// The window.
-        window: usize,
+        window: WindowId,
     },
     /// Give a window keyboard focus.
     ///
@@ -54,53 +54,53 @@ pub enum Effect {
     /// updated its own idea of focus, borders and the bar.
     Focus {
         /// The window.
-        window: usize,
+        window: WindowId,
         /// Whether to put the pointer on the window afterwards.
         move_cursor: bool,
     },
     /// Put the pointer at the center of a window, once it is in place.
     CenterCursor {
         /// The window.
-        window: usize,
+        window: WindowId,
     },
     /// Ask a window to close, letting the application save its state.
     Close {
         /// The window.
-        window: usize,
+        window: WindowId,
     },
     /// Minimize a window.
     Minimize {
         /// The window.
-        window: usize,
+        window: WindowId,
     },
     /// Repaint a window without moving it.
     Repaint {
         /// The window.
-        window: usize,
+        window: WindowId,
     },
     /// Apply the configured corner style to a managed window's frame.
     Decorate {
         /// The window.
-        window: usize,
+        window: WindowId,
         /// The corner style.
         corners: CornerStyle,
     },
     /// Undo [`Effect::Decorate`] on a window that is no longer managed.
     Undecorate {
         /// The window.
-        window: usize,
+        window: WindowId,
     },
     /// Draw, move or hide the focus border around a window.
     Border {
         /// The window the border surrounds.
-        window: usize,
+        window: WindowId,
         /// How to draw it, or `None` to hide it.
         style: Option<BorderStyle>,
     },
     /// Destroy the border around a window that left the screen.
     DropBorder {
         /// The window the border surrounded.
-        window: usize,
+        window: WindowId,
     },
 }
 

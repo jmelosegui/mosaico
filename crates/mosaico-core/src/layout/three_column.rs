@@ -1,4 +1,4 @@
-use crate::Rect;
+use crate::{Rect, WindowId};
 
 use super::Layout;
 
@@ -32,32 +32,32 @@ impl ThreeColumnLayout {
     /// outer padding.
     fn fill_stack(
         &self,
-        handles: &[usize],
+        windows: &[WindowId],
         area: &Rect,
         gap: i32,
-        results: &mut Vec<(usize, Rect)>,
+        results: &mut Vec<(WindowId, Rect)>,
     ) {
-        if handles.is_empty() {
+        if windows.is_empty() {
             return;
         }
-        let count = handles.len() as i32;
+        let count = windows.len() as i32;
         let slot_h = (area.height - gap * (count - 1)) / count;
 
-        for (i, &hwnd) in handles.iter().enumerate() {
+        for (i, &window) in windows.iter().enumerate() {
             let sy = area.y + (i as i32) * (slot_h + gap);
             let sh = if i as i32 == count - 1 {
                 (area.y + area.height - sy).max(1)
             } else {
                 slot_h.max(1)
             };
-            results.push((hwnd, Rect::new(area.x, sy, area.width, sh)));
+            results.push((window, Rect::new(area.x, sy, area.width, sh)));
         }
     }
 }
 
 impl Layout for ThreeColumnLayout {
-    fn apply(&self, handles: &[usize], work_area: &Rect) -> Vec<(usize, Rect)> {
-        if handles.is_empty() {
+    fn apply(&self, windows: &[WindowId], work_area: &Rect) -> Vec<(WindowId, Rect)> {
+        if windows.is_empty() {
             return Vec::new();
         }
 
@@ -68,14 +68,14 @@ impl Layout for ThreeColumnLayout {
             (work_area.height - self.gap * 2).max(1),
         );
 
-        if handles.len() == 1 {
-            return vec![(handles[0], padded)];
+        if windows.len() == 1 {
+            return vec![(windows[0], padded)];
         }
 
         let half = self.gap / 2;
 
         // 2 windows: master left, second right.
-        if handles.len() == 2 {
+        if windows.len() == 2 {
             let master_w = (padded.width as f64 * self.ratio) as i32;
             let master = Rect::new(padded.x, padded.y, (master_w - half).max(1), padded.height);
             let right = Rect::new(
@@ -84,7 +84,7 @@ impl Layout for ThreeColumnLayout {
                 (padded.width - master_w - half).max(1),
                 padded.height,
             );
-            return vec![(handles[0], master), (handles[1], right)];
+            return vec![(windows[0], master), (windows[1], right)];
         }
 
         // 3+ windows: master in center, extras alternate left/right.
@@ -96,28 +96,28 @@ impl Layout for ThreeColumnLayout {
         let right_x = master_x + master_w + self.gap;
         let right_w = (padded.x + padded.width - right_x).max(1);
 
-        let mut results = Vec::with_capacity(handles.len());
+        let mut results = Vec::with_capacity(windows.len());
 
         results.push((
-            handles[0],
+            windows[0],
             Rect::new(master_x, padded.y, master_w, padded.height),
         ));
 
-        let mut left_handles = Vec::new();
-        let mut right_handles = Vec::new();
-        for (i, &hwnd) in handles[1..].iter().enumerate() {
+        let mut left_windows = Vec::new();
+        let mut right_windows = Vec::new();
+        for (i, &window) in windows[1..].iter().enumerate() {
             if i % 2 == 0 {
-                left_handles.push(hwnd);
+                left_windows.push(window);
             } else {
-                right_handles.push(hwnd);
+                right_windows.push(window);
             }
         }
 
         let left_area = Rect::new(left_x, padded.y, side_w.max(1), padded.height);
-        self.fill_stack(&left_handles, &left_area, self.gap, &mut results);
+        self.fill_stack(&left_windows, &left_area, self.gap, &mut results);
 
         let right_area = Rect::new(right_x, padded.y, right_w, padded.height);
-        self.fill_stack(&right_handles, &right_area, self.gap, &mut results);
+        self.fill_stack(&right_windows, &right_area, self.gap, &mut results);
 
         results
     }

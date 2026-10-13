@@ -1,7 +1,7 @@
 use std::mem;
 
-use mosaico_core::{MonitorKey, Rect, WindowResult};
-use windows::Win32::Foundation::{HWND, LPARAM, RECT};
+use mosaico_core::{MonitorId, MonitorKey, Rect, WindowId, WindowResult};
+use windows::Win32::Foundation::{LPARAM, RECT};
 use windows::Win32::Graphics::Gdi::{
     EnumDisplayMonitors, GetMonitorInfoW, HDC, HMONITOR, MONITOR_DEFAULTTOPRIMARY, MONITORINFO,
     MONITORINFOEXW, MonitorFromWindow,
@@ -15,12 +15,12 @@ const MONITORINFOF_PRIMARY: u32 = 1;
 
 /// Information about a connected monitor.
 pub struct MonitorInfo {
-    /// Runtime handle (HMONITOR cast to usize).
+    /// Runtime handle: the HMONITOR value.
     ///
     /// Only valid until the next display change: Windows hands out new
     /// handles whenever the configuration changes. Use `key` to
     /// recognise a monitor across changes.
-    pub id: usize,
+    pub id: MonitorId,
     /// Identity that survives reconnects. See [`MonitorKey`].
     pub key: MonitorKey,
     /// Work area excluding the taskbar and docked toolbars.
@@ -46,15 +46,16 @@ impl mosaico_core::Monitor for MonitorInfo {
 /// Returns the monitor ID for the monitor containing the given window.
 ///
 /// Falls back to the primary monitor if the window handle is invalid.
-pub fn monitor_id_for_window(hwnd: usize) -> usize {
+pub fn monitor_id_for_window(window: WindowId) -> MonitorId {
+    let hwnd = crate::window::Window::from_id(window).hwnd();
     // SAFETY: MonitorFromWindow is a read-only query on a window handle.
-    let hmonitor = unsafe { MonitorFromWindow(HWND(hwnd as *mut _), MONITOR_DEFAULTTOPRIMARY) };
-    hmonitor.0 as usize
+    let hmonitor = unsafe { MonitorFromWindow(hwnd, MONITOR_DEFAULTTOPRIMARY) };
+    MonitorId::from_raw(hmonitor.0 as usize as u64)
 }
 
 /// A monitor as seen by `EnumDisplayMonitors`, before its key is known.
 struct RawMonitor {
-    id: usize,
+    id: MonitorId,
     work_area: Rect,
     primary: bool,
     gdi_name: String,
@@ -145,7 +146,7 @@ fn query_monitor(monitor: HMONITOR) -> WindowResult<RawMonitor> {
         .unwrap_or(info.szDevice.len());
 
     Ok(RawMonitor {
-        id: monitor.0 as usize,
+        id: MonitorId::from_raw(monitor.0 as usize as u64),
         work_area: rect_from_win32(&info.monitorInfo.rcWork),
         primary: info.monitorInfo.dwFlags & MONITORINFOF_PRIMARY != 0,
         gdi_name: String::from_utf16_lossy(&info.szDevice[..name_len]),

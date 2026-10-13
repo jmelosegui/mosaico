@@ -1,8 +1,8 @@
 //! The desktop as the tiler reads it, through Win32 queries.
 
-use mosaico_core::Rect;
 use mosaico_core::tiler::{Desktop, WindowFacts};
 use mosaico_core::window::Window as _;
+use mosaico_core::{MonitorId, Rect, WindowId};
 use windows::Win32::Foundation::POINT;
 use windows::Win32::UI::WindowsAndMessaging::GetCursorPos;
 
@@ -32,27 +32,27 @@ impl Win32Desktop {
 }
 
 impl Desktop for Win32Desktop {
-    fn is_visible(&self, window: usize) -> bool {
-        Window::from_raw(window).is_visible()
+    fn is_visible(&self, window: WindowId) -> bool {
+        Window::from_id(window).is_visible()
     }
 
-    fn is_minimized(&self, window: usize) -> bool {
-        Window::from_raw(window).is_minimized()
+    fn is_minimized(&self, window: WindowId) -> bool {
+        Window::from_id(window).is_minimized()
     }
 
-    fn is_maximized(&self, window: usize) -> bool {
-        Window::from_raw(window).is_maximized()
+    fn is_maximized(&self, window: WindowId) -> bool {
+        Window::from_id(window).is_maximized()
     }
 
-    fn rect(&self, window: usize) -> Option<Rect> {
-        Window::from_raw(window).rect().ok()
+    fn rect(&self, window: WindowId) -> Option<Rect> {
+        Window::from_id(window).rect().ok()
     }
 
-    fn owner(&self, window: usize) -> Option<usize> {
-        Window::from_raw(window).owner()
+    fn owner(&self, window: WindowId) -> Option<WindowId> {
+        Window::from_id(window).owner()
     }
 
-    fn monitor_of(&self, window: usize) -> usize {
+    fn monitor_of(&self, window: WindowId) -> MonitorId {
         monitor::monitor_id_for_window(window)
     }
 
@@ -68,8 +68,8 @@ impl Desktop for Win32Desktop {
     /// windows (on another virtual desktop, or UWP frames that are not
     /// really there), and windows of elevated processes when mosaico is
     /// not elevated.
-    fn candidate(&self, window: usize) -> Option<WindowFacts> {
-        let win = Window::from_raw(window);
+    fn candidate(&self, window: WindowId) -> Option<WindowFacts> {
+        let win = Window::from_id(window);
         let has_caption = win.app_window_caption()?;
         if win.is_cloaked() {
             return None;
@@ -78,7 +78,7 @@ impl Desktop for Win32Desktop {
         let title = win.title().unwrap_or_default();
         if !self.self_elevated && win.is_elevated() {
             mosaico_core::log_info!(
-                "~skip 0x{:X} [{}] \"{}\" (elevated, mosaico is not)",
+                "~skip {} [{}] \"{}\" (elevated, mosaico is not)",
                 window,
                 class,
                 title,

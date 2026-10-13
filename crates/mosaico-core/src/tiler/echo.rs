@@ -10,8 +10,8 @@
 use std::collections::{HashMap, VecDeque};
 use std::time::{Duration, Instant};
 
-use crate::WindowEvent;
 use crate::config::HidingBehaviour;
+use crate::{WindowEvent, WindowId};
 
 use super::Effect;
 
@@ -38,13 +38,13 @@ const FOCUS_INTENTS: usize = 8;
 #[derive(Debug, Default)]
 pub struct Expectations {
     /// Windows hidden by a workspace switch, until shown again.
-    hidden: HashMap<usize, (HidingBehaviour, Instant)>,
+    hidden: HashMap<WindowId, (HidingBehaviour, Instant)>,
     /// Windows restored from minimized by a workspace switch.
-    restored: HashMap<usize, Instant>,
+    restored: HashMap<WindowId, Instant>,
     /// Focus change held back by the applier, not applied yet.
-    held_focus: Option<usize>,
+    held_focus: Option<WindowId>,
     /// Focus changes applied, oldest first.
-    focused: VecDeque<(usize, Instant)>,
+    focused: VecDeque<(WindowId, Instant)>,
 }
 
 impl Expectations {
@@ -95,11 +95,11 @@ impl Expectations {
     /// echo of our own effects, or `None` when the tiler should see it.
     pub fn echo(&mut self, event: &WindowEvent, now: Instant) -> Option<&'static str> {
         match *event {
-            WindowEvent::Destroyed { hwnd: window } => {
+            WindowEvent::Destroyed { window } => {
                 self.forget(window);
                 None
             }
-            WindowEvent::Hidden { hwnd: window } | WindowEvent::Minimized { hwnd: window } => {
+            WindowEvent::Hidden { window } | WindowEvent::Minimized { window } => {
                 // Cloaking reports nothing, so a hide report for a
                 // cloaked window comes from the application itself.
                 self.hidden
@@ -107,17 +107,17 @@ impl Expectations {
                     .filter(|(how, _)| *how != HidingBehaviour::Cloak)
                     .map(|_| "hidden by a workspace switch")
             }
-            WindowEvent::Restored { hwnd: window } => {
+            WindowEvent::Restored { window } => {
                 let at = self.restored.remove(&window)?;
                 (now.duration_since(at) < FOCUS_ECHO_TTL)
                     .then_some("restored by a workspace switch")
             }
-            WindowEvent::Focused { hwnd: window } => self.focus_echo(window, now),
+            WindowEvent::Focused { window } => self.focus_echo(window, now),
             _ => None,
         }
     }
 
-    fn focus_echo(&mut self, window: usize, now: Instant) -> Option<&'static str> {
+    fn focus_echo(&mut self, window: WindowId, now: Instant) -> Option<&'static str> {
         self.focused
             .retain(|&(_, at)| now.duration_since(at) < FOCUS_ECHO_TTL);
         let latest = self.focused.back().map(|&(w, _)| w);
@@ -143,7 +143,7 @@ impl Expectations {
     }
 
     /// Drops everything recorded about a window.
-    pub fn forget(&mut self, window: usize) {
+    pub fn forget(&mut self, window: WindowId) {
         self.hidden.remove(&window);
         self.restored.remove(&window);
     }

@@ -34,9 +34,9 @@ mod workspace;
 use std::collections::HashSet;
 use std::time::Instant;
 
-use crate::LayoutKind;
 use crate::action::MAX_WORKSPACES;
 use crate::config::{BorderConfig, LayoutConfig, WindowRule, WorkspaceMode, WorkspacesConfig};
+use crate::{LayoutKind, WindowId};
 
 pub use coalesce::Coalescer;
 pub use desktop::{Desktop, Display, WindowFacts};
@@ -78,10 +78,10 @@ pub struct Tiler {
     border_config: BorderConfig,
     /// Windows that currently have a border, so the ones that leave the
     /// screen can have theirs destroyed.
-    bordered: HashSet<usize>,
+    bordered: HashSet<WindowId>,
     mouse_follows_focus: bool,
     focused_monitor: usize,
-    focused_window: Option<usize>,
+    focused_window: Option<WindowId>,
     /// Whether the focused window was maximized when last looked at.
     ///
     /// Lets `LocationChanged`, which fires on every animation frame,
@@ -93,7 +93,7 @@ pub struct Tiler {
     /// Windows the rules already rejected, so the deferred events that
     /// keep arriving for them are not judged again. Cleared when the
     /// rules change; entries are removed when the window is destroyed.
-    adopt_rejected: HashSet<usize>,
+    adopt_rejected: HashSet<WindowId>,
 }
 
 impl Tiler {
@@ -105,7 +105,7 @@ impl Tiler {
     pub fn new(
         settings: Settings,
         displays: &[Display],
-        windows: &[usize],
+        windows: &[WindowId],
         desktop: &dyn Desktop,
         now: Instant,
     ) -> (Self, Vec<Effect>) {
@@ -186,7 +186,7 @@ impl Tiler {
     }
 
     /// The window that has focus, as far as the tiler is concerned.
-    pub fn focused_window(&self) -> Option<usize> {
+    pub fn focused_window(&self) -> Option<WindowId> {
         self.focused_window
     }
 

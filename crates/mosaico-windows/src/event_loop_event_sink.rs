@@ -194,7 +194,9 @@ pub(crate) unsafe extern "system" fn event_sink_proc(
                         state.last_sent = root_handle;
                         EVENT_SENDER.with(|cell| {
                             if let Some(sender) = cell.borrow().as_ref() {
-                                let _ = sender.send(WindowEvent::MouseHover { hwnd: root_handle });
+                                let _ = sender.send(WindowEvent::MouseHover {
+                                    window: crate::window::Window::new(root).id(),
+                                });
                             }
                         });
                     }

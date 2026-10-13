@@ -3,6 +3,7 @@
 
 use std::fmt::Write;
 
+use mosaico_core::WindowId;
 use mosaico_core::tiler::Tiler;
 use mosaico_core::window::Window as _;
 
@@ -38,8 +39,8 @@ pub(super) fn describe(tiler: &Tiler, self_elevated: bool) -> String {
                 ws.len(),
                 if ws.len() == 1 { "" } else { "s" },
             );
-            for &hwnd in ws.handles() {
-                let _ = writeln!(out, "    {}", describe_window(hwnd));
+            for &window in ws.windows() {
+                let _ = writeln!(out, "    {}", describe_window(window));
             }
         }
     }
@@ -48,22 +49,22 @@ pub(super) fn describe(tiler: &Tiler, self_elevated: bool) -> String {
     let _ = writeln!(out, "Self elevated: {}", self_elevated);
     let _ = writeln!(out, "Focused monitor: {}", tiler.focused_monitor());
     let _ = match tiler.focused_window() {
-        Some(h) => writeln!(out, "Focused window: 0x{:X}", h),
+        Some(h) => writeln!(out, "Focused window: {}", h),
         None => writeln!(out, "Focused window: None"),
     };
 
     out
 }
 
-fn describe_window(hwnd: usize) -> String {
-    let win = Window::from_raw(hwnd);
+fn describe_window(window: WindowId) -> String {
+    let win = Window::from_id(window);
     let rect = match win.rect() {
         Ok(r) => format!("{}x{}+{}+{}", r.width, r.height, r.x, r.y),
         Err(_) => "N/A".to_string(),
     };
     format!(
-        "0x{:X}  visible={}  minimized={}  cloaked={}  elevated={}  rect={}  class={:?}  title={:?}",
-        hwnd,
+        "{}  visible={}  minimized={}  cloaked={}  elevated={}  rect={}  class={:?}  title={:?}",
+        window,
         win.is_visible(),
         win.is_minimized(),
         win.is_cloaked(),

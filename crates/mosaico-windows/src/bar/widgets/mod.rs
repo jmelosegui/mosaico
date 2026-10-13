@@ -17,6 +17,7 @@ mod system;
 pub mod update;
 pub mod workspaces;
 
+use mosaico_core::WindowId;
 use mosaico_core::config::bar::{BarConfig, WidgetConfig};
 
 use super::text::{DrawCtx, draw_pill, draw_text, measure_text};
@@ -33,8 +34,8 @@ pub struct BarState {
     pub cpu_usage: u32,
     /// Set by the daemon when a newer version is available.
     pub update_text: String,
-    /// HWND of the focused window on this monitor (for icon widget).
-    pub focused_hwnd: Option<usize>,
+    /// The focused window on this monitor, for the icon widget.
+    pub focused_window: Option<WindowId>,
     /// Formatted media info (e.g. "Artist - Title"). Empty = nothing playing.
     pub media_text: String,
     /// Whether mosaico hotkeys are currently paused.
@@ -50,7 +51,7 @@ impl Default for BarState {
             monocle: false,
             cpu_usage: 0,
             update_text: String::new(),
-            focused_hwnd: None,
+            focused_window: None,
             media_text: String::new(),
             paused: false,
         }
@@ -71,7 +72,7 @@ pub fn draw_left(ctx: &mut DrawCtx, config: &BarConfig, state: &BarState) -> i32
         x = match widget {
             WidgetConfig::Workspaces { .. } => workspaces::draw(ctx, x, config, state),
             WidgetConfig::ActiveWindow { .. } => {
-                active_window::draw(ctx, x, config, state.focused_hwnd)
+                active_window::draw(ctx, x, config, state.focused_window)
             }
             _ => draw_pill_widget(ctx, x, config, state, widget),
         };

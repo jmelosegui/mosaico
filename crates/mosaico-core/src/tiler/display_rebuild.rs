@@ -2,6 +2,8 @@
 
 use crate::{LayoutKind, Monitor, MonitorKey, match_monitors};
 
+use crate::WindowId;
+
 use super::Display;
 
 use super::MonitorState;
@@ -12,7 +14,7 @@ pub(super) struct Rebuilt {
     pub(super) monitors: Vec<MonitorState>,
     /// Windows that changed monitor or workspace, whose visibility has to
     /// be brought in line with their new workspace.
-    pub(super) moved: Vec<usize>,
+    pub(super) moved: Vec<WindowId>,
 }
 
 /// Builds the monitor list for a new display configuration.

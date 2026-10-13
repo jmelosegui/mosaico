@@ -18,7 +18,7 @@ fn focus_right_goes_to_the_neighbor() {
     h.action(Action::Focus(Direction::Right));
 
     // Assert
-    assert_eq!(h.tiler.focused_window(), Some(2));
+    assert_eq!(h.tiler.focused_window(), Some(wid(2)));
     assert_eq!(h.focus_request(), Some(2));
 }
 
@@ -32,7 +32,7 @@ fn focus_right_at_the_edge_overflows_to_the_next_monitor() {
 
     // Assert
     assert_eq!(h.tiler.focused_monitor(), 1);
-    assert_eq!(h.tiler.focused_window(), Some(2));
+    assert_eq!(h.tiler.focused_window(), Some(wid(2)));
 }
 
 #[test]
@@ -45,7 +45,7 @@ fn focus_left_at_the_leftmost_monitor_stays_put() {
 
     // Assert
     assert!(effects.is_empty());
-    assert_eq!(h.tiler.focused_window(), Some(1));
+    assert_eq!(h.tiler.focused_window(), Some(wid(1)));
 }
 
 #[test]
@@ -58,7 +58,7 @@ fn keyboard_focus_moves_the_cursor_when_it_follows_focus() {
 
     // Assert
     assert!(effects.contains(&Effect::Focus {
-        window: 2,
+        window: wid(2),
         move_cursor: true
     }));
 }
@@ -76,9 +76,9 @@ fn the_focus_border_follows_focus_immediately() {
     let effects = h.action(Action::Focus(Direction::Right)).to_vec();
 
     // Assert -- 2 gets the focused color, 1 the unfocused one.
-    let color_of = |w: usize| {
+    let color_of = |w: u64| {
         effects.iter().rev().find_map(|e| match e {
-            Effect::Border { window, style } if *window == w => {
+            Effect::Border { window, style } if *window == wid(w) => {
                 style.as_ref().map(|s| s.color.clone())
             }
             _ => None,
@@ -110,7 +110,7 @@ fn a_focus_restore_elsewhere_does_not_move_a_parked_monitor() {
     h.desktop.cursor = Some((MON_W + 500, 500));
 
     // Act -- the OS hands focus back to the window on monitor 0.
-    h.event(WindowEvent::Focused { hwnd: 1 });
+    h.event(WindowEvent::Focused { window: wid(1) });
     h.open(2, 0);
 
     // Assert -- the new window opens where the user is.
@@ -126,11 +126,11 @@ fn clicking_the_other_monitor_ends_the_parking() {
 
     // Act -- the pointer is on monitor 0, where focus went.
     h.desktop.cursor = Some((500, 500));
-    h.event(WindowEvent::Focused { hwnd: 1 });
+    h.event(WindowEvent::Focused { window: wid(1) });
 
     // Assert
     assert_eq!(h.tiler.focused_monitor(), 0);
-    assert_eq!(h.tiler.focused_window(), Some(1));
+    assert_eq!(h.tiler.focused_window(), Some(wid(1)));
 }
 
 #[test]
@@ -142,7 +142,7 @@ fn parking_expires_as_a_backstop() {
 
     // Act
     h.advance(std::time::Duration::from_secs(31));
-    h.event(WindowEvent::Focused { hwnd: 1 });
+    h.event(WindowEvent::Focused { window: wid(1) });
 
     // Assert
     assert_eq!(h.tiler.focused_monitor(), 0);

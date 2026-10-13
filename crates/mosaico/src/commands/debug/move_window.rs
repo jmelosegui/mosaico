@@ -26,7 +26,8 @@ pub fn execute(args: &MoveArgs) {
     mosaico_windows::dpi::enable_dpi_awareness();
 
     let hwnd_val = parse_hwnd(&args.hwnd);
-    let window = mosaico_windows::Window::from_raw(hwnd_val);
+    let window =
+        mosaico_windows::Window::from_id(mosaico_core::WindowId::from_raw(hwnd_val as u64));
     let target = Rect::new(args.x, args.y, args.w, args.h);
 
     println!(

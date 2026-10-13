@@ -1,4 +1,4 @@
-use mosaico_core::{Rect, WindowResult};
+use mosaico_core::{Rect, WindowId, WindowResult};
 
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::{
@@ -37,14 +37,16 @@ impl Window {
         Self { hwnd }
     }
 
-    /// Creates a new `Window` from a raw handle value (pointer-sized integer).
-    ///
-    /// This allows callers to construct a `Window` without depending on the
-    /// `windows` crate directly.
-    pub fn from_raw(handle: usize) -> Self {
+    /// The window a core [`WindowId`] refers to.
+    pub fn from_id(id: WindowId) -> Self {
         Self {
-            hwnd: HWND(handle as *mut _),
+            hwnd: HWND(id.raw() as usize as *mut _),
         }
+    }
+
+    /// The core id of this window, which is its `HWND` value.
+    pub fn id(&self) -> WindowId {
+        WindowId::from_raw(self.hwnd.0 as usize as u64)
     }
 
     /// Returns the raw window handle.
@@ -196,14 +198,14 @@ impl Window {
     ///
     /// Owned top-level windows are typically dialogs or property sheets
     /// spawned by an application's main window.
-    pub fn owner(&self) -> Option<usize> {
+    pub fn owner(&self) -> Option<WindowId> {
         use windows::Win32::UI::WindowsAndMessaging::{GW_OWNER, GetWindow};
         // SAFETY: GetWindow with GW_OWNER is a read-only query on a valid HWND.
         unsafe {
             GetWindow(self.hwnd, GW_OWNER)
                 .ok()
                 .filter(|h| !h.is_invalid())
-                .map(|h| h.0 as usize)
+                .map(|h| Window::new(h).id())
         }
     }
 
@@ -596,7 +598,7 @@ mod tests {
         // SetWindowPos against this window never returns at all.
         let (done_tx, done_rx) = mpsc::channel::<()>();
         let mover = std::thread::spawn(move || {
-            let window = Window::from_raw(raw);
+            let window = Window::from_id(WindowId::from_raw(raw as u64));
             let _ = window.move_async(&Rect::new(20, 20, 200, 200));
             let _ = done_tx.send(());
         });

@@ -5,7 +5,7 @@
 //! every intermediate one is slow (a focus change is a cross-process
 //! call) and makes windows repaint once per key press.
 
-use crate::Rect;
+use crate::{Rect, WindowId};
 
 use super::{Effect, Timing};
 
@@ -13,7 +13,7 @@ use super::{Effect, Timing};
 #[derive(Debug, Default)]
 pub struct Coalescer {
     /// Coalesced placements, latest per window, in arrival order.
-    places: Vec<(usize, Rect)>,
+    places: Vec<(WindowId, Rect)>,
     /// Effects that must wait for a held placement of their window:
     /// its border, and the cursor moving onto it.
     after: Vec<Effect>,
@@ -81,7 +81,7 @@ impl Coalescer {
 }
 
 /// The window whose held placement this effect has to wait for.
-fn waits_for(effect: &Effect) -> Option<usize> {
+fn waits_for(effect: &Effect) -> Option<WindowId> {
     match *effect {
         Effect::Border { window, .. } | Effect::CenterCursor { window } => Some(window),
         _ => None,

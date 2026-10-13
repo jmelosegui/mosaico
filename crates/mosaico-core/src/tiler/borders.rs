@@ -9,6 +9,8 @@ use std::collections::HashSet;
 
 use crate::Rect;
 
+use crate::WindowId;
+
 use super::{BorderStyle, Effect, Plan, Tiler};
 
 impl Tiler {
@@ -19,9 +21,9 @@ impl Tiler {
     /// maximized focused window and everything but the monocle window.
     pub(super) fn update_border(&mut self, plan: &mut Plan) {
         let visible = self.collect_visible_tiles(plan);
-        let on_screen: HashSet<usize> = visible.iter().map(|&(w, _, _)| w).collect();
+        let on_screen: HashSet<WindowId> = visible.iter().map(|&(w, _, _)| w).collect();
 
-        let mut gone: Vec<usize> = self
+        let mut gone: Vec<WindowId> = self
             .bordered
             .iter()
             .copied()
@@ -49,7 +51,7 @@ impl Tiler {
     pub(super) fn show_border_for(
         &self,
         plan: &mut Plan,
-        window: usize,
+        window: WindowId,
         rect: Rect,
         mon_idx: usize,
     ) {
@@ -62,7 +64,7 @@ impl Tiler {
 
     /// Hides every border without destroying it.
     pub(super) fn hide_borders(&self, plan: &mut Plan) {
-        let mut all: Vec<usize> = self.bordered.iter().copied().collect();
+        let mut all: Vec<WindowId> = self.bordered.iter().copied().collect();
         all.sort_unstable();
         for window in all {
             plan.emit(Effect::Border {
@@ -77,7 +79,7 @@ impl Tiler {
     fn border_style(
         &self,
         plan: &Plan,
-        window: usize,
+        window: WindowId,
         mon_idx: usize,
         rect: Rect,
     ) -> Option<BorderStyle> {
@@ -121,10 +123,10 @@ impl Tiler {
 
     /// `(window, monitor, rect)` for every window laid out on its
     /// monitor's active workspace.
-    fn collect_visible_tiles(&self, plan: &Plan) -> Vec<(usize, usize, Rect)> {
+    fn collect_visible_tiles(&self, plan: &Plan) -> Vec<(WindowId, usize, Rect)> {
         let mut out = Vec::new();
         for (mi, mon) in self.monitors.iter().enumerate() {
-            for &window in mon.active_ws().handles() {
+            for &window in mon.active_ws().windows() {
                 if let Some(rect) = plan.rect(window) {
                     out.push((window, mi, rect));
                 }

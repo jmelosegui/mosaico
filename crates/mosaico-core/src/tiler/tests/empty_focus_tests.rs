@@ -4,6 +4,7 @@ use super::super::empty_focus::{
 };
 use super::make_monitor;
 use crate::Rect;
+use crate::id::wid;
 use std::time::{Duration, Instant};
 
 /// Monitor 0 on the left holding the window that has foreground, and
@@ -12,7 +13,7 @@ use std::time::{Duration, Instant};
 fn parked_on_empty() -> (Vec<MonitorState>, EmptyFocusClaim, Instant) {
     let mut left = make_monitor(0);
     left.work_area = Rect::new(0, 0, 3840, 2024);
-    left.workspaces[0].add(0x40F78);
+    left.workspaces[0].add(wid(0x40F78));
 
     let mut right = make_monitor(1);
     right.work_area = Rect::new(3840, 0, 3840, 2024);
@@ -73,7 +74,7 @@ fn focus_resolving_on_the_parked_monitor_ends_the_claim() {
 fn a_window_landing_on_the_parked_workspace_ends_the_claim() {
     // Arrange
     let (mut monitors, claim, now) = parked_on_empty();
-    monitors[1].workspaces[7].add(0xABC);
+    monitors[1].workspaces[7].add(wid(0xABC));
 
     // Act
     let verdict = judge_focus_event(&monitors, &claim, 0, CURSOR_ON_PARKED, now);
