@@ -1,196 +1,39 @@
-# Agent Guidelines for Mosaico
+# Agent instructions
 
-This file contains instructions for AI coding agents working in this repository.
+Mosaico is a cross-platform tiling window manager written in Rust. It is a Cargo workspace:
 
-## Project Overview
+| Crate | Role |
+| --- | --- |
+| `crates/mosaico-core` | OS-agnostic traits, types and all decision logic (layouts, workspaces, config, matching) |
+| `crates/mosaico-windows` | Windows implementation of the core traits (Win32, DWM, WinHTTP, registry) |
+| `crates/mosaico` | CLI binary; depends on both |
 
-Mosaico is a cross-platform tiling window manager written in Rust. The project
-is structured as a Cargo workspace with multiple crates under `crates/`.
+Only Windows ships today, but `mosaico-core` must stay portable so a `mosaico-linux` or `mosaico-macos` crate
+can be added by implementing traits, not by copying logic. Every feature that touches the OS needs a contract
+in core and an implementation in the platform crate. Missing contracts are the most common design defect in
+this repo; see [platform-boundary](.agents/skills/platform-boundary/SKILL.md).
 
-## Build / Lint / Test Commands
+Procedures live in [Agent Skills](https://agentskills.io) under [`.agents/skills`](.agents/skills). Read the
+matching skill before you start:
 
-```sh
-cargo build                          # Build all workspace crates
-cargo build -p mosaico               # Build only the CLI binary
-cargo test                           # Run all tests across the workspace
-cargo test -p mosaico                # Run tests for the CLI crate only
-cargo test help_exits_successfully   # Run a single test by name
-cargo clippy --all-targets -- -D warnings  # Run linter (matches CI)
-cargo fmt --all                      # Format all code
-cargo fmt --all -- --check           # Check formatting without modifying
-```
+| Skill | Use it when |
+| --- | --- |
+| [platform-boundary](.agents/skills/platform-boundary/SKILL.md) | adding or changing anything that talks to the OS, reviewing a diff for core/platform leaks, or auditing the crates |
+| [rust-conventions](.agents/skills/rust-conventions/SKILL.md) | writing any Rust: naming, file size, errors, `unsafe`, docs, imports |
+| [testing](.agents/skills/testing/SKILL.md) | writing or running tests; which suites are safe to run locally |
+| [manual-verification](.agents/skills/manual-verification/SKILL.md) | confirming a feature works on the live desktop: daemon, IPC, logs, screenshots |
+| [commits-and-issues](.agents/skills/commits-and-issues/SKILL.md) | commits, plan checkboxes, filing or updating issues |
 
-## Workspace Structure
+Ground rules:
 
-```
-Cargo.toml                  # Workspace root
-crates/
-  mosaico/                  # CLI binary
-  mosaico-core/             # Platform-agnostic traits and types
-  mosaico-windows/          # Windows platform implementation
-```
-
-- `mosaico` depends on `mosaico-core` and `mosaico-windows`
-- `mosaico-windows` depends on `mosaico-core`
-- Platform-specific code lives in its own crate, never in `mosaico-core`
-- `mosaico-core` defines traits; platform crates implement them
-
-## Rust Coding Conventions
-
-Follow the official Rust API Guidelines: https://rust-lang.github.io/api-guidelines/
-
-### Naming
-
-- Types and traits: `PascalCase`
-- Functions, methods, variables: `snake_case`
-- Constants and statics: `SCREAMING_SNAKE_CASE`
-- Crate names: `kebab-case` in Cargo.toml, `snake_case` when imported
-- Modules: `snake_case`
-- Enum variants: `PascalCase`
-- No `I` prefix on traits (use `Window` not `IWindow`)
-- Getters: `field()` not `get_field()`
-- Setters: `set_field()` not `set_value()`
-- Conversions: `to_x()` (expensive), `as_x()` (cheap/borrow), `into_x()` (consuming)
-
-### Formatting
-
-- Run `cargo fmt --all` before committing
-- Run `cargo clippy --all-targets -- -D warnings` and fix all warnings before committing
-- Use `rustfmt` defaults — do not override `rustfmt.toml` settings
-
-### File Organization
-
-- No source file should exceed ~150 lines
-- One concern per file
-- Each CLI subcommand gets its own file under `commands/`
-- Use `mod.rs` files to declare and re-export submodules
-- Use `pub use` re-exports in `lib.rs` so consumers can use short paths
-
-### Error Handling
-
-- Never use `.unwrap()` or `.expect()` in library code (`mosaico-core`, `mosaico-windows`)
-- `.expect("reason")` is acceptable in `main.rs` or CLI command handlers only
-- Use `Result<T, E>` for fallible operations
-- Propagate errors with the `?` operator
-
-### Types and Traits
-
-- Prefer `&str` over `String` in function parameters when possible
-- Prefer returning `String` from trait methods when the caller needs ownership
-- Derive common traits when appropriate: `Debug`, `Clone`, `PartialEq`
-- Use `#[derive(...)]` rather than manual trait implementations unless custom
-  behavior is needed
-
-### Unsafe Code
-
-- Keep `unsafe` blocks as small as possible
-- Wrap every `unsafe` block in a safe function with a clear name
-- Document why the `unsafe` block is sound with a `// SAFETY:` comment
-- All `unsafe` code should live in platform crates, never in `mosaico-core`
-
-### Documentation
-
-- All public types, traits, and functions must have doc comments (`///`)
-- Use `//` for implementation comments, not `/* */`
-- Doc comments should describe *what* and *why*, not *how*
-
-### Tests
-
-- Integration tests live in `crates/<crate>/tests/`
-- Unit tests go in the same file using `#[cfg(test)] mod tests { ... }`
-- Use Arrange / Act / Assert comments to structure tests:
-  ```rust
-  #[test]
-  fn it_works() {
-      // Arrange
-      let input = 42;
-
-      // Act
-      let result = do_something(input);
-
-      // Assert
-      assert_eq!(result, expected);
-  }
-  ```
-
-### Imports
-
-- Group imports in this order, separated by blank lines:
-  1. Standard library (`std::`)
-  2. External crates (`clap::`, `windows::`, etc.)
-  3. Workspace crates (`mosaico_core::`, `mosaico_windows::`)
-  4. Local modules (`crate::`, `super::`)
-- Use specific imports, avoid glob imports (`use module::*`)
-
-### Conditional Compilation
-
-- Use `#[cfg(target_os = "windows")]` for platform-specific code
-- Platform-specific logic belongs in its own crate, not behind `cfg` in shared code
-
-### Git Commits
-
-- Follow conventional commits: `feat:`, `fix:`, `refactor:`, `docs:`, `test:`
-- Commit messages should explain *why*, not just *what*
-- All commits must be GPG-signed
-- Do not commit with `--no-gpg-sign`
-- Do not commit unless explicitly asked by the user
-- Update plan checkboxes in the same commit that completes the work
-
-## Manual Verification
-
-Before asking the user to verify a feature or confirming it works:
-
-- **Test it yourself** using the CLI, IPC commands, and PowerShell/system
-  tools. You have all the means to do so.
-- Kill the daemon (`taskkill /IM mosaico.exe /F`), rebuild, start it, and
-  exercise the feature through `mosaico.exe action ...` commands.
-- Verify observable state programmatically (e.g. use PowerShell with
-  `DwmGetWindowAttribute` to check cloak state, `IsWindowVisible` for
-  visibility, `debug list` for managed windows).
-- Check the daemon log file at `~/.config/mosaico/logs/mosaico.log` for
-  errors or unexpected behaviour.
-- **Take screenshots** to visually validate window layout, borders, and
-  tiling behaviour (see below).
-- Only present the result to the user after confirming it works.
-
-## Screenshots
-
-Use `scripts/screenshot.ps1` to capture the screen and visually verify
-behaviour such as window tiling, border rendering, monocle mode, and
-workspace switching.
-
-```powershell
-# Capture the primary monitor (default) to a temp file:
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/screenshot.ps1
-
-# Capture the primary monitor to a specific path:
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/screenshot.ps1 -OutputPath path/to/output.png
-
-# Capture all monitors:
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/screenshot.ps1 -OutputPath path/to/output.png -Mode all
-```
-
-Parameters:
-- `-OutputPath` (optional) — Where to save the PNG. Defaults to
-  `$env:TEMP/mosaico_screenshot.png`. Parent directories are created
-  automatically.
-- `-Mode` (optional) — `primary` (default) captures only the primary
-  monitor. `all` captures the entire virtual screen across all monitors.
-
-The script writes the output path to stdout. After taking a screenshot,
-read the resulting image file to visually inspect the current desktop
-state. Integration tests use this same script (with `-Mode all`) to
-capture screenshots into `target/test-screenshots/`.
-
-## Integration Tests
-
-- All new features must include integration tests that run as part of
-  `cargo test` before committing.
-- Integration tests live in `crates/<crate>/tests/` and must pass
-  alongside unit tests.
-- Run the full test suite (`cargo test`, `cargo clippy --all-targets
-  -- -D warnings`, `cargo fmt --all -- --check`) before every commit.
-
-## Development Plan
-
-See `.plans/plan.md` for the project roadmap and phase details.
+- `mosaico-core` never depends on the `windows` crate, never contains `unsafe` or `#[cfg(target_os)]`, and never
+  names OS concepts (`HWND`, `HMONITOR`, DWM, `ShowWindow`, `EVENT_*`, registry, `.exe`) in its types or docs.
+- New OS functionality starts as a trait (or trait method) in core with a documented contract. The tiler, daemon and
+  CLI call the trait, not concrete platform types or free functions.
+- Logic that does not call the OS (parsing, formatting, comparing, deciding) belongs in core, even when only one
+  platform uses it today.
+- Keep warnings at zero: `cargo fmt --all -- --check` and `cargo clippy --all-targets -- -D warnings` must pass.
+- Never run `cargo test` or `cargo test --workspace` unfiltered. Some suites start a real daemon that tiles the
+  live desktop. See [testing](.agents/skills/testing/SKILL.md) for the safe set.
+- Do not commit unless the user asks. Commits are GPG-signed conventional commits.
+- The roadmap is in [`.plans/plan.md`](.plans/plan.md).
