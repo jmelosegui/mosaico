@@ -11,7 +11,7 @@
 
 use std::collections::HashMap;
 
-use mosaico_core::{MonitorKey, Workspace};
+use mosaico_core::{MonitorKey, Workspace, match_monitors};
 
 use super::MonitorState;
 
@@ -74,9 +74,9 @@ impl ReconnectMemory {
         slot: usize,
         host: &MonitorKey,
     ) {
-        if home.is_unknown() || host.is_unknown() {
-            // Without both identities the window can never be found
-            // again reliably, so it simply stays where it is.
+        if home.is_unknown() {
+            // A home that cannot be recognised when it comes back is never
+            // parked, so the window simply stays where it is.
             self.displaced.remove(&hwnd);
             return;
         }
@@ -93,30 +93,54 @@ impl ReconnectMemory {
         entry.host_workspace = ws;
     }
 
-    /// Takes the parked state of a monitor that is connected again.
-    pub(super) fn unpark(&mut self, key: &MonitorKey) -> Option<(Vec<Workspace>, usize)> {
-        if key.is_unknown() {
-            return None;
+    /// Points displaced windows at the new key of their host monitor.
+    ///
+    /// A monitor that stays connected can still report a different key
+    /// after a change, for example a reduced one while a KVM is switched
+    /// away and an emulated display stands in for it. `renames` holds
+    /// `(old key, new key)` for every monitor paired across the change;
+    /// they are applied in one pass so renames cannot chain.
+    pub(super) fn rehost(&mut self, renames: &[(MonitorKey, MonitorKey)]) {
+        for d in self.displaced.values_mut() {
+            if let Some((_, to)) = renames.iter().find(|(from, _)| *from == d.host) {
+                d.host = to.clone();
+            }
         }
-        self.parked
-            .remove(key)
-            .map(|p| (p.workspaces, p.active_workspace))
     }
 
-    /// Sends windows whose home is `monitors[home_idx]` back there.
+    /// Takes the parked state of a monitor that is connected again.
+    ///
+    /// The parked key is found with [`match_monitors`], not by equality,
+    /// so a monitor that comes back reporting less than it did (no serial
+    /// or device path yet) still finds its state. Returns the key it was
+    /// parked under, which is what its displaced windows refer to.
+    pub(super) fn unpark(
+        &mut self,
+        key: &MonitorKey,
+    ) -> Option<(MonitorKey, Vec<Workspace>, usize)> {
+        let parked: Vec<MonitorKey> = self.parked.keys().cloned().collect();
+        let found = match_monitors(&parked, std::slice::from_ref(key))[0]?;
+        let parked_key = parked[found].clone();
+        self.parked
+            .remove(&parked_key)
+            .map(|p| (parked_key, p.workspaces, p.active_workspace))
+    }
+
+    /// Sends windows whose home is `home` back to `monitors[home_idx]`.
     ///
     /// A window only moves if it is still on the monitor and workspace it
     /// was displaced to; otherwise the user moved it and it stays. Either
     /// way its record is dropped. Returns the windows that moved.
-    pub(super) fn restore(&mut self, monitors: &mut [MonitorState], home_idx: usize) -> Vec<usize> {
-        let key = monitors[home_idx].key.clone();
-        if key.is_unknown() {
-            return Vec::new();
-        }
+    pub(super) fn restore(
+        &mut self,
+        monitors: &mut [MonitorState],
+        home_idx: usize,
+        home: &MonitorKey,
+    ) -> Vec<usize> {
         let hwnds: Vec<usize> = self
             .displaced
             .iter()
-            .filter(|(_, d)| d.home == key)
+            .filter(|(_, d)| d.home == *home)
             .map(|(&hwnd, _)| hwnd)
             .collect();
         let mut returning: Vec<(usize, Displaced)> = hwnds

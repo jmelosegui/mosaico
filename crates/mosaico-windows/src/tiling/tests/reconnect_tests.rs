@@ -1,5 +1,5 @@
 use mosaico_core::action::MAX_WORKSPACES;
-use mosaico_core::{LayoutKind, MonitorKey, Rect};
+use mosaico_core::{EdidIdentity, LayoutKind, MonitorKey, Rect};
 
 use crate::monitor::MonitorInfo;
 
@@ -199,6 +199,88 @@ fn moved_lists_every_window_that_changed_place() {
     let mut moved = away.moved;
     moved.sort();
     assert_eq!(moved, vec![1, 2]);
+}
+
+/// Full key as Windows reports it for a monitor that is really there.
+fn full(model: u16, serial: u32, connector: &str) -> MonitorKey {
+    MonitorKey {
+        stable_id: Some(format!("path-{model:X}-{connector}")),
+        edid: Some(EdidIdentity {
+            manufacturer: "DEL".into(),
+            product: model,
+            serial: Some(serial),
+        }),
+        connector: Some(connector.into()),
+    }
+}
+
+/// What the same monitor looks like while the KVM is switched away: an
+/// emulated display with the model ids but no device path or serial.
+fn degraded(model: u16, connector: &str) -> MonitorKey {
+    MonitorKey {
+        stable_id: None,
+        edid: Some(EdidIdentity {
+            manufacturer: "DEL".into(),
+            product: model,
+            serial: None,
+        }),
+        connector: Some(connector.into()),
+    }
+}
+
+#[test]
+fn kvm_with_degraded_key_while_away_still_restores() {
+    // Arrange -- the log of a real KVM switch: the left monitor stays,
+    // but reports a reduced key while the KVM points elsewhere.
+    let left = full(0xA0E9, 808_726_860, "hdmi:0");
+    let right = full(0xA0EC, 809_847_884, "dp:1");
+    let mut memory = ReconnectMemory::default();
+    let mut mons = states(&[&left, &right]);
+    mons[0].workspaces[0].add(1);
+    mons[1].workspaces[0].add(2);
+
+    // Act
+    let away = change(mons, &[&degraded(0xA0E9, "hdmi:0")], 50, &mut memory);
+    let back = change(away, &[&left, &right], 90, &mut memory);
+
+    // Assert
+    assert_eq!(back[0].workspaces[0].handles(), &[1]);
+    assert_eq!(back[1].workspaces[0].handles(), &[2]);
+}
+
+#[test]
+fn monitor_returning_with_a_degraded_key_finds_its_parked_state() {
+    // Arrange
+    let left = full(0xA0E9, 1, "hdmi:0");
+    let right = full(0xA0EC, 2, "dp:1");
+    let mut memory = ReconnectMemory::default();
+    let mut mons = states(&[&left, &right]);
+    mons[1].workspaces[2].add(7);
+    mons[1].active_workspace = 2;
+
+    // Act -- it comes back before Windows has read its full identity.
+    let away = change(mons, &[&left], 50, &mut memory);
+    let back = change(away, &[&left, &degraded(0xA0EC, "dp:1")], 90, &mut memory);
+
+    // Assert
+    assert_eq!(back[1].workspaces[2].handles(), &[7]);
+    assert_eq!(back[1].active_workspace, 2);
+}
+
+#[test]
+fn window_on_an_unidentified_host_still_returns() {
+    // Arrange -- while away the only display cannot be identified.
+    let (left, right) = (full(0xA0E9, 1, "hdmi:0"), full(0xA0EC, 2, "dp:1"));
+    let mut memory = ReconnectMemory::default();
+    let mut mons = states(&[&left, &right]);
+    mons[1].workspaces[0].add(2);
+
+    // Act
+    let away = change(mons, &[&MonitorKey::default()], 50, &mut memory);
+    let back = change(away, &[&left, &right], 90, &mut memory);
+
+    // Assert
+    assert_eq!(back[1].workspaces[0].handles(), &[2]);
 }
 
 #[test]

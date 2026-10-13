@@ -32,6 +32,12 @@ pub(super) fn rebuild_monitors(
     memory: &mut ReconnectMemory,
 ) -> Rebuilt {
     let pairs = pair_monitors(&old, new);
+    let renames: Vec<(MonitorKey, MonitorKey)> = pairs
+        .iter()
+        .zip(new)
+        .filter_map(|(pair, info)| pair.map(|oi| (old[oi].key.clone(), info.key().clone())))
+        .collect();
+    memory.rehost(&renames);
     let mut returned = Vec::new();
 
     let mut states: Vec<MonitorState> = new
@@ -44,11 +50,15 @@ pub(super) fn rebuild_monitors(
                 let prev = &mut old[*oi];
                 state.workspaces = std::mem::take(&mut prev.workspaces);
                 state.active_workspace = prev.active_workspace;
-            } else if let Some((workspaces, active)) = memory.unpark(info.key()) {
-                mosaico_core::log_info!("Monitor {} reconnected", info.key());
+            } else if let Some((parked_key, workspaces, active)) = memory.unpark(info.key()) {
+                mosaico_core::log_info!(
+                    "Monitor {} reconnected (parked as {})",
+                    info.key(),
+                    parked_key
+                );
                 state.workspaces = workspaces;
                 state.active_workspace = active;
-                returned.push(ni);
+                returned.push((ni, parked_key));
             } else {
                 mosaico_core::log_info!("New monitor {}", info.key());
             }
@@ -70,8 +80,8 @@ pub(super) fn rebuild_monitors(
         moved.extend(memory.park(gone, &mut states[host]));
     }
 
-    for idx in returned {
-        let back = memory.restore(&mut states, idx);
+    for (idx, parked_key) in returned {
+        let back = memory.restore(&mut states, idx, &parked_key);
         mosaico_core::log_info!(
             "Returned {} window(s) to monitor {}",
             back.len(),

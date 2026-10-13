@@ -133,7 +133,22 @@ which keeps a `ReconnectMemory` (`tiling/reconnect.rs`) owned by the
 - **New monitors** start with workspaces built from `[workspaces.layouts]`.
 
 A window displaced twice (its host disconnects as well) keeps its original
-home and only follows the new host. Monitors with an unknown key are never
+home and only follows the new host.
+
+Keys can change for a monitor that stays connected. While a KVM is switched
+away, Windows may keep an emulated stand-in for one monitor that reports the
+EDID model but no serial or device path, and the full key comes back when
+the KVM returns. So identity is followed through pairing, never compared
+exactly across a change:
+
+- `rehost()` rewrites the host of every displaced window to the new key of
+  the monitor it was paired with, in one pass so renames cannot chain.
+- `unpark()` finds the parked state with `match_monitors()`, so a monitor
+  that returns with a reduced key still gets its workspaces back.
+  `restore()` then matches windows against the key the monitor was parked
+  under.
+- A host with an unknown key still keeps the records; pairing by HMONITOR or
+  position follows it. Monitors with an unknown key are never
 parked and their windows get no record, because they could not be
 recognised on return. `Destroyed` events call `ReconnectMemory::forget()`
 so a reused hwnd is never sent anywhere.
