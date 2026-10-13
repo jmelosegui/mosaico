@@ -283,6 +283,46 @@ impl Window {
         }
     }
 
+    /// Returns the full path of the executable that owns this window,
+    /// or an empty string if it cannot be queried.
+    pub fn exe_path(&self) -> String {
+        use windows::Win32::Foundation::CloseHandle;
+        use windows::Win32::System::Threading::{
+            OpenProcess, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION,
+            QueryFullProcessImageNameW,
+        };
+        use windows::Win32::UI::WindowsAndMessaging::GetWindowThreadProcessId;
+        use windows::core::PWSTR;
+
+        // SAFETY: Reads the image name into a caller-owned buffer. The
+        // process handle is closed before returning.
+        unsafe {
+            let mut pid = 0u32;
+            GetWindowThreadProcessId(self.hwnd, Some(&mut pid));
+            if pid == 0 {
+                return String::new();
+            }
+            let Ok(process) = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) else {
+                return String::new();
+            };
+
+            let mut buffer = [0u16; 1024];
+            let mut len = buffer.len() as u32;
+            let result = QueryFullProcessImageNameW(
+                process,
+                PROCESS_NAME_WIN32,
+                PWSTR(buffer.as_mut_ptr()),
+                &mut len,
+            );
+            let _ = CloseHandle(process);
+
+            if result.is_err() {
+                return String::new();
+            }
+            String::from_utf16_lossy(&buffer[..len as usize])
+        }
+    }
+
     /// Returns whether this looks like a real application window.
     ///
     /// Checks for a caption bar (`WS_CAPTION`), rejects tool windows
@@ -295,6 +335,17 @@ impl Window {
     /// `EVENT_OBJECT_CREATE` fires. `WS_EX_DLGMODALFRAME` is set
     /// during `CreateWindowEx` itself, so it's always available.
     pub fn is_app_window(&self) -> bool {
+        self.app_window_caption() == Some(true)
+    }
+
+    /// Like [`Self::is_app_window`], but without requiring `WS_CAPTION`.
+    ///
+    /// Returns `None` for tool windows, owned windows, and modal
+    /// dialogs. Otherwise returns `Some(has_caption)`. Apps that draw
+    /// their own title bar (e.g. winit or frameless windows) have no
+    /// `WS_CAPTION` and come back as `Some(false)`; those are only
+    /// tiled when a window rule explicitly opts them in.
+    pub fn app_window_caption(&self) -> Option<bool> {
         use windows::Win32::UI::WindowsAndMessaging::{
             GW_OWNER, GWL_EXSTYLE, GWL_STYLE, GetWindow, GetWindowLongPtrW, WS_CAPTION,
             WS_EX_DLGMODALFRAME, WS_EX_TOOLWINDOW,
@@ -310,7 +361,7 @@ impl Window {
             let is_dialog = (ex_style & WS_EX_DLGMODALFRAME.0) != 0;
             let has_owner = GetWindow(self.hwnd, GW_OWNER).is_ok_and(|owner| !owner.is_invalid());
 
-            has_caption && !is_tool && !has_owner && !is_dialog
+            (!is_tool && !has_owner && !is_dialog).then_some(has_caption)
         }
     }
 }

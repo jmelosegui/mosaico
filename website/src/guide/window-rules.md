@@ -37,6 +37,10 @@ manage = false
 match_class = "Chrome_WidgetWin_1"
 match_title = "Picture-in-Picture"
 manage = false
+
+[[rule]]
+match_path = "photocraft.exe"
+manage = true
 ```
 
 ## Rule Fields
@@ -45,6 +49,7 @@ manage = false
 |-------|------|-------------|
 | `match_class` | string | Match by window class name (case-insensitive, exact) |
 | `match_title` | string | Match by window title (case-insensitive, substring) |
+| `match_path` | string | Match by the program's executable path (case-insensitive, ends with) |
 | `manage` | bool | Whether to tile the window (`true` or `false`) |
 
 ## Matching Behavior
@@ -53,9 +58,36 @@ manage = false
   class name.
 - **Title match**: case-insensitive **substring** match against the window
   title.
-- If a rule specifies both `match_class` and `match_title`, **both** must
-  match.
-- If a rule specifies neither, it matches everything.
+- **Path match**: case-insensitive match against the end of the full path
+  of the program that owns the window. The match must start at a folder
+  boundary, so `"app.exe"` matches `C:\Program Files\Vendor\app.exe` but
+  not `C:\Tools\myapp.exe`. You can give just the file name, part of the
+  path (`"Vendor\app.exe"`), or the full path. Forward and back slashes
+  are treated the same.
+- If a rule specifies more than one field, **all** of them must match.
+- A rule must specify at least one field. A rule with none matches
+  nothing.
+
+Prefer `match_path` when an app uses a generic class name shared with
+other programs, or when its title changes with the open document.
+
+## Apps With Custom Title Bars
+
+Some apps hide the standard Windows title bar and draw their own. To
+Windows these look the same as splash screens and borderless popups, so
+Mosaico does not tile them unless a rule opts them in with
+`manage = true`:
+
+```toml
+# user-rules.toml
+[[rule]]
+match_path = "photocraft.exe"
+manage = true
+```
+
+Owned windows, tool windows, and dialogs are never tiled, even when a
+rule matches them, so a rule like this does not pull in the app's
+dialogs.
 
 ## Evaluation Order
 
@@ -93,13 +125,14 @@ and existing windows are re-evaluated against the new rules.
 
 Community rules (`rules.toml`) are only updated on daemon startup.
 
-## Finding Window Class Names
+## Finding Window Class Names and Paths
 
-Use the `debug list` command to see the class names of all visible windows:
+Use the `debug list` command to see the class names and executable paths
+of all visible windows:
 
 ```sh
 mosaico debug list
 ```
 
-The output includes the class name for each window, which you can use in
-your rules.
+The output includes the class name and path for each window, which you
+can use in your rules.

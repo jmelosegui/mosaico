@@ -25,7 +25,7 @@ pub use loader::{
     merge_missing_config_sections, merge_missing_keybindings, rules_path, try_load, try_load_bar,
     try_load_keybindings, try_load_rules, try_load_user_rules, user_rules_path,
 };
-pub use rules::{WindowRule, default_rules, should_manage, validate_rules};
+pub use rules::{WindowRule, default_rules, matching_rule, should_manage, validate_rules};
 pub use theme::{CatppuccinFlavor, RosePineFlavor, Theme, ThemeConfig, TokyoNightFlavor};
 pub use types::*;
 

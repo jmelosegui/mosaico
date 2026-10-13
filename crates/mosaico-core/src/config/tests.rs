@@ -234,12 +234,13 @@ fn rule_excludes_by_class() {
     let rules = vec![WindowRule {
         match_class: Some("TaskManager".into()),
         match_title: None,
+        match_path: None,
         manage: false,
     }];
 
     // Act / Assert
-    assert!(!should_manage("TaskManager", "Task Manager", &rules));
-    assert!(should_manage("Notepad", "Untitled", &rules));
+    assert!(!should_manage("TaskManager", "Task Manager", "", &rules));
+    assert!(should_manage("Notepad", "Untitled", "", &rules));
 }
 
 #[test]
@@ -248,12 +249,13 @@ fn rule_excludes_by_title_substring() {
     let rules = vec![WindowRule {
         match_class: None,
         match_title: Some("settings".into()),
+        match_path: None,
         manage: false,
     }];
 
     // Act / Assert
-    assert!(!should_manage("App", "Windows Settings", &rules));
-    assert!(should_manage("App", "My Document", &rules));
+    assert!(!should_manage("App", "Windows Settings", "", &rules));
+    assert!(should_manage("App", "My Document", "", &rules));
 }
 
 #[test]
@@ -263,23 +265,114 @@ fn first_matching_rule_wins() {
         WindowRule {
             match_class: Some("Chrome".into()),
             match_title: None,
+            match_path: None,
             manage: false,
         },
         WindowRule {
             match_class: Some("Chrome".into()),
             match_title: None,
+            match_path: None,
             manage: true,
         },
     ];
 
     // Act / Assert
-    assert!(!should_manage("Chrome", "Google", &rules));
+    assert!(!should_manage("Chrome", "Google", "", &rules));
 }
 
 #[test]
 fn no_rules_defaults_to_manage() {
     // Act / Assert
-    assert!(should_manage("Any", "Window", &[]));
+    assert!(should_manage("Any", "Window", "", &[]));
+}
+
+#[test]
+fn matching_rule_reports_only_explicit_matches() {
+    // Arrange
+    let rules = vec![
+        WindowRule {
+            match_class: None,
+            match_title: None,
+            match_path: Some("photocraft.exe".into()),
+            manage: true,
+        },
+        WindowRule {
+            match_class: Some("Popup".into()),
+            match_title: None,
+            match_path: None,
+            manage: false,
+        },
+    ];
+
+    // Act / Assert
+    let path = r"C:\Program Files\PhotoCraft\photocraft.exe";
+    assert_eq!(
+        matching_rule("Window Class", "*Untitled-1 - PhotoCraft", path, &rules),
+        Some(true)
+    );
+    assert_eq!(matching_rule("Popup", "Menu", "", &rules), Some(false));
+    assert_eq!(matching_rule("Window Class", "Other", "", &rules), None);
+}
+
+#[test]
+fn match_path_matches_on_component_boundary() {
+    // Arrange
+    let rule = |path: &str| {
+        vec![WindowRule {
+            match_class: None,
+            match_title: None,
+            match_path: Some(path.into()),
+            manage: false,
+        }]
+    };
+    let exe = r"C:\Program Files\PhotoCraft\photocraft.exe";
+
+    // Act / Assert
+    assert!(!should_manage("C", "T", exe, &rule("PHOTOCRAFT.EXE")));
+    assert!(!should_manage(
+        "C",
+        "T",
+        exe,
+        &rule("photocraft/photocraft.exe")
+    ));
+    assert!(!should_manage("C", "T", exe, &rule(exe)));
+    assert!(should_manage("C", "T", exe, &rule("craft.exe")));
+    assert!(should_manage("C", "T", exe, &rule("photocraft")));
+    assert!(should_manage("C", "T", "", &rule("photocraft.exe")));
+}
+
+#[test]
+fn match_path_combines_with_other_fields() {
+    // Arrange
+    let rules = vec![WindowRule {
+        match_class: Some("Window Class".into()),
+        match_title: None,
+        match_path: Some("photocraft.exe".into()),
+        manage: false,
+    }];
+    let exe = r"C:\Program Files\PhotoCraft\photocraft.exe";
+
+    // Act / Assert
+    assert!(!should_manage("Window Class", "T", exe, &rules));
+    assert!(should_manage("Other", "T", exe, &rules));
+    assert!(should_manage("Window Class", "T", r"C:\other.exe", &rules));
+}
+
+#[test]
+fn match_path_parses_from_toml() {
+    // Arrange
+    let toml = r#"
+[[rule]]
+match_path = "photocraft.exe"
+manage = true
+"#;
+
+    // Act
+    let rules = validate_rules(toml).unwrap();
+
+    // Assert
+    assert_eq!(rules[0].match_path.as_deref(), Some("photocraft.exe"));
+    assert!(rules[0].match_class.is_none());
 }
 
 #[test]
@@ -313,12 +406,18 @@ fn empty_match_title_only_matches_empty_title() {
     let rules = vec![WindowRule {
         match_class: Some("ApplicationFrameWindow".into()),
         match_title: Some(String::new()),
+        match_path: None,
         manage: false,
     }];
 
     // Act / Assert
-    assert!(!should_manage("ApplicationFrameWindow", "", &rules));
-    assert!(should_manage("ApplicationFrameWindow", "Settings", &rules));
+    assert!(!should_manage("ApplicationFrameWindow", "", "", &rules));
+    assert!(should_manage(
+        "ApplicationFrameWindow",
+        "Settings",
+        "",
+        &rules
+    ));
 }
 
 #[test]

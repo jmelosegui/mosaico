@@ -52,6 +52,7 @@ unsafe extern "system" fn enum_window_callback(hwnd: HWND, lparam: LPARAM) -> BO
 /// Determines whether a window should be included in the enumeration.
 ///
 /// Filters out invisible, minimized, and non-application windows.
+/// Windows without a caption are kept so window rules can opt them in.
 fn should_include_window(hwnd: HWND) -> bool {
     // SAFETY: These are simple query functions that read window state.
     unsafe {
@@ -63,5 +64,5 @@ fn should_include_window(hwnd: HWND) -> bool {
         }
     }
 
-    Window::new(hwnd).is_app_window()
+    Window::new(hwnd).app_window_caption().is_some()
 }
