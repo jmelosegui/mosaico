@@ -14,6 +14,8 @@ pub mod ipc;
 pub mod layout;
 /// Logging configuration and helpers.
 pub mod log;
+/// Platform-agnostic monitor identity and matching.
+pub mod monitor;
 /// PID file management for the daemon.
 pub mod pid;
 /// Axis-aligned rectangle type.
@@ -32,6 +34,7 @@ pub use config::{BarConfig, Config};
 pub use event::WindowEvent;
 pub use ipc::{Command, Response};
 pub use layout::{BspLayout, Layout, LayoutKind, ThreeColumnLayout, VerticalStackLayout};
+pub use monitor::{EdidIdentity, Monitor, MonitorKey, match_monitors, pnp_manufacturer};
 pub use rect::Rect;
 pub use window::{Window, WindowResult};
 pub use workspace::Workspace;

@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::mpsc;
+use std::time::Instant;
 
 use mosaico_core::WindowResult;
 use mosaico_core::config;
@@ -14,6 +15,7 @@ use crate::monitor;
 use crate::tiling::TilingManager;
 
 use super::daemon_loop_handlers;
+use super::daemon_settle::DisplaySettle;
 use super::daemon_threads;
 use super::daemon_types::DaemonMsg;
 
@@ -122,11 +124,25 @@ pub(super) fn daemon_loop() -> WindowResult<()> {
     let mut events = Vec::new();
     let mut should_stop = false;
     let mut hotkeys_paused = false;
+    let mut display_settle = DisplaySettle::default();
 
     while !should_stop {
         // Keep the bar and border windows out of the not-responding
         // state before doing anything else this iteration.
         pump_thread_messages();
+
+        // Apply a display change once the configuration has gone quiet.
+        if display_settle.take_due(Instant::now())
+            && daemon_loop_handlers::handle_event(
+                mosaico_core::WindowEvent::DisplayChanged,
+                &mut manager,
+                &mut bar_mgr,
+                &mut current_theme,
+                &get_update,
+            )
+        {
+            bar_mgr.update(&manager.bar_states(&get_update(), hotkeys_paused));
+        }
 
         // Block until at least one message arrives. If a foreground
         // change is pending from the previous iteration, only wait
@@ -151,19 +167,32 @@ pub(super) fn daemon_loop() -> WindowResult<()> {
             // parked inside `recv_timeout` between wakeups, so an idle
             // daemon costs one wakeup per `PUMP_INTERVAL` and never spins.
             let mut received = None;
+            let mut disconnected = false;
             loop {
-                match rx.recv_timeout(PUMP_INTERVAL) {
+                let wait = display_settle
+                    .remaining(Instant::now())
+                    .map_or(PUMP_INTERVAL, |left| left.min(PUMP_INTERVAL));
+                match rx.recv_timeout(wait) {
                     Ok(msg) => {
                         received = Some(msg);
                         break;
                     }
-                    Err(mpsc::RecvTimeoutError::Timeout) => pump_thread_messages(),
-                    Err(mpsc::RecvTimeoutError::Disconnected) => break,
+                    Err(mpsc::RecvTimeoutError::Timeout) => {
+                        pump_thread_messages();
+                        if display_settle.is_due(Instant::now()) {
+                            break;
+                        }
+                    }
+                    Err(mpsc::RecvTimeoutError::Disconnected) => {
+                        disconnected = true;
+                        break;
+                    }
                 }
             }
             match received {
                 Some(msg) => msg,
-                None => break,
+                None if disconnected => break,
+                None => continue,
             }
         };
 
@@ -230,6 +259,13 @@ pub(super) fn daemon_loop() -> WindowResult<()> {
         // TitleChanged fire very frequently; only the last per hwnd
         // matters. This can collapse hundreds of events into a handful.
         dedup_events(&mut events);
+
+        // Display changes are deferred until the configuration settles.
+        let before = events.len();
+        events.retain(|e| !matches!(e, mosaico_core::WindowEvent::DisplayChanged));
+        if events.len() != before {
+            display_settle.note(Instant::now());
+        }
 
         // Process deferred window events, then refresh the bar once.
         let mut needs_bar_update = false;

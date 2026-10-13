@@ -32,16 +32,17 @@ impl TilingManager {
 
 /// Copies fresh OS work areas into the matching monitor states.
 ///
-/// Monitors are matched by ID. Reconnecting a display (e.g. through a
-/// KVM switch) hands out new HMONITOR IDs, so when the monitor count is
-/// unchanged an unmatched monitor falls back to the one at the same
-/// left-to-right index and adopts its new ID.
+/// Monitors are matched by key, then by ID. Reconnecting a display (e.g.
+/// through a KVM switch) hands out new HMONITOR IDs, so when neither
+/// matches and the monitor count is unchanged, an unmatched monitor falls
+/// back to the one at the same left-to-right index and adopts its new ID.
 pub(super) fn sync_os_work_areas(monitors: &mut [MonitorState], os_monitors: &[MonitorInfo]) {
     let same_count = monitors.len() == os_monitors.len();
     for (i, mon) in monitors.iter_mut().enumerate() {
         let os = os_monitors
             .iter()
-            .find(|m| m.id == mon.id)
+            .find(|m| !mon.key.is_unknown() && m.key == mon.key)
+            .or_else(|| os_monitors.iter().find(|m| m.id == mon.id))
             .or_else(|| same_count.then(|| &os_monitors[i]));
         if let Some(os) = os {
             mon.id = os.id;

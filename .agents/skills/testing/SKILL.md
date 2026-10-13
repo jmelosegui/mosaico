@@ -33,8 +33,11 @@ Run a single unit test by name with `cargo test --lib <name>`.
 - `cargo test -p mosaico --test cli` unfiltered. `start_and_stop_lifecycle` and `second_daemon_is_rejected`
   start real daemons that fight over the single-instance mutex; the second can block forever and leave an
   orphan daemon tiling the user's windows.
-- `cargo test -p mosaico --test window_management` and `--test bar_reservation`. They start the daemon, launch
-  notepad and tile the live desktop. CI runs them on a dedicated runner.
+- `cargo test -p mosaico --test window_management`, `--test bar_reservation` and `--test display_change`. They
+  start the daemon, launch notepad and tile the live desktop. CI runs them on a dedicated runner.
+- `cargo test -p mosaico --test display_change -- --ignored` additionally disconnects and reconnects the real
+  monitors with `DisplaySwitch`. Only run it with the user's go-ahead, on a machine in extend mode with two or more
+  monitors.
 
 If you must run one of these, tell the user first, run one suite at a time, and afterwards make sure no daemon
 is left behind (`taskkill /IM mosaico.exe /F`). When asked to "run all the tests", run the safe set and say

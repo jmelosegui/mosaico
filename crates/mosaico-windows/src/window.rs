@@ -478,6 +478,9 @@ impl mosaico_core::Window for Window {
                 RDW_INVALIDATE | RDW_UPDATENOW | RDW_FRAME | RDW_ERASE | RDW_ALLCHILDREN,
             );
         }
+        if self.needs_frame_changed() {
+            crate::chromium::realign_gpu_child(self.hwnd);
+        }
     }
 
     fn is_visible(&self) -> bool {

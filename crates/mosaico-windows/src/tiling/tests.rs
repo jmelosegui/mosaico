@@ -31,6 +31,7 @@ mod workspace_tests;
 pub(super) fn make_monitor(id: usize) -> MonitorState {
     MonitorState {
         id,
+        key: MonitorKey::default(),
         os_work_area: Rect::new(0, 0, 1920, 1080),
         work_area: Rect::new(0, 0, 1920, 1080),
         workspaces: (0..MAX_WORKSPACES).map(|_| Workspace::new()).collect(),
@@ -107,52 +108,26 @@ fn hidden_by_switch_ignores_duplicates() {
 
 // -- workspace switch simulation --
 
+/// Runs the real display change rebuild with unidentified monitors, the
+/// first of which is primary.
 pub(super) fn simulate_display_change(
-    old_monitors: &mut [MonitorState],
+    old_monitors: &mut Vec<MonitorState>,
     new_infos: Vec<(usize, Rect)>,
 ) -> Vec<MonitorState> {
-    let mut new_states: Vec<MonitorState> = Vec::new();
-
-    for (id, work_area) in &new_infos {
-        let old_idx = old_monitors.iter().position(|m| m.id == *id).or_else(|| {
-            old_monitors
-                .iter()
-                .position(|m| m.os_work_area.x == work_area.x && m.os_work_area.y == work_area.y)
-        });
-
-        if let Some(idx) = old_idx {
-            let old = &mut old_monitors[idx];
-            new_states.push(MonitorState {
-                id: *id,
-                os_work_area: *work_area,
-                work_area: *work_area,
-                workspaces: std::mem::take(&mut old.workspaces),
-                active_workspace: old.active_workspace,
-            });
-        } else {
-            new_states.push(MonitorState {
-                id: *id,
-                os_work_area: *work_area,
-                work_area: *work_area,
-                workspaces: (0..MAX_WORKSPACES).map(|_| Workspace::new()).collect(),
-                active_workspace: 0,
-            });
-        }
-    }
-
-    // Migrate windows from removed monitors.
-    for old_mon in old_monitors.iter() {
-        if old_mon.workspaces.is_empty() {
-            continue;
-        }
-        for ws in &old_mon.workspaces {
-            for &hwnd in ws.handles() {
-                new_states[0].active_ws_mut().add(hwnd);
-            }
-        }
-    }
-
-    new_states
+    let infos: Vec<crate::monitor::MonitorInfo> = new_infos
+        .into_iter()
+        .enumerate()
+        .map(|(i, (id, work_area))| crate::monitor::MonitorInfo {
+            id,
+            key: MonitorKey::default(),
+            work_area,
+            primary: i == 0,
+        })
+        .collect();
+    let layouts = vec![LayoutKind::default(); MAX_WORKSPACES as usize];
+    let mut memory = reconnect::ReconnectMemory::default();
+    display_rebuild::rebuild_monitors(std::mem::take(old_monitors), &infos, &layouts, &mut memory)
+        .monitors
 }
 
 // Standalone helper matching TilingManager::find_window logic
