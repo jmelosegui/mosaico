@@ -20,7 +20,7 @@ matching skill before you start:
 | --- | --- |
 | [platform-boundary](.agents/skills/platform-boundary/SKILL.md) | adding or changing anything that talks to the OS, reviewing a diff for core/platform leaks, or auditing the crates |
 | [rust-conventions](.agents/skills/rust-conventions/SKILL.md) | writing any Rust: naming, file size, errors, `unsafe`, docs, imports |
-| [testing](.agents/skills/testing/SKILL.md) | writing or running tests; which suites are safe to run locally |
+| [testing](.agents/skills/testing/SKILL.md) | designing a component so it can be tested in isolation, writing or running tests, which suites are safe to run locally |
 | [manual-verification](.agents/skills/manual-verification/SKILL.md) | confirming a feature works on the live desktop: daemon, IPC, logs, screenshots |
 | [commits-and-issues](.agents/skills/commits-and-issues/SKILL.md) | commits, plan checkboxes, filing or updating issues |
 
@@ -32,6 +32,8 @@ Ground rules:
   CLI call the trait, not concrete platform types or free functions.
 - Logic that does not call the OS (parsing, formatting, comparing, deciding) belongs in core, even when only one
   platform uses it today.
+- Every component must be testable in isolation: pass in the OS, clock, file system, network and IPC instead of
+  reaching for them. See [testing](.agents/skills/testing/SKILL.md).
 - Keep warnings at zero: `cargo fmt --all -- --check` and `cargo clippy --all-targets -- -D warnings` must pass.
 - Never run `cargo test` or `cargo test --workspace` unfiltered. Some suites start a real daemon that tiles the
   live desktop. See [testing](.agents/skills/testing/SKILL.md) for the safe set.
