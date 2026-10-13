@@ -22,6 +22,8 @@ pub mod pid;
 pub mod rect;
 /// Spatial direction helpers.
 pub mod spatial;
+/// The tiling state machine.
+pub mod tiler;
 /// Build-time version information.
 pub mod version;
 /// Platform-agnostic window abstraction.

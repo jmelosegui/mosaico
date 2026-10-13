@@ -1,198 +1,35 @@
-mod display;
-mod display_rebuild;
-mod empty_focus;
-mod event_handler;
-mod focus;
-mod helpers;
-mod layout;
-mod lifecycle;
-mod navigation;
-mod navigation_helpers;
-mod reconnect;
-mod work_area;
-mod workspace;
+//! Drives the core tiler against the Windows desktop.
+//!
+//! [`mosaico_core::tiler::Tiler`] makes every decision. This module
+//! feeds it actions and events, applies the effects it returns through
+//! [`applier::Applier`], and drops the events those effects cause.
 
-use std::collections::{HashMap, HashSet};
+mod applier;
+mod desktop;
+mod inspect;
+
 use std::time::Instant;
 
-use mosaico_core::action::MAX_WORKSPACES;
-use mosaico_core::config::{
-    BorderConfig, HidingBehaviour, LayoutConfig, WindowRule, WorkspaceMode, WorkspacesConfig,
-};
-use mosaico_core::{Action, LayoutKind, MonitorKey, Rect, WindowResult, Workspace};
+use mosaico_core::config::{BorderConfig, Config, LayoutConfig, WindowRule, WorkspacesConfig};
+use mosaico_core::tiler::{BarReservation, Display, Input, Settings, Tiler};
+use mosaico_core::{Action, WindowEvent, WindowResult};
 
 use crate::bar::BarState;
-use crate::border::Border;
 use crate::enumerate;
-use crate::frame;
-use crate::monitor;
-use crate::window::Window;
+use crate::monitor::{self, MonitorInfo};
 
-/// Per-monitor state: multiple workspaces and work area.
-pub(super) struct MonitorState {
-    /// Runtime HMONITOR. Replaced on every display change.
-    pub(super) id: usize,
-    /// Identity that survives reconnects, used to match monitors across
-    /// display changes.
-    pub(super) key: MonitorKey,
-    /// Work area as reported by the OS, before the bar is reserved.
-    ///
-    /// Kept so the bar-adjusted `work_area` can always be re-derived
-    /// from it instead of offset in place, which would accumulate.
-    pub(super) os_work_area: Rect,
-    /// Space available for tiling: `os_work_area` minus the bar.
-    pub(super) work_area: Rect,
-    pub(super) workspaces: Vec<Workspace>,
-    pub(super) active_workspace: usize,
-}
-
-impl MonitorState {
-    /// State for a monitor seen for the first time: empty workspaces
-    /// with the configured layouts.
-    fn new(info: &monitor::MonitorInfo, layouts: &[LayoutKind]) -> Self {
-        Self {
-            id: info.id,
-            key: mosaico_core::Monitor::key(info).clone(),
-            os_work_area: mosaico_core::Monitor::work_area(info),
-            work_area: mosaico_core::Monitor::work_area(info),
-            workspaces: layouts.iter().map(|&k| Workspace::with_layout(k)).collect(),
-            active_workspace: 0,
-        }
-    }
-
-    fn active_ws(&self) -> &Workspace {
-        &self.workspaces[self.active_workspace]
-    }
-
-    fn active_ws_mut(&mut self) -> &mut Workspace {
-        &mut self.workspaces[self.active_workspace]
-    }
-}
-
-/// Result of resolving a directional (H/L) spatial action.
-///
-/// Used by both focus and move operations to share the spatial
-/// neighbor lookup and monitor-overflow logic.
-enum SpatialTarget {
-    /// A neighbor window on the same monitor.
-    Neighbor(usize),
-    /// The adjacent monitor when no same-monitor neighbor exists.
-    AdjacentMonitor(usize),
-}
+use applier::Applier;
+use desktop::Win32Desktop;
 
 /// Manages tiled windows across all connected monitors.
 pub struct TilingManager {
-    monitors: Vec<MonitorState>,
-    /// Layout of each workspace on a monitor seen for the first time,
-    /// from `[workspaces.layouts]` falling back to `[layout] default`.
-    workspace_layouts: Vec<LayoutKind>,
-    /// Monitors that disconnected and the windows displaced from them.
-    reconnect: reconnect::ReconnectMemory,
-    layout_gap: i32,
-    layout_ratio: f64,
-    rules: Vec<WindowRule>,
-    /// One overlay per visible tiled window keyed by hwnd.
-    ///
-    /// The focused window's border is drawn in the focused (or monocle)
-    /// color; the rest are drawn in the unfocused color when that
-    /// state is enabled (`BorderColors::unfocused_enabled`). Borders
-    /// are created lazily as windows are added to a visible workspace
-    /// and dropped when they leave.
-    borders: HashMap<usize, Border>,
-    border_config: BorderConfig,
-    focused_monitor: usize,
-    focused_window: Option<usize>,
-    /// Suppresses `Moved` event handling during programmatic layout.
-    applying_layout: bool,
-    /// Tracks whether the focused window is currently maximized.
-    ///
-    /// Used to detect maximize/restore transitions from
-    /// `LocationChanged` events without calling `update_border()`
-    /// on every animation frame.
-    focused_maximized: bool,
-    /// Whether keyboard-driven focus should move the cursor.
-    mouse_follows_focus: bool,
-    /// Suppresses cursor moves after mouse-driven focus.
-    focus_from_mouse: bool,
-    /// How windows are hidden during workspace switches.
-    hiding: HidingBehaviour,
-    /// Whether workspace switches affect one monitor or all monitors.
-    pub(super) workspace_mode: WorkspaceMode,
-    /// Windows hidden programmatically by workspace switching.
-    ///
-    /// Events for these hwnds are ignored until they are shown again.
-    /// This prevents `EVENT_OBJECT_HIDE` from removing windows that
-    /// were just hidden by a workspace switch.
-    hidden_by_switch: HashSet<usize>,
-    /// Cooldown timestamp suppressing focus-triggered workspace switches.
-    ///
-    /// Win32 events fired during a workspace switch (e.g. by
-    /// `set_foreground()` or `SetWindowLongW` inside `set_rect`)
-    /// are queued asynchronously and may arrive after the switch
-    /// completes.  Checking a boolean guard is insufficient because
-    /// the flag is cleared before these deferred events are processed.
-    ///
-    /// Instead we record the `Instant` when the switch finishes and
-    /// suppress focus-triggered switches until a short cooldown
-    /// elapses, preventing infinite workspace-switching loops.
-    ws_switch_cooldown: Option<Instant>,
-    /// Pins `focused_monitor` while its active workspace is empty.
-    ///
-    /// An empty workspace has no mosaico window able to hold
-    /// foreground, so Win32 leaves it on another monitor and restores
-    /// it there after any transient overlay closes. Without this,
-    /// the `Focused` event that follows moves `focused_monitor`, and
-    /// `add_and_focus` then tiles the next window on the monitor the
-    /// user just navigated away from. See [`empty_focus`].
-    empty_focus_claim: Option<empty_focus::EmptyFocusClaim>,
-    /// Whether the current process (mosaico) is running elevated.
-    ///
-    /// When `false`, elevated windows are skipped in `is_tileable`
-    /// because `SetWindowPos` silently fails across the UIPI boundary.
-    self_elevated: bool,
-    /// Windows that `try_adopt` already rejected via `is_tileable`.
-    ///
-    /// Prevents re-evaluating expensive Win32 queries (visibility,
-    /// elevation, class, title) on every deferred event for windows
-    /// that will never be managed (e.g. elevated Visual Studio).
-    /// Cleared on rule reload; entries removed on `Destroyed`.
-    adopt_rejected: HashSet<usize>,
-    /// Monitors that have outstanding layout work to apply.
-    ///
-    /// `move_direction` and `move_to_monitor` mutate the workspace
-    /// data structure (swap / remove / insert) but defer the actual
-    /// `SetWindowPos` storm to `flush_pending_retile`. Several rapid
-    /// move actions therefore touch the data structure many times
-    /// but only repaint window positions once, after the daemon's
-    /// coalescing quiet window.
-    pending_retile: HashSet<usize>,
-    /// Deferred `SetForegroundWindow` target for the current batch.
-    ///
-    /// When several focus actions are processed back-to-back, calling
-    /// `SetForegroundWindow` on every intermediate window is expensive
-    /// (Win32 cross-process IPC + foreground-window policy checks,
-    /// often 50–150 ms per call). The internal `focused_window`,
-    /// border, and bar are updated synchronously, but the actual OS
-    /// foreground change is deferred and only run for the *last*
-    /// target in the batch by `flush_pending_foreground`. The boolean
-    /// snapshots `focus_from_mouse` at the time of the request so the
-    /// flush can decide whether to move the cursor.
-    pending_foreground: Option<(usize, bool)>,
-    /// Recent `set_foreground` targets with the time they were issued.
-    ///
-    /// Win32 delivers `EVENT_OBJECT_FOCUS` for each window we focus
-    /// asynchronously, often hundreds of milliseconds late. When the
-    /// user navigates rapidly (e.g. several `alt+h` presses in quick
-    /// succession), stale echoes for intermediate windows arrive after
-    /// we've already advanced and would rewind `focused_window` if
-    /// processed. We keep the last few intents here so the `Focused`
-    /// handler can recognize and discard those echoes.
-    focus_intents: std::collections::VecDeque<(usize, Instant)>,
+    tiler: Tiler,
+    applier: Applier,
+    desktop: Win32Desktop,
 }
 
 impl TilingManager {
     /// Creates a new tiling manager with the given layout, rules, and borders.
-    #[allow(clippy::too_many_arguments)]
     pub fn new(
         layout_config: &LayoutConfig,
         workspaces_config: &WorkspacesConfig,
@@ -200,171 +37,144 @@ impl TilingManager {
         border_config: BorderConfig,
         mouse_follows_focus: bool,
     ) -> WindowResult<Self> {
-        let workspace_layouts: Vec<LayoutKind> = (1..=MAX_WORKSPACES)
-            .map(|ws_num| {
-                workspaces_config
-                    .layouts
-                    .get(&ws_num)
-                    .copied()
-                    .unwrap_or(layout_config.default)
-            })
+        let displays = displays(monitor::enumerate_monitors()?);
+        let windows: Vec<usize> = enumerate::enumerate_windows()?
+            .iter()
+            .map(|w| w.hwnd().0 as usize)
             .collect();
-        let monitors: Vec<MonitorState> = monitor::enumerate_monitors()?
-            .into_iter()
-            .map(|info| MonitorState::new(&info, &workspace_layouts))
-            .collect();
-
-        let self_elevated = crate::process::is_current_process_elevated();
-
-        let mut manager = Self {
-            monitors,
-            workspace_layouts,
-            reconnect: reconnect::ReconnectMemory::default(),
-            layout_gap: layout_config.gap,
-            layout_ratio: layout_config.ratio,
+        let settings = Settings {
+            layout: layout_config.clone(),
+            workspaces: workspaces_config.clone(),
+            borders: border_config,
             rules,
-            borders: HashMap::new(),
-            border_config,
-            focused_monitor: 0,
-            focused_window: None,
-            focused_maximized: false,
             mouse_follows_focus,
-            focus_from_mouse: false,
-            applying_layout: false,
-            hiding: layout_config.hiding,
-            workspace_mode: workspaces_config.mode,
-            hidden_by_switch: HashSet::new(),
-            ws_switch_cooldown: None,
-            empty_focus_claim: None,
-            self_elevated,
-            adopt_rejected: HashSet::new(),
-            pending_retile: HashSet::new(),
-            pending_foreground: None,
-            focus_intents: std::collections::VecDeque::new(),
         };
-
-        for win in enumerate::enumerate_windows()? {
-            let hwnd = win.hwnd().0 as usize;
-            if manager.is_tileable(hwnd)
-                && let Some(idx) = manager.monitor_index_for(hwnd)
-            {
-                manager.monitors[idx].active_ws_mut().add(hwnd);
-                frame::set_corner_preference(win.hwnd(), manager.border_config.corner_style);
-            }
-        }
-
-        manager.retile_all();
-        manager.focus_initial();
+        let desktop = Win32Desktop::new();
+        let now = Instant::now();
+        let (tiler, effects) = Tiler::new(settings, &displays, &windows, &desktop, now);
+        let mut manager = Self {
+            tiler,
+            applier: Applier::default(),
+            desktop,
+        };
+        manager.applier.apply(effects, now);
         Ok(manager)
+    }
+
+    fn step(&mut self, input: Input) {
+        let now = Instant::now();
+        let effects = self.tiler.step(input, &self.desktop, now);
+        self.applier.apply(effects, now);
     }
 
     /// Executes a user-triggered action.
     pub fn handle_action(&mut self, action: &Action) {
-        match action {
-            Action::Focus(dir) => {
-                self.focus_from_mouse = false;
-                self.focus_direction(*dir);
-            }
-            Action::Move(dir) => self.move_direction(*dir),
-            Action::Retile => self.retile_all(),
-            Action::ToggleMonocle => self.toggle_monocle(),
-            Action::CloseFocused => self.close_focused(),
-            Action::MinimizeFocused => self.minimize_focused(),
-            Action::CycleLayout => self.cycle_layout(),
-            Action::GoToWorkspace(n) => self.goto_workspace(*n),
-            Action::SendToWorkspace(n) => self.send_to_workspace(*n),
-            // TogglePause is handled by the daemon before reaching here.
-            Action::TogglePause => {}
+        self.step(Input::Action(*action));
+    }
+
+    /// Handles a window event, unless it is an echo of our own changes.
+    pub fn handle_event(&mut self, event: &WindowEvent) {
+        if let Some(reason) = self.applier.echo(event, Instant::now()) {
+            mosaico_core::log_debug!("{} suppressed ({})", event, reason);
+            return;
         }
+        self.step(Input::Event(event.clone()));
+    }
+
+    /// Whether focus changes or placements are held back, waiting for
+    /// input to go quiet.
+    pub fn has_pending(&self) -> bool {
+        self.applier.has_pending()
+    }
+
+    /// Applies everything held back. The daemon calls this once input
+    /// has been quiet for a moment.
+    pub fn flush_pending(&mut self) {
+        self.applier.flush(Instant::now());
+    }
+
+    /// Redraws every border to match the current window positions.
+    pub fn refresh_border(&mut self) {
+        self.step(Input::RefreshBorders);
+    }
+
+    /// Repaints every visible window, including those already in place.
+    pub fn refresh_visible_windows(&mut self) {
+        self.step(Input::RepaintAll);
+    }
+
+    /// Shows every window again and restores their frames. Called on
+    /// shutdown so nothing is left hidden.
+    pub fn restore_all_windows(&mut self) {
+        self.step(Input::Shutdown);
+    }
+
+    /// Applies a new layout, border and mouse config, then retiles.
+    pub fn reload_config(&mut self, config: &Config) {
+        self.step(Input::Config(Box::new(config.clone())));
+    }
+
+    /// Replaces the window rules and lets go of windows they no longer
+    /// manage.
+    pub fn reload_rules(&mut self, rules: Vec<WindowRule>) {
+        self.step(Input::Rules(rules));
+    }
+
+    /// Rebuilds the monitor state after a display configuration change.
+    pub fn handle_display_change(
+        &mut self,
+        new_monitors: Vec<MonitorInfo>,
+        bar_height: i32,
+        bar_monitor_indices: &[usize],
+    ) {
+        self.step(Input::Displays {
+            monitors: displays(new_monitors),
+            bar: bar(bar_height, bar_monitor_indices),
+        });
+    }
+
+    /// Reserves the bar height at the top of each bar monitor, then
+    /// retiles. An empty `bar_monitors` means all monitors.
+    pub fn adjust_work_areas_for_bar(&mut self, bar_height: i32, bar_monitors: &[usize]) {
+        self.step(Input::Bar(bar(bar_height, bar_monitors)));
+    }
+
+    /// Re-reads the OS work areas, then re-reserves the bar and retiles.
+    pub fn reset_and_adjust_work_areas(&mut self, bar_height: i32, bar_monitors: &[usize]) {
+        let monitors = monitor::enumerate_monitors()
+            .map(displays)
+            .unwrap_or_default();
+        self.step(Input::WorkAreas {
+            monitors,
+            bar: bar(bar_height, bar_monitors),
+        });
     }
 
     /// Returns the total number of managed windows.
     pub fn window_count(&self) -> usize {
-        self.monitors
-            .iter()
-            .flat_map(|m| &m.workspaces)
-            .map(|ws| ws.len())
-            .sum()
+        self.tiler.window_count()
     }
 
     /// Returns a formatted dump of the daemon's internal workspace state.
     pub fn inspect_state(&self) -> String {
-        use std::fmt::Write;
-
-        let mut out = String::new();
-
-        for (mi, mon) in self.monitors.iter().enumerate() {
-            let _ = writeln!(
-                out,
-                "Monitor {} (id={}, key={}, work_area={}x{}+{}+{}, active_ws={}):",
-                mi,
-                mon.id,
-                mon.key,
-                mon.work_area.width,
-                mon.work_area.height,
-                mon.work_area.x,
-                mon.work_area.y,
-                mon.active_workspace + 1,
-            );
-
-            for (wi, ws) in mon.workspaces.iter().enumerate() {
-                if ws.is_empty() {
-                    continue;
-                }
-                let _ = writeln!(
-                    out,
-                    "  Workspace {} ({} window{}):",
-                    wi + 1,
-                    ws.len(),
-                    if ws.len() == 1 { "" } else { "s" },
-                );
-                for &hwnd in ws.handles() {
-                    let win = crate::window::Window::from_raw(hwnd);
-                    let title = mosaico_core::Window::title(&win).unwrap_or_default();
-                    let class = mosaico_core::Window::class(&win).unwrap_or_default();
-                    let visible = mosaico_core::Window::is_visible(&win);
-                    let minimized = win.is_minimized();
-                    let cloaked = win.is_cloaked();
-                    let elevated = win.is_elevated();
-                    let rect = mosaico_core::Window::rect(&win).ok();
-                    let rect_str = match rect {
-                        Some(r) => format!("{}x{}+{}+{}", r.width, r.height, r.x, r.y),
-                        None => "N/A".to_string(),
-                    };
-                    let _ = writeln!(
-                        out,
-                        "    0x{:X}  visible={}  minimized={}  cloaked={}  elevated={}  rect={}  class={:?}  title={:?}",
-                        hwnd, visible, minimized, cloaked, elevated, rect_str, class, title,
-                    );
-                }
-            }
-        }
-
-        let _ = writeln!(out, "{}", self.reconnect.describe());
-        let _ = writeln!(out, "Self elevated: {}", self.self_elevated);
-        let _ = writeln!(out, "Focused monitor: {}", self.focused_monitor);
-        let _ = match self.focused_window {
-            Some(h) => writeln!(out, "Focused window: 0x{:X}", h),
-            None => writeln!(out, "Focused window: None"),
-        };
-
-        out
+        inspect::describe(&self.tiler, self.desktop.self_elevated())
     }
 
     /// Returns a snapshot of bar state for each monitor.
     pub fn bar_states(&self, update_text: &str, paused: bool) -> Vec<BarState> {
-        self.monitors
+        self.tiler
+            .monitors()
             .iter()
             .enumerate()
             .map(|(i, m)| BarState {
-                active_workspace: m.active_workspace,
-                workspace_count: m.workspaces.len(),
-                layout_name: m.active_ws().layout_kind().name().into(),
-                monocle: m.active_ws().monocle(),
+                active_workspace: m.active_workspace(),
+                workspace_count: m.workspaces().len(),
+                layout_name: m.active().layout_kind().name().into(),
+                monocle: m.active().monocle(),
                 cpu_usage: 0,
                 update_text: update_text.to_string(),
-                focused_hwnd: if i == self.focused_monitor {
-                    self.focused_window
+                focused_hwnd: if i == self.tiler.focused_monitor() {
+                    self.tiler.focused_window()
                 } else {
                     None
                 },
@@ -375,6 +185,22 @@ impl TilingManager {
     }
 }
 
-#[cfg(test)]
-#[path = "tests.rs"]
-mod tests;
+/// The monitors as the tiler sees them.
+fn displays(monitors: Vec<MonitorInfo>) -> Vec<Display> {
+    monitors
+        .into_iter()
+        .map(|m| Display {
+            id: m.id,
+            key: m.key,
+            work_area: m.work_area,
+            primary: m.primary,
+        })
+        .collect()
+}
+
+fn bar(height: i32, monitors: &[usize]) -> BarReservation {
+    BarReservation {
+        height,
+        monitors: monitors.to_vec(),
+    }
+}
