@@ -1,4 +1,4 @@
-use crate::{MonitorKey, Rect};
+use crate::{MonitorId, MonitorKey, Rect, WindowId};
 
 /// Read-only view of the desktop the tiler decides against.
 ///
@@ -19,25 +19,25 @@ use crate::{MonitorKey, Rect};
 pub trait Desktop {
     /// Whether the window is shown. A window that is only hidden by the
     /// system's own desktop switching still counts as shown.
-    fn is_visible(&self, window: usize) -> bool;
+    fn is_visible(&self, window: WindowId) -> bool;
 
     /// Whether the window is minimized.
-    fn is_minimized(&self, window: usize) -> bool;
+    fn is_minimized(&self, window: WindowId) -> bool;
 
     /// Whether the window is maximized.
-    fn is_maximized(&self, window: usize) -> bool;
+    fn is_maximized(&self, window: WindowId) -> bool;
 
     /// The window's visible bounds, as the user sees them.
-    fn rect(&self, window: usize) -> Option<Rect>;
+    fn rect(&self, window: WindowId) -> Option<Rect>;
 
     /// The window that owns this one, for dialogs and property sheets.
-    fn owner(&self, window: usize) -> Option<usize>;
+    fn owner(&self, window: WindowId) -> Option<WindowId>;
 
     /// Session id of the monitor the window is on.
     ///
     /// Must be one of the ids in the latest [`Display`] list. A window
     /// that is on no monitor reports the primary monitor.
-    fn monitor_of(&self, window: usize) -> usize;
+    fn monitor_of(&self, window: WindowId) -> MonitorId;
 
     /// Pointer position in desktop coordinates, if it can be read.
     fn cursor(&self) -> Option<(i32, i32)>;
@@ -50,7 +50,7 @@ pub trait Desktop {
     /// platform cannot position it. Visibility is not part of this
     /// check, so a window that exists but has not been shown yet can
     /// still be judged.
-    fn candidate(&self, window: usize) -> Option<WindowFacts>;
+    fn candidate(&self, window: WindowId) -> Option<WindowFacts>;
 }
 
 /// Properties the window rules match against.
@@ -72,7 +72,7 @@ pub struct WindowFacts {
 pub struct Display {
     /// Session id. Platforms may hand out new ids on every display
     /// change, so this only identifies a monitor until the next one.
-    pub id: usize,
+    pub id: MonitorId,
     /// Identity that survives reconnects. See [`MonitorKey`].
     pub key: MonitorKey,
     /// Usable area, excluding taskbars, docks and panels.

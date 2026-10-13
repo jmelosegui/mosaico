@@ -1,5 +1,7 @@
 use std::fmt;
 
+use crate::WindowId;
+
 /// A platform-agnostic window event.
 ///
 /// These represent meaningful state changes that the tiling manager
@@ -9,60 +11,60 @@ use std::fmt;
 pub enum WindowEvent {
     /// A new window was created and made visible.
     Created {
-        /// Window handle.
-        hwnd: usize,
+        /// The window.
+        window: WindowId,
     },
 
     /// A window was destroyed or closed.
     Destroyed {
-        /// Window handle.
-        hwnd: usize,
+        /// The window.
+        window: WindowId,
     },
 
-    /// A window was hidden (EVENT_OBJECT_HIDE) but not necessarily destroyed.
+    /// A window was hidden, but not necessarily destroyed.
     ///
     /// GPU-accelerated apps (e.g. Zed, browsers) may fire HIDE when
     /// recreating their rendering surface. The handler should verify the
     /// window is truly gone before removing it from the layout.
     Hidden {
-        /// Window handle.
-        hwnd: usize,
+        /// The window.
+        window: WindowId,
     },
 
     /// A window received keyboard focus.
     Focused {
-        /// Window handle.
-        hwnd: usize,
+        /// The window.
+        window: WindowId,
     },
 
     /// A window was focused via mouse hover (focus-follows-mouse).
     MouseHover {
-        /// Window handle.
-        hwnd: usize,
+        /// The window.
+        window: WindowId,
     },
 
     /// A window finished being moved or resized.
     Moved {
-        /// Window handle.
-        hwnd: usize,
+        /// The window.
+        window: WindowId,
     },
 
     /// A window was minimized.
     Minimized {
-        /// Window handle.
-        hwnd: usize,
+        /// The window.
+        window: WindowId,
     },
 
     /// A window was restored from minimized state.
     Restored {
-        /// Window handle.
-        hwnd: usize,
+        /// The window.
+        window: WindowId,
     },
 
     /// A window's title changed.
     TitleChanged {
-        /// Window handle.
-        hwnd: usize,
+        /// The window.
+        window: WindowId,
     },
 
     /// A window's position or size changed.
@@ -70,8 +72,8 @@ pub enum WindowEvent {
     /// Fires frequently (e.g. during animations), so handlers should
     /// filter to the focused window and avoid expensive work.
     LocationChanged {
-        /// Window handle.
-        hwnd: usize,
+        /// The window.
+        window: WindowId,
     },
 
     /// The display configuration changed (monitor connect/disconnect).
@@ -82,24 +84,25 @@ pub enum WindowEvent {
 }
 
 impl WindowEvent {
-    /// Returns the window handle associated with this event.
-    pub fn hwnd(&self) -> usize {
-        match self {
-            Self::Created { hwnd }
-            | Self::Destroyed { hwnd }
-            | Self::Hidden { hwnd }
-            | Self::Focused { hwnd }
-            | Self::MouseHover { hwnd }
-            | Self::Moved { hwnd }
-            | Self::Minimized { hwnd }
-            | Self::Restored { hwnd }
-            | Self::TitleChanged { hwnd }
-            | Self::LocationChanged { hwnd } => *hwnd,
-            Self::DisplayChanged | Self::WorkAreaChanged => 0,
+    /// The window the event is about, or `None` for display and work
+    /// area events, which concern no window in particular.
+    pub fn window(&self) -> Option<WindowId> {
+        match *self {
+            Self::Created { window }
+            | Self::Destroyed { window }
+            | Self::Hidden { window }
+            | Self::Focused { window }
+            | Self::MouseHover { window }
+            | Self::Moved { window }
+            | Self::Minimized { window }
+            | Self::Restored { window }
+            | Self::TitleChanged { window }
+            | Self::LocationChanged { window } => Some(window),
+            Self::DisplayChanged | Self::WorkAreaChanged => None,
         }
     }
 
-    /// Returns the event name without the handle.
+    /// Returns the event name without the window.
     pub fn name(&self) -> &'static str {
         match self {
             Self::Created { .. } => "Created",
@@ -120,6 +123,35 @@ impl WindowEvent {
 
 impl fmt::Display for WindowEvent {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} 0x{:X}", self.name(), self.hwnd())
+        match self.window() {
+            Some(window) => write!(f, "{} {}", self.name(), window),
+            None => f.write_str(self.name()),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn window_events_carry_their_window() {
+        // Arrange
+        let window = WindowId::from_raw(0x10);
+        let event = WindowEvent::Focused { window };
+
+        // Act / Assert
+        assert_eq!(event.window(), Some(window));
+        assert_eq!(event.to_string(), "Focused 0x10");
+    }
+
+    #[test]
+    fn display_events_have_no_window() {
+        // Arrange
+        let event = WindowEvent::DisplayChanged;
+
+        // Act / Assert
+        assert_eq!(event.window(), None);
+        assert_eq!(event.to_string(), "DisplayChanged");
     }
 }

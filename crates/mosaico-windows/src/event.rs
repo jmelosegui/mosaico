@@ -23,27 +23,25 @@ const OBJID_WINDOW: i32 = 0;
 /// (`is_tileable`) decide whether the window is real.
 pub fn translate(event: u32, hwnd: HWND, id_object: i32) -> Option<WindowEvent> {
     let is_window = id_object == OBJID_WINDOW;
-    let hwnd_val = hwnd.0 as usize;
+    let window = crate::window::Window::new(hwnd).id();
 
     match event {
         // Creation / show — relaxed filter for WPF compatibility.
         e if e == EVENT_OBJECT_SHOW || e == EVENT_OBJECT_CREATE => {
-            Some(WindowEvent::Created { hwnd: hwnd_val })
+            Some(WindowEvent::Created { window })
         }
         // Name change — relaxed filter so WPF windows are discovered
         // when they set their title for the first time.
-        e if e == EVENT_OBJECT_NAMECHANGE => Some(WindowEvent::TitleChanged { hwnd: hwnd_val }),
+        e if e == EVENT_OBJECT_NAMECHANGE => Some(WindowEvent::TitleChanged { window }),
         // The remaining events are strict: only top-level windows.
         _ if !is_window => None,
-        e if e == EVENT_OBJECT_DESTROY => Some(WindowEvent::Destroyed { hwnd: hwnd_val }),
-        e if e == EVENT_OBJECT_HIDE => Some(WindowEvent::Hidden { hwnd: hwnd_val }),
-        e if e == EVENT_SYSTEM_FOREGROUND => Some(WindowEvent::Focused { hwnd: hwnd_val }),
-        e if e == EVENT_SYSTEM_MOVESIZEEND => Some(WindowEvent::Moved { hwnd: hwnd_val }),
-        e if e == EVENT_SYSTEM_MINIMIZESTART => Some(WindowEvent::Minimized { hwnd: hwnd_val }),
-        e if e == EVENT_SYSTEM_MINIMIZEEND => Some(WindowEvent::Restored { hwnd: hwnd_val }),
-        e if e == EVENT_OBJECT_LOCATIONCHANGE => {
-            Some(WindowEvent::LocationChanged { hwnd: hwnd_val })
-        }
+        e if e == EVENT_OBJECT_DESTROY => Some(WindowEvent::Destroyed { window }),
+        e if e == EVENT_OBJECT_HIDE => Some(WindowEvent::Hidden { window }),
+        e if e == EVENT_SYSTEM_FOREGROUND => Some(WindowEvent::Focused { window }),
+        e if e == EVENT_SYSTEM_MOVESIZEEND => Some(WindowEvent::Moved { window }),
+        e if e == EVENT_SYSTEM_MINIMIZESTART => Some(WindowEvent::Minimized { window }),
+        e if e == EVENT_SYSTEM_MINIMIZEEND => Some(WindowEvent::Restored { window }),
+        e if e == EVENT_OBJECT_LOCATIONCHANGE => Some(WindowEvent::LocationChanged { window }),
         _ => None,
     }
 }

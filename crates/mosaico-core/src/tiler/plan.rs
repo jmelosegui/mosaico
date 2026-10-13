@@ -12,8 +12,8 @@
 use std::collections::HashMap;
 use std::time::Instant;
 
-use crate::Rect;
 use crate::config::HidingBehaviour;
+use crate::{MonitorId, Rect, WindowId};
 
 use super::{Desktop, Effect, WindowFacts};
 
@@ -30,7 +30,7 @@ pub(super) struct Plan<'a> {
     desktop: &'a dyn Desktop,
     now: Instant,
     effects: Vec<Effect>,
-    planned: HashMap<usize, Planned>,
+    planned: HashMap<WindowId, Planned>,
 }
 
 impl<'a> Plan<'a> {
@@ -85,38 +85,38 @@ impl<'a> Plan<'a> {
         self.effects
     }
 
-    fn planned(&self, window: usize) -> Planned {
+    fn planned(&self, window: WindowId) -> Planned {
         self.planned.get(&window).copied().unwrap_or_default()
     }
 
-    pub(super) fn is_visible(&self, window: usize) -> bool {
+    pub(super) fn is_visible(&self, window: WindowId) -> bool {
         self.planned(window)
             .visible
             .unwrap_or_else(|| self.desktop.is_visible(window))
     }
 
-    pub(super) fn is_minimized(&self, window: usize) -> bool {
+    pub(super) fn is_minimized(&self, window: WindowId) -> bool {
         self.planned(window)
             .minimized
             .unwrap_or_else(|| self.desktop.is_minimized(window))
     }
 
-    pub(super) fn is_maximized(&self, window: usize) -> bool {
+    pub(super) fn is_maximized(&self, window: WindowId) -> bool {
         // A window placed this step is no longer maximized.
         self.planned(window).rect.is_none() && self.desktop.is_maximized(window)
     }
 
-    pub(super) fn rect(&self, window: usize) -> Option<Rect> {
+    pub(super) fn rect(&self, window: WindowId) -> Option<Rect> {
         self.planned(window)
             .rect
             .or_else(|| self.desktop.rect(window))
     }
 
-    pub(super) fn owner(&self, window: usize) -> Option<usize> {
+    pub(super) fn owner(&self, window: WindowId) -> Option<WindowId> {
         self.desktop.owner(window)
     }
 
-    pub(super) fn monitor_of(&self, window: usize) -> usize {
+    pub(super) fn monitor_of(&self, window: WindowId) -> MonitorId {
         self.desktop.monitor_of(window)
     }
 
@@ -124,7 +124,7 @@ impl<'a> Plan<'a> {
         self.desktop.cursor()
     }
 
-    pub(super) fn candidate(&self, window: usize) -> Option<WindowFacts> {
+    pub(super) fn candidate(&self, window: WindowId) -> Option<WindowFacts> {
         self.desktop.candidate(window)
     }
 }

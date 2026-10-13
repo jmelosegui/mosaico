@@ -1,5 +1,7 @@
 //! The focus event, the one the OS sends most often on its own.
 
+use crate::WindowId;
+
 use super::{Plan, Tiler};
 
 impl Tiler {
@@ -8,7 +10,7 @@ impl Tiler {
     /// Echoes of our own focus changes have already been filtered out
     /// by [`Expectations`](super::Expectations), so this is either the
     /// user picking a window or the OS handing focus on by itself.
-    pub(super) fn on_focused(&mut self, plan: &mut Plan, window: usize) {
+    pub(super) fn on_focused(&mut self, plan: &mut Plan, window: WindowId) {
         if let Some((mon_idx, ws_idx)) = self.find_window(window) {
             if ws_idx != self.monitors[mon_idx].active_workspace {
                 // The window is on a workspace that is not on screen,
@@ -34,14 +36,14 @@ impl Tiler {
             // it focused but invisible.
             if !self.focus_event_allowed(plan, mon_idx) {
                 crate::log_debug!(
-                    "focus-suppressed 0x{:X} on mon {} (mon {} is parked on an empty workspace)",
+                    "focus-suppressed {} on mon {} (mon {} is parked on an empty workspace)",
                     window,
                     mon_idx,
                     self.focused_monitor
                 );
                 return;
             }
-            crate::log_debug!("focus 0x{:X} on mon {}", window, mon_idx);
+            crate::log_debug!("focus {} on mon {}", window, mon_idx);
             self.focused_window = Some(window);
             self.focused_monitor = mon_idx;
             self.focused_maximized = plan.is_maximized(window);

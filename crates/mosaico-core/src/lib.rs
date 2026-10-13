@@ -8,6 +8,8 @@ pub mod action;
 pub mod config;
 /// Window lifecycle events from the platform.
 pub mod event;
+/// Opaque window and monitor ids.
+pub mod id;
 /// Inter-process communication protocol types.
 pub mod ipc;
 /// Tiling layout trait and implementations.
@@ -34,6 +36,7 @@ pub mod workspace;
 pub use action::{Action, Direction};
 pub use config::{BarConfig, Config};
 pub use event::WindowEvent;
+pub use id::{MonitorId, WindowId};
 pub use ipc::{Command, Response};
 pub use layout::{BspLayout, Layout, LayoutKind, ThreeColumnLayout, VerticalStackLayout};
 pub use monitor::{EdidIdentity, Monitor, MonitorKey, match_monitors, pnp_manufacturer};

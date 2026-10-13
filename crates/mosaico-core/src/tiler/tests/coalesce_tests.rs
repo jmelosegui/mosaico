@@ -1,25 +1,27 @@
 use crate::Rect;
 
+use crate::id::wid;
+
 use super::*;
 
-fn place(window: usize, x: i32, timing: Timing) -> Effect {
+fn place(window: u64, x: i32, timing: Timing) -> Effect {
     Effect::Place {
-        window,
+        window: wid(window),
         rect: Rect::new(x, 0, 100, 100),
         timing,
     }
 }
 
-fn focus(window: usize) -> Effect {
+fn focus(window: u64) -> Effect {
     Effect::Focus {
-        window,
+        window: wid(window),
         move_cursor: false,
     }
 }
 
-fn border(window: usize) -> Effect {
+fn border(window: u64) -> Effect {
     Effect::Border {
-        window,
+        window: wid(window),
         style: None,
     }
 }

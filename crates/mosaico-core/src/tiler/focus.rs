@@ -1,5 +1,7 @@
 //! Keyboard focus.
 
+use crate::WindowId;
+
 use super::{Effect, Plan, Tiler};
 
 impl Tiler {
@@ -8,7 +10,7 @@ impl Tiler {
     ///
     /// `from_mouse` is set when the user pointed at the window, in which
     /// case the pointer is already there and is not moved.
-    pub(super) fn focus_window(&mut self, plan: &mut Plan, window: usize, from_mouse: bool) {
+    pub(super) fn focus_window(&mut self, plan: &mut Plan, window: WindowId, from_mouse: bool) {
         self.focused_window = Some(window);
         self.focused_maximized = plan.is_maximized(window);
         plan.emit(Effect::Focus {
@@ -33,7 +35,7 @@ impl Tiler {
         if let Some(&window) = self
             .monitors
             .first()
-            .and_then(|mon| mon.active_ws().handles().first())
+            .and_then(|mon| mon.active_ws().windows().first())
         {
             self.focus_window(plan, window, false);
         }

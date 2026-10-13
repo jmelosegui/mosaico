@@ -1,4 +1,4 @@
-use crate::Rect;
+use crate::{Rect, WindowId};
 
 use super::Layout;
 
@@ -27,8 +27,8 @@ impl Default for VerticalStackLayout {
 }
 
 impl Layout for VerticalStackLayout {
-    fn apply(&self, handles: &[usize], work_area: &Rect) -> Vec<(usize, Rect)> {
-        if handles.is_empty() {
+    fn apply(&self, windows: &[WindowId], work_area: &Rect) -> Vec<(WindowId, Rect)> {
+        if windows.is_empty() {
             return Vec::new();
         }
 
@@ -39,8 +39,8 @@ impl Layout for VerticalStackLayout {
             (work_area.height - self.gap * 2).max(1),
         );
 
-        if handles.len() == 1 {
-            return vec![(handles[0], padded)];
+        if windows.len() == 1 {
+            return vec![(windows[0], padded)];
         }
 
         let half = self.gap / 2;
@@ -50,22 +50,22 @@ impl Layout for VerticalStackLayout {
 
         let stack_x = padded.x + master_w + half;
         let stack_w = (padded.width - master_w - half).max(1);
-        let stack_count = handles.len() - 1;
+        let stack_count = windows.len() - 1;
         // Stack slots are separated by a full `gap` so inner spacing matches
         // the outer padding.
         let slot_h = (padded.height - self.gap * (stack_count as i32 - 1)) / stack_count as i32;
 
-        let mut results = Vec::with_capacity(handles.len());
-        results.push((handles[0], master));
+        let mut results = Vec::with_capacity(windows.len());
+        results.push((windows[0], master));
 
-        for (i, &hwnd) in handles[1..].iter().enumerate() {
+        for (i, &window) in windows[1..].iter().enumerate() {
             let y = padded.y + (i as i32) * (slot_h + self.gap);
             let h = if i == stack_count - 1 {
                 (padded.y + padded.height - y).max(1)
             } else {
                 slot_h.max(1)
             };
-            results.push((hwnd, Rect::new(stack_x, y, stack_w, h)));
+            results.push((window, Rect::new(stack_x, y, stack_w, h)));
         }
 
         results

@@ -2,6 +2,8 @@
 
 use crate::config;
 
+use crate::WindowId;
+
 use super::{Effect, Plan, Tiler};
 
 /// Whether a window that exists but has not been shown yet should be
@@ -14,13 +16,13 @@ pub(super) fn should_pre_place(tracked: bool, passes_rules: bool) -> bool {
 }
 
 impl Tiler {
-    pub(super) fn is_tileable(&self, plan: &Plan, window: usize) -> bool {
+    pub(super) fn is_tileable(&self, plan: &Plan, window: WindowId) -> bool {
         plan.is_visible(window) && self.passes_tiling_rules(plan, window)
     }
 
     /// Everything `is_tileable` checks except visibility, so a window
     /// that has been created but not shown yet can be judged.
-    pub(super) fn passes_tiling_rules(&self, plan: &Plan, window: usize) -> bool {
+    pub(super) fn passes_tiling_rules(&self, plan: &Plan, window: WindowId) -> bool {
         let Some(facts) = plan.candidate(window) else {
             return false;
         };
@@ -35,7 +37,7 @@ impl Tiler {
 
     /// Moves a window to the workspace of the monitor it is now on,
     /// after the user dragged it, and retiles.
-    pub(super) fn reassign_monitor(&mut self, plan: &mut Plan, window: usize) {
+    pub(super) fn reassign_monitor(&mut self, plan: &mut Plan, window: WindowId) {
         let old = self.owning_monitor(window);
         let new = self.monitor_index_for(plan, window);
 
@@ -56,23 +58,23 @@ impl Tiler {
         }
     }
 
-    pub(super) fn monitor_index_for(&self, plan: &Plan, window: usize) -> Option<usize> {
+    pub(super) fn monitor_index_for(&self, plan: &Plan, window: WindowId) -> Option<usize> {
         let id = plan.monitor_of(window);
         self.monitors.iter().position(|m| m.id == id)
     }
 
-    pub(super) fn is_managed_on_active_workspace(&self, window: usize) -> bool {
+    pub(super) fn is_managed_on_active_workspace(&self, window: WindowId) -> bool {
         self.monitors
             .get(self.focused_monitor)
             .is_some_and(|mon| mon.active_ws().contains(window))
     }
 
-    pub(super) fn owning_monitor(&self, window: usize) -> Option<usize> {
+    pub(super) fn owning_monitor(&self, window: WindowId) -> Option<usize> {
         self.find_window(window).map(|(mi, _)| mi)
     }
 
     /// Finds the `(monitor, workspace)` indices holding a window.
-    pub(super) fn find_window(&self, window: usize) -> Option<(usize, usize)> {
+    pub(super) fn find_window(&self, window: WindowId) -> Option<(usize, usize)> {
         self.monitors.iter().enumerate().find_map(|(mi, mon)| {
             mon.workspaces
                 .iter()
@@ -82,14 +84,14 @@ impl Tiler {
     }
 
     /// Whether the window is on the active workspace of its monitor.
-    pub(super) fn is_on_active_workspace(&self, window: usize) -> bool {
+    pub(super) fn is_on_active_workspace(&self, window: WindowId) -> bool {
         self.find_window(window)
             .is_some_and(|(mi, wi)| self.monitors[mi].active_workspace == wi)
     }
 
     /// Adopts a window we never heard being created, if it is tileable,
     /// onto the monitor it is on.
-    pub(super) fn try_adopt(&mut self, plan: &mut Plan, window: usize) {
+    pub(super) fn try_adopt(&mut self, plan: &mut Plan, window: WindowId) {
         // Rejections are not cached here: this runs for title changes,
         // which some applications report for child elements under the
         // parent window before the parent is ready.
@@ -109,7 +111,7 @@ impl Tiler {
 
     /// Adds a window to the focused monitor's active workspace, so new
     /// windows appear where the user is working, and focuses it.
-    pub(super) fn add_and_focus(&mut self, plan: &mut Plan, window: usize) {
+    pub(super) fn add_and_focus(&mut self, plan: &mut Plan, window: WindowId) {
         let idx = self.focused_monitor;
         if self.monitors.get(idx).is_none() || !self.monitors[idx].active_ws_mut().add(window) {
             return;
@@ -128,10 +130,10 @@ impl Tiler {
         self.focus_window(plan, window, false);
     }
 
-    fn log_added(&self, verb: &str, plan: &Plan, window: usize, idx: usize) {
+    fn log_added(&self, verb: &str, plan: &Plan, window: WindowId, idx: usize) {
         let facts = plan.candidate(window).unwrap_or_default();
         crate::log_info!(
-            "{} 0x{:X} [{}] \"{}\" on mon {} ws {} (now {})",
+            "{} {} [{}] \"{}\" on mon {} ws {} (now {})",
             verb,
             window,
             facts.class,
@@ -143,7 +145,7 @@ impl Tiler {
     }
 
     /// Applies the configured corners to a window that became managed.
-    pub(super) fn decorate(&self, plan: &mut Plan, window: usize) {
+    pub(super) fn decorate(&self, plan: &mut Plan, window: WindowId) {
         plan.emit(Effect::Decorate {
             window,
             corners: self.border_config.corner_style,
@@ -157,7 +159,7 @@ impl Tiler {
     /// the destination comes from asking the layout where the window
     /// would go, and only that window is moved. It is taken over for
     /// real when it is shown.
-    pub(super) fn pre_place(&mut self, plan: &mut Plan, window: usize) {
+    pub(super) fn pre_place(&mut self, plan: &mut Plan, window: WindowId) {
         let idx = self.focused_monitor;
         let Some(state) = self.monitors.get(idx) else {
             return;
@@ -179,7 +181,7 @@ impl Tiler {
             rect
         };
         crate::log_debug!(
-            "~pre 0x{:X} to mon {} ({},{} {}x{}) before it is shown",
+            "~pre {} to mon {} ({},{} {}x{}) before it is shown",
             window,
             idx,
             rect.x,

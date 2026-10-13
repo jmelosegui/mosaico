@@ -1,4 +1,4 @@
-use crate::Rect;
+use crate::{Rect, WindowId};
 
 use super::Layout;
 
@@ -31,19 +31,19 @@ impl Default for BspLayout {
 }
 
 impl Layout for BspLayout {
-    fn apply(&self, handles: &[usize], work_area: &Rect) -> Vec<(usize, Rect)> {
-        if handles.is_empty() {
+    fn apply(&self, windows: &[WindowId], work_area: &Rect) -> Vec<(WindowId, Rect)> {
+        if windows.is_empty() {
             return Vec::new();
         }
 
-        let mut results = Vec::with_capacity(handles.len());
+        let mut results = Vec::with_capacity(windows.len());
         let padded = Rect::new(
             work_area.x + self.gap,
             work_area.y + self.gap,
             (work_area.width - self.gap * 2).max(1),
             (work_area.height - self.gap * 2).max(1),
         );
-        self.split(handles, &padded, true, &mut results);
+        self.split(windows, &padded, true, &mut results);
         results
     }
 }
@@ -51,13 +51,13 @@ impl Layout for BspLayout {
 impl BspLayout {
     fn split(
         &self,
-        handles: &[usize],
+        windows: &[WindowId],
         area: &Rect,
         horizontal: bool,
-        results: &mut Vec<(usize, Rect)>,
+        results: &mut Vec<(WindowId, Rect)>,
     ) {
-        if handles.len() == 1 {
-            results.push((handles[0], *area));
+        if windows.len() == 1 {
+            results.push((windows[0], *area));
             return;
         }
 
@@ -84,7 +84,7 @@ impl BspLayout {
             (first, rest)
         };
 
-        results.push((handles[0], first_area));
-        self.split(&handles[1..], &rest_area, !horizontal, results);
+        results.push((windows[0], first_area));
+        self.split(&windows[1..], &rest_area, !horizontal, results);
     }
 }

@@ -28,7 +28,7 @@ and monitors using vim-style H/J/K/L motions.
 - `MonitorInfo` -- fields: `id: usize` (HMONITOR cast), `key: MonitorKey`,
   `work_area: Rect`, `primary: bool`. Implements `mosaico_core::Monitor`
 - `MonitorKey` -- stable identity of a physical display (from `mosaico-core`)
-- `SpatialTarget` (enum) -- `Neighbor(hwnd)` or `AdjacentMonitor(idx)`
+- `SpatialTarget` (enum) -- `Neighbor(window)` or `AdjacentMonitor(idx)`
 - `Direction` (enum) -- `Left`, `Right`, `Up`, `Down` (from `mosaico-core`)
 
 ## Monitor Enumeration
@@ -39,7 +39,7 @@ gets a `MonitorKey` from `monitor_identity::display_identities()`.
 
 Additional utility function:
 
-- `monitor_id_for_window(hwnd)` -- returns the HMONITOR id for a window's
+- `monitor_id_for_window(window)` -- returns the `MonitorId` (the HMONITOR) for a window's
   monitor
 
 ## Monitor Identity
@@ -151,7 +151,7 @@ exactly across a change:
   position follows it. Monitors with an unknown key are never
 parked and their windows get no record, because they could not be
 recognised on return. `Destroyed` events call `ReconnectMemory::forget()`
-so a reused hwnd is never sent anywhere.
+so a reused window id is never sent anywhere.
 
 `rebuild_monitors()` returns the windows that moved. Those that landed on
 an inactive workspace are hidden before the retile and those on an active
@@ -226,7 +226,7 @@ entering from the right).
 
 1. Computes BSP layout positions for all windows on the current monitor
 2. Calls `spatial::find_neighbor()` to look for a same-monitor neighbor
-3. If a neighbor is found: returns `SpatialTarget::Neighbor(hwnd)`
+3. If a neighbor is found: returns `SpatialTarget::Neighbor(window)`
 4. If no neighbor exists: calls `find_adjacent_monitor(direction)` to find
    the nearest monitor in the requested direction by `center_x` comparison.
    Returns `SpatialTarget::AdjacentMonitor(idx)` or `None` if at the edge.
@@ -239,13 +239,13 @@ There is no wrapping -- navigation stops at the leftmost/rightmost monitor.
 
 1. Computes BSP layout positions
 2. Calls `spatial::find_neighbor()` for vertical lookup
-3. Returns `Some(hwnd)` or `None` at boundary
+3. Returns `Some(window)` or `None` at boundary
 
 ## Focus Actions
 
 `focus_direction(dir)`:
 
-- **Left/Right**: resolves horizontal target. If `Neighbor(hwnd)`, focuses
+- **Left/Right**: resolves horizontal target. If `Neighbor(window)`, focuses
   that window. If `AdjacentMonitor(idx)`, uses `find_entry()` to pick the
   best entry window on the target monitor.
 - **Up/Down**: finds same-monitor neighbor. If found, focuses it. Otherwise
@@ -255,7 +255,7 @@ There is no wrapping -- navigation stops at the leftmost/rightmost monitor.
 
 `move_direction(dir)`:
 
-- **Left/Right**: resolves horizontal target. If `Neighbor(hwnd)`, swaps the
+- **Left/Right**: resolves horizontal target. If `Neighbor(window)`, swaps the
   two windows in the workspace and retiles. If `AdjacentMonitor(idx)`,
   removes the window from the source workspace and inserts it into the target
   workspace (position depends on direction), then retiles both monitors.

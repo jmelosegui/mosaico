@@ -2,6 +2,8 @@
 
 use crate::config::WorkspaceMode;
 
+use crate::WindowId;
+
 use super::{Effect, Plan, Tiler};
 
 impl Tiler {
@@ -46,12 +48,12 @@ impl Tiler {
         let last_focused = if refocus { self.focused_window } else { None };
         let mon = &mut self.monitors[mon_idx];
         mon.active_ws_mut().set_last_focused(last_focused);
-        let leaving: Vec<usize> = mon.active_ws().handles().to_vec();
+        let leaving: Vec<WindowId> = mon.active_ws().windows().to_vec();
         let prev_ws = mon.active_workspace;
         mon.active_workspace = idx;
 
         let how = self.layout.hiding;
-        for &window in self.monitors[mon_idx].active_ws().handles() {
+        for &window in self.monitors[mon_idx].active_ws().windows() {
             plan.emit(Effect::Show { window, how });
         }
 
@@ -61,14 +63,14 @@ impl Tiler {
             // Prefer the monocle window, then the remembered one, then
             // the first window.
             let ws = self.monitors[mon_idx].active_ws();
-            let present = |w: &usize| ws.contains(*w);
+            let present = |w: &WindowId| ws.contains(*w);
             let remembered = ws.last_focused().filter(present);
             let target = if ws.monocle() {
                 ws.monocle_window().filter(present).or(remembered)
             } else {
                 remembered
             }
-            .or_else(|| ws.handles().first().copied());
+            .or_else(|| ws.windows().first().copied());
 
             if let Some(window) = target {
                 self.focus_window(plan, window, false);
@@ -122,16 +124,16 @@ impl Tiler {
         let mon = &mut self.monitors[mon_idx];
         mon.active_ws_mut().remove(window);
         mon.workspaces[target_ws].add(window);
-        for &other in mon.active_ws().handles() {
+        for &other in mon.active_ws().windows() {
             plan.emit(Effect::Hide { window: other, how });
         }
         mon.active_workspace = target_ws;
-        for &shown in self.monitors[mon_idx].active_ws().handles() {
+        for &shown in self.monitors[mon_idx].active_ws().windows() {
             plan.emit(Effect::Show { window: shown, how });
         }
 
         crate::log_info!(
-            "send-to-workspace {} 0x{:X} on mon {} (ws {} -> ws {})",
+            "send-to-workspace {} {} on mon {} (ws {} -> ws {})",
             n,
             window,
             mon_idx,

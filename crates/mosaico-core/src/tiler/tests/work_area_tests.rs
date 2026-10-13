@@ -1,13 +1,15 @@
 use super::super::work_area::{apply_bar_reservation, below_bar, sync_os_work_areas};
 use super::super::*;
 use super::{make_monitors, simulate_display_change};
+use crate::MonitorId;
+use crate::id::wid;
 use crate::{MonitorKey, Rect};
 
 const BAR: i32 = 44;
 
 fn os_monitor(id: usize, x: i32) -> Display {
     Display {
-        id,
+        id: MonitorId::from_raw(id as u64),
         key: MonitorKey::default(),
         work_area: Rect::new(x, 0, 2560, 1392),
         primary: x == 0,
@@ -91,8 +93,8 @@ fn sync_falls_back_to_index_when_ids_change() {
     apply_bar_reservation(&mut monitors, BAR, &[]);
 
     // Assert: fresh OS geometry and IDs, bar reserved exactly once.
-    assert_eq!(monitors[0].id, 100);
-    assert_eq!(monitors[1].id, 200);
+    assert_eq!(monitors[0].id, MonitorId::from_raw(100));
+    assert_eq!(monitors[1].id, MonitorId::from_raw(200));
     assert_eq!(monitors[1].work_area, Rect::new(2560, 44, 2560, 1348));
 }
 
@@ -106,8 +108,8 @@ fn sync_keeps_unmatched_monitors_when_count_differs() {
     sync_os_work_areas(&mut monitors, &os);
 
     // Assert: nothing is guessed; the display change handler owns this.
-    assert_eq!(monitors[0].id, 0);
-    assert_eq!(monitors[1].id, 1);
+    assert_eq!(monitors[0].id, MonitorId::from_raw(0));
+    assert_eq!(monitors[1].id, MonitorId::from_raw(1));
     assert_eq!(monitors[0].os_work_area, Rect::new(0, 0, 1920, 1080));
 }
 
@@ -115,7 +117,7 @@ fn sync_keeps_unmatched_monitors_when_count_differs() {
 fn display_change_matches_bar_monitor_by_position_when_id_changes() {
     // Arrange: the tiling area sits below the bar, the OS area does not.
     let mut monitors = make_monitors(1);
-    monitors[0].workspaces[0].add(100);
+    monitors[0].workspaces[0].add(wid(100));
     apply_bar_reservation(&mut monitors, BAR, &[0]);
     let new_infos = vec![(42, Rect::new(0, 0, 1920, 1080))];
 
@@ -123,6 +125,6 @@ fn display_change_matches_bar_monitor_by_position_when_id_changes() {
     let result = simulate_display_change(&mut monitors, new_infos);
 
     // Assert: matched by position, so the window stays put.
-    assert_eq!(result[0].id, 42);
-    assert!(result[0].active_ws().contains(100));
+    assert_eq!(result[0].id, MonitorId::from_raw(42));
+    assert!(result[0].active_ws().contains(wid(100)));
 }

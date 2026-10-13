@@ -1,11 +1,11 @@
-use crate::{LayoutKind, MonitorKey, Rect, Workspace};
+use crate::{LayoutKind, MonitorId, MonitorKey, Rect, WindowId, Workspace};
 
 use super::Display;
 
 /// Per-monitor state: its workspaces and the area they tile into.
 pub struct MonitorState {
     /// Session id. Replaced on every display change.
-    pub(super) id: usize,
+    pub(super) id: MonitorId,
     /// Identity that survives reconnects, used to match monitors across
     /// display changes.
     pub(super) key: MonitorKey,
@@ -43,7 +43,7 @@ impl MonitorState {
     }
 
     /// Session id of the monitor.
-    pub fn id(&self) -> usize {
+    pub fn id(&self) -> MonitorId {
         self.id
     }
 
@@ -79,7 +79,7 @@ impl MonitorState {
 /// overflow to the next monitor.
 pub(super) enum SpatialTarget {
     /// A neighbor window on the same monitor.
-    Neighbor(usize),
+    Neighbor(WindowId),
     /// The adjacent monitor when no same-monitor neighbor exists.
     AdjacentMonitor(usize),
 }

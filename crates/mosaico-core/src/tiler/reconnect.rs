@@ -13,6 +13,8 @@ use std::collections::HashMap;
 
 use crate::{MonitorKey, Workspace, match_monitors};
 
+use crate::WindowId;
+
 use super::MonitorState;
 
 /// State kept for monitors that are currently disconnected.
@@ -21,7 +23,7 @@ pub(super) struct ReconnectMemory {
     /// Workspace settings of each disconnected monitor, with no windows.
     parked: HashMap<MonitorKey, ParkedMonitor>,
     /// Windows moved off a disconnected monitor.
-    displaced: HashMap<usize, Displaced>,
+    displaced: HashMap<WindowId, Displaced>,
 }
 
 struct ParkedMonitor {
@@ -41,11 +43,15 @@ struct Displaced {
 impl ReconnectMemory {
     /// Moves every window of a disconnected monitor onto `host` and parks
     /// the monitor's workspace settings. Returns the windows that moved.
-    pub(super) fn park(&mut self, mut gone: MonitorState, host: &mut MonitorState) -> Vec<usize> {
+    pub(super) fn park(
+        &mut self,
+        mut gone: MonitorState,
+        host: &mut MonitorState,
+    ) -> Vec<WindowId> {
         let mut moved = Vec::new();
         for (wi, ws) in gone.workspaces.iter_mut().enumerate() {
             let last_focused = ws.last_focused();
-            for (slot, window) in ws.handles().to_vec().into_iter().enumerate() {
+            for (slot, window) in ws.windows().to_vec().into_iter().enumerate() {
                 ws.remove(window);
                 let target = host.workspaces.len().saturating_sub(1).min(wi);
                 host.workspaces[target].add(window);
@@ -68,7 +74,7 @@ impl ReconnectMemory {
 
     fn record(
         &mut self,
-        window: usize,
+        window: WindowId,
         home: &MonitorKey,
         ws: usize,
         slot: usize,
@@ -136,14 +142,14 @@ impl ReconnectMemory {
         monitors: &mut [MonitorState],
         home_idx: usize,
         home: &MonitorKey,
-    ) -> Vec<usize> {
-        let windows: Vec<usize> = self
+    ) -> Vec<WindowId> {
+        let windows: Vec<WindowId> = self
             .displaced
             .iter()
             .filter(|(_, d)| d.home == *home)
             .map(|(&window, _)| window)
             .collect();
-        let mut returning: Vec<(usize, Displaced)> = windows
+        let mut returning: Vec<(WindowId, Displaced)> = windows
             .into_iter()
             .filter_map(|window| self.displaced.remove(&window).map(|d| (window, d)))
             .collect();
@@ -164,7 +170,7 @@ impl ReconnectMemory {
     }
 
     /// Forgets a window that no longer exists.
-    pub(super) fn forget(&mut self, window: usize) {
+    pub(super) fn forget(&mut self, window: WindowId) {
         self.displaced.remove(&window);
     }
 

@@ -3,12 +3,14 @@
 use crate::action::Direction;
 use crate::spatial;
 
+use crate::WindowId;
+
 use super::{SpatialTarget, Tiler};
 
 impl Tiler {
     /// The focused window's neighbor on its own monitor, or `None` at
     /// the monitor's edge.
-    pub(super) fn find_same_monitor_neighbor(&self, dir: Direction) -> Option<usize> {
+    pub(super) fn find_same_monitor_neighbor(&self, dir: Direction) -> Option<WindowId> {
         let focused = self.focused_window?;
         let positions = self.compute_positions(self.focused_monitor);
         let rect = positions
@@ -53,7 +55,7 @@ impl Tiler {
             .map(|(_, r)| *r)?;
 
         crate::log_debug!(
-            "resolve_horizontal dir={} mon={} focused=0x{:X} ({},{} {}x{}) windows={}",
+            "resolve_horizontal dir={} mon={} focused={} ({},{} {}x{}) windows={}",
             dir,
             self.focused_monitor,
             focused,
@@ -65,7 +67,7 @@ impl Tiler {
         );
 
         if let Some(neighbor) = spatial::find_neighbor(&positions, &rect, dir) {
-            crate::log_debug!("  -> Neighbor 0x{:X}", neighbor);
+            crate::log_debug!("  -> Neighbor {}", neighbor);
             return Some(SpatialTarget::Neighbor(neighbor));
         }
         let adjacent = self.find_adjacent_monitor(dir);
@@ -75,7 +77,7 @@ impl Tiler {
 
     /// The window to enter monitor `monitor_idx` through, coming from
     /// direction `dir`.
-    pub(super) fn find_entry_window(&self, monitor_idx: usize, dir: Direction) -> Option<usize> {
+    pub(super) fn find_entry_window(&self, monitor_idx: usize, dir: Direction) -> Option<WindowId> {
         spatial::find_entry(&self.compute_positions(monitor_idx), dir)
     }
 }

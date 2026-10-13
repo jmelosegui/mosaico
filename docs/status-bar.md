@@ -131,7 +131,7 @@ The `BarState` struct provides the data each widget needs:
 - `workspace_count` -- total workspaces with windows
 - `layout_name` -- "BSP"
 - `monocle` -- whether monocle mode is active
-- `focused_hwnd` -- HWND of the focused window (`None` on non-focused monitors)
+- `focused_window` -- `WindowId` of the focused window (`None` on non-focused monitors)
 - `cpu_usage` -- current CPU percentage (from `CpuTracker`)
 - `update_text` -- update notification string (empty if up to date)
 - `media_text` -- formatted media info, e.g. "Artist - Title" (empty if nothing playing)

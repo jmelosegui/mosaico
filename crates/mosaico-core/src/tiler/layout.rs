@@ -2,6 +2,8 @@
 
 use crate::{BspLayout, LayoutKind, Rect, ThreeColumnLayout, VerticalStackLayout};
 
+use crate::WindowId;
+
 use super::{Effect, Plan, Tiler, Timing};
 
 /// The rect a monocle window fills, given a work area and a gap.
@@ -28,7 +30,7 @@ impl Tiler {
     }
 
     /// Layout positions for the active workspace on the given monitor.
-    pub(super) fn compute_positions(&self, monitor_idx: usize) -> Vec<(usize, Rect)> {
+    pub(super) fn compute_positions(&self, monitor_idx: usize) -> Vec<(WindowId, Rect)> {
         let Some(state) = self.monitors.get(monitor_idx) else {
             return Vec::new();
         };
@@ -79,7 +81,7 @@ impl Tiler {
     /// the layout skipped because they were already in place.
     pub(super) fn repaint_visible(&self, plan: &mut Plan) {
         for mon in &self.monitors {
-            for &window in mon.active_ws().handles() {
+            for &window in mon.active_ws().windows() {
                 plan.emit(Effect::Repaint { window });
             }
         }
@@ -146,16 +148,16 @@ impl Tiler {
         let Some(state) = self.monitors.get_mut(monitor_idx) else {
             return;
         };
-        let stale: Vec<usize> = state
+        let stale: Vec<WindowId> = state
             .active_ws()
-            .handles()
+            .windows()
             .iter()
             .copied()
             .filter(|&w| !plan.is_visible(w) || plan.is_minimized(w))
             .collect();
         for window in stale {
             state.active_ws_mut().remove(window);
-            crate::log_info!("-prune 0x{:X} (stale or minimized)", window);
+            crate::log_info!("-prune {} (stale or minimized)", window);
         }
     }
 }

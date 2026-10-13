@@ -10,7 +10,8 @@ use std::time::{Duration, Instant};
 
 use crate::action::MAX_WORKSPACES;
 use crate::config::HidingBehaviour;
-use crate::{Action, MonitorKey, Rect, WindowEvent, Workspace};
+use crate::id::wid;
+use crate::{Action, MonitorId, MonitorKey, Rect, WindowEvent, WindowId, Workspace};
 
 use super::*;
 
@@ -46,7 +47,7 @@ pub(super) struct FakeWindow {
     pub(super) maximized: bool,
     pub(super) cloaked: bool,
     pub(super) rect: Rect,
-    pub(super) owner: Option<usize>,
+    pub(super) owner: Option<WindowId>,
     pub(super) monitor: usize,
     pub(super) facts: Option<WindowFacts>,
 }
@@ -75,41 +76,41 @@ impl FakeWindow {
 /// An in-memory desktop.
 #[derive(Debug, Default)]
 pub(super) struct FakeDesktop {
-    pub(super) windows: HashMap<usize, FakeWindow>,
+    pub(super) windows: HashMap<WindowId, FakeWindow>,
     pub(super) cursor: Option<(i32, i32)>,
-    pub(super) focused: Option<usize>,
+    pub(super) focused: Option<WindowId>,
 }
 
 impl Desktop for FakeDesktop {
-    fn is_visible(&self, window: usize) -> bool {
+    fn is_visible(&self, window: WindowId) -> bool {
         self.windows.get(&window).is_some_and(|w| w.visible)
     }
 
-    fn is_minimized(&self, window: usize) -> bool {
+    fn is_minimized(&self, window: WindowId) -> bool {
         self.windows.get(&window).is_some_and(|w| w.minimized)
     }
 
-    fn is_maximized(&self, window: usize) -> bool {
+    fn is_maximized(&self, window: WindowId) -> bool {
         self.windows.get(&window).is_some_and(|w| w.maximized)
     }
 
-    fn rect(&self, window: usize) -> Option<Rect> {
+    fn rect(&self, window: WindowId) -> Option<Rect> {
         self.windows.get(&window).map(|w| w.rect)
     }
 
-    fn owner(&self, window: usize) -> Option<usize> {
+    fn owner(&self, window: WindowId) -> Option<WindowId> {
         self.windows.get(&window).and_then(|w| w.owner)
     }
 
-    fn monitor_of(&self, window: usize) -> usize {
-        self.windows.get(&window).map_or(0, |w| w.monitor)
+    fn monitor_of(&self, window: WindowId) -> MonitorId {
+        MonitorId::from_raw(self.windows.get(&window).map_or(0, |w| w.monitor as u64))
     }
 
     fn cursor(&self) -> Option<(i32, i32)> {
         self.cursor
     }
 
-    fn candidate(&self, window: usize) -> Option<WindowFacts> {
+    fn candidate(&self, window: WindowId) -> Option<WindowFacts> {
         self.windows
             .get(&window)
             .filter(|w| !w.cloaked)
@@ -160,7 +161,7 @@ impl FakeDesktop {
 pub(super) fn displays(count: usize) -> Vec<Display> {
     (0..count)
         .map(|i| Display {
-            id: i,
+            id: MonitorId::from_raw(i as u64),
             key: key(&format!("mon{i}")),
             work_area: Rect::new(i as i32 * MON_W, 0, MON_W, MON_H),
             primary: i == 0,
@@ -188,20 +189,20 @@ pub(super) struct Harness {
 impl Harness {
     /// Starts a tiler on `monitors` monitors with the given windows,
     /// each `(id, monitor)`, already open.
-    pub(super) fn new(monitors: usize, windows: &[(usize, usize)]) -> Self {
+    pub(super) fn new(monitors: usize, windows: &[(u64, usize)]) -> Self {
         Self::with_settings(Settings::default(), monitors, windows)
     }
 
     pub(super) fn with_settings(
         settings: Settings,
         monitors: usize,
-        windows: &[(usize, usize)],
+        windows: &[(u64, usize)],
     ) -> Self {
         let mut desktop = FakeDesktop::default();
         for &(id, mon) in windows {
-            desktop.windows.insert(id, FakeWindow::app(mon));
+            desktop.windows.insert(wid(id), FakeWindow::app(mon));
         }
-        let ids: Vec<usize> = windows.iter().map(|&(id, _)| id).collect();
+        let ids: Vec<WindowId> = windows.iter().map(|&(id, _)| wid(id)).collect();
         let now = Instant::now();
         let (tiler, effects) = Tiler::new(settings, &displays(monitors), &ids, &desktop, now);
         let mut harness = Self {
@@ -237,9 +238,11 @@ impl Harness {
     }
 
     /// Opens a new visible window on `monitor` and reports it.
-    pub(super) fn open(&mut self, id: usize, monitor: usize) -> &[Effect] {
-        self.desktop.windows.insert(id, FakeWindow::app(monitor));
-        self.event(WindowEvent::Created { hwnd: id })
+    pub(super) fn open(&mut self, id: u64, monitor: usize) -> &[Effect] {
+        self.desktop
+            .windows
+            .insert(wid(id), FakeWindow::app(monitor));
+        self.event(WindowEvent::Created { window: wid(id) })
     }
 
     pub(super) fn advance(&mut self, by: Duration) {
@@ -247,35 +250,40 @@ impl Harness {
     }
 
     /// Windows on the active workspace of monitor `mon`, in order.
-    pub(super) fn active(&self, mon: usize) -> Vec<usize> {
-        self.tiler.monitors()[mon].active().handles().to_vec()
+    pub(super) fn active(&self, mon: usize) -> Vec<u64> {
+        self.tiler.monitors()[mon]
+            .active()
+            .windows()
+            .iter()
+            .map(|w| w.raw())
+            .collect()
     }
 
     pub(super) fn workspace(&self, mon: usize, ws: usize) -> &Workspace {
         &self.tiler.monitors()[mon].workspaces()[ws]
     }
 
-    pub(super) fn window(&mut self, window: usize) -> &mut FakeWindow {
+    pub(super) fn window(&mut self, window: u64) -> &mut FakeWindow {
         self.desktop
             .windows
-            .get_mut(&window)
+            .get_mut(&wid(window))
             .expect("window exists")
     }
 
-    pub(super) fn rect_of(&self, window: usize) -> Rect {
-        self.desktop.windows[&window].rect
+    pub(super) fn rect_of(&self, window: u64) -> Rect {
+        self.desktop.windows[&wid(window)].rect
     }
 
     /// The window the last step asked to focus, if it asked.
-    pub(super) fn focus_request(&self) -> Option<usize> {
+    pub(super) fn focus_request(&self) -> Option<u64> {
         self.effects.iter().rev().find_map(|e| match e {
-            Effect::Focus { window, .. } => Some(*window),
+            Effect::Focus { window, .. } => Some(window.raw()),
             _ => None,
         })
     }
 
     /// Placements of the last step, as `(window, rect, timing)`.
-    pub(super) fn placements(&self) -> Vec<(usize, Rect, Timing)> {
+    pub(super) fn placements(&self) -> Vec<(u64, Rect, Timing)> {
         self.effects
             .iter()
             .filter_map(|e| match *e {
@@ -283,7 +291,7 @@ impl Harness {
                     window,
                     rect,
                     timing,
-                } => Some((window, rect, timing)),
+                } => Some((window.raw(), rect, timing)),
                 _ => None,
             })
             .collect()
@@ -291,9 +299,9 @@ impl Harness {
 }
 
 /// Bare monitor state for tests of the free functions.
-pub(super) fn make_monitor(id: usize) -> MonitorState {
+pub(super) fn make_monitor(id: u64) -> MonitorState {
     MonitorState {
-        id,
+        id: MonitorId::from_raw(id),
         key: MonitorKey::default(),
         os_work_area: Rect::new(0, 0, MON_W, MON_H),
         work_area: Rect::new(0, 0, MON_W, MON_H),
@@ -303,20 +311,20 @@ pub(super) fn make_monitor(id: usize) -> MonitorState {
 }
 
 pub(super) fn make_monitors(n: usize) -> Vec<MonitorState> {
-    (0..n).map(make_monitor).collect()
+    (0..n as u64).map(make_monitor).collect()
 }
 
 /// Runs the real display change rebuild with unidentified monitors, the
 /// first of which is primary.
 pub(super) fn simulate_display_change(
     old_monitors: &mut Vec<MonitorState>,
-    new_infos: Vec<(usize, Rect)>,
+    new_infos: Vec<(u64, Rect)>,
 ) -> Vec<MonitorState> {
     let infos: Vec<Display> = new_infos
         .into_iter()
         .enumerate()
         .map(|(i, (id, work_area))| Display {
-            id,
+            id: MonitorId::from_raw(id),
             key: MonitorKey::default(),
             work_area,
             primary: i == 0,

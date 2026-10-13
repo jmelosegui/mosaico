@@ -17,7 +17,7 @@ fn moving_swaps_with_the_neighbor_and_may_be_coalesced() {
     assert!(h.placements().iter().all(|p| p.2 == Timing::Coalesced));
     assert_eq!(
         h.tiler.focused_window(),
-        Some(1),
+        Some(wid(1)),
         "focus stays on the moved window"
     );
 }
@@ -34,9 +34,9 @@ fn borders_after_a_move_use_the_new_slot() {
     // Assert -- the platform holds this border until the window lands.
     let border_of_2 = effects.iter().rev().find_map(|e| match e {
         Effect::Border {
-            window: 2,
+            window,
             style: Some(s),
-        } => Some(s.rect),
+        } if *window == wid(2) => Some(s.rect),
         _ => None,
     });
     assert_eq!(border_of_2, Some(left));
@@ -47,7 +47,7 @@ fn moving_past_the_edge_sends_the_window_to_the_next_monitor() {
     // Arrange
     let mut h = Harness::new(2, &[(1, 0), (2, 0), (3, 1)]);
     h.action(Action::Focus(Direction::Right));
-    assert_eq!(h.tiler.focused_window(), Some(2));
+    assert_eq!(h.tiler.focused_window(), Some(wid(2)));
 
     // Act
     h.action(Action::Move(Direction::Right));
@@ -102,5 +102,8 @@ fn the_cursor_follows_a_moved_window() {
     let effects = h.action(Action::Move(Direction::Right)).to_vec();
 
     // Assert
-    assert_eq!(effects.last(), Some(&Effect::CenterCursor { window: 1 }));
+    assert_eq!(
+        effects.last(),
+        Some(&Effect::CenterCursor { window: wid(1) })
+    );
 }

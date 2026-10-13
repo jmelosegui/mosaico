@@ -5,6 +5,8 @@
 
 use crate::action::Direction;
 
+use crate::WindowId;
+
 use super::{Plan, SpatialTarget, Tiler, Timing};
 
 impl Tiler {
@@ -62,7 +64,7 @@ impl Tiler {
         let monocle = ws.monocle();
         let entry = if monocle {
             ws.monocle_window()
-                .or_else(|| ws.handles().first().copied())
+                .or_else(|| ws.windows().first().copied())
         } else {
             self.find_entry_window(idx, dir)
         };
@@ -114,7 +116,13 @@ impl Tiler {
 
     /// Moves the focused window to another monitor, entering on the side
     /// it came from.
-    fn move_to_monitor(&mut self, plan: &mut Plan, window: usize, target: usize, dir: Direction) {
+    fn move_to_monitor(
+        &mut self,
+        plan: &mut Plan,
+        window: WindowId,
+        target: usize,
+        dir: Direction,
+    ) {
         let source = self.focused_monitor;
         self.monitors[source].active_ws_mut().remove(window);
         if dir == Direction::Right {

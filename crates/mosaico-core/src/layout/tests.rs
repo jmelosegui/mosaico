@@ -1,4 +1,5 @@
 use super::*;
+use crate::id::{wid, wids};
 
 // -- BSP tests --
 
@@ -6,40 +7,40 @@ use super::*;
 fn single_window_fills_work_area() {
     let layout = BspLayout { gap: 0, ratio: 0.5 };
     let area = Rect::new(0, 0, 1920, 1080);
-    let result = layout.apply(&[1], &area);
+    let result = layout.apply(&wids(&[1]), &area);
 
     assert_eq!(result.len(), 1);
-    assert_eq!(result[0], (1, Rect::new(0, 0, 1920, 1080)));
+    assert_eq!(result[0], (wid(1), Rect::new(0, 0, 1920, 1080)));
 }
 
 #[test]
 fn two_windows_split_horizontally() {
     let layout = BspLayout { gap: 0, ratio: 0.5 };
     let area = Rect::new(0, 0, 1920, 1080);
-    let result = layout.apply(&[1, 2], &area);
+    let result = layout.apply(&wids(&[1, 2]), &area);
 
     assert_eq!(result.len(), 2);
-    assert_eq!(result[0], (1, Rect::new(0, 0, 960, 1080)));
-    assert_eq!(result[1], (2, Rect::new(960, 0, 960, 1080)));
+    assert_eq!(result[0], (wid(1), Rect::new(0, 0, 960, 1080)));
+    assert_eq!(result[1], (wid(2), Rect::new(960, 0, 960, 1080)));
 }
 
 #[test]
 fn three_windows_bsp_split() {
     let layout = BspLayout { gap: 0, ratio: 0.5 };
     let area = Rect::new(0, 0, 1920, 1080);
-    let result = layout.apply(&[1, 2, 3], &area);
+    let result = layout.apply(&wids(&[1, 2, 3]), &area);
 
     assert_eq!(result.len(), 3);
-    assert_eq!(result[0], (1, Rect::new(0, 0, 960, 1080)));
-    assert_eq!(result[1], (2, Rect::new(960, 0, 960, 540)));
-    assert_eq!(result[2], (3, Rect::new(960, 540, 960, 540)));
+    assert_eq!(result[0], (wid(1), Rect::new(0, 0, 960, 1080)));
+    assert_eq!(result[1], (wid(2), Rect::new(960, 0, 960, 540)));
+    assert_eq!(result[2], (wid(3), Rect::new(960, 540, 960, 540)));
 }
 
 #[test]
 fn empty_handles_returns_empty() {
     let layout = BspLayout::default();
     let area = Rect::new(0, 0, 1920, 1080);
-    assert!(layout.apply(&[], &area).is_empty());
+    assert!(layout.apply(&wids(&[]), &area).is_empty());
 }
 
 #[test]
@@ -49,9 +50,9 @@ fn large_gap_never_produces_negative_dimensions() {
         ratio: 0.5,
     };
     let area = Rect::new(0, 0, 200, 200);
-    let result = layout.apply(&[1, 2], &area);
+    let result = layout.apply(&wids(&[1, 2]), &area);
 
-    for (_hwnd, rect) in &result {
+    for (_window, rect) in &result {
         assert!(rect.width > 0, "width was {}", rect.width);
         assert!(rect.height > 0, "height was {}", rect.height);
     }
@@ -79,40 +80,40 @@ fn layout_kind_names() {
 fn vstack_single_window_fills_work_area() {
     let layout = VerticalStackLayout { gap: 0, ratio: 0.5 };
     let area = Rect::new(0, 0, 1920, 1080);
-    let result = layout.apply(&[1], &area);
+    let result = layout.apply(&wids(&[1]), &area);
 
     assert_eq!(result.len(), 1);
-    assert_eq!(result[0], (1, Rect::new(0, 0, 1920, 1080)));
+    assert_eq!(result[0], (wid(1), Rect::new(0, 0, 1920, 1080)));
 }
 
 #[test]
 fn vstack_two_windows_master_and_stack() {
     let layout = VerticalStackLayout { gap: 0, ratio: 0.5 };
     let area = Rect::new(0, 0, 1920, 1080);
-    let result = layout.apply(&[1, 2], &area);
+    let result = layout.apply(&wids(&[1, 2]), &area);
 
     assert_eq!(result.len(), 2);
-    assert_eq!(result[0], (1, Rect::new(0, 0, 960, 1080)));
-    assert_eq!(result[1], (2, Rect::new(960, 0, 960, 1080)));
+    assert_eq!(result[0], (wid(1), Rect::new(0, 0, 960, 1080)));
+    assert_eq!(result[1], (wid(2), Rect::new(960, 0, 960, 1080)));
 }
 
 #[test]
 fn vstack_three_windows_stack_splits_equally() {
     let layout = VerticalStackLayout { gap: 0, ratio: 0.5 };
     let area = Rect::new(0, 0, 1920, 1080);
-    let result = layout.apply(&[1, 2, 3], &area);
+    let result = layout.apply(&wids(&[1, 2, 3]), &area);
 
     assert_eq!(result.len(), 3);
-    assert_eq!(result[0], (1, Rect::new(0, 0, 960, 1080)));
-    assert_eq!(result[1], (2, Rect::new(960, 0, 960, 540)));
-    assert_eq!(result[2], (3, Rect::new(960, 540, 960, 540)));
+    assert_eq!(result[0], (wid(1), Rect::new(0, 0, 960, 1080)));
+    assert_eq!(result[1], (wid(2), Rect::new(960, 0, 960, 540)));
+    assert_eq!(result[2], (wid(3), Rect::new(960, 540, 960, 540)));
 }
 
 #[test]
 fn vstack_five_windows() {
     let layout = VerticalStackLayout { gap: 0, ratio: 0.5 };
     let area = Rect::new(0, 0, 1920, 1080);
-    let result = layout.apply(&[1, 2, 3, 4, 5], &area);
+    let result = layout.apply(&wids(&[1, 2, 3, 4, 5]), &area);
 
     assert_eq!(result.len(), 5);
     assert_eq!(result[0].1.width, 960);
@@ -129,7 +130,7 @@ fn vstack_five_windows() {
 fn vstack_empty_returns_empty() {
     let layout = VerticalStackLayout::default();
     let area = Rect::new(0, 0, 1920, 1080);
-    assert!(layout.apply(&[], &area).is_empty());
+    assert!(layout.apply(&wids(&[]), &area).is_empty());
 }
 
 // -- ThreeColumn tests --
@@ -138,35 +139,35 @@ fn vstack_empty_returns_empty() {
 fn three_col_single_window_fills_area() {
     let layout = ThreeColumnLayout { gap: 0, ratio: 0.5 };
     let area = Rect::new(0, 0, 1920, 1080);
-    let result = layout.apply(&[1], &area);
+    let result = layout.apply(&wids(&[1]), &area);
 
     assert_eq!(result.len(), 1);
-    assert_eq!(result[0], (1, Rect::new(0, 0, 1920, 1080)));
+    assert_eq!(result[0], (wid(1), Rect::new(0, 0, 1920, 1080)));
 }
 
 #[test]
 fn three_col_two_windows_master_and_right() {
     let layout = ThreeColumnLayout { gap: 0, ratio: 0.5 };
     let area = Rect::new(0, 0, 1920, 1080);
-    let result = layout.apply(&[1, 2], &area);
+    let result = layout.apply(&wids(&[1, 2]), &area);
 
     assert_eq!(result.len(), 2);
-    assert_eq!(result[0], (1, Rect::new(0, 0, 960, 1080)));
-    assert_eq!(result[1], (2, Rect::new(960, 0, 960, 1080)));
+    assert_eq!(result[0], (wid(1), Rect::new(0, 0, 960, 1080)));
+    assert_eq!(result[1], (wid(2), Rect::new(960, 0, 960, 1080)));
 }
 
 #[test]
 fn three_col_three_windows_center_master() {
     let layout = ThreeColumnLayout { gap: 0, ratio: 0.5 };
     let area = Rect::new(0, 0, 1920, 1080);
-    let result = layout.apply(&[1, 2, 3], &area);
+    let result = layout.apply(&wids(&[1, 2, 3]), &area);
 
     assert_eq!(result.len(), 3);
-    assert_eq!(result[0].0, 1);
+    assert_eq!(result[0].0, wid(1));
     assert_eq!(result[0].1.width, 960);
-    assert_eq!(result[1].0, 2);
+    assert_eq!(result[1].0, wid(2));
     assert!(result[1].1.x < result[0].1.x);
-    assert_eq!(result[2].0, 3);
+    assert_eq!(result[2].0, wid(3));
     assert!(result[2].1.x > result[0].1.x);
 }
 
@@ -174,14 +175,14 @@ fn three_col_three_windows_center_master() {
 fn three_col_five_windows_alternates_sides() {
     let layout = ThreeColumnLayout { gap: 0, ratio: 0.5 };
     let area = Rect::new(0, 0, 1920, 1080);
-    let result = layout.apply(&[1, 2, 3, 4, 5], &area);
+    let result = layout.apply(&wids(&[1, 2, 3, 4, 5]), &area);
 
     assert_eq!(result.len(), 5);
-    assert_eq!(result[0].0, 1);
-    assert_eq!(result[1].0, 2);
-    assert_eq!(result[2].0, 4);
-    assert_eq!(result[3].0, 3);
-    assert_eq!(result[4].0, 5);
+    assert_eq!(result[0].0, wid(1));
+    assert_eq!(result[1].0, wid(2));
+    assert_eq!(result[2].0, wid(4));
+    assert_eq!(result[3].0, wid(3));
+    assert_eq!(result[4].0, wid(5));
     let left_bottom = result[2].1.y + result[2].1.height;
     assert_eq!(left_bottom, 1080);
     let right_bottom = result[4].1.y + result[4].1.height;
@@ -192,7 +193,7 @@ fn three_col_five_windows_alternates_sides() {
 fn three_col_empty_returns_empty() {
     let layout = ThreeColumnLayout::default();
     let area = Rect::new(0, 0, 1920, 1080);
-    assert!(layout.apply(&[], &area).is_empty());
+    assert!(layout.apply(&wids(&[]), &area).is_empty());
 }
 
 #[test]
@@ -200,7 +201,7 @@ fn three_col_inner_gap_matches_outer_padding() {
     let gap = 8;
     let layout = ThreeColumnLayout { gap, ratio: 0.5 };
     let area = Rect::new(0, 0, 1920, 1080);
-    let result = layout.apply(&[1, 2, 3, 4, 5], &area);
+    let result = layout.apply(&wids(&[1, 2, 3, 4, 5]), &area);
 
     // result order: master, left[0], left[1], right[0], right[1]
     let master = &result[0].1;
@@ -226,7 +227,7 @@ fn vstack_inner_gap_matches_outer_padding() {
     let gap = 8;
     let layout = VerticalStackLayout { gap, ratio: 0.5 };
     let area = Rect::new(0, 0, 1920, 1080);
-    let result = layout.apply(&[1, 2, 3], &area);
+    let result = layout.apply(&wids(&[1, 2, 3]), &area);
 
     let master = &result[0].1;
     let stack0 = &result[1].1;

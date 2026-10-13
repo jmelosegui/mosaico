@@ -8,6 +8,7 @@ use std::ffi::OsStr;
 use std::mem;
 use std::os::windows::ffi::OsStrExt;
 
+use mosaico_core::WindowId;
 use mosaico_core::config::bar::BarConfig;
 use windows::Win32::Foundation::{CloseHandle, HWND};
 use windows::Win32::Graphics::Gdi::{
@@ -22,14 +23,16 @@ use windows::Win32::UI::WindowsAndMessaging::{
 };
 use windows::core::PCWSTR;
 
+use crate::window::Window;
+
 use super::super::text::{DrawCtx, draw_pill};
 
 /// Draws the focused window's icon inside a pill. Returns the new X.
-pub fn draw(ctx: &mut DrawCtx, x: i32, config: &BarConfig, hwnd: Option<usize>) -> i32 {
-    let Some(raw) = hwnd.filter(|&h| h != 0) else {
+pub fn draw(ctx: &mut DrawCtx, x: i32, config: &BarConfig, window: Option<WindowId>) -> i32 {
+    let Some(window) = window else {
         return x;
     };
-    let Some(hicon) = extract_icon(raw) else {
+    let Some(hicon) = extract_icon(Window::from_id(window).hwnd()) else {
         return x;
     };
 
@@ -67,11 +70,11 @@ pub fn draw(ctx: &mut DrawCtx, x: i32, config: &BarConfig, hwnd: Option<usize>) 
 // -- icon extraction ------------------------------------------------------
 
 /// Resolves HWND -> PID -> exe path -> shell icon.
-fn extract_icon(hwnd: usize) -> Option<HICON> {
+fn extract_icon(hwnd: HWND) -> Option<HICON> {
     let mut pid: u32 = 0;
     // SAFETY: GetWindowThreadProcessId queries the PID for a window
     // handle. The HWND is provided by the tiling manager's focus state.
-    unsafe { GetWindowThreadProcessId(HWND(hwnd as *mut _), Some(&mut pid)) };
+    unsafe { GetWindowThreadProcessId(hwnd, Some(&mut pid)) };
     if pid == 0 {
         return None;
     }

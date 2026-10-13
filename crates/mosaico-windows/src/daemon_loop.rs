@@ -255,7 +255,7 @@ pub(super) fn daemon_loop() -> WindowResult<()> {
         }
 
         // Deduplicate events before processing. LocationChanged and
-        // TitleChanged fire very frequently; only the last per hwnd
+        // TitleChanged fire very frequently; only the last per window
         // matters. This can collapse hundreds of events into a handful.
         dedup_events(&mut events);
 
@@ -327,7 +327,7 @@ fn pump_thread_messages() {
 /// Collapses duplicate high-frequency events in a batch.
 ///
 /// `LocationChanged` and `TitleChanged` fire many times per second for the
-/// same window. Only the last occurrence per hwnd is meaningful — earlier
+/// same window. Only the last occurrence per window is meaningful — earlier
 /// ones would just do redundant work. Other event types preserve order and
 /// are never dropped because their side-effects are not idempotent.
 fn dedup_events(events: &mut Vec<mosaico_core::WindowEvent>) {
@@ -337,13 +337,13 @@ fn dedup_events(events: &mut Vec<mosaico_core::WindowEvent>) {
         return;
     }
 
-    // Track the last index of each dedupable (hwnd, variant) pair.
-    let mut last_seen: HashMap<(usize, u8), usize> = HashMap::new();
+    // Track the last index of each dedupable (window, variant) pair.
+    let mut last_seen: HashMap<(mosaico_core::WindowId, u8), usize> = HashMap::new();
 
     for (i, ev) in events.iter().enumerate() {
         let key = match ev {
-            WindowEvent::LocationChanged { hwnd } => (*hwnd, 0u8),
-            WindowEvent::TitleChanged { hwnd } => (*hwnd, 1),
+            WindowEvent::LocationChanged { window } => (*window, 0u8),
+            WindowEvent::TitleChanged { window } => (*window, 1),
             _ => continue, // non-dedupable
         };
         last_seen.insert(key, i);
@@ -357,8 +357,8 @@ fn dedup_events(events: &mut Vec<mosaico_core::WindowEvent>) {
     let mut i = 0;
     events.retain(|ev| {
         let dominated = match ev {
-            WindowEvent::LocationChanged { hwnd } => last_seen.get(&(*hwnd, 0)) != Some(&i),
-            WindowEvent::TitleChanged { hwnd } => last_seen.get(&(*hwnd, 1)) != Some(&i),
+            WindowEvent::LocationChanged { window } => last_seen.get(&(*window, 0)) != Some(&i),
+            WindowEvent::TitleChanged { window } => last_seen.get(&(*window, 1)) != Some(&i),
             _ => false,
         };
         i += 1;

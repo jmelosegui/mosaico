@@ -4,7 +4,7 @@ mod vertical_stack;
 
 use serde::{Deserialize, Serialize};
 
-use crate::Rect;
+use crate::{Rect, WindowId};
 
 pub use bsp::BspLayout;
 pub use three_column::ThreeColumnLayout;
@@ -45,14 +45,14 @@ impl LayoutKind {
 
 /// A layout algorithm that computes window positions within a work area.
 ///
-/// Given a list of window handles and the available space, a layout
+/// Given a list of windows and the available space, a layout
 /// produces a position and size for each window.
 pub trait Layout {
     /// Computes positions for all windows in the given work area.
     ///
-    /// Returns a list of (handle, rect) pairs in the same order as the
-    /// input handles.
-    fn apply(&self, handles: &[usize], work_area: &Rect) -> Vec<(usize, Rect)>;
+    /// Returns a list of (window, rect) pairs in the same order as the
+    /// input windows.
+    fn apply(&self, windows: &[WindowId], work_area: &Rect) -> Vec<(WindowId, Rect)>;
 }
 
 #[cfg(test)]

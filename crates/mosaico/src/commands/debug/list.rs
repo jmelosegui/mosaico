@@ -1,5 +1,5 @@
-use mosaico_core::Window;
 use mosaico_core::config::{load_merged_rules, matching_rule, should_manage};
+use mosaico_core::{Window, WindowId};
 use mosaico_windows::{frame, monitor};
 
 pub fn execute() {
@@ -12,8 +12,8 @@ pub fn execute() {
         let title = window.title().unwrap_or_default();
         let class = window.class().unwrap_or_default();
         let rect = window.rect().unwrap_or(mosaico_core::Rect::new(0, 0, 0, 0));
-        let hwnd = window.hwnd().0 as usize;
-        let monitor_num = monitor_index_for(&monitors, hwnd);
+        let id = window.id();
+        let monitor_num = monitor_index_for(&monitors, id);
         let path = window.exe_path();
         let has_caption = window.app_window_caption() == Some(true);
         let managed = if has_caption {
@@ -38,7 +38,7 @@ pub fn execute() {
             "normal"
         };
 
-        println!("  0x{hwnd:X}  {display_title}");
+        println!("  {id}  {display_title}");
         println!("       Class: {class}");
         println!("       Path: {path}");
         println!("       Managed: {managed}  Monitor: {monitor_num}  State: {state}");
@@ -68,8 +68,8 @@ pub fn execute() {
 }
 
 /// Returns the 1-based monitor number for a window, or "?" if unknown.
-fn monitor_index_for(monitors: &[monitor::MonitorInfo], hwnd: usize) -> String {
-    let id = monitor::monitor_id_for_window(hwnd);
+fn monitor_index_for(monitors: &[monitor::MonitorInfo], window: WindowId) -> String {
+    let id = monitor::monitor_id_for_window(window);
     monitors
         .iter()
         .position(|m| m.id == id)

@@ -2,6 +2,8 @@
 
 use crate::config::{Config, WindowRule};
 
+use crate::WindowId;
+
 use super::{Effect, Plan, Tiler};
 
 impl Tiler {
@@ -43,7 +45,7 @@ impl Tiler {
         let mut removals = Vec::new();
         for (mi, mon) in self.monitors.iter().enumerate() {
             for (wi, ws) in mon.workspaces.iter().enumerate() {
-                for &window in ws.handles() {
+                for &window in ws.windows() {
                     if !self.is_tileable(plan, window) {
                         removals.push((mi, wi, window));
                     }
@@ -55,7 +57,7 @@ impl Tiler {
         for (mi, wi, window) in removals {
             plan.emit(Effect::Undecorate { window });
             self.monitors[mi].workspaces[wi].remove(window);
-            crate::log_info!("-rule 0x{window:X} (unmanaged by new rules)");
+            crate::log_info!("-rule {window} (unmanaged by new rules)");
             if !affected.contains(&mi) {
                 affected.push(mi);
             }
@@ -66,11 +68,11 @@ impl Tiler {
     }
 
     /// Every managed window, on every workspace of every monitor.
-    fn all_windows(&self) -> Vec<usize> {
+    fn all_windows(&self) -> Vec<WindowId> {
         self.monitors
             .iter()
             .flat_map(|m| &m.workspaces)
-            .flat_map(|ws| ws.handles().iter().copied())
+            .flat_map(|ws| ws.windows().iter().copied())
             .collect()
     }
 }

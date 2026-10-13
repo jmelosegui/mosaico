@@ -12,11 +12,12 @@ use std::time::Instant;
 
 use mosaico_core::config::{BorderConfig, Config, LayoutConfig, WindowRule, WorkspacesConfig};
 use mosaico_core::tiler::{BarReservation, Display, Input, Settings, Tiler};
-use mosaico_core::{Action, WindowEvent, WindowResult};
+use mosaico_core::{Action, WindowEvent, WindowId, WindowResult};
 
 use crate::bar::BarState;
 use crate::enumerate;
 use crate::monitor::{self, MonitorInfo};
+use crate::window::Window;
 
 use applier::Applier;
 use desktop::Win32Desktop;
@@ -38,9 +39,9 @@ impl TilingManager {
         mouse_follows_focus: bool,
     ) -> WindowResult<Self> {
         let displays = displays(monitor::enumerate_monitors()?);
-        let windows: Vec<usize> = enumerate::enumerate_windows()?
+        let windows: Vec<WindowId> = enumerate::enumerate_windows()?
             .iter()
-            .map(|w| w.hwnd().0 as usize)
+            .map(Window::id)
             .collect();
         let settings = Settings {
             layout: layout_config.clone(),
@@ -173,7 +174,7 @@ impl TilingManager {
                 monocle: m.active().monocle(),
                 cpu_usage: 0,
                 update_text: update_text.to_string(),
-                focused_hwnd: if i == self.tiler.focused_monitor() {
+                focused_window: if i == self.tiler.focused_monitor() {
                     self.tiler.focused_window()
                 } else {
                     None

@@ -33,11 +33,13 @@ pub fn execute() {
 
         // Drain available events
         match rx.recv_timeout(std::time::Duration::from_millis(100)) {
-            Ok(event) => {
-                let window = WinWindow::from_raw(event.hwnd());
-                let title = window.title().unwrap_or_default();
-                println!("{event} \"{title}\"");
-            }
+            Ok(event) => match event.window() {
+                Some(id) => {
+                    let title = WinWindow::from_id(id).title().unwrap_or_default();
+                    println!("{event} \"{title}\"");
+                }
+                None => println!("{event}"),
+            },
             Err(mpsc::RecvTimeoutError::Timeout) => continue,
             Err(mpsc::RecvTimeoutError::Disconnected) => break,
         }

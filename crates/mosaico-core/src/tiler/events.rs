@@ -2,6 +2,8 @@
 
 use crate::{Action, WindowEvent};
 
+use crate::WindowId;
+
 use super::{Effect, Plan, Tiler};
 
 impl Tiler {
@@ -35,8 +37,8 @@ impl Tiler {
     /// Handles a window event that is not an echo of our own effects.
     pub(super) fn handle_event(&mut self, plan: &mut Plan, event: &WindowEvent) {
         match *event {
-            WindowEvent::Created { hwnd: window } => self.on_created(plan, window),
-            WindowEvent::Restored { hwnd: window } => {
+            WindowEvent::Created { window } => self.on_created(plan, window),
+            WindowEvent::Restored { window } => {
                 if self.adopt_rejected.contains(&window) {
                     return;
                 }
@@ -52,27 +54,25 @@ impl Tiler {
                 }
                 self.add_and_focus(plan, window);
             }
-            WindowEvent::Destroyed { hwnd: window } => {
+            WindowEvent::Destroyed { window } => {
                 self.adopt_rejected.remove(&window);
                 self.reconnect.forget(window);
                 plan.emit(Effect::Undecorate { window });
                 self.remove_from_tiling(plan, window, "del", false);
             }
-            WindowEvent::Hidden { hwnd: window } => {
+            WindowEvent::Hidden { window } => {
                 // Some applications report a hide while repainting a
                 // surface. A real hide, such as closing to the tray,
                 // leaves the window invisible.
                 if plan.is_visible(window) {
-                    crate::log_debug!("hide-ignored 0x{:X} (still visible)", window);
+                    crate::log_debug!("hide-ignored {} (still visible)", window);
                     return;
                 }
                 plan.emit(Effect::Undecorate { window });
                 self.remove_from_tiling(plan, window, "hide", false);
             }
-            WindowEvent::Minimized { hwnd: window } => {
-                self.remove_from_tiling(plan, window, "min", true)
-            }
-            WindowEvent::Moved { hwnd: window } => {
+            WindowEvent::Minimized { window } => self.remove_from_tiling(plan, window, "min", true),
+            WindowEvent::Moved { window } => {
                 // A window the user just maximized stays maximized;
                 // retiling it would snap it back into the layout.
                 let maximized = plan.is_maximized(window);
@@ -85,27 +85,27 @@ impl Tiler {
                     self.reassign_monitor(plan, window);
                 }
             }
-            WindowEvent::Focused { hwnd: window } => self.on_focused(plan, window),
-            WindowEvent::TitleChanged { hwnd: window } => {
+            WindowEvent::Focused { window } => self.on_focused(plan, window),
+            WindowEvent::TitleChanged { window } => {
                 // Some applications only become recognizable once their
                 // title is set, and never report being created or shown.
                 if self.find_window(window).is_none() {
                     self.try_adopt(plan, window);
                 }
             }
-            WindowEvent::MouseHover { hwnd: window } => {
+            WindowEvent::MouseHover { window } => {
                 if self.is_managed_on_active_workspace(window)
                     && self.focused_window != Some(window)
                 {
                     self.focus_window(plan, window, true);
                 }
             }
-            WindowEvent::LocationChanged { hwnd: window } => self.on_location_changed(plan, window),
+            WindowEvent::LocationChanged { window } => self.on_location_changed(plan, window),
             WindowEvent::DisplayChanged | WindowEvent::WorkAreaChanged => {}
         }
     }
 
-    fn on_created(&mut self, plan: &mut Plan, window: usize) {
+    fn on_created(&mut self, plan: &mut Plan, window: WindowId) {
         if !plan.is_visible(window) {
             // Created but not shown yet. Moving it now means its first
             // frame is painted in the right place instead of wherever
@@ -136,7 +136,7 @@ impl Tiler {
         self.add_and_focus(plan, window);
     }
 
-    fn on_location_changed(&mut self, plan: &mut Plan, window: usize) {
+    fn on_location_changed(&mut self, plan: &mut Plan, window: WindowId) {
         // Fires on every animation frame, so only react when the focused
         // window enters or leaves maximized state. That catches the
         // title bar buttons, which do not report a move.
@@ -173,7 +173,7 @@ impl Tiler {
     pub(super) fn remove_from_tiling(
         &mut self,
         plan: &mut Plan,
-        window: usize,
+        window: WindowId,
         reason: &str,
         active_only: bool,
     ) {
@@ -188,7 +188,7 @@ impl Tiler {
         let ws = &mut self.monitors[mon_idx].workspaces[ws_idx];
         ws.remove(window);
         crate::log_info!(
-            "-{} 0x{:X} from mon {} ws {} (now {})",
+            "-{} {} from mon {} ws {} (now {})",
             reason,
             window,
             mon_idx,
@@ -208,7 +208,7 @@ impl Tiler {
                 let replacement = ws
                     .last_focused()
                     .filter(|&w| ws.contains(w))
-                    .or_else(|| ws.handles().first().copied());
+                    .or_else(|| ws.windows().first().copied());
                 if let Some(next) = replacement {
                     self.focus_window(plan, next, false);
                 }
