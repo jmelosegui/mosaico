@@ -12,25 +12,103 @@ and monitors using vim-style H/J/K/L motions.
 |------|---------|
 | `crates/mosaico-core/src/spatial.rs` | Pure spatial functions: `find_neighbor()`, `find_entry()` |
 | `crates/mosaico-core/src/rect.rs` | `Rect::vertical_overlap()`, `Rect::horizontal_overlap()` |
+| `crates/mosaico-core/src/monitor.rs` | `MonitorKey`, `EdidIdentity`, `Monitor` trait |
+| `crates/mosaico-core/src/monitor/matching.rs` | `match_monitors()` |
 | `crates/mosaico-windows/src/monitor.rs` | `MonitorInfo`, enumeration and query functions |
+| `crates/mosaico-windows/src/monitor_identity.rs` | Builds a `MonitorKey` from the display configuration |
+| `crates/mosaico-windows/src/monitor_edid.rs` | PNP ID and EDID serial decoding |
+| `crates/mosaico-windows/src/tiling/display.rs` | `handle_display_change()` |
+| `crates/mosaico-windows/src/tiling/display_rebuild.rs` | `rebuild_monitors()`, `pair_monitors()` (no Win32 calls, unit tested) |
 | `crates/mosaico-windows/src/tiling/mod.rs` | `TilingManager`, `MonitorState`, `SpatialTarget` |
 | `crates/mosaico-windows/src/tiling/navigation.rs` | Multi-monitor focus/move logic, spatial target resolution |
 
 ### Key Types
 
-- `MonitorInfo` -- fields: `id: usize` (HMONITOR cast), `work_area: Rect`
+- `MonitorInfo` -- fields: `id: usize` (HMONITOR cast), `key: MonitorKey`,
+  `work_area: Rect`, `primary: bool`. Implements `mosaico_core::Monitor`
+- `MonitorKey` -- stable identity of a physical display (from `mosaico-core`)
 - `SpatialTarget` (enum) -- `Neighbor(hwnd)` or `AdjacentMonitor(idx)`
 - `Direction` (enum) -- `Left`, `Right`, `Up`, `Down` (from `mosaico-core`)
 
 ## Monitor Enumeration
 
 `enumerate_monitors()` uses `EnumDisplayMonitors` to discover all connected
-monitors, returning them sorted left-to-right by `work_area.x`.
+monitors, returning them sorted left-to-right by `work_area.x`. Each one
+gets a `MonitorKey` from `monitor_identity::display_identities()`.
 
 Additional utility function:
 
 - `monitor_id_for_window(hwnd)` -- returns the HMONITOR id for a window's
   monitor
+
+## Monitor Identity
+
+Windows hands out new HMONITOR values every time the display configuration
+changes, including for monitors that stayed connected. The id is therefore
+only good for runtime lookups (`MonitorFromWindow`). To recognise a monitor
+after a reconnect or a KVM switch, each monitor carries a `MonitorKey`.
+
+### The contract (`mosaico-core/src/monitor.rs`)
+
+The key and its matching rules live in the core crate so every platform
+restores layouts the same way. A platform implements the `Monitor` trait:
+
+```rust
+pub trait Monitor {
+    fn key(&self) -> &MonitorKey;
+    fn work_area(&self) -> Rect;
+    fn is_primary(&self) -> bool;
+}
+```
+
+`MonitorKey` has three optional fields:
+
+| Field | Meaning |
+|-------|---------|
+| `stable_id` | Most specific stable identifier the platform offers. Opaque, compared for equality |
+| `edid` | `EdidIdentity { manufacturer, product, serial }` decoded from the display's EDID. Means the same on every OS |
+| `connector` | Port the display is attached through. Opaque, compared for equality |
+
+Rules a platform implementation must follow:
+
+- The key stays the same across unplug and replug, KVM switches, sleep,
+  reboots, and resolution, scaling or arrangement changes.
+- It is never built from per-session handles, enumeration order, desktop
+  position or resolution.
+- Two displays of the same model on different ports differ in at least one
+  field when the hardware allows it.
+- A field the platform cannot read is `None`. A wrong value causes false
+  matches; a missing one only weakens matching.
+
+What each platform is expected to supply:
+
+| Field | Windows | macOS | Linux |
+|-------|---------|-------|-------|
+| `stable_id` | Monitor device interface path (`DisplayConfigGetDeviceInfo`, target name) | `CGDisplayCreateUUIDFromDisplayID` | Connector name plus an EDID hash |
+| `edid` | `edidManufactureId` / `edidProductCodeId`, serial from the EDID copy under `Enum\DISPLAY` in the registry | `CGDisplayVendorNumber` / `ModelNumber` / `SerialNumber` | EDID from the RandR property or DRM sysfs |
+| `connector` | Output technology and `connectorInstance`, e.g. `dp:1` | none | Connector name, e.g. `DP-1` |
+
+### Matching
+
+`match_monitors(old, new)` pairs keys one to one, running one tier at a
+time so a weak match can never take a display a stronger one would claim:
+
+1. Same `stable_id`
+2. Same EDID including a known serial
+3. Same EDID model on the same `connector` (tells identical monitors
+   without serials apart)
+4. Same EDID model, when it is the only one of that model on both sides
+
+Two known serials that differ never match. A key with every field `None`
+never matches anything.
+
+`pair_monitors()` in the Windows tiler runs `match_monitors` first. Only
+monitors whose key is unknown fall back to the same HMONITOR and then to
+the same work area origin. A monitor with a known key is never paired with
+another by position, so an office monitor that sits where the home monitor
+was does not inherit the home monitor's workspaces.
+
+`mosaico debug list` prints each monitor's key.
 
 ## Spatial Navigation
 

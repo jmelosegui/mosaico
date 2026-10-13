@@ -8,7 +8,9 @@ const BAR: i32 = 44;
 fn os_monitor(id: usize, x: i32) -> MonitorInfo {
     MonitorInfo {
         id,
+        key: MonitorKey::default(),
         work_area: Rect::new(x, 0, 2560, 1392),
+        primary: x == 0,
     }
 }
 

@@ -13,6 +13,7 @@ zip = { version = "2", default-features = false, features = ["deflate"] }
 [dependencies.windows]
 version = "0.61"
 features = [
+    "Win32_Devices_Display",           # QueryDisplayConfig, DisplayConfigGetDeviceInfo
     "Win32_Graphics_Dwm",              # DwmGetWindowAttribute (extended frame bounds)
     "Win32_Graphics_Gdi",              # MonitorFromWindow, GetMonitorInfoW
     "Win32_UI_WindowsAndMessaging",   # EnumWindows, GetWindowTextW, GetMessageW, etc.

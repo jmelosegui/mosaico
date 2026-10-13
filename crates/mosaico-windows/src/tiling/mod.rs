@@ -1,4 +1,5 @@
 mod display;
+mod display_rebuild;
 mod empty_focus;
 mod event_handler;
 mod focus;
@@ -17,7 +18,7 @@ use mosaico_core::action::MAX_WORKSPACES;
 use mosaico_core::config::{
     BorderConfig, HidingBehaviour, LayoutConfig, WindowRule, WorkspaceMode, WorkspacesConfig,
 };
-use mosaico_core::{Action, Rect, WindowResult, Workspace};
+use mosaico_core::{Action, LayoutKind, MonitorKey, Rect, WindowResult, Workspace};
 
 use crate::bar::BarState;
 use crate::border::Border;
@@ -28,7 +29,11 @@ use crate::window::Window;
 
 /// Per-monitor state: multiple workspaces and work area.
 pub(super) struct MonitorState {
+    /// Runtime HMONITOR. Replaced on every display change.
     pub(super) id: usize,
+    /// Identity that survives reconnects, used to match monitors across
+    /// display changes.
+    pub(super) key: MonitorKey,
     /// Work area as reported by the OS, before the bar is reserved.
     ///
     /// Kept so the bar-adjusted `work_area` can always be re-derived
@@ -41,6 +46,19 @@ pub(super) struct MonitorState {
 }
 
 impl MonitorState {
+    /// State for a monitor seen for the first time: empty workspaces
+    /// with the configured layouts.
+    fn new(info: &monitor::MonitorInfo, layouts: &[LayoutKind]) -> Self {
+        Self {
+            id: info.id,
+            key: info.key.clone(),
+            os_work_area: info.work_area,
+            work_area: info.work_area,
+            workspaces: layouts.iter().map(|&k| Workspace::with_layout(k)).collect(),
+            active_workspace: 0,
+        }
+    }
+
     fn active_ws(&self) -> &Workspace {
         &self.workspaces[self.active_workspace]
     }
@@ -64,6 +82,9 @@ enum SpatialTarget {
 /// Manages tiled windows across all connected monitors.
 pub struct TilingManager {
     monitors: Vec<MonitorState>,
+    /// Layout of each workspace on a monitor seen for the first time,
+    /// from `[workspaces.layouts]` falling back to `[layout] default`.
+    workspace_layouts: Vec<LayoutKind>,
     layout_gap: i32,
     layout_ratio: f64,
     rules: Vec<WindowRule>,
@@ -176,31 +197,25 @@ impl TilingManager {
         border_config: BorderConfig,
         mouse_follows_focus: bool,
     ) -> WindowResult<Self> {
+        let workspace_layouts: Vec<LayoutKind> = (1..=MAX_WORKSPACES)
+            .map(|ws_num| {
+                workspaces_config
+                    .layouts
+                    .get(&ws_num)
+                    .copied()
+                    .unwrap_or(layout_config.default)
+            })
+            .collect();
         let monitors: Vec<MonitorState> = monitor::enumerate_monitors()?
             .into_iter()
-            .map(|info| MonitorState {
-                id: info.id,
-                os_work_area: info.work_area,
-                work_area: info.work_area,
-                workspaces: (0..MAX_WORKSPACES)
-                    .map(|i| {
-                        let ws_num = i + 1;
-                        let kind = workspaces_config
-                            .layouts
-                            .get(&ws_num)
-                            .copied()
-                            .unwrap_or(layout_config.default);
-                        Workspace::with_layout(kind)
-                    })
-                    .collect(),
-                active_workspace: 0,
-            })
+            .map(|info| MonitorState::new(&info, &workspace_layouts))
             .collect();
 
         let self_elevated = crate::process::is_current_process_elevated();
 
         let mut manager = Self {
             monitors,
+            workspace_layouts,
             layout_gap: layout_config.gap,
             layout_ratio: layout_config.ratio,
             rules,
@@ -277,9 +292,10 @@ impl TilingManager {
         for (mi, mon) in self.monitors.iter().enumerate() {
             let _ = writeln!(
                 out,
-                "Monitor {} (id={}, work_area={}x{}+{}+{}, active_ws={}):",
+                "Monitor {} (id={}, key={}, work_area={}x{}+{}+{}, active_ws={}):",
                 mi,
                 mon.id,
+                mon.key,
                 mon.work_area.width,
                 mon.work_area.height,
                 mon.work_area.x,

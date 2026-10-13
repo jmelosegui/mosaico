@@ -61,6 +61,12 @@ pub mod ipc;
 /// Monitor work area queries.
 pub mod monitor;
 
+/// EDID and display-configuration string decoding.
+mod monitor_edid;
+
+/// Stable monitor identity from the display configuration.
+mod monitor_identity;
+
 /// Process utilities (alive check).
 pub mod process;
 

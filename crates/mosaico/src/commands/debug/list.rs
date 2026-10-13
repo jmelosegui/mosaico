@@ -50,6 +50,21 @@ pub fn execute() {
     }
 
     println!("{} windows found", windows.len());
+    println!();
+
+    for (i, mon) in monitors.iter().enumerate() {
+        let r = mon.work_area;
+        println!(
+            "  Monitor {}{}: {}x{} at ({}, {})",
+            i + 1,
+            if mon.primary { " (primary)" } else { "" },
+            r.width,
+            r.height,
+            r.x,
+            r.y
+        );
+        println!("       Key: {}", mon.key);
+    }
 }
 
 /// Returns the 1-based monitor number for a window, or "?" if unknown.
