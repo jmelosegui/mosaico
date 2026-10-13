@@ -151,12 +151,11 @@ pub(super) fn daemon_loop() -> WindowResult<()> {
         // recv. This coalesces rapid focus navigation so the OS only
         // sees the *final* target while the border and bar icon keep
         // up with every keypress.
-        let first = if manager.has_pending_foreground() || manager.has_pending_retile() {
+        let first = if manager.has_pending() {
             match rx.recv_timeout(std::time::Duration::from_millis(25)) {
                 Ok(msg) => msg,
                 Err(mpsc::RecvTimeoutError::Timeout) => {
-                    manager.flush_pending_retile();
-                    manager.flush_pending_foreground();
+                    manager.flush_pending();
                     continue;
                 }
                 Err(mpsc::RecvTimeoutError::Disconnected) => break,
