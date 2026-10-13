@@ -6,62 +6,95 @@ use mosaico_core::{LayoutKind, MonitorKey, match_monitors};
 use crate::monitor::MonitorInfo;
 
 use super::MonitorState;
+use super::reconnect::ReconnectMemory;
+
+/// Result of [`rebuild_monitors`].
+pub(super) struct Rebuilt {
+    pub(super) monitors: Vec<MonitorState>,
+    /// Windows that changed monitor or workspace, whose visibility has to
+    /// be brought in line with their new workspace.
+    pub(super) moved: Vec<usize>,
+}
 
 /// Builds the monitor list for a new display configuration.
 ///
 /// Each new monitor continues the state of the old monitor it is paired
-/// with by [`pair_monitors`], or starts with fresh workspaces using
-/// `layouts`. Windows on old monitors that have no pair are moved to the
-/// active workspace of the primary monitor.
+/// with by [`pair_monitors`]. An unpaired monitor that was connected
+/// before gets its parked state back from `memory`, along with the
+/// windows that were displaced from it; any other unpaired monitor
+/// starts with fresh workspaces using `layouts`. Old monitors without a
+/// pair are parked, and their windows move to the same workspace number
+/// on the primary monitor.
 pub(super) fn rebuild_monitors(
     mut old: Vec<MonitorState>,
     new: &[MonitorInfo],
     layouts: &[LayoutKind],
-) -> Vec<MonitorState> {
+    memory: &mut ReconnectMemory,
+) -> Rebuilt {
     let pairs = pair_monitors(&old, new);
+    let mut returned = Vec::new();
 
     let mut states: Vec<MonitorState> = new
         .iter()
         .zip(&pairs)
-        .map(|(info, pair)| match pair {
-            Some(oi) => {
+        .enumerate()
+        .map(|(ni, (info, pair))| {
+            let mut state = MonitorState::new(info, layouts);
+            if let Some(oi) = pair {
                 let prev = &mut old[*oi];
-                MonitorState {
-                    id: info.id,
-                    key: info.key.clone(),
-                    os_work_area: info.work_area,
-                    work_area: info.work_area,
-                    workspaces: std::mem::take(&mut prev.workspaces),
-                    active_workspace: prev.active_workspace,
-                }
-            }
-            None => {
+                state.workspaces = std::mem::take(&mut prev.workspaces);
+                state.active_workspace = prev.active_workspace;
+            } else if let Some((workspaces, active)) = memory.unpark(&info.key) {
+                mosaico_core::log_info!("Monitor {} reconnected", info.key);
+                state.workspaces = workspaces;
+                state.active_workspace = active;
+                returned.push(ni);
+            } else {
                 mosaico_core::log_info!("New monitor {}", info.key);
-                MonitorState::new(info, layouts)
             }
+            state
         })
         .collect();
 
-    let fallback = new.iter().position(|m| m.primary).unwrap_or(0);
-    for (oi, prev) in old.iter().enumerate() {
+    let mut moved = Vec::new();
+    let host = new.iter().position(|m| m.primary).unwrap_or(0);
+    for (oi, gone) in old.into_iter().enumerate() {
         if pairs.contains(&Some(oi)) {
             continue;
         }
-        mosaico_core::log_info!("Monitor {} disconnected", prev.key);
-        for ws in &prev.workspaces {
-            for &hwnd in ws.handles() {
-                mosaico_core::log_info!(
-                    "Migrating window 0x{:X} from removed monitor {} to monitor {}",
-                    hwnd,
-                    prev.id,
-                    states[fallback].id
-                );
-                states[fallback].active_ws_mut().add(hwnd);
-            }
-        }
+        mosaico_core::log_info!(
+            "Monitor {} disconnected, moving its windows to monitor {}",
+            gone.key,
+            states[host].key
+        );
+        moved.extend(memory.park(gone, &mut states[host]));
     }
 
-    states
+    for idx in returned {
+        let back = memory.restore(&mut states, idx);
+        mosaico_core::log_info!(
+            "Returned {} window(s) to monitor {}",
+            back.len(),
+            states[idx].key
+        );
+        moved.extend(back);
+        clear_stale_monocle(&mut states[idx]);
+    }
+
+    Rebuilt {
+        monitors: states,
+        moved,
+    }
+}
+
+/// Turns monocle off on workspaces whose monocle window did not return.
+fn clear_stale_monocle(monitor: &mut MonitorState) {
+    for ws in &mut monitor.workspaces {
+        if ws.monocle() && !ws.monocle_window().is_some_and(|h| ws.contains(h)) {
+            ws.set_monocle(false);
+            ws.set_monocle_window(None);
+        }
+    }
 }
 
 /// Pairs each new monitor with the old monitor it is, if any.

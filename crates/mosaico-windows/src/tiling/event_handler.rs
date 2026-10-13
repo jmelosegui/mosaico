@@ -77,6 +77,7 @@ impl TilingManager {
             }
             WindowEvent::Destroyed { hwnd } => {
                 self.adopt_rejected.remove(hwnd);
+                self.reconnect.forget(*hwnd);
                 frame::reset_corner_preference(Window::from_raw(*hwnd).hwnd());
                 self.remove_from_tiling(*hwnd, "del", false);
             }

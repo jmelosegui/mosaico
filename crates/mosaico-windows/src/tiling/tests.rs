@@ -125,7 +125,9 @@ pub(super) fn simulate_display_change(
         })
         .collect();
     let layouts = vec![LayoutKind::default(); MAX_WORKSPACES as usize];
-    display_rebuild::rebuild_monitors(std::mem::take(old_monitors), &infos, &layouts)
+    let mut memory = reconnect::ReconnectMemory::default();
+    display_rebuild::rebuild_monitors(std::mem::take(old_monitors), &infos, &layouts, &mut memory)
+        .monitors
 }
 
 // Standalone helper matching TilingManager::find_window logic

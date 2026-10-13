@@ -8,6 +8,7 @@ mod layout;
 mod lifecycle;
 mod navigation;
 mod navigation_helpers;
+mod reconnect;
 mod work_area;
 mod workspace;
 
@@ -85,6 +86,8 @@ pub struct TilingManager {
     /// Layout of each workspace on a monitor seen for the first time,
     /// from `[workspaces.layouts]` falling back to `[layout] default`.
     workspace_layouts: Vec<LayoutKind>,
+    /// Monitors that disconnected and the windows displaced from them.
+    reconnect: reconnect::ReconnectMemory,
     layout_gap: i32,
     layout_ratio: f64,
     rules: Vec<WindowRule>,
@@ -216,6 +219,7 @@ impl TilingManager {
         let mut manager = Self {
             monitors,
             workspace_layouts,
+            reconnect: reconnect::ReconnectMemory::default(),
             layout_gap: layout_config.gap,
             layout_ratio: layout_config.ratio,
             rules,
@@ -336,6 +340,7 @@ impl TilingManager {
             }
         }
 
+        let _ = writeln!(out, "{}", self.reconnect.describe());
         let _ = writeln!(out, "Self elevated: {}", self.self_elevated);
         let _ = writeln!(out, "Focused monitor: {}", self.focused_monitor);
         let _ = match self.focused_window {

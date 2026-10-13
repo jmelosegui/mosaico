@@ -1,4 +1,5 @@
 use super::super::display_rebuild::rebuild_monitors;
+use super::super::reconnect::ReconnectMemory;
 use super::super::*;
 use super::{make_monitors, simulate_display_change};
 use crate::monitor::MonitorInfo;
@@ -35,9 +36,9 @@ fn display_change_migrates_windows_from_removed_monitor() {
 
     assert_eq!(result.len(), 1);
     assert!(result[0].active_ws().contains(100));
-    // Migrated from removed monitor.
-    assert!(result[0].active_ws().contains(200));
-    assert!(result[0].active_ws().contains(300));
+    // Migrated from removed monitor, keeping the workspace number.
+    assert!(result[0].workspaces[0].contains(200));
+    assert!(result[0].workspaces[1].contains(300));
 }
 
 #[test]
@@ -137,7 +138,7 @@ fn keyed_monitor_keeps_workspaces_when_every_handle_changes() {
     let new = vec![info(77, &b, 0, true)];
 
     // Act
-    let result = rebuild_monitors(old, &new, &layouts());
+    let result = rebuild_monitors(old, &new, &layouts(), &mut ReconnectMemory::default()).monitors;
 
     // Assert -- B kept its own workspace 3, not A's.
     assert_eq!(result[0].key, b);
@@ -154,7 +155,7 @@ fn keyed_monitor_is_not_paired_by_position_with_a_different_monitor() {
     let new = vec![info(5, &laptop, 0, true), info(6, &office, 1920, false)];
 
     // Act
-    let result = rebuild_monitors(old, &new, &layouts());
+    let result = rebuild_monitors(old, &new, &layouts(), &mut ReconnectMemory::default()).monitors;
 
     // Assert -- the office monitor starts empty and the home monitor's
     // window moved to the primary (laptop) screen.
@@ -172,7 +173,7 @@ fn removed_monitor_windows_go_to_the_primary_monitor() {
     let new = vec![info(1, &left, 0, false), info(2, &right, 1920, true)];
 
     // Act
-    let result = rebuild_monitors(old, &new, &layouts());
+    let result = rebuild_monitors(old, &new, &layouts(), &mut ReconnectMemory::default()).monitors;
 
     // Assert
     assert!(result[1].workspaces.iter().any(|ws| ws.contains(900)));
@@ -189,7 +190,7 @@ fn new_monitor_uses_configured_layouts() {
     let new = vec![info(1, &a, 0, true), info(2, &keyed("new"), 1920, false)];
 
     // Act
-    let result = rebuild_monitors(old, &new, &configured);
+    let result = rebuild_monitors(old, &new, &configured, &mut ReconnectMemory::default()).monitors;
 
     // Assert
     assert_eq!(

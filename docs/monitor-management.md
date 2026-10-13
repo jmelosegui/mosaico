@@ -110,6 +110,42 @@ was does not inherit the home monitor's workspaces.
 
 `mosaico debug list` prints each monitor's key.
 
+## Disconnect and Reconnect
+
+`handle_display_change()` calls `rebuild_monitors()` (`display_rebuild.rs`),
+which keeps a `ReconnectMemory` (`tiling/reconnect.rs`) owned by the
+`TilingManager`:
+
+- **Paired monitors** keep their workspaces and active workspace.
+- **Removed monitors** are passed to `ReconnectMemory::park()`. Each window
+  moves to the same workspace index on the primary monitor (the host), and
+  a `Displaced { home, workspace, slot, host, host_workspace }` record is
+  kept for it. The monitor's workspaces, now empty but still carrying
+  their layout, monocle and last focused window, are parked under its key
+  with its active workspace.
+- **Returning monitors** (unpaired, but with a parked key) get their parked
+  workspaces back through `unpark()`. `restore()` then moves each window
+  whose home is that monitor back to its workspace, in slot order, but only
+  if it is still on the host workspace it was put on. A window the user
+  moved somewhere else stays there. The record is dropped either way.
+  Monocle is turned off on a workspace whose monocle window did not return.
+- **New monitors** start with workspaces built from `[workspaces.layouts]`.
+
+A window displaced twice (its host disconnects as well) keeps its original
+home and only follows the new host. Monitors with an unknown key are never
+parked and their windows get no record, because they could not be
+recognised on return. `Destroyed` events call `ReconnectMemory::forget()`
+so a reused hwnd is never sent anywhere.
+
+`rebuild_monitors()` returns the windows that moved. Those that landed on
+an inactive workspace are hidden before the retile and those on an active
+workspace are shown after it. Focus stays on the same physical monitor if
+it is still connected, otherwise it moves to the primary monitor.
+
+The memory is not persisted: it survives sleep but not a daemon restart.
+`mosaico debug state` lists the parked monitors and the number of
+displaced windows.
+
 ## Spatial Navigation
 
 All four directions (Left, Right, Up, Down) use BSP-aware spatial neighbor
