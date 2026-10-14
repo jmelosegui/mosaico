@@ -178,6 +178,10 @@ mod tests;
 mod theme_tests;
 
 #[cfg(test)]
+#[path = "tests/reload_tests.rs"]
+mod reload_tests;
+
+#[cfg(test)]
 #[path = "tests/manager_update_tests.rs"]
 mod update_tests;
 
