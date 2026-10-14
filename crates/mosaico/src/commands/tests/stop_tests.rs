@@ -94,6 +94,23 @@ fn fails_when_the_process_cannot_be_killed() {
 }
 
 #[test]
+fn a_process_that_could_not_be_killed_keeps_its_pid_file() {
+    // Arrange -- ending it failed, so it is still running.
+    let mut h = Harness::new("stop-unkillable-pid");
+    h.world.processes.borrow_mut().insert(88, Lifetime::Forever);
+    h.world.can_kill.set(false);
+    h.pid_file.write(88).unwrap();
+
+    // Act
+    let exit = h.run(execute);
+
+    // Assert -- status and a later stop can still find it.
+    assert_eq!(exit, Exit::Failure);
+    assert_eq!(h.pid_file.read().unwrap(), Some(88));
+    assert_eq!(h.out(), "", "it must not be reported as stopped");
+}
+
+#[test]
 fn a_stale_pid_file_is_not_mistaken_for_a_daemon() {
     // Arrange -- a daemon that crashed left its pid file behind.
     let mut h = Harness::new("stop-stale");

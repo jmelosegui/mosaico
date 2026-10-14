@@ -33,10 +33,12 @@ The `data_dir()` function resolves this path using `dirs::data_local_dir()`.
 Writes the current process PID as a string to the PID file. Called at daemon
 startup in `daemon::run()`.
 
-### `read_pid_file() -> Option<u32>`
+### `read_pid_file() -> Result<Option<u32>>`
 
-Reads and parses the PID from the file. Returns `None` if the file does not
-exist, is empty, or contains an invalid number.
+Reads and parses the PID from the file. Returns `Ok(None)` if the file does
+not exist. A file that cannot be read is an `Error::Io`, and one that does not
+hold a number an `Error::Io` of kind `InvalidData`; `start`, `stop` and
+`status` treat both like a missing file.
 
 ### `remove_pid_file()`
 
@@ -52,12 +54,14 @@ exists. Returns `true` if the process is alive, `false` otherwise.
 This uses the minimal permission flag to check process existence without
 requiring elevated privileges.
 
-### `kill_process(pid: u32) -> bool`
+### `kill_process(pid: u32) -> Result<()>`
 
 Windows-specific function that opens the process with `PROCESS_TERMINATE`
-permission and calls `TerminateProcess` to forcefully kill it. Returns `true`
-if the process was successfully terminated, `false` otherwise. Used as a
-fallback when the IPC pipe is unavailable.
+permission and calls `TerminateProcess` to forcefully kill it. Fails with
+`Error::Platform` when the process cannot be opened or terminated. Used,
+through `ProcessControl::kill`, as a fallback when the IPC pipe is
+unavailable. When it fails, `mosaico stop` reports `Failed to kill process
+<pid>.` and keeps the PID file, so the process can still be found.
 
 ## Usage Across Commands
 

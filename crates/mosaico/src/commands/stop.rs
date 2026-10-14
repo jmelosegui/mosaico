@@ -70,7 +70,9 @@ pub fn execute(cx: &mut Context) -> Exit {
     // alive (e.g. the IPC thread crashed). Check the PID file.
     match cx.pid_file.read() {
         Ok(Some(pid)) if cx.processes.is_alive(pid) => {
-            if !cx.processes.kill(pid) {
+            if cx.processes.kill(pid).is_err() {
+                // The PID file stays, so status and a later stop still
+                // find the process.
                 complain!(cx, "Failed to kill process {pid}.");
                 return Exit::Failure;
             }

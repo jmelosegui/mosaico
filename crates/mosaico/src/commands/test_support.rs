@@ -7,11 +7,13 @@
 
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, VecDeque};
+use std::io;
 use std::time::{Duration, Instant};
 
 use mosaico_core::ipc::{Command, IpcError, Response};
 use mosaico_core::pid::PidFile;
 use mosaico_core::system::{Autostart, ProcessControl};
+use mosaico_core::{Error, Result};
 
 use super::context::{Clock, Context, Daemon, Exit};
 
@@ -35,7 +37,7 @@ pub enum Launch {
     /// A process with this pid starts and keeps running, but never
     /// answers.
     Silent(u32),
-    /// The process cannot be started.
+    /// The process cannot be started, failing with this message.
     Fails(String),
 }
 
@@ -118,7 +120,7 @@ impl Daemon for World {
 }
 
 impl ProcessControl for World {
-    fn launch_daemon(&self) -> Result<u32, String> {
+    fn launch_daemon(&self) -> Result<u32> {
         match self.launch.borrow().clone() {
             Launch::Answers(pid) => {
                 self.daemon_up(pid);
@@ -129,7 +131,7 @@ impl ProcessControl for World {
                 self.processes.borrow_mut().insert(pid, Lifetime::Forever);
                 Ok(pid)
             }
-            Launch::Fails(error) => Err(error),
+            Launch::Fails(message) => Err(failure(message)),
         }
     }
 
@@ -149,12 +151,12 @@ impl ProcessControl for World {
         }
     }
 
-    fn kill(&self, pid: u32) -> bool {
+    fn kill(&self, pid: u32) -> Result<()> {
         if !self.can_kill.get() {
-            return false;
+            return Err(Error::platform("end the process", "access denied"));
         }
         self.processes.borrow_mut().remove(&pid);
-        true
+        Ok(())
     }
 }
 
@@ -163,21 +165,27 @@ impl Autostart for World {
         self.autostart.get()
     }
 
-    fn enable(&self) -> Result<(), String> {
-        if let Some(error) = self.autostart_error.borrow().clone() {
-            return Err(error);
+    fn enable(&self) -> Result<()> {
+        if let Some(message) = self.autostart_error.borrow().clone() {
+            return Err(failure(message));
         }
         self.autostart.set(true);
         Ok(())
     }
 
-    fn disable(&self) -> Result<(), String> {
-        if let Some(error) = self.autostart_error.borrow().clone() {
-            return Err(error);
+    fn disable(&self) -> Result<()> {
+        if let Some(message) = self.autostart_error.borrow().clone() {
+            return Err(failure(message));
         }
         self.autostart.set(false);
         Ok(())
     }
+}
+
+/// An error that reads exactly `message`, so a test can pin what the
+/// command prints.
+fn failure(message: String) -> Error {
+    Error::Io(io::Error::other(message))
 }
 
 impl Clock for World {

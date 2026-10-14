@@ -1,11 +1,14 @@
 use std::os::windows::process::CommandExt;
 use std::process::{Command, Stdio};
 
+use mosaico_core::Result;
 use mosaico_core::system::ProcessControl;
 use windows::Win32::Foundation::CloseHandle;
 use windows::Win32::System::Threading::{
     OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_TERMINATE, TerminateProcess,
 };
+
+use crate::error::OrPlatform;
 
 /// Checks whether a process with the given PID is still alive.
 ///
@@ -67,24 +70,21 @@ pub fn is_current_process_elevated() -> bool {
 /// Forcibly terminates a process by PID.
 ///
 /// Used as a fallback when the daemon's IPC pipe is gone but the
-/// process is still alive (e.g. the IPC thread crashed).
-pub fn kill_process(pid: u32) -> bool {
+/// process is still alive (e.g. the IPC thread crashed). Fails when the
+/// process cannot be opened for termination or refuses to end.
+pub fn kill_process(pid: u32) -> Result<()> {
     // SAFETY: OpenProcess with PROCESS_TERMINATE grants permission to
-    // call TerminateProcess. Both handles are closed on drop/error.
-    let result = unsafe { OpenProcess(PROCESS_TERMINATE, false, pid) };
+    // call TerminateProcess. The handle is closed below.
+    let handle = unsafe { OpenProcess(PROCESS_TERMINATE, false, pid) }
+        .or_platform("open the process to end it")?;
 
-    match result {
-        Ok(handle) => {
-            // SAFETY: TerminateProcess on a valid handle with PROCESS_TERMINATE.
-            let killed = unsafe { TerminateProcess(handle, 1) };
-            // SAFETY: CloseHandle releases the process handle.
-            unsafe {
-                let _ = CloseHandle(handle);
-            }
-            killed.is_ok()
-        }
-        Err(_) => false,
+    // SAFETY: TerminateProcess on a valid handle with PROCESS_TERMINATE.
+    let killed = unsafe { TerminateProcess(handle, 1) };
+    // SAFETY: CloseHandle releases the process handle.
+    unsafe {
+        let _ = CloseHandle(handle);
     }
+    killed.or_platform("end the process")
 }
 
 /// Process creation flags for launching a fully detached daemon.
@@ -103,9 +103,8 @@ pub struct WindowsProcesses;
 impl ProcessControl for WindowsProcesses {
     /// Re-runs the current executable with the hidden `daemon`
     /// subcommand, detached and with its standard streams closed.
-    fn launch_daemon(&self) -> Result<u32, String> {
-        let exe = std::env::current_exe()
-            .map_err(|e| format!("could not find the mosaico executable: {e}"))?;
+    fn launch_daemon(&self) -> Result<u32> {
+        let exe = std::env::current_exe().or_platform("find the mosaico executable")?;
         let child = Command::new(exe)
             .arg("daemon")
             .stdin(Stdio::null())
@@ -113,7 +112,7 @@ impl ProcessControl for WindowsProcesses {
             .stderr(Stdio::null())
             .creation_flags(DETACH_FLAGS)
             .spawn()
-            .map_err(|e| format!("could not start the daemon: {e}"))?;
+            .or_platform("start the daemon")?;
         Ok(child.id())
     }
 
@@ -121,7 +120,7 @@ impl ProcessControl for WindowsProcesses {
         is_process_alive(pid)
     }
 
-    fn kill(&self, pid: u32) -> bool {
+    fn kill(&self, pid: u32) -> Result<()> {
         kill_process(pid)
     }
 }
