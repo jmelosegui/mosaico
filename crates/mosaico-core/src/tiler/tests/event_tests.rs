@@ -91,6 +91,25 @@ fn a_real_hide_removes_the_window() {
 }
 
 #[test]
+fn a_hide_and_show_while_an_app_replaces_its_surface_change_nothing() {
+    // Arrange -- what a GPU-accelerated application reports while it
+    // replaces the surface it draws on (the Windows translation test of
+    // the same case produces these two). The window stays on screen.
+    let mut h = Harness::new(1, &[(1, 0), (2, 0)]);
+    let layout = (h.rect_of(1), h.rect_of(2));
+
+    // Act
+    let hidden = h.event(WindowEvent::Hidden { window: wid(1) }).to_vec();
+    let shown = h.event(WindowEvent::Created { window: wid(1) }).to_vec();
+
+    // Assert -- no effect at all, so it keeps its slot, border and focus.
+    assert_eq!(hidden, vec![]);
+    assert_eq!(shown, vec![]);
+    assert_eq!(h.active(0), vec![1, 2]);
+    assert_eq!((h.rect_of(1), h.rect_of(2)), layout);
+}
+
+#[test]
 fn clicking_a_window_on_another_monitor_moves_focus_there() {
     // Arrange
     let mut h = Harness::new(2, &[(1, 0), (2, 1)]);
