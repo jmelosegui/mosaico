@@ -51,6 +51,8 @@ mod mode_reload_tests;
 mod monitor_return_tests;
 #[path = "tests/monocle_display_tests.rs"]
 mod monocle_display_tests;
+#[path = "tests/monocle_join_tests.rs"]
+mod monocle_join_tests;
 #[path = "tests/monocle_out_of_view_tests.rs"]
 mod monocle_out_of_view_tests;
 #[path = "tests/monocle_return_tests.rs"]
