@@ -191,7 +191,13 @@ All loaders follow the same pattern:
 3. If the file is missing, unreadable, or unparsable: fall back to defaults
    (or return an error for `try_load` variants)
 4. For `Config` and `BarConfig`: call `validate()` to clamp values to safe
-   ranges
+   ranges. `Config::validate()` also fills the border colors left empty from
+   the theme, so `load_config()` validates the defaults it falls back to as
+   well. The bar defaults are within every limit already, so the bar falls
+   back to them as they are. Its colors are filled from the theme when the
+   bar is created, reloaded or rebuilt, for a loaded bar and the defaults
+   alike; widget colors given by name are not refilled after a theme change
+   (#109)
 
 ### Files a Newer Version Updates
 
