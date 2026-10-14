@@ -29,7 +29,9 @@ fn a_hidden_border_put_back_with_its_bitmap_is_shown_again() {
         g: 0x22,
         b: 0x33,
     };
-    border.show(&OFF_SCREEN, color, 4, 8, window.hwnd);
+    border
+        .show(&OFF_SCREEN, color, 4, 8, window.hwnd)
+        .expect("an overlay of our own renders");
     border.hide();
     let hidden = !visible(&border);
 

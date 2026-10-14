@@ -63,7 +63,8 @@ impl Border {
     ///
     /// Renders the bitmap before making the window visible to avoid
     /// flickering caused by a stale bitmap being shown at the new size.
-    /// Returns whether the new bitmap reached the overlay.
+    /// Fails when the new bitmap does not reach the overlay; the overlay
+    /// is put in place either way.
     pub(crate) fn show(
         &self,
         rect: &Rect,
@@ -71,7 +72,7 @@ impl Border {
         width: i32,
         radius: i32,
         target: HWND,
-    ) -> bool {
+    ) -> Result<()> {
         let w = rect.width + width * 2;
         let h = rect.height + width * 2;
 

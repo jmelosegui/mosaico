@@ -3,17 +3,24 @@
 
 use std::mem;
 
+use mosaico_core::{Error, Result};
 use windows::Win32::Graphics::Gdi::{
     BI_RGB, BITMAPINFO, BITMAPINFOHEADER, CreateCompatibleDC, CreateDIBSection, DIB_RGB_COLORS,
     DeleteDC, DeleteObject, GetDC, ReleaseDC, SelectObject,
 };
 use windows::Win32::UI::WindowsAndMessaging::{ULW_ALPHA, UpdateLayeredWindow};
 
+use crate::error::OrPlatform;
+
 use super::{Border, Color};
+
+/// What a failed render was doing, for its error.
+const RENDER: &str = "render the border";
 
 impl Border {
     /// Renders the border bitmap and applies it via `UpdateLayeredWindow`.
-    /// Returns whether the bitmap reached the overlay.
+    /// Fails when the bitmap does not reach the overlay, which then keeps
+    /// the one it had.
     #[allow(clippy::too_many_arguments)]
     pub(super) fn render(
         &self,
@@ -24,9 +31,9 @@ impl Border {
         color: Color,
         bw: i32,
         r: i32,
-    ) -> bool {
+    ) -> Result<()> {
         if w <= 0 || h <= 0 {
-            return false;
+            return Err(Error::platform(RENDER, "the border has no area"));
         }
 
         // SAFETY: This block creates a temporary memory DC + DIB section,
@@ -50,17 +57,20 @@ impl Border {
             };
 
             let mut bits = std::ptr::null_mut();
-            let Ok(bmp) = CreateDIBSection(Some(mem_dc), &bmi, DIB_RGB_COLORS, &mut bits, None, 0)
-            else {
-                let _ = DeleteDC(mem_dc);
-                let _ = ReleaseDC(None, screen_dc);
-                return false;
+            let bmp = match CreateDIBSection(Some(mem_dc), &bmi, DIB_RGB_COLORS, &mut bits, None, 0)
+            {
+                Ok(bmp) => bmp,
+                Err(e) => {
+                    let _ = DeleteDC(mem_dc);
+                    let _ = ReleaseDC(None, screen_dc);
+                    return Err(Error::platform(RENDER, e));
+                }
             };
             if bits.is_null() {
                 let _ = DeleteObject(bmp.into());
                 let _ = DeleteDC(mem_dc);
                 let _ = ReleaseDC(None, screen_dc);
-                return false;
+                return Err(Error::platform(RENDER, "the bitmap has no pixels"));
             }
 
             let old = SelectObject(mem_dc, bmp.into());
@@ -104,7 +114,7 @@ impl Border {
                 Some(&blend),
                 ULW_ALPHA,
             )
-            .is_ok();
+            .or_platform(RENDER);
 
             SelectObject(mem_dc, old);
             let _ = DeleteObject(bmp.into());

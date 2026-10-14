@@ -42,7 +42,8 @@ impl Decorations for Win32Decorations {
     /// the bitmap is kept, since the window may have moved in the
     /// z-order. Placing it behind a window that is gone fails without a
     /// trace, and the overlay stays where it was drawn until the tiler
-    /// drops it.
+    /// drops it. A bitmap that cannot be rendered is logged for
+    /// debugging, and rendered again the next time.
     fn show_border(&mut self, window: WindowId, style: &BorderStyle) -> Result<()> {
         let Overlay { border, drawn } = match self.borders.entry(window) {
             Entry::Occupied(entry) => entry.into_mut(),
@@ -53,8 +54,11 @@ impl Decorations for Win32Decorations {
         };
         let target = Window::from_id(window).hwnd();
         if drawn.needs_render(style) {
-            let reached = border.show(&style.rect, style.color, style.width, style.radius, target);
-            drawn.rendered(style, reached);
+            let rendered = border.show(&style.rect, style.color, style.width, style.radius, target);
+            drawn.rendered(style, rendered.is_ok());
+            if let Err(e) = rendered {
+                mosaico_core::log_debug!("border {} not rendered: {}", window, e);
+            }
         } else {
             border.restack(&style.rect, style.width, target);
         }
