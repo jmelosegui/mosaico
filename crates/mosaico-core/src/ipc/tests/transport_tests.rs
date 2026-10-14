@@ -55,21 +55,30 @@ impl Seen {
 }
 
 /// A server that hands out scripted connections, then fails.
+///
+/// `None` in `pending` is a client that connected and left before
+/// `accept` could hand it out.
 #[derive(Default)]
 struct FakeServer {
-    pending: VecDeque<FakeConnection>,
+    pending: VecDeque<Option<FakeConnection>>,
 }
 
 impl FakeServer {
     fn client_sends(&mut self, bytes: &[u8]) -> Seen {
         let output = Rc::new(RefCell::new(Vec::new()));
         let finished = Rc::new(Cell::new(false));
-        self.pending.push_back(FakeConnection {
+        self.pending.push_back(Some(FakeConnection {
             input: Cursor::new(bytes.to_vec()),
             output: Rc::clone(&output),
             finished: Rc::clone(&finished),
-        });
+        }));
         Seen { output, finished }
+    }
+
+    /// A client that connects and closes its end before `accept`
+    /// returns, so the connection fails on the server side.
+    fn client_leaves_before_accept(&mut self) {
+        self.pending.push_back(None);
     }
 
     fn client_requests(&mut self, command: Command) -> Seen {
@@ -83,9 +92,11 @@ impl IpcServer for FakeServer {
     type Connection = FakeConnection;
 
     fn accept(&mut self) -> Result<FakeConnection, IpcError> {
-        self.pending
-            .pop_front()
-            .ok_or_else(|| IpcError::Io(io::Error::other("listener gone")))
+        match self.pending.pop_front() {
+            Some(Some(connection)) => Ok(connection),
+            Some(None) => Err(IpcError::Closed),
+            None => Err(IpcError::Io(io::Error::other("listener gone"))),
+        }
     }
 }
 
@@ -177,6 +188,29 @@ fn a_client_that_hangs_up_gets_no_reply_and_does_not_stop_the_daemon() {
     // Assert
     assert!(gone.reply().is_none());
     assert!(matches!(served, Served::Stopped));
+}
+
+#[test]
+fn a_client_that_leaves_before_it_is_accepted_does_not_stop_the_daemon() {
+    // #72
+    // Arrange -- one client connects and goes away before the server
+    // picks it up; the next one asks for its status.
+    let mut server = FakeServer::default();
+    server.client_leaves_before_accept();
+    let next = server.client_requests(Command::Status);
+    server.client_requests(Command::Stop);
+    let mut handled = Vec::new();
+
+    // Act
+    let served = serve(&mut server, |command| {
+        handled.push(command);
+        Some(Response::ok())
+    });
+
+    // Assert -- the daemon kept listening and answered the next client.
+    assert!(matches!(served, Served::Stopped), "{served:?}");
+    assert_eq!(handled, vec![Command::Status, Command::Stop]);
+    assert_eq!(next.reply(), Some(Response::ok()));
 }
 
 #[test]
