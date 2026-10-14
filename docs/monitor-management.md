@@ -189,9 +189,9 @@ shifted, and Chromium only resizes that child afterwards, never moves it,
 so the child is moved back to the client origin.
 
 Display changes are applied once the configuration settles. The daemon
-loop does not rebuild on each `DisplayChanged` event: it records it in a
-`DisplaySettle` (`daemon_settle.rs`) and rebuilds once no further change
-has arrived for 750 ms. A KVM switch or a dock sends several
+loop does not rebuild on each `DisplayChanged` event: its scheduler
+(`mosaico_core::daemon`, `daemon/settle.rs`) records it and rebuilds once
+no further change has arrived for 750 ms. A KVM switch or a dock sends several
 `WM_DISPLAYCHANGE` messages in a row, and rebuilding on each one would
 retile every window several times and could park a monitor that is only
 renegotiating its signal.

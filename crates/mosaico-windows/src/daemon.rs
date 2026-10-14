@@ -13,8 +13,8 @@ mod daemon_loop_handlers;
 mod daemon_loop_pump;
 #[path = "daemon_loop_run.rs"]
 mod daemon_loop_run;
-#[path = "daemon_settle.rs"]
-mod daemon_settle;
+#[path = "daemon_loop_task.rs"]
+mod daemon_loop_task;
 #[path = "daemon_threads.rs"]
 mod daemon_threads;
 #[path = "daemon_types.rs"]

@@ -113,9 +113,9 @@ impl Applier {
         }
     }
 
-    /// Whether anything is being held back.
-    pub(super) fn has_pending(&self) -> bool {
-        !self.held.is_empty()
+    /// When what is held back started being held, if anything is.
+    pub(super) fn held_since(&self) -> Option<Instant> {
+        self.held.held_since()
     }
 
     /// Applies everything held back.
