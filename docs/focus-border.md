@@ -114,10 +114,12 @@ a stale bitmap from the previous size would briefly appear at the new position.
 
 `Win32Decorations` remembers the style each overlay was last rendered with,
 in a `LastDrawn` from `mosaico-core`, which makes the decision: a border
-shown again with the same rect, color, width and radius is only
-restacked, because its window may have moved in the z-order, and a hidden
-one is shown again by that. Rendering takes tens of milliseconds for a
-large tile, about 30 ms for half a 4K screen in a release build.
+shown again with a rect of the same size, and the same color, width and
+radius, is only restacked at its rect, because its window may have moved
+in the z-order or to another slot, and a hidden one is shown again by
+that. A layered window keeps the bitmap `UpdateLayeredWindow` gave it when
+it is moved or hidden. Rendering takes tens of milliseconds for a large
+tile, about 30 ms for half a 4K screen in a release build.
 
 ## Color
 

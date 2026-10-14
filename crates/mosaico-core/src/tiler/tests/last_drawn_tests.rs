@@ -38,12 +38,27 @@ fn a_border_drawn_again_the_same_way_needs_no_drawing() {
 }
 
 #[test]
+fn a_border_that_only_moves_needs_no_drawing() {
+    // Arrange -- as when two windows swap slots of the same size.
+    let mut drawn = LastDrawn::default();
+    drawn.rendered(&style(), true);
+    let mut moved = style();
+    moved.rect.x += 960;
+    moved.rect.y -= 50;
+
+    // Act / Assert
+    assert!(!drawn.needs_render(&moved));
+}
+
+#[test]
 fn a_border_drawn_any_other_way_needs_drawing() {
     // Arrange
     let mut drawn = LastDrawn::default();
     drawn.rendered(&style(), true);
-    let mut moved = style();
-    moved.rect.x += 1;
+    let mut taller = style();
+    taller.rect.height += 1;
+    let mut narrower = style();
+    narrower.rect.width -= 1;
     let mut recolored = style();
     recolored.color.r = 0x99;
     let mut wider = style();
@@ -52,17 +67,22 @@ fn a_border_drawn_any_other_way_needs_drawing() {
     rounder.radius += 1;
 
     // Act / Assert
-    for changed in [moved, recolored, wider, rounder] {
+    for changed in [taller, narrower, recolored, wider, rounder] {
         assert!(drawn.needs_render(&changed), "{changed:?}");
     }
 }
 
 #[test]
 fn a_drawing_that_failed_is_done_again() {
-    // Arrange
+    // Arrange -- drawn one way, then a drawing another way failed, which
+    // may have left the border showing neither.
     let mut drawn = LastDrawn::default();
-    drawn.rendered(&style(), false);
+    drawn.rendered(&style(), true);
+    let mut recolored = style();
+    recolored.color.r = 0x99;
+    drawn.rendered(&recolored, false);
 
     // Act / Assert
     assert!(drawn.needs_render(&style()));
+    assert!(drawn.needs_render(&recolored));
 }

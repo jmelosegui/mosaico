@@ -22,8 +22,10 @@ use crate::window::Window;
 ///
 /// Rendering a border's bitmap takes tens of milliseconds for a large
 /// tile, so each overlay remembers the style it was last rendered with,
-/// in a [`LastDrawn`], and a border drawn again the same way is only put
-/// back behind its window.
+/// in a [`LastDrawn`]. A border drawn again the same way, or only moved,
+/// is put back behind its window at its rect, keeping its bitmap: a
+/// layered window keeps the bitmap `UpdateLayeredWindow` gave it when
+/// it is moved or hidden.
 #[derive(Default)]
 pub(crate) struct Win32Decorations {
     /// One overlay per bordered window.
