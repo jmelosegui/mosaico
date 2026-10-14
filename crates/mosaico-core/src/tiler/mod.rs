@@ -15,6 +15,7 @@ mod desktop;
 mod display;
 mod display_rebuild;
 mod echo;
+mod echo_focus;
 mod effect;
 mod empty_focus;
 mod events;
@@ -42,7 +43,8 @@ use crate::{LayoutKind, WindowId};
 
 pub use coalesce::Coalescer;
 pub use desktop::{Desktop, Display, WindowFacts};
-pub use echo::{Expectations, FOCUS_ECHO_TTL, HIDE_FOCUS_ECHO_TTL};
+pub use echo::{Expectations, HIDE_FOCUS_ECHO_TTL};
+pub use echo_focus::FOCUS_ECHO_TTL;
 pub use effect::{BorderStyle, Effect, Timing};
 pub use hidden::{HiddenWindows, WindowIdentity};
 pub use input::{BarReservation, Input};
