@@ -74,18 +74,28 @@ impl Tiler {
             })
             .unwrap_or(primary);
 
-        // In global mode every monitor shows the same workspace number.
-        // The one in view before the change stays in view, and monitors
-        // that connect join it, even when the monitor that had focus is
-        // the one that went away (#124). A monitor that still switches
-        // workspace has its windows hidden and shown below, with the
-        // windows that moved.
+        // In global mode the monitors are always in step: every switch
+        // moves all of them, and a reload that turns the mode on lines them
+        // up (#128). The workspace in view before the change stays in view,
+        // and monitors that connect join it, even when the monitor that had
+        // focus is the one that went away (#124). Only a returning monitor
+        // should switch here, and its windows moved already. A monitor out
+        // of step anyway has its windows hidden and shown below, with the
+        // windows that moved, as a safeguard.
         let mut moved = rebuilt.moved;
         if self.workspace_mode == WorkspaceMode::Global
             && let Some(target) = in_view
         {
-            for mon in &mut self.monitors {
-                moved.extend(mon.switch_to(target));
+            for (mon_idx, mon) in self.monitors.iter_mut().enumerate() {
+                let windows = mon.switch_to(target);
+                if windows.iter().any(|w| !moved.contains(w)) {
+                    crate::log_warn!(
+                        "Mon {} was out of step in global mode, switched it to ws {}",
+                        mon_idx,
+                        target + 1
+                    );
+                }
+                moved.extend(windows);
             }
         }
         // A window can be listed twice: parked off a monitor that left and

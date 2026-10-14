@@ -13,6 +13,10 @@ monitors:
 - `"global"` -- every monitor's `active_workspace` advances to the same
   index in lockstep, mirroring Windows virtual desktops.
 
+A config reload that turns `"global"` on switches every monitor to the
+focused monitor's workspace, the way a switch does, so they start out in
+step.
+
 ## Architecture
 
 ### Key Files

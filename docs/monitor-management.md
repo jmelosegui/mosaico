@@ -188,13 +188,15 @@ was rather than being hidden again with the configured strategy (see
 physical monitor if it is still connected, otherwise it moves to the
 primary monitor.
 
-In global mode every monitor shows the same workspace number, and a
-display change keeps the one that was in view before it. Monitors that
+In global mode the monitors are always in step: every switch moves all of
+them, and a reload that turns global mode on lines them up. A display
+change keeps the workspace that was in view before it. Monitors that
 connect, new or returning, switch to it, even when the monitor that had
-focus is the one that went away. A monitor that still switches workspace,
-such as one left on another workspace because a reload turned global mode
-on, has the windows of the workspace it leaves hidden and those of the one
-it switches to tiled and shown, along with the windows that moved.
+focus is the one that went away, and a returning monitor's windows move
+back with it. As a safeguard, a monitor that is out of step anyway is
+switched too: the windows of the workspace it leaves are hidden and those
+of the one it switches to tiled and shown, along with the windows that
+moved, and a warning is logged.
 
 After the retile, `refresh_visible_windows()` calls `invalidate()` on every
 window of an active workspace, including those the layout skipped because

@@ -1,6 +1,6 @@
 //! Shutdown and configuration reload.
 
-use crate::config::{Config, WindowRule};
+use crate::config::{Config, WindowRule, WorkspaceMode};
 
 use crate::WindowId;
 
@@ -25,6 +25,12 @@ impl Tiler {
     /// undo. Changes to `[workspaces.layouts]` apply on restart. A
     /// hiding strategy the platform does not have is swapped for one it
     /// has, as at startup.
+    ///
+    /// Global mode shows the same workspace number on every monitor, so
+    /// turning it on switches every monitor to the focused monitor's
+    /// workspace, the way a workspace switch does (#128). A monitor that
+    /// switches is laid out as it switches, after the new settings are in
+    /// place, and is not retiled again.
     pub(super) fn reload_config(&mut self, plan: &mut Plan, config: &Config) {
         self.layout.gap = config.layout.gap;
         self.layout.ratio = config.layout.ratio;
@@ -35,13 +41,33 @@ impl Tiler {
             self.configured_hiding = config.layout.hiding;
             self.layout.hiding = self.hiding_support.choose(config.layout.hiding);
         }
+        let turns_global = config.workspaces.mode == WorkspaceMode::Global
+            && self.workspace_mode != WorkspaceMode::Global;
         self.workspace_mode = config.workspaces.mode;
         self.border_config = config.borders.clone();
         self.mouse_follows_focus = config.mouse.follows_focus;
         for window in self.all_windows() {
             self.decorate(plan, window);
         }
-        self.retile_all(plan);
+        let mut switched = Vec::new();
+        if turns_global
+            && let Some(idx) = self
+                .monitors
+                .get(self.focused_monitor)
+                .map(|m| m.active_workspace)
+        {
+            crate::log_info!("Global mode on: every monitor shows ws {}", idx + 1);
+            for mon_idx in 0..self.monitors.len() {
+                let before = self.monitors[mon_idx].active_workspace;
+                self.goto_workspace_on(plan, mon_idx, idx, false);
+                if self.monitors[mon_idx].active_workspace != before {
+                    switched.push(mon_idx);
+                }
+            }
+        }
+        for mon_idx in (0..self.monitors.len()).filter(|i| !switched.contains(i)) {
+            self.apply_layout_on(plan, mon_idx);
+        }
     }
 
     /// Replaces the window rules and lets go of windows the new rules

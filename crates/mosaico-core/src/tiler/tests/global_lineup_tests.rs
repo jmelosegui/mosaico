@@ -8,7 +8,7 @@
 //! shown once, even when the change moves it twice.
 
 use crate::Direction;
-use crate::config::{Config, HidingBehaviour, WorkspaceMode};
+use crate::config::{HidingBehaviour, WorkspaceMode};
 
 use super::*;
 
@@ -62,8 +62,12 @@ fn both_monitors_on_workspace_2(how: HidingBehaviour, mode: WorkspaceMode) -> Ha
 
 /// Monitor 0 shows workspace 1, with window 2, and has window 1 hidden
 /// `how` on workspace 2. Monitor 1 shows workspace 2, with focus, and has
-/// window 3 hidden on workspace 1. Per-monitor mode allows that, and a
-/// reload that turns global mode on switches no monitor.
+/// window 3 hidden on workspace 1. Per-monitor mode allows that.
+///
+/// The mode is then set to global without lining the monitors up. No
+/// input leaves them out of step in global mode since a reload that turns
+/// it on switches them (#128), but a display change must still hide and
+/// show the windows of a monitor it switches.
 fn out_of_step(how: HidingBehaviour) -> Harness {
     let settings = settings(how, WorkspaceMode::PerMonitor);
     let mut h = Harness::with_settings(settings, 2, &[(1, 0), (2, 0), (3, 1)]);
@@ -72,10 +76,7 @@ fn out_of_step(how: HidingBehaviour) -> Harness {
     h.action(Action::GoToWorkspace(1));
     h.event(WindowEvent::Focused { window: wid(3) });
     h.action(Action::GoToWorkspace(2));
-    let mut config = Config::default();
-    config.layout.hiding = how;
-    config.workspaces.mode = WorkspaceMode::Global;
-    h.step(Input::Config(Box::new(config)));
+    h.tiler.workspace_mode = WorkspaceMode::Global;
     h
 }
 

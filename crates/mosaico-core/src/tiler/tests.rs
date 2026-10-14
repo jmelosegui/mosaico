@@ -41,6 +41,8 @@ mod hidden_how_tests;
 mod hiding_change_tests;
 #[path = "tests/layout_tests.rs"]
 mod layout_tests;
+#[path = "tests/mode_reload_settings_tests.rs"]
+mod mode_reload_settings_tests;
 #[path = "tests/mode_reload_tests.rs"]
 mod mode_reload_tests;
 #[path = "tests/monitor_return_tests.rs"]
