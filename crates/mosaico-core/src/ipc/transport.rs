@@ -57,8 +57,12 @@ pub trait IpcClient {
 /// - While one connection is being answered, the endpoint keeps
 ///   existing and accepts the next client, so a second CLI command run
 ///   at the same time never finds the daemon missing.
-/// - An error from `accept` means the daemon can no longer listen at
-///   all; [`serve`] stops on it.
+/// - A client that connected and went away before it could be handed
+///   out is reported as [`IpcError::Closed`]. It concerns that client
+///   only, and the server must still be listening afterwards; [`serve`]
+///   waits for the next client.
+/// - Any other error from `accept` means the daemon can no longer listen
+///   at all; [`serve`] stops on it.
 /// - Only clients of the same user may connect.
 pub trait IpcServer {
     /// One accepted connection.
@@ -105,6 +109,12 @@ pub fn serve<S: IpcServer>(
     loop {
         let mut connection = match server.accept() {
             Ok(connection) => connection,
+            // One client went away before it could be served. The
+            // server is still listening, so wait for the next one.
+            Err(IpcError::Closed) => {
+                crate::log_debug!("IPC: a client left before it was accepted");
+                continue;
+            }
             Err(e) => return Served::Failed(e),
         };
 
