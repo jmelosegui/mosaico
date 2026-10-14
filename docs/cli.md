@@ -54,8 +54,9 @@ and `doctor`'s daemon and monitor checks are tested without a daemon or a
 desktop.
 
 Still calling the platform crate directly: `daemon` (it is the daemon),
-`debug events` and `update`'s download, which wait for the event source (#44)
-and HTTP (#54) contracts.
+`debug events`, `doctor`'s keybinding check and `update`'s version lookup and
+download, which wait for the event source (#44), key name (#50) and HTTP (#54)
+contracts.
 
 ### Key Types
 
@@ -253,5 +254,7 @@ integration tests use this to run each test against a private instance.
   `doctor` for the shared ASCII logo.
 - Action verbs use a nested subcommand pattern (`action focus left`) rather
   than flat kebab-case (`action focus-left`) for a clearer CLI experience.
-- Debug commands enable DPI awareness independently since they run outside the
-  daemon process.
+- Commands that show or move windows run outside the daemon process, so they
+  enable DPI awareness themselves, through `platform::run_on_desktop`
+  (`debug list`, `debug move`). Other commands, `doctor` included, run without
+  it.

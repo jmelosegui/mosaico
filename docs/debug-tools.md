@@ -27,7 +27,8 @@ Lists the windows on the desktop, one block per window, then the monitors.
 |--------|-------------|
 | Id | Window id in hex format (the `HWND` on Windows) |
 | Managed | Whether the window would be tiled (`yes`/`no`) |
-| Monitor | Monitor number (1-based) |
+| Monitor | Monitor number (1-based), or `?` when the window is on no listed monitor |
+| State | `normal`, `maximized` or `minimized` |
 | Title | Window title text |
 | Class | Window class name |
 | Path | Full path of the owning executable |

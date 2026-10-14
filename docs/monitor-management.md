@@ -20,10 +20,11 @@ and monitors using vim-style H/J/K/L motions.
 | `crates/mosaico-windows/src/monitor.rs` | Monitor enumeration and query functions |
 | `crates/mosaico-windows/src/monitor_identity.rs` | Builds a `MonitorKey` from the display configuration |
 | `crates/mosaico-windows/src/monitor_edid.rs` | Reads the EDID copy from the registry |
-| `crates/mosaico-windows/src/tiling/display.rs` | `handle_display_change()` |
-| `crates/mosaico-windows/src/tiling/display_rebuild.rs` | `rebuild_monitors()`, `pair_monitors()` (no Win32 calls, unit tested) |
-| `crates/mosaico-windows/src/tiling/mod.rs` | `TilingManager`, `MonitorState`, `SpatialTarget` |
-| `crates/mosaico-windows/src/tiling/navigation.rs` | Multi-monitor focus/move logic, spatial target resolution |
+| `crates/mosaico-core/src/tiler/display.rs` | `handle_display_change()` |
+| `crates/mosaico-core/src/tiler/display_rebuild.rs` | `rebuild_monitors()`, `pair_monitors()` (unit tested) |
+| `crates/mosaico-core/src/tiler/state.rs` | `MonitorState`, `SpatialTarget` |
+| `crates/mosaico-core/src/tiler/navigation.rs`, `navigation_helpers.rs` | Multi-monitor focus/move logic, spatial target resolution |
+| `crates/mosaico-windows/src/tiling/mod.rs` | `TilingManager`, which feeds the core tiler the monitor lists |
 
 ### Key Types
 
@@ -121,7 +122,7 @@ time so a weak match can never take a display a stronger one would claim:
 Two known serials that differ never match. A key with every field `None`
 never matches anything.
 
-`pair_monitors()` in the Windows tiler runs `match_monitors` first. Only
+`pair_monitors()` in the core tiler runs `match_monitors` first. Only
 monitors whose key is unknown fall back to the same HMONITOR and then to
 the same work area origin. A monitor with a known key is never paired with
 another by position, so an office monitor that sits where the home monitor
@@ -132,8 +133,8 @@ was does not inherit the home monitor's workspaces.
 ## Disconnect and Reconnect
 
 `handle_display_change()` calls `rebuild_monitors()` (`display_rebuild.rs`),
-which keeps a `ReconnectMemory` (`tiling/reconnect.rs`) owned by the
-`TilingManager`:
+which keeps a `ReconnectMemory` (`tiler/reconnect.rs`) owned by the core
+`Tiler`:
 
 - **Paired monitors** keep their workspaces and active workspace.
 - **Removed monitors** are passed to `ReconnectMemory::park()`. Each window
