@@ -46,14 +46,14 @@ mod frame;
 /// Minimal HTTPS GET client using WinHTTP.
 pub mod http;
 
-/// Global hotkey registration.
-pub mod hotkey;
+/// Global hotkeys registered with `RegisterHotKey`.
+mod hotkey;
 
 /// The thread that owns the global hotkeys.
 mod hotkey_thread;
 
-/// Key name to virtual key code mapping.
-pub mod keys;
+/// Virtual-key codes for the keys a hotkey can be bound to.
+mod keys;
 
 /// Win32 event translation.
 mod event;

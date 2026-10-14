@@ -1,183 +1,113 @@
-use std::sync::mpsc::Sender;
+//! Global hotkeys registered with `RegisterHotKey`.
 
-use mosaico_core::Action;
-use mosaico_core::config::{Keybinding, Modifier};
+use std::marker::PhantomData;
+
+use mosaico_core::Result;
+use mosaico_core::hotkey::{HotkeyId, HotkeyRegistrar, KeyCombo, Modifiers};
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     HOT_KEY_MODIFIERS, MOD_ALT, MOD_CONTROL, MOD_NOREPEAT, MOD_SHIFT, MOD_WIN, RegisterHotKey,
     UnregisterHotKey,
 };
 
+use crate::error::OrPlatform;
 use crate::keys;
 
-/// A registered global hotkey.
-struct Hotkey {
-    id: i32,
-    modifiers: HOT_KEY_MODIFIERS,
-    vk: u32,
-    action: Action,
-}
-
-/// Manages global hotkey registrations.
+/// Registers hotkeys on the message queue of the thread that made it.
 ///
-/// Hotkeys are registered on the current thread's message queue.
-/// `WM_HOTKEY` messages arrive via the Win32 message pump running
-/// on the same thread.
-pub struct HotkeyManager {
-    hotkeys: Vec<Hotkey>,
-    sender: Sender<Action>,
-    paused: bool,
-    pause_hotkey_id: Option<i32>,
+/// `RegisterHotKey` without a window posts `WM_HOTKEY` to the thread that
+/// registered the key, with the id it was registered under in `wParam`,
+/// and only that thread can unregister it. So the registrar is not
+/// `Send`: it stays on the thread that pumps those messages. Every hotkey
+/// is registered with `MOD_NOREPEAT`, so holding the keys down is one
+/// press.
+pub(crate) struct Win32Hotkeys {
+    _thread_bound: PhantomData<*const ()>,
 }
 
-impl HotkeyManager {
-    /// Creates a new hotkey manager.
-    ///
-    /// Actions triggered by hotkeys are sent through `sender`.
-    pub fn new(sender: Sender<Action>) -> Self {
+impl Win32Hotkeys {
+    pub(crate) fn new() -> Self {
         Self {
-            hotkeys: Vec::new(),
-            sender,
-            paused: false,
-            pause_hotkey_id: None,
-        }
-    }
-
-    /// Registers keybindings from configuration.
-    ///
-    /// Each keybinding's key name is resolved to a virtual key code
-    /// and its modifiers are converted to Win32 flags. Invalid key
-    /// names are logged and skipped.
-    pub fn register_from_config(&mut self, bindings: &[Keybinding]) {
-        for (i, binding) in bindings.iter().enumerate() {
-            let id = (i + 1) as i32;
-
-            let Some(vk) = keys::vk_from_name(&binding.key) else {
-                mosaico_core::log_warn!("Unknown key name: {:?}", binding.key);
-                continue;
-            };
-
-            let mut modifiers = MOD_NOREPEAT;
-            for m in &binding.modifiers {
-                modifiers |= modifier_to_flag(m);
-            }
-
-            self.register(id, modifiers, vk, binding.action);
-        }
-
-        self.pause_hotkey_id = self
-            .hotkeys
-            .iter()
-            .find(|h| h.action == Action::TogglePause)
-            .map(|h| h.id);
-    }
-
-    /// Dispatches a `WM_HOTKEY` message by hotkey ID.
-    ///
-    /// Called from the message pump when a `WM_HOTKEY` message arrives.
-    pub fn dispatch(&self, hotkey_id: i32) {
-        if let Some(hotkey) = self.hotkeys.iter().find(|h| h.id == hotkey_id) {
-            let _ = self.sender.send(hotkey.action);
-        }
-    }
-
-    /// Registers a single hotkey.
-    fn register(&mut self, id: i32, modifiers: HOT_KEY_MODIFIERS, vk: u32, action: Action) {
-        // SAFETY: RegisterHotKey registers a system-wide hotkey on the
-        // current thread's message queue. We use unique IDs to avoid
-        // collisions.
-        let result = unsafe { RegisterHotKey(None, id, modifiers, vk) };
-
-        if let Err(e) = result {
-            mosaico_core::log_warn!("Failed to register hotkey {id} (vk=0x{vk:02X}): {e}");
-            return;
-        }
-
-        self.hotkeys.push(Hotkey {
-            id,
-            modifiers,
-            vk,
-            action,
-        });
-    }
-
-    /// Returns true if hotkeys are currently paused.
-    pub fn is_paused(&self) -> bool {
-        self.paused
-    }
-
-    /// Unregisters all hotkeys except the toggle-pause one (if configured).
-    ///
-    /// No-op if already paused. When no `toggle-pause` keybinding is configured,
-    /// all hotkeys are unregistered — the user must unpause via the CLI.
-    pub fn pause(&mut self) {
-        if self.paused {
-            return;
-        }
-        self.paused = true;
-        for hotkey in &self.hotkeys {
-            if Some(hotkey.id) == self.pause_hotkey_id {
-                continue;
-            }
-            // SAFETY: UnregisterHotKey removes a previously registered hotkey.
-            // Failures are ignored — the OS will silently release it on process exit.
-            unsafe {
-                let _ = UnregisterHotKey(None, hotkey.id);
-            }
-        }
-    }
-
-    /// Re-registers all hotkeys that were unregistered by `pause()`.
-    ///
-    /// No-op if not paused.
-    pub fn unpause(&mut self) {
-        if !self.paused {
-            return;
-        }
-        self.paused = false;
-        for hotkey in &self.hotkeys {
-            if Some(hotkey.id) == self.pause_hotkey_id {
-                continue;
-            }
-            // SAFETY: RegisterHotKey registers a system-wide hotkey on the
-            // current thread's message queue using the original id, modifiers, vk.
-            let result = unsafe { RegisterHotKey(None, hotkey.id, hotkey.modifiers, hotkey.vk) };
-            if let Err(e) = result {
-                mosaico_core::log_warn!(
-                    "Failed to re-register hotkey {} (vk=0x{:02X}): {e}",
-                    hotkey.id,
-                    hotkey.vk
-                );
-            }
-        }
-    }
-
-    /// Toggles pause state: pauses if unpaused, unpauses if paused.
-    pub fn toggle_pause(&mut self) {
-        if self.paused {
-            self.unpause();
-        } else {
-            self.pause();
+            _thread_bound: PhantomData,
         }
     }
 }
 
-impl Drop for HotkeyManager {
-    fn drop(&mut self) {
-        for hotkey in &self.hotkeys {
-            // SAFETY: UnregisterHotKey removes the hotkey registration.
-            unsafe {
-                let _ = UnregisterHotKey(None, hotkey.id);
-            }
-        }
+impl HotkeyRegistrar for Win32Hotkeys {
+    fn register(&mut self, id: HotkeyId, combo: KeyCombo) -> Result<()> {
+        let vk = keys::virtual_key(combo.key);
+        let modifiers = hotkey_modifiers(combo.modifiers) | MOD_NOREPEAT;
+        // SAFETY: with no window, RegisterHotKey registers the hotkey on
+        // this thread's message queue. It reads nothing but its arguments.
+        unsafe { RegisterHotKey(None, i32::from(id.raw()), modifiers, vk) }
+            .or_platform("register a hotkey")
+    }
+
+    fn unregister(&mut self, id: HotkeyId) -> Result<()> {
+        // SAFETY: with no window, UnregisterHotKey removes a hotkey that
+        // this thread registered. It reads nothing but its arguments.
+        unsafe { UnregisterHotKey(None, i32::from(id.raw())) }.or_platform("unregister a hotkey")
     }
 }
 
-/// Converts a platform-agnostic modifier to a Win32 hotkey flag.
-fn modifier_to_flag(modifier: &Modifier) -> HOT_KEY_MODIFIERS {
-    match modifier {
-        Modifier::Alt => MOD_ALT,
-        Modifier::Shift => MOD_SHIFT,
-        Modifier::Ctrl => MOD_CONTROL,
-        Modifier::Win => MOD_WIN,
+/// The `RegisterHotKey` flags for `modifiers`.
+fn hotkey_modifiers(modifiers: Modifiers) -> HOT_KEY_MODIFIERS {
+    let flags = [
+        (Modifiers::CTRL, MOD_CONTROL),
+        (Modifiers::ALT, MOD_ALT),
+        (Modifiers::SHIFT, MOD_SHIFT),
+        (Modifiers::WIN, MOD_WIN),
+    ];
+    flags
+        .into_iter()
+        .filter(|(modifier, _)| modifiers.contains(*modifier))
+        .fold(HOT_KEY_MODIFIERS::default(), |all, (_, flag)| all | flag)
+}
+
+/// The hotkey a `WM_HOTKEY` message is about, from its `wParam`.
+///
+/// The system's own hotkeys report negative ids (`IDHOT_SNAPDESKTOP` and
+/// `IDHOT_SNAPWINDOW`), which are none of ours.
+pub(crate) fn hotkey_id(wparam: usize) -> Option<HotkeyId> {
+    u16::try_from(wparam).ok().map(HotkeyId::from_raw)
+}
+
+#[cfg(test)]
+mod tests {
+    use mosaico_core::hotkey::{HotkeyId, Modifiers};
+    use windows::Win32::UI::Input::KeyboardAndMouse::{
+        HOT_KEY_MODIFIERS, MOD_ALT, MOD_CONTROL, MOD_SHIFT, MOD_WIN,
+    };
+
+    use super::{hotkey_id, hotkey_modifiers};
+
+    #[test]
+    fn each_modifier_registers_its_own_flag() {
+        // Assert
+        assert_eq!(hotkey_modifiers(Modifiers::CTRL), MOD_CONTROL);
+        assert_eq!(hotkey_modifiers(Modifiers::ALT), MOD_ALT);
+        assert_eq!(hotkey_modifiers(Modifiers::SHIFT), MOD_SHIFT);
+        assert_eq!(hotkey_modifiers(Modifiers::WIN), MOD_WIN);
+        assert_eq!(hotkey_modifiers(Modifiers::NONE), HOT_KEY_MODIFIERS(0));
+    }
+
+    #[test]
+    fn modifiers_held_together_register_their_flags_together() {
+        // Act
+        let flags = hotkey_modifiers(Modifiers::ALT | Modifiers::SHIFT);
+
+        // Assert
+        assert_eq!(flags, MOD_ALT | MOD_SHIFT);
+    }
+
+    #[test]
+    fn a_press_of_a_system_hotkey_is_none_of_ours() {
+        // Arrange -- IDHOT_SNAPWINDOW is -1 and IDHOT_SNAPDESKTOP is -2.
+        let snap_window = usize::MAX;
+        let snap_desktop = usize::MAX - 1;
+
+        // Assert
+        assert_eq!(hotkey_id(snap_window), None);
+        assert_eq!(hotkey_id(snap_desktop), None);
+        assert_eq!(hotkey_id(7), Some(HotkeyId::from_raw(7)));
     }
 }
