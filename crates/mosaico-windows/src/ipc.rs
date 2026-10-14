@@ -311,5 +311,8 @@ impl IpcConnection for PipeConnection {
 }
 
 #[cfg(test)]
+#[path = "ipc_busy_tests.rs"]
+mod busy_tests;
+#[cfg(test)]
 #[path = "ipc_tests.rs"]
 mod tests;
