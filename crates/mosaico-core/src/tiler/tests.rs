@@ -47,6 +47,8 @@ mod focus_tests;
 mod global_lineup_tests;
 #[path = "tests/harness.rs"]
 mod harness;
+#[path = "tests/held_border_tests.rs"]
+mod held_border_tests;
 #[path = "tests/hidden_how_tests.rs"]
 mod hidden_how_tests;
 #[path = "tests/hiding_change_record_tests.rs"]
