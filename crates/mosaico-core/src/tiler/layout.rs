@@ -118,7 +118,7 @@ impl Tiler {
     /// the display change that brings it into view, by moving it or by
     /// switching its monitor's workspace, shows it after this retile
     /// (#119, #124).
-    fn prune_stale_handles(&mut self, plan: &Plan, monitor_idx: usize) {
+    pub(super) fn prune_stale_handles(&mut self, plan: &Plan, monitor_idx: usize) {
         let Some(state) = self.monitors.get_mut(monitor_idx) else {
             return;
         };

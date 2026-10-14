@@ -46,6 +46,7 @@ impl Tiler {
             (Some(idx), Some(_)) => self.apply_layout_on(plan, idx),
             (None, Some(to)) if self.is_tileable(plan, window) => {
                 self.monitors[to].active_ws_mut().add(window);
+                self.move_before_layout(plan, to, window);
                 self.apply_layout_on(plan, to);
             }
             _ => {}
@@ -68,6 +69,7 @@ impl Tiler {
             return;
         }
         self.log_added("+adopt", plan, window, idx);
+        self.move_before_layout(plan, idx, window);
         self.decorate(plan, window);
         self.apply_layout_on(plan, idx);
     }
@@ -80,7 +82,6 @@ impl Tiler {
             return;
         }
         self.log_added("+add", plan, window, idx);
-        self.decorate(plan, window);
         // Focus before the layout so monocle sizes the right window,
         // and make the newest window the monocle target.
         self.focused_window = Some(window);
@@ -89,6 +90,8 @@ impl Tiler {
                 .active_ws_mut()
                 .set_monocle_window(Some(window));
         }
+        self.move_before_layout(plan, idx, window);
+        self.decorate(plan, window);
         self.apply_layout_on(plan, idx);
         self.focus_window(plan, window, false);
     }

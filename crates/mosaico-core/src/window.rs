@@ -48,11 +48,21 @@ pub trait WindowControl {
     ///   that its position changed are fine.
     fn place(&self, window: WindowId, rect: Rect) -> Result<()>;
 
-    /// Moves a window that exists but has not been shown yet.
+    /// Moves and resizes a window so its visible bounds are `rect`,
+    /// without waiting for its application.
+    ///
+    /// Used for a window that exists but has not been shown yet, and for
+    /// one that is already shown and has just been taken in.
     ///
     /// - Returns at once, even when the application never handles the
-    ///   request. The move may land later, or not at all.
-    /// - The window is not shown, raised or focused.
+    ///   request. The move lands when the application next handles its
+    ///   messages, or not at all.
+    /// - The window is not shown, raised or focused, and nothing is
+    ///   repainted beyond what the move itself causes.
+    /// - The move must not be reported as the user moving the window
+    ///   ([`WindowEvent::Moved`](crate::WindowEvent::Moved)). Reports
+    ///   that its position changed are fine.
+    /// - A maximized window may stay maximized.
     fn pre_place(&self, window: WindowId, rect: Rect) -> Result<()>;
 
     /// Repaints a window without moving it, repairing its rendering if

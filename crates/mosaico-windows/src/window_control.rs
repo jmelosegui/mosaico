@@ -29,8 +29,8 @@ impl WindowControl for Win32WindowControl {
     }
 
     /// Posts the move instead of sending it (see `Window::move_async`),
-    /// so a window whose thread never pumps messages cannot block the
-    /// daemon.
+    /// so a window whose thread never pumps messages, or is still busy
+    /// creating the window, cannot block the daemon.
     fn pre_place(&self, window: WindowId, rect: Rect) -> Result<()> {
         Window::from_id(window).move_async(&rect)
     }
