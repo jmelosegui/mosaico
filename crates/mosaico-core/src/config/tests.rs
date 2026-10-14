@@ -376,6 +376,21 @@ manage = true
 }
 
 #[test]
+fn downloaded_rules_that_do_not_parse_are_a_config_error_without_a_file() {
+    // Arrange -- `manage` must be a boolean.
+    let toml = "[[rule]]\nmatch_class = \"Notepad\"\nmanage = \"yes\"\n";
+
+    // Act
+    let error = validate_rules(toml).unwrap_err();
+
+    // Assert -- nothing has been written yet, so there is no path.
+    assert!(
+        matches!(error, crate::Error::Config { path: None, .. }),
+        "{error:?}"
+    );
+}
+
+#[test]
 fn validate_clamps_extreme_values() {
     // Arrange
     let mut config = Config {

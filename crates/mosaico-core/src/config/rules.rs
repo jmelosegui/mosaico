@@ -5,6 +5,8 @@
 /// first matching rule wins.
 use serde::{Deserialize, Serialize};
 
+use crate::{Error, Result};
+
 use super::keybinding::{self, Keybinding};
 
 /// A rule that determines whether a window should be managed (tiled).
@@ -132,14 +134,16 @@ pub(crate) struct UserRulesFile {
 
 /// Validates a TOML string as a rules file.
 ///
-/// Returns the parsed rules or an error description. Used by the
-/// community-rules downloader to verify content before caching.
+/// Returns the parsed rules or an [`Error::Config`] without a path, as
+/// the content is not in a file yet. Used by the community-rules
+/// downloader to verify content before caching.
 ///
 /// # Errors
 ///
 /// Returns `Err` if the TOML content is malformed or does not match
 /// the expected rules schema.
-pub fn validate_rules(content: &str) -> Result<Vec<WindowRule>, String> {
-    let file: RulesFile = toml::from_str(content).map_err(|e| e.to_string())?;
+pub fn validate_rules(content: &str) -> Result<Vec<WindowRule>> {
+    let file: RulesFile =
+        toml::from_str(content).map_err(|e| Error::config(None, e.to_string()))?;
     Ok(file.rule)
 }

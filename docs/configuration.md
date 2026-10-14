@@ -156,10 +156,13 @@ Individual file paths:
 Each config file has two loader variants:
 
 - `load()` / `load_keybindings()` / `load_rules()` / `load_bar()` -- load
-  with silent fallback to defaults on any error
+  with fallback to defaults: silently when the file is missing, with a
+  warning when it cannot be read or parsed
 - `try_load()` / `try_load_keybindings()` / `try_load_rules()` /
-  `try_load_bar()` -- return `Result<T, String>` with a descriptive error
-  message on failure
+  `try_load_bar()` -- return `mosaico_core::Result<T>`. A failure is an
+  `Error::Config` whose `path` is the file and whose message says what is
+  wrong; it reads `<path>: <problem>`. Only "could not determine ... path",
+  which has no file to name, comes without a path
 
 The `try_load` variants are used by the `doctor` command for validation and
 by the config file watcher for hot-reload (only valid configs are applied).
