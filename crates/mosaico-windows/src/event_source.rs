@@ -35,8 +35,9 @@
 //! - `EVENT_SYSTEM_MOVESIZEEND` ends a drag the user makes. Maximizing
 //!   and restoring from the title bar do not drag, so they only report
 //!   `EVENT_OBJECT_LOCATIONCHANGE`.
-//! - When the hidden window cannot be created, display and work-area
-//!   changes go unreported, and the failure is logged.
+//! - When the hidden window cannot be created, the source still runs
+//!   without display and work-area changes, and `EventWatch::display_error`
+//!   says why.
 
 use std::cell::RefCell;
 use std::sync::mpsc::Sender;
@@ -123,15 +124,15 @@ fn set_up<H, S>(
 ) -> Result<SetUp<(Option<S>, H)>> {
     let hooks = hooks()?;
     // Without the window the hooks still work, and only display and
-    // work-area changes are missed.
-    let sink = sink()
-        .inspect_err(|e| {
-            mosaico_core::log_error!("Display and work area changes will not be noticed: {e}");
-        })
-        .ok();
+    // work-area changes are missed, so the caller is told why instead of
+    // the start failing.
+    let (sink, display_error) = match sink() {
+        Ok(sink) => (Some(sink), None),
+        Err(e) => (None, Some(e)),
+    };
     Ok(SetUp {
         owned: (sink, hooks),
-        display_error: None,
+        display_error,
     })
 }
 
