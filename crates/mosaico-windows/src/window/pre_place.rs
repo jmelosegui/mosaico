@@ -44,7 +44,9 @@ impl Window {
     /// thread instead of sending it, so this returns immediately. The move
     /// is applied whenever that thread gets around to it, which is exactly
     /// the semantics pre placement wants, since nothing depends on the new
-    /// position having landed: the layout pass still places the window.
+    /// position having landed: the layout pass places the window anyway
+    /// when it was moved on screen, and otherwise if it is not in place by
+    /// then.
     pub(crate) fn move_async(&self, rect: &Rect) -> Result<()> {
         // Compensate for invisible borders so the visible portion lands
         // exactly at the requested position and size, as set_rect does.

@@ -85,6 +85,8 @@ mod monocle_stale_tests;
 mod move_tests;
 #[path = "tests/pipeline_tests.rs"]
 mod pipeline_tests;
+#[path = "tests/posted_move_tests.rs"]
+mod posted_move_tests;
 #[path = "tests/pre_place_tests.rs"]
 mod pre_place_tests;
 #[path = "tests/rules_release_tests.rs"]
