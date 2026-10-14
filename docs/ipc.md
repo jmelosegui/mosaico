@@ -95,13 +95,19 @@ other.
 - `connect` fails with `IpcError::NotRunning` straight away when nothing is
   listening, and waits a short, bounded time when the daemon is busy with
   another client
-- `is_daemon_running` checks for a listener without taking a connection
+- `is_daemon_running` reports whether the endpoint exists, without taking a
+  connection; a daemon busy with another client is running
+- callers about to send do not check `is_daemon_running` first: `send`
+  reports `IpcError::NotRunning` itself, and a separate check could see a
+  busy daemon as missing
 - `send` (provided by core) writes the request and reads the reply
 
 `IpcServer` / `IpcConnection` (daemon side):
 
 - `accept` blocks until a client connects; one request and one reply per
   connection
+- while one connection is being answered, the endpoint keeps accepting the
+  next client
 - `finish` must not return until the client can read the whole reply
 
 `serve()` runs the loop: accept, read, refuse or hand the command to the
@@ -113,10 +119,13 @@ stop it.
 
 ## Windows Implementation
 
-- `PipeServer::accept` creates a fresh pipe instance with `CreateNamedPipeW`
-  (`PIPE_ACCESS_DUPLEX`, byte mode, unlimited instances) and waits in
-  `ConnectNamedPipe`. A client that connects between the two is reported as
-  `ERROR_PIPE_CONNECTED`, which counts as connected.
+- `PipeServer::accept` waits in `ConnectNamedPipe` on a pipe instance created
+  with `CreateNamedPipeW` (`PIPE_ACCESS_DUPLEX`, byte mode, unlimited
+  instances). As soon as a client connects it creates the next instance, so
+  while that client is answered a second one finds a free instance instead of
+  `ERROR_PIPE_BUSY`. A client that connects between creation and
+  `ConnectNamedPipe` is reported as `ERROR_PIPE_CONNECTED`, which counts as
+  connected.
 - `PipeConnection::finish` calls `FlushFileBuffers` before
   `DisconnectNamedPipe`. Disconnecting first throws away the unread reply and
   the client gets error 233.
@@ -124,11 +133,17 @@ stop it.
   means no daemon. On `ERROR_PIPE_BUSY` it waits up to 2 seconds with
   `WaitNamedPipeW` and tries once more.
 - `PipeClient::is_daemon_running` uses `WaitNamedPipeW` with a 1 ms timeout.
-- The pipe name is a parameter. The daemon and the CLI use
-  `DEFAULT_PIPE_NAME` (`\\.\pipe\mosaico`).
+  Only `ERROR_FILE_NOT_FOUND` means no daemon; a timeout means every instance
+  is busy and the daemon is running.
+- The pipe name comes from the instance (`pipe_name`): `\\.\pipe\mosaico` for
+  the default instance, `\\.\pipe\mosaico-<name>` for a named one.
 
 ## Testing
 
 Framing, request decoding, error replies and the accept loop are tested in
 core against in-memory streams (`crates/mosaico-core/src/ipc/tests/`), so none
 of it needs a daemon or a pipe.
+
+`crates/mosaico-windows/src/ipc_tests.rs` runs a real pipe server on a
+unique pipe name and checks that a daemon busy with one client still answers
+the next.

@@ -10,10 +10,9 @@ use super::context::{Context, Exit, complain, say};
 /// reply. Otherwise writes why to the error stream and returns the
 /// failure to exit with.
 pub fn send(cx: &mut Context, command: &Command) -> Result<Response, Exit> {
-    if !cx.daemon.is_running() {
-        complain!(cx, "Mosaico is not running.");
-        return Err(Exit::Failure);
-    }
+    // No liveness check first: send reports a daemon that is not
+    // running by itself, and a separate check could see a busy daemon
+    // as missing.
     match cx.daemon.send(command) {
         Ok(response) if response.status == ResponseStatus::Ok => Ok(response),
         Ok(response) => {
