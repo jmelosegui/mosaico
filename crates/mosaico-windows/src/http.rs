@@ -136,9 +136,12 @@ fn check_status(url: &str, status: u32) -> Result<()> {
     }
 }
 
-/// `timeout` in the whole milliseconds WinHTTP takes, at most `i32::MAX`.
+/// `timeout` in the whole milliseconds WinHTTP takes: at least 1, since
+/// WinHTTP takes 0 as no timeout at all, and at most `i32::MAX`.
 fn timeout_ms(timeout: Duration) -> i32 {
-    i32::try_from(timeout.as_millis()).unwrap_or(i32::MAX)
+    i32::try_from(timeout.as_millis())
+        .unwrap_or(i32::MAX)
+        .max(1)
 }
 
 /// Converts a `&str` to a null-terminated wide (UTF-16) string.
