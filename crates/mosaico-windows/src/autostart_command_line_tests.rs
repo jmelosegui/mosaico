@@ -1,5 +1,8 @@
+use std::ffi::OsString;
+use std::os::windows::ffi::OsStringExt;
 use std::path::PathBuf;
 
+use mosaico_core::Error;
 use mosaico_core::system::LaunchCommand;
 
 use super::{join, split};
@@ -51,6 +54,29 @@ fn backslashes_are_kept_as_they_are_outside_quotes() {
 
     // Assert
     assert_eq!(line, r#""C:\mosaico.exe" C:\config\dir a\\b"#);
+}
+
+#[test]
+fn a_command_the_value_cannot_hold_is_refused() {
+    // Arrange
+    let not_unicode = PathBuf::from(OsString::from_wide(&[0x43, 0x3A, 0x5C, 0xD800]));
+    let commands = [
+        command(r#"C:\odd"name.exe"#, &["start"]),
+        command("", &["start"]),
+        LaunchCommand::autostart(not_unicode),
+        command(r"C:\mosaico.exe", &["st\0art"]),
+    ];
+
+    for command in commands {
+        // Act
+        let line = join(&command);
+
+        // Assert
+        assert!(
+            matches!(line, Err(Error::Unsupported(_))),
+            "{command:?} gave {line:?}"
+        );
+    }
 }
 
 #[test]
