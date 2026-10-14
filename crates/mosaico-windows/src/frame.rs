@@ -25,7 +25,7 @@ pub struct BorderOffset {
 /// Returns the visible bounds of a window using DWM extended frame bounds.
 ///
 /// Falls back to `GetWindowRect` if DWM is unavailable.
-pub fn visible_rect(hwnd: HWND) -> Result<RECT> {
+pub(crate) fn visible_rect(hwnd: HWND) -> Result<RECT> {
     let mut frame = RECT::default();
     // SAFETY: DwmGetWindowAttribute queries a DWM attribute on a valid HWND.
     let result = unsafe {
@@ -83,7 +83,7 @@ const DWMWCP_ROUNDSMALL: u32 = 3;
 /// - `Round` = standard rounding (~8 px, `ROUND`)
 ///
 /// Fails silently on Windows 10 where the attribute does not exist.
-pub fn set_corner_preference(hwnd: HWND, style: CornerStyle) {
+pub(crate) fn set_corner_preference(hwnd: HWND, style: CornerStyle) {
     let pref = match style {
         CornerStyle::Square => DWMWCP_DONOTROUND,
         CornerStyle::Small => DWMWCP_ROUNDSMALL,
@@ -103,7 +103,7 @@ pub fn set_corner_preference(hwnd: HWND, style: CornerStyle) {
 /// Resets a window's corner preference to the system default.
 ///
 /// Called when a window is removed from management.
-pub fn reset_corner_preference(hwnd: HWND) {
+pub(crate) fn reset_corner_preference(hwnd: HWND) {
     let pref = DWMWCP_DEFAULT;
     // SAFETY: DwmSetWindowAttribute resets the DWM corner preference on a valid HWND.
     let _ = unsafe {

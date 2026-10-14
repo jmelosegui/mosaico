@@ -34,7 +34,7 @@ pub struct Window {
 
 impl Window {
     /// Creates a new `Window` from a raw `HWND`.
-    pub fn new(hwnd: HWND) -> Self {
+    pub(crate) fn new(hwnd: HWND) -> Self {
         Self { hwnd }
     }
 
@@ -72,7 +72,7 @@ impl Window {
     /// is applied whenever that thread gets around to it, which is exactly
     /// the semantics pre placement wants, since nothing depends on the new
     /// position having landed before the window is shown.
-    pub fn move_async(&self, rect: &Rect) -> Result<()> {
+    pub(crate) fn move_async(&self, rect: &Rect) -> Result<()> {
         // Compensate for invisible borders so the visible portion lands
         // exactly at the requested position and size, as set_rect does.
         let border = frame::border_offset(self.hwnd)?;

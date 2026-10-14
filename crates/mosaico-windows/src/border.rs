@@ -137,7 +137,7 @@ impl Border {
     ///
     /// Renders the bitmap before making the window visible to avoid
     /// flickering caused by a stale bitmap being shown at the new size.
-    pub fn show(&self, rect: &Rect, color: Color, width: i32, radius: i32, target: HWND) {
+    pub(crate) fn show(&self, rect: &Rect, color: Color, width: i32, radius: i32, target: HWND) {
         let w = rect.width + width * 2;
         let h = rect.height + width * 2;
 
