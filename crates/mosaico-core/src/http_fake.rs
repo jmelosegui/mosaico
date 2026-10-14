@@ -4,7 +4,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::time::Duration;
 
-use super::HttpClient;
+use super::{HttpClient, url};
 use crate::{Error, Result};
 
 /// What the fake server answers for one URL.
@@ -49,15 +49,12 @@ impl HttpClient for FakeHttp {
         self.requests.borrow_mut().push((url.clone(), timeout));
         match self.answers.get(&url) {
             Some(Answer::Body(body)) => Ok(body.clone()),
-            Some(Answer::Status(status)) => Err(Error::Network(format!(
-                "{url} answered with HTTP status {status}"
-            ))),
-            None => Err(Error::Network(format!("{url}: {host} cannot be reached"))),
+            Some(Answer::Status(status)) => Err(Error::http_status(&url, *status)),
+            None => Err(Error::http_request(
+                &url,
+                "send the request",
+                format!("{host} cannot be reached"),
+            )),
         }
     }
-}
-
-/// The URL of `path` on `host`.
-fn url(host: &str, path: &str) -> String {
-    format!("https://{host}{path}")
 }

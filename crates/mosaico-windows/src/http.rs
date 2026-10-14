@@ -11,7 +11,7 @@ mod response;
 use std::ffi::c_void;
 use std::time::Duration;
 
-use mosaico_core::http::HttpClient;
+use mosaico_core::http::{self, HttpClient};
 use mosaico_core::{Error, Result};
 use windows::Win32::Networking::WinHttp::{
     WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY, WINHTTP_FLAG_SECURE, WinHttpCloseHandle, WinHttpConnect,
@@ -33,7 +33,7 @@ impl HttpClient for WinHttpClient {
     /// reading the body. `timeout` becomes WinHTTP's resolve, connect,
     /// send and receive timeouts, each of which bounds one step.
     fn get_bytes(&self, host: &str, path: &str, timeout: Duration) -> Result<Vec<u8>> {
-        let url = format!("https://{host}{path}");
+        let url = http::url(host, path);
         let agent = to_wide(concat!("mosaico/", env!("CARGO_PKG_VERSION")));
         let host_w = to_wide(host);
         let path_w = to_wide(path);
@@ -120,7 +120,7 @@ impl Drop for Handle {
 /// Turns the error of a failed WinHTTP call during `step` into a failed
 /// request for `url`.
 fn failed<'a>(url: &'a str, step: &'static str) -> impl FnOnce(windows::core::Error) -> Error + 'a {
-    move |e| Error::Network(format!("{url}: could not {step}: {e}"))
+    move |e| Error::http_request(url, step, e)
 }
 
 /// Fails a request whose answer has a status outside 200-299, so an
@@ -129,9 +129,10 @@ fn check_status(url: &str, status: u32) -> Result<()> {
     if (200..300).contains(&status) {
         Ok(())
     } else {
-        Err(Error::Network(format!(
-            "{url} answered with HTTP status {status}"
-        )))
+        Err(Error::http_status(
+            url,
+            u16::try_from(status).unwrap_or(u16::MAX),
+        ))
     }
 }
 

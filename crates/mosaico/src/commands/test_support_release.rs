@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use mosaico_core::http::HttpClient;
+use mosaico_core::http::{self, HttpClient};
 use mosaico_core::update::Installer;
 use mosaico_core::{Error, Result};
 
@@ -40,11 +40,9 @@ impl Releases {
 
 impl HttpClient for Releases {
     fn get_bytes(&self, host: &str, path: &str, _timeout: Duration) -> Result<Vec<u8>> {
-        let url = format!("https://{host}{path}");
+        let url = http::url(host, path);
         let Some(tag) = self.latest.borrow().clone() else {
-            return Err(Error::Network(format!(
-                "{url}: could not send the request: no network"
-            )));
+            return Err(Error::http_request(&url, "send the request", "no network"));
         };
         if path.ends_with("/releases/latest") {
             return Ok(format!(r#"{{"tag_name":"{tag}"}}"#).into_bytes());
@@ -55,9 +53,7 @@ impl HttpClient for Releases {
         {
             return Ok(content.clone());
         }
-        Err(Error::Network(format!(
-            "{url} answered with HTTP status 404"
-        )))
+        Err(Error::http_status(&url, 404))
     }
 }
 
