@@ -1,6 +1,8 @@
 //! Reading and writing the `Mosaico` value under the per-user Run key.
 
-use windows::Win32::Foundation::{ERROR_FILE_NOT_FOUND, ERROR_MORE_DATA, ERROR_SUCCESS};
+use windows::Win32::Foundation::{
+    ERROR_FILE_NOT_FOUND, ERROR_MORE_DATA, ERROR_SUCCESS, WIN32_ERROR,
+};
 use windows::Win32::System::Registry::{
     HKEY, HKEY_CURRENT_USER, KEY_SET_VALUE, REG_SAM_FLAGS, REG_SZ, RRF_RT_REG_SZ, RegCloseKey,
     RegDeleteValueW, RegGetValueW, RegOpenKeyExW, RegSetValueExW,
@@ -68,10 +70,29 @@ pub fn write(value: &str) -> Result<()> {
 
 /// Deletes the Mosaico value. Succeeds if it did not exist.
 pub fn delete() -> Result<()> {
-    let key = open_run_key(KEY_SET_VALUE)?;
+    let wide_key = to_wide(RUN_KEY);
+    let mut key = HKEY::default();
+    // SAFETY: RegOpenKeyExW is a standard Win32 registry API. We pass valid
+    // pointers and close the key after use.
+    let status = unsafe {
+        RegOpenKeyExW(
+            HKEY_CURRENT_USER,
+            PCWSTR(wide_key.as_ptr()),
+            None,
+            KEY_SET_VALUE,
+            &mut key,
+        )
+    };
+    deleted(status, "open the Run registry key")?;
     let result = delete_value(key);
     close_key(key);
     result
+}
+
+/// What the status of opening the Run key to delete the value means:
+/// every failure fails the delete, also a key that is not there.
+fn deleted(status: WIN32_ERROR, operation: &'static str) -> Result<()> {
+    status.ok().or_platform(operation)
 }
 
 /// Opens the HKCU Run key with the given access rights.
