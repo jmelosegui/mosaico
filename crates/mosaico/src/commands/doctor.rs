@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use mosaico_core::config::ConfigStore;
+use mosaico_core::config::{ConfigStore, ThemeCheck, ThemeConfig};
 
 use super::context::{Context, Exit, say};
 use super::doctor_runtime;
@@ -65,27 +65,30 @@ fn check_config_file(store: &ConfigStore) {
 }
 
 fn check_theme(store: &ConfigStore) {
-    let cfg = store.load_config();
-    let name = cfg.theme.name.to_ascii_lowercase();
-    let flavor = cfg.theme.flavor.to_ascii_lowercase();
-    if name != "catppuccin" {
-        println!(
-            "  {WARN} Unknown theme \"{}\", falling back to catppuccin mocha",
-            cfg.theme.name
-        );
-        return;
+    println!("{}", theme_line(&store.load_config().theme));
+}
+
+/// What doctor says about `theme`: the theme in use, or what an unknown
+/// name or flavor falls back to.
+fn theme_line(theme: &ThemeConfig) -> String {
+    match theme.check() {
+        ThemeCheck::Known(known) => format!(
+            "  {OK} Theme: {} {}",
+            known.name(),
+            theme.flavor.to_ascii_lowercase()
+        ),
+        ThemeCheck::UnknownFlavor(fallback) => format!(
+            "  {WARN} Unknown flavor \"{}\", falling back to {}",
+            theme.flavor,
+            fallback.flavor_name()
+        ),
+        ThemeCheck::UnknownName(fallback) => format!(
+            "  {WARN} Unknown theme \"{}\", falling back to {} {}",
+            theme.name,
+            fallback.name(),
+            fallback.flavor_name()
+        ),
     }
-    if !matches!(
-        flavor.as_str(),
-        "mocha" | "macchiato" | "frappe" | "frappé" | "latte"
-    ) {
-        println!(
-            "  {WARN} Unknown flavor \"{}\", falling back to mocha",
-            cfg.theme.flavor
-        );
-        return;
-    }
-    println!("  {OK} Theme: catppuccin {flavor}");
 }
 
 fn check_keybindings_file(store: &ConfigStore) {

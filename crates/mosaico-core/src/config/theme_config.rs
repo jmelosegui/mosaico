@@ -49,6 +49,39 @@ impl ThemeConfig {
             _ => Theme::default(),
         }
     }
+
+    /// Says whether the name and the flavor are a theme and a flavor
+    /// that `mosaico doctor` knows, and which theme they stand for.
+    ///
+    /// Only Catppuccin and its flavors are known here so far, as doctor
+    /// has always checked.
+    pub fn check(&self) -> ThemeCheck {
+        if !self.name.eq_ignore_ascii_case("catppuccin") {
+            return ThemeCheck::UnknownName(Theme::default());
+        }
+        let flavor = match self.flavor.to_ascii_lowercase().as_str() {
+            "mocha" => CatppuccinFlavor::Mocha,
+            "macchiato" => CatppuccinFlavor::Macchiato,
+            "frappe" | "frappé" => CatppuccinFlavor::Frappe,
+            "latte" => CatppuccinFlavor::Latte,
+            _ => return ThemeCheck::UnknownFlavor(Theme::Catppuccin(CatppuccinFlavor::Mocha)),
+        };
+        ThemeCheck::Known(Theme::Catppuccin(flavor))
+    }
+}
+
+/// What a theme name and flavor stand for: a theme mosaico knows, or
+/// the theme it falls back to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ThemeCheck {
+    /// The name and the flavor are known, and give this theme.
+    Known(Theme),
+    /// The name is known but not the flavor, so this theme, with the
+    /// default flavor of its family, is used instead.
+    UnknownFlavor(Theme),
+    /// The name is not a theme mosaico knows, so this theme, the
+    /// default one, is used instead.
+    UnknownName(Theme),
 }
 
 impl CatppuccinFlavor {

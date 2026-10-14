@@ -10,7 +10,7 @@ mod theme_colors;
 #[path = "theme_config.rs"]
 mod theme_config;
 
-pub use theme_config::ThemeConfig;
+pub use theme_config::{ThemeCheck, ThemeConfig};
 
 /// A resolved color theme used internally for color lookups.
 ///
@@ -30,6 +30,41 @@ pub enum Theme {
 impl Default for Theme {
     fn default() -> Self {
         Self::Catppuccin(CatppuccinFlavor::Mocha)
+    }
+}
+
+impl Theme {
+    /// The theme's family as `[theme] name` spells it, such as
+    /// `"rose-pine"`.
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Catppuccin(_) => "catppuccin",
+            Self::RosePine(_) => "rose-pine",
+            Self::TokyoNight(_) => "tokyo-night",
+        }
+    }
+
+    /// The theme's flavor as `[theme] flavor` spells it, such as
+    /// `"moon"`.
+    pub fn flavor_name(self) -> &'static str {
+        match self {
+            Self::Catppuccin(f) => match f {
+                CatppuccinFlavor::Mocha => "mocha",
+                CatppuccinFlavor::Macchiato => "macchiato",
+                CatppuccinFlavor::Frappe => "frappe",
+                CatppuccinFlavor::Latte => "latte",
+            },
+            Self::RosePine(f) => match f {
+                RosePineFlavor::Main => "main",
+                RosePineFlavor::Moon => "moon",
+                RosePineFlavor::Dawn => "dawn",
+            },
+            Self::TokyoNight(f) => match f {
+                TokyoNightFlavor::Night => "night",
+                TokyoNightFlavor::Storm => "storm",
+                TokyoNightFlavor::Day => "day",
+            },
+        }
     }
 }
 
