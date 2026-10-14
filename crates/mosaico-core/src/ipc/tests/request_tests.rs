@@ -94,6 +94,50 @@ fn an_unknown_command_gets_its_own_code() {
 
     // Assert
     assert_eq!(response.code, Some(ErrorCode::UnknownCommand));
+    assert_eq!(
+        response.message.as_deref(),
+        Some("unknown command `Teleport`")
+    );
+}
+
+/// The names serde accepts for a [`Command`], as it lists them when it
+/// meets a name it does not know.
+fn names_serde_knows() -> &'static [&'static str] {
+    /// Keeps the names that `unknown_variant` reports, and nothing else.
+    #[derive(Debug)]
+    struct Expected(&'static [&'static str]);
+
+    impl std::fmt::Display for Expected {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "expected one of {:?}", self.0)
+        }
+    }
+
+    impl std::error::Error for Expected {}
+
+    impl serde::de::Error for Expected {
+        fn custom<T: std::fmt::Display>(_: T) -> Self {
+            Self(&[])
+        }
+
+        fn unknown_variant(_: &str, expected: &'static [&'static str]) -> Self {
+            Self(expected)
+        }
+    }
+
+    let request = std::iter::once(("command", "not a command"));
+    let probe = serde::de::value::MapDeserializer::<_, Expected>::new(request);
+    Command::deserialize(probe).expect_err("not a command").0
+}
+
+#[test]
+fn every_command_is_known_by_name() {
+    // Act -- serde lists every variant, so a new command fails here until
+    // it is added to COMMAND_NAMES.
+    let names = names_serde_knows();
+
+    // Assert
+    assert_eq!(names, COMMAND_NAMES);
 }
 
 #[test]
@@ -106,6 +150,29 @@ fn a_command_with_missing_fields_is_malformed() {
 
     // Assert
     assert_eq!(response.code, Some(ErrorCode::Malformed));
+}
+
+#[test]
+fn an_action_this_build_does_not_know_is_malformed() {
+    // Arrange -- the command is known, only its field is not.
+    let value = json!({ "version": PROTOCOL_VERSION, "command": "Action", "action": "teleport" });
+
+    // Act
+    let response = refusal(value);
+
+    // Assert
+    assert_eq!(response.code, Some(ErrorCode::Malformed));
+}
+
+#[test]
+fn a_request_without_a_command_is_malformed() {
+    // Arrange
+    let missing = json!({ "version": PROTOCOL_VERSION });
+    let not_a_name = json!({ "version": PROTOCOL_VERSION, "command": 7 });
+
+    // Act / Assert
+    assert_eq!(refusal(missing).code, Some(ErrorCode::Malformed));
+    assert_eq!(refusal(not_a_name).code, Some(ErrorCode::Malformed));
 }
 
 #[test]
