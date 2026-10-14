@@ -15,9 +15,9 @@ use crate::{frame, monitor};
 /// Z order, topmost first, so the list runs front to back. Monitors come
 /// from `EnumDisplayMonitors`, with keys from the display configuration.
 ///
-/// The process must be per-monitor DPI aware before this is used (see
-/// [`enable_dpi_awareness`](crate::dpi::enable_dpi_awareness)), as the
-/// daemon and `debug list` are. Otherwise Windows scales work areas and
+/// The process must be per-monitor DPI aware before this is used, as
+/// every mosaico process is once [`WindowsSetup`](crate::setup::WindowsSetup)
+/// has set it up. Otherwise Windows scales work areas and
 /// `GetWindowRect` to the system DPI but reports the DWM frame bounds,
 /// which window bounds come from, in physical pixels. On a scaled display
 /// work areas and window bounds then disagree, which breaks the contract,

@@ -24,6 +24,8 @@ which includes invisible frame compensation and DPI awareness.
 | `crates/mosaico-windows/src/frame.rs` | `visible_rect()`, `border_offset()`, `BorderOffset` |
 | `crates/mosaico-core/src/tiler/enumerator.rs` | `Enumerator`, the contract for listing windows and monitors |
 | `crates/mosaico-windows/src/enumerate.rs` | `WindowsEnumerator`, `enumerate_windows()` |
+| `crates/mosaico-core/src/system/setup.rs` | `ProcessSetup`, the setup every process runs first |
+| `crates/mosaico-windows/src/setup.rs` | `WindowsSetup`, the Windows `ProcessSetup` |
 | `crates/mosaico-windows/src/dpi.rs` | `enable_dpi_awareness()` |
 
 ### Key Types
@@ -200,12 +202,19 @@ invisible frame border (`frame::border_offset()`).
 
 ## DPI Awareness
 
-`enable_dpi_awareness()` calls
+Every mosaico process, the daemon and each CLI command alike, first runs the
+platform's setup, `ProcessSetup::init()`, which `main` calls through
+`platform::init()` before any command. Its contract is that afterwards the
+positions and sizes of windows and monitors are in the same units in every
+mosaico process, whatever the display scaling, so `debug list`, `debug move`
+and `doctor` show and use the coordinates the daemon tiles with.
+
+On Windows, `WindowsSetup` calls `enable_dpi_awareness()`, which calls
 `SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2)` to
 ensure accurate pixel coordinates on mixed-DPI multi-monitor setups.
 
-- Must be called before any Win32 window/monitor APIs
-- Called at the start of `daemon::run()` and in debug commands
+- Must be called before any Win32 window/monitor APIs, which is why `main`
+  runs it before any command
 - Failure is silently ignored (the DPI context may already be set via a
   manifest)
 

@@ -38,7 +38,7 @@ pub mod pid;
 pub mod rect;
 /// Spatial direction helpers.
 pub mod spatial;
-/// OS services the CLI uses: processes and start at login.
+/// OS services mosaico uses: process setup, processes and start at login.
 pub mod system;
 /// The tiling state machine.
 pub mod tiler;

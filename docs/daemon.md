@@ -54,18 +54,18 @@ from separate `mpsc` channels into the unified `DaemonMsg` channel.
 ## Startup Sequence
 
 `daemon::run()` is the entry point, called from the hidden `daemon` CLI
-subcommand:
+subcommand once `main` has set the process up, as it does for every command
+(`platform::init()`, which makes it per-monitor DPI aware):
 
-1. Enable per-monitor DPI awareness
-2. Take the single instance lock; a second daemon of the same instance stops
+1. Take the single instance lock; a second daemon of the same instance stops
    here with `Error::AlreadyRunning` ("Mosaico daemon is already running.")
-3. Write PID file to `%LOCALAPPDATA%\mosaico\mosaico.pid`
-4. Log that it started
-5. Call `daemon_loop()` for the main logic
-6. Log the error `daemon_loop()` returned, if any, since the daemon has no
+2. Write PID file to `%LOCALAPPDATA%\mosaico\mosaico.pid`
+3. Log that it started
+4. Call `daemon_loop()` for the main logic
+5. Log the error `daemon_loop()` returned, if any, since the daemon has no
    console. Errors from the steps before it come before the logger is set up
    and are only printed by the `daemon` subcommand
-7. On exit, remove PID file
+6. On exit, remove PID file
 
 `daemon_loop()` performs:
 

@@ -7,6 +7,7 @@
 use mosaico_core::Instance;
 use mosaico_core::event::EventSource;
 use mosaico_core::pid::PidFile;
+use mosaico_core::system::ProcessSetup;
 
 use crate::commands::banner;
 use crate::commands::context::{Context, Exit, SystemClock};
@@ -19,11 +20,16 @@ pub fn instance() -> &'static Instance {
     Instance::current().expect("the instance is validated at startup")
 }
 
+/// Sets this process up for the platform, so it sees windows and
+/// monitors the way the daemon does. `main` calls it once, before any
+/// command runs, the daemon included.
+#[cfg(target_os = "windows")]
+pub fn init() {
+    mosaico_windows::setup::WindowsSetup.init();
+}
+
 /// Runs `command` with the real daemon, processes, registry, desktop,
 /// network, clock and terminal.
-///
-/// The process is not DPI aware, so commands that move windows or show
-/// where windows and monitors are use [`run_on_desktop`] instead.
 #[cfg(target_os = "windows")]
 pub fn run(command: impl FnOnce(&mut Context) -> Exit) -> Exit {
     let instance = instance();
@@ -48,20 +54,6 @@ pub fn run(command: impl FnOnce(&mut Context) -> Exit) -> Exit {
         err: &mut err,
     };
     command(&mut cx)
-}
-
-/// Runs `command` like [`run`], for commands that move windows or show
-/// where windows and monitors are, after making this process see the
-/// desktop in the physical pixels the daemon uses.
-///
-/// Without per-monitor DPI awareness Windows scales the coordinates of
-/// this process on high-DPI monitors, so a window would not land where
-/// the daemon would put it, and positions shown would not be the ones
-/// the daemon works with.
-#[cfg(target_os = "windows")]
-pub fn run_on_desktop(command: impl FnOnce(&mut Context) -> Exit) -> Exit {
-    mosaico_windows::dpi::enable_dpi_awareness();
-    run(command)
 }
 
 /// Where window events come from, for `debug events`.

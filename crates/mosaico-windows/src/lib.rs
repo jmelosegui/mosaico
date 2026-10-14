@@ -28,8 +28,8 @@ pub mod daemon;
 /// Focus borders and window corners through Win32.
 mod decorations;
 
-/// DPI awareness setup.
-pub mod dpi;
+/// DPI awareness, which [`setup`] turns on in every process.
+mod dpi;
 
 /// Window and monitor listing for the core `Enumerator` contract.
 pub mod enumerate;
@@ -90,6 +90,9 @@ mod monitor_identity;
 
 /// Starting, checking and ending processes.
 pub mod process;
+
+/// What every mosaico process sets up first.
+pub mod setup;
 
 /// Tiling manager that applies layouts to managed windows.
 pub mod tiling;

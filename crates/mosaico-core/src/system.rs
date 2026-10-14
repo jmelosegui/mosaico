@@ -1,15 +1,18 @@
-//! What the CLI asks of the OS besides talking to the daemon: starting
-//! and stopping processes, and registering for start on login.
+//! What mosaico asks of the OS besides talking to the daemon: setting up
+//! each process, starting and stopping processes, and registering for
+//! start on login.
 
 mod autostart;
 mod autostart_status;
 mod file_probe;
+mod setup;
 
 use crate::Result;
 
 pub use autostart::{Autostart, LaunchCommand};
 pub use autostart_status::AutostartStatus;
 pub use file_probe::FileProbe;
+pub use setup::ProcessSetup;
 
 /// Starting and stopping daemon processes.
 ///

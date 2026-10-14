@@ -155,20 +155,18 @@ fn main() {
         std::process::exit(2);
     }
 
+    // Before anything looks at the desktop, so the daemon and every
+    // command see windows and monitors in the same coordinates.
+    platform::init();
+
     let exit = match cli.command {
         Commands::Daemon => commands::daemon::execute(),
-        Commands::Debug {
-            command: DebugCommands::List,
-        } => platform::run_on_desktop(commands::debug::list::execute),
         Commands::Debug {
             command: DebugCommands::Events,
         } => {
             commands::debug::events::execute(&platform::event_source());
             Exit::Success
         }
-        Commands::Debug {
-            command: DebugCommands::Move(args),
-        } => platform::run_on_desktop(|cx| commands::debug::move_window::execute(cx, &args)),
         command => platform::run(|cx| run(cx, command)),
     };
     std::process::exit(exit.code());
@@ -205,10 +203,18 @@ fn run(cx: &mut Context, command: Commands) -> Exit {
             commands::action::execute(cx, action)
         }
         Commands::Debug {
+            command: DebugCommands::List,
+        } => commands::debug::list::execute(cx),
+        Commands::Debug {
+            command: DebugCommands::Move(args),
+        } => commands::debug::move_window::execute(cx, &args),
+        Commands::Debug {
             command: DebugCommands::State,
         } => commands::debug::state::execute(cx),
-        // Handled in `main`, without a context or with one set up for
-        // the desktop.
-        Commands::Daemon | Commands::Debug { .. } => Exit::Success,
+        // Handled in `main` without a context.
+        Commands::Daemon
+        | Commands::Debug {
+            command: DebugCommands::Events,
+        } => Exit::Success,
     }
 }

@@ -2,7 +2,6 @@ use mosaico_core::pid;
 use mosaico_core::update::Installer;
 use mosaico_core::{Instance, Result};
 
-use crate::dpi;
 use crate::install::RenameInstaller;
 use crate::instance_guard::InstanceGuard;
 
@@ -31,8 +30,10 @@ mod daemon_types;
 /// from the daemon loop is logged here as well as returned. Errors before
 /// it, such as another daemon holding the lock, come before the logger
 /// is set up and are only returned.
+///
+/// The process must have been set up first, as `main` does for every
+/// command, so the daemon sees the desktop in physical pixels.
 pub fn run() -> Result<()> {
-    dpi::enable_dpi_awareness();
     clean_old_binary();
     let instance = Instance::current()?;
     let _guard = InstanceGuard::acquire(instance)?;

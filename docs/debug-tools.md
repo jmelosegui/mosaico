@@ -38,20 +38,18 @@ Lists the windows on the desktop, one block per window, then the monitors.
 
 ### Behavior
 
-1. Runs through `platform::run_on_desktop`, which enables DPI awareness for
-   accurate coordinates
-2. Loads window rules from configuration
-3. Lists the windows through the context's `Enumerator`
+1. Loads window rules from configuration
+2. Lists the windows through the context's `Enumerator`
    (`mosaico_core::tiler::Enumerator`): the top-level application windows
    that are shown and not minimized, front to back. On Windows,
    `WindowsEnumerator` walks them with `EnumWindows`
-4. For each window: asks `Enumerator::details` for its title, class,
+3. For each window: asks `Enumerator::details` for its title, class,
    executable path, title bar, rect, state, monitor and border offset, and
    evaluates rules. Windows without a caption are listed too, and show as
    managed only when a rule opts them in
-5. Prints a block per window, then `"N windows found"` and the monitors left
+4. Prints a block per window, then `"N windows found"` and the monitors left
    to right (`Enumerator::monitors`) with their keys
-6. If the windows cannot be listed, prints the error and exits with status 1
+5. If the windows cannot be listed, prints the error and exits with status 1
 
 This command is useful for:
 - Verifying which windows Mosaico would manage
@@ -106,12 +104,11 @@ Moves a specific window to exact pixel coordinates.
 
 ### Behavior
 
-1. Enables DPI awareness
-2. Reads the id with `WindowId::parse`. Anything else is refused with exit
+1. Reads the id with `WindowId::parse`. Anything else is refused with exit
    status 1
-3. Calls `WindowControl::place` with the rectangle (on Windows this includes
+2. Calls `WindowControl::place` with the rectangle (on Windows this includes
    invisible frame compensation)
-4. Prints `Done.`, or the error with exit status 1 when the window cannot be
+3. Prints `Done.`, or the error with exit status 1 when the window cannot be
    moved
 
 This command is useful for:
@@ -152,13 +149,15 @@ colored status tags:
    liveness; auto-removes stale PID files (`[fixed]`)
 9. **Monitors** -- lists all connected monitors left to right via the
    context's `Enumerator::monitors()` and prints per-monitor dimensions and
-   positions
+   positions, in the physical pixels the daemon and `debug list` use
 
 ## Design Decisions
 
-- `debug list` and `debug move` enable DPI awareness, through
-  `platform::run_on_desktop`, since they run outside the daemon process.
-  Without this, coordinates would be virtualized on high-DPI displays.
+- Every mosaico process, so every debug command and `doctor` too, is made
+  DPI aware once at startup by the platform's setup (`platform::init()` in
+  `main`), since they run outside the daemon process. Without this,
+  coordinates would be virtualized on high-DPI displays and would not match
+  the daemon's.
 - `debug list` evaluates the same rules as the daemon to show accurate
   "Managed" status.
 - `debug events` runs without hotkeys to avoid interfering with the running

@@ -49,9 +49,9 @@ the output and error streams. They return an `Exit` (`Success` or
 `Failure`), and only `main` calls `std::process::exit`.
 
 `crates/mosaico/src/platform.rs` builds the real context; it is the one place
-in the CLI that picks a platform implementation. Commands that move windows
-or show where windows and monitors are run through `platform::run_on_desktop`,
-which first makes the process DPI aware so coordinates match the daemon's.
+in the CLI that picks a platform implementation. Before any command runs,
+`main` sets the process up through `platform::init()`, which makes it DPI
+aware, so the coordinates commands move windows to or show match the daemon's.
 The unit tests build one from `commands/test_support.rs`, a fake `World`
 standing in for the daemon, processes, registry, program files, desktop,
 GitHub, the release installer and clock, and `commands/fake_desktop.rs`, a
@@ -282,7 +282,8 @@ integration tests use this to run each test against a private instance.
   `doctor` for the shared ASCII logo.
 - Action verbs use a nested subcommand pattern (`action focus left`) rather
   than flat kebab-case (`action focus-left`) for a clearer CLI experience.
-- Commands that show or move windows run outside the daemon process, so they
-  enable DPI awareness themselves, through `platform::run_on_desktop`
-  (`debug list`, `debug move`). Other commands, `doctor` included, run without
-  it.
+- Commands that show or move windows run outside the daemon process, so
+  `main` sets the platform up once per process (`platform::init()`, which on
+  Windows makes the process per-monitor DPI aware) before any command runs.
+  The daemon, the debug commands and `doctor` all see windows and monitors in
+  the same coordinates.
