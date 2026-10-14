@@ -24,7 +24,10 @@ pub enum Input {
     /// The monitors are the same, but their work areas may have moved,
     /// for example because the taskbar was shown or hidden.
     WorkAreas {
-        /// Fresh work areas for every monitor.
+        /// Fresh work areas for every monitor, in the order
+        /// [`Enumerator::monitors`](super::Enumerator::monitors) lists
+        /// them: a monitor that matches by neither key nor session id is
+        /// matched by its position.
         monitors: Vec<Display>,
         /// Space to keep free for the bar.
         bar: BarReservation,

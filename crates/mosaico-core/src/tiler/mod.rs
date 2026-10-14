@@ -210,7 +210,9 @@ impl Tiler {
         plan.finish()
     }
 
-    /// Every monitor, left to right as [`Enumerator::monitors`] lists them.
+    /// Every monitor, in the order of the displays handed to
+    /// [`Tiler::new`] or in the latest [`Input::Displays`]: left to right
+    /// when they come from [`Enumerator::monitors`].
     pub fn monitors(&self) -> &[MonitorState] {
         &self.monitors
     }

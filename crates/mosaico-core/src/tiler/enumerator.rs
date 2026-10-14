@@ -24,7 +24,8 @@ use super::{Display, WindowFacts};
 ///   the provided [`monitors`](Self::monitors): the order is decided
 ///   here, so every platform numbers monitors the same way.
 pub trait Enumerator {
-    /// The top-level application windows on screen, front to back.
+    /// The top-level application windows that are shown and not
+    /// minimized, front to back.
     ///
     /// # Contract for platform implementations
     ///
@@ -53,14 +54,21 @@ pub trait Enumerator {
     ///
     /// - Lists every monitor that is part of the desktop. Monitors that
     ///   mirror each other count as one.
-    /// - Exactly one is primary. A platform without the notion marks the
-    ///   monitor that holds the desktop origin.
+    /// - While the monitors stay the same, every call lists them in the
+    ///   same order. Monitor numbers depend on it for monitors that share
+    ///   a left edge, and so does the tiler when it matches fresh work
+    ///   areas by position.
+    /// - At most one is primary. There is none only when the primary
+    ///   monitor is left out because it could not be read. A platform
+    ///   without the notion of a primary monitor marks the one that holds
+    ///   the desktop origin.
     /// - Ids follow the [`MonitorId`] contract and keys the
     ///   [`MonitorKey`](crate::MonitorKey) contract.
     /// - Work areas leave out taskbars, docks and panels, and use the
     ///   same desktop coordinates as window bounds.
     /// - A monitor whose details cannot be read is left out. Fails only
-    ///   when the list cannot be read at all.
+    ///   when the list cannot be read at all. A platform that cannot list
+    ///   monitors returns [`Error::Unsupported`](crate::Error::Unsupported).
     fn connected_monitors(&self) -> Result<Vec<Display>>;
 
     /// What the platform can tell about a window, for `mosaico debug
@@ -75,7 +83,8 @@ pub trait Enumerator {
     ///   [`Desktop::candidate`](super::Desktop::candidate), they are
     ///   reported for windows the platform would rule out.
     /// - `monitor` follows the same rule as
-    ///   [`Desktop::monitor_of`](super::Desktop::monitor_of).
+    ///   [`Desktop::monitor_of`](super::Desktop::monitor_of), so for a
+    ///   window that no longer exists it may be an id that is in no list.
     fn details(&self, window: WindowId) -> WindowDetails;
 
     /// Every connected monitor, left to right.

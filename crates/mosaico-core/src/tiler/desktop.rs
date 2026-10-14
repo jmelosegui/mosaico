@@ -17,7 +17,8 @@ use super::WindowIdentity;
 ///   own effects that have not been applied yet, so a platform must not
 ///   try to predict them.
 /// - A window that no longer exists answers like an invisible one:
-///   `is_visible` false, `rect`, `owner` and `identity` `None`.
+///   `is_visible` false, `rect`, `owner` and `identity` `None`. Its
+///   `monitor_of` may be an id that is in no [`Display`] list.
 pub trait Desktop {
     /// Whether the window is shown. A window that is only hidden by the
     /// system's own desktop switching still counts as shown.
@@ -41,10 +42,11 @@ pub trait Desktop {
 
     /// Session id of the monitor the window is on.
     ///
-    /// Must be one of the ids in the latest [`Display`] list. A window
-    /// that spans monitors is on the one that holds the largest part of
-    /// it, and a minimized window is on the monitor it will be restored
-    /// to. A window that is on no monitor reports the primary monitor.
+    /// For a window that exists, one of the ids in the latest [`Display`]
+    /// list: the monitor that holds the largest part of the window, the
+    /// one a minimized window will be restored to, or the primary monitor
+    /// for a window that is on none. A window that no longer exists may
+    /// report an id that is in no list.
     fn monitor_of(&self, window: WindowId) -> MonitorId;
 
     /// Pointer position in desktop coordinates, if it can be read.
