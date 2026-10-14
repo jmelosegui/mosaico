@@ -56,7 +56,7 @@ pub use effect::{BorderStyle, Effect, Timing};
 pub use enumerator::{Enumerator, Insets, WindowDetails};
 pub use hidden::{HiddenWindows, WindowIdentity};
 pub use input::{BarReservation, Input};
-pub use release::{QUIET, release_at};
+pub use release::{MAX_HOLD, QUIET, release_at};
 pub use state::MonitorState;
 pub use window_effects::apply_window_effect;
 

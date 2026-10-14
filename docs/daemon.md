@@ -127,7 +127,12 @@ back, in order:
 1. **Flush** the focus changes and coalesced moves the tiler holds back,
    once the loop has waited 25 ms (`tiler::QUIET`) with no message
    arriving. The wait starts once everything before it has run, so a slow
-   batch, a display rebuild or startup never counts as quiet.
+   batch, a display rebuild or startup never counts as quiet. They are
+   flushed at the latest 100 ms after the loop first waited with them held
+   (`tiler::MAX_HOLD`), even while messages keep arriving: while a window
+   animates or a title keeps changing, no wait would ever last 25 ms. A
+   slow batch or a slow startup does not count toward the cap, so it still
+   gets the full 25 ms.
 2. **Rebuild for the monitors** once a display change has settled. A
    `DisplayChanged` event only starts or extends a 750 ms settle window, see
    [monitor-management.md](monitor-management.md). While effects are held,

@@ -9,6 +9,8 @@ use crate::id::wid;
 
 use super::*;
 
+#[path = "scheduler_cap_tests.rs"]
+mod cap_tests;
 #[path = "scheduler_flush_tests.rs"]
 mod flush_tests;
 #[path = "scheduler_hold_tests.rs"]

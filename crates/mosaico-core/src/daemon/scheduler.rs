@@ -44,56 +44,52 @@ pub enum Step<T> {
 
 /// Decides what the daemon loop runs, and when.
 ///
-/// Every time the loop is about to wait for messages, having run every
-/// step it was given, it calls [`Scheduler::begin_wait`] to learn how
-/// long it may wait, then hands whatever ended the wait to
-/// [`Scheduler::step`]. It passes the current time to both, and to
-/// `begin_wait` when the effects the tiler holds started being held, as
-/// [`Coalescer::held_since`](crate::tiler::Coalescer::held_since) reports
-/// it.
-///
-/// The rules:
+/// Before each wait for messages the loop calls [`Scheduler::begin_wait`]
+/// with the time and what
+/// [`Coalescer::held_since`](crate::tiler::Coalescer::held_since)
+/// reports, then hands whatever ended the wait to [`Scheduler::step`].
 ///
 /// - Held effects are flushed once the loop has waited
-///   [`QUIET`](crate::tiler::QUIET) with nothing arriving. The wait only
-///   starts once everything before it has run, so a slow batch, a
-///   rebuild or startup never counts as quiet, and a message ends the
-///   wait without a flush.
-/// - A display change is rebuilt for once the configuration has stayed
-///   quiet for [`SETTLE`](super::SETTLE). While effects are held, the
-///   wait is for them alone, so a change that settles meanwhile is
-///   rebuilt for right after the flush.
+///   [`QUIET`](crate::tiler::QUIET) with nothing arriving, and at the
+///   latest [`MAX_HOLD`](crate::tiler::MAX_HOLD) after it first waited
+///   with them held. Waits only start once everything before them has
+///   run, so a slow batch, a rebuild or startup never counts as quiet or
+///   toward the cap. A message ends the wait without a flush, unless the
+///   cap had already passed.
+/// - A display change is rebuilt for once it has been quiet for
+///   [`SETTLE`](super::SETTLE). While effects are held the wait is for
+///   them alone, so a change that settles meanwhile follows the flush.
 /// - What was due when the wait began runs before the messages that
 ///   ended it: first the flush, then the rebuild.
-/// - Tasks run next, in arrival order and ahead of the window events
-///   that arrived with them, so hotkeys and commands stay responsive
-///   while windows flood the queue with events.
-/// - The window events of the batch come last, as one step, without the
-///   repeats that say nothing new: each window keeps only its last
-///   position change and its last title change. Display changes are
-///   taken out to settle.
+/// - Tasks run next, in arrival order, so hotkeys and commands stay
+///   responsive while windows flood the queue. The batch's window events
+///   come last, as one step, keeping only the last position change and
+///   the last title change of each window, and without display changes.
 #[derive(Debug, Default)]
 pub struct Scheduler {
     /// When the current wait began.
     waiting_since: Option<Instant>,
-    /// When the effects held during the current wait are due, if any
-    /// are held.
+    /// When what is held during the current wait is due.
     release: Option<Instant>,
+    /// The hold the loop last waited with: when it began, and when the
+    /// loop first waited with it.
+    hold: Option<(Instant, Instant)>,
     /// A display change waiting for the configuration to settle.
     settle: DisplaySettle,
 }
 
 impl Scheduler {
-    /// Starts a wait at `now`, and returns how long the loop may wait for
-    /// messages before something is due, or `None` when nothing is due
-    /// until a message arrives.
-    ///
-    /// `held_since` is when the effects the tiler holds started being
-    /// held, or `None` when it holds nothing. Call this every time the
-    /// loop is about to wait, once it has run every step it was given.
+    /// Starts a wait at `now`, once the loop has run every step it was
+    /// given, and returns how long it may wait for messages, or `None`
+    /// when nothing is due until one arrives. `held_since` is when the
+    /// effects the tiler holds started being held, if it holds any.
     pub fn begin_wait(&mut self, held_since: Option<Instant>, now: Instant) -> Option<Duration> {
         self.waiting_since = Some(now);
-        self.release = held_since.map(|_| release_at(now));
+        self.hold = held_since.map(|since| match self.hold {
+            Some((seen, first_wait)) if seen == since => (since, first_wait),
+            _ => (since, now),
+        });
+        self.release = self.hold.map(|(_, first_wait)| release_at(first_wait, now));
         if self.settle.is_due(now) {
             return Some(Duration::ZERO);
         }
