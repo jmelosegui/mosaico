@@ -25,7 +25,7 @@ impl Border {
         // never covers it or other windows that should be in front.
         // SAFETY: GetWindowLongPtrW reads the extended style of the target
         // window to determine whether it is topmost. The HWND is provided
-        // by the caller (the focused window).
+        // by the caller: the window the border surrounds.
         let target_topmost = unsafe {
             let ex = GetWindowLongPtrW(target, GWL_EXSTYLE) as u32;
             (ex & WS_EX_TOPMOST.0) != 0
@@ -37,8 +37,8 @@ impl Border {
         };
 
         // SAFETY: SetWindowPos repositions the border overlay. The border
-        // HWND is owned by this struct and the target HWND is the caller's
-        // focused window.
+        // HWND is owned by this struct and the target HWND is the window
+        // the border surrounds.
         unsafe {
             // First set the topmost/non-topmost band.
             let _ = SetWindowPos(

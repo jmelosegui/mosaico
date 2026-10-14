@@ -59,7 +59,7 @@ impl Decorations for Win32Decorations {
             let rendered = border.show(&style.rect, style.color, style.width, style.radius, target);
             drawn.rendered(style, rendered.is_ok());
             if let Err(e) = rendered {
-                mosaico_core::log_debug!("border {} not rendered: {}", window, e);
+                mosaico_core::log_debug!("border {}: {}", window, e);
             }
         } else {
             border.restack(&style.rect, style.width, target);

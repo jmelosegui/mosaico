@@ -57,7 +57,8 @@ impl Border {
 
     /// Shows the border around the given rectangle with the specified color.
     ///
-    /// `target` is the focused window's HWND. The border is placed just
+    /// `target` is the HWND of the window the border surrounds, focused
+    /// or not. The border is placed just
     /// behind it in z-order and inherits its topmost state so it stays
     /// visible with topmost windows without flickering for normal ones.
     ///
