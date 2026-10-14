@@ -20,7 +20,7 @@ pub fn instance() -> &'static Instance {
 }
 
 /// Runs `command` with the real daemon, processes, registry, desktop,
-/// clock and terminal.
+/// network, clock and terminal.
 ///
 /// The process is not DPI aware, so commands that move windows or show
 /// where windows and monitors are use [`run_on_desktop`] instead.
@@ -41,7 +41,7 @@ pub fn run(command: impl FnOnce(&mut Context) -> Exit) -> Exit {
         pid_file: PidFile::new(instance.pid_path()),
         config_dir: instance.config_dir().to_path_buf(),
         clock: &SystemClock,
-        check_update: &mosaico_windows::version_check::check_for_update,
+        http: &mosaico_windows::http::WinHttpClient,
         logo: &banner::draw_logo,
         out: &mut out,
         err: &mut err,

@@ -8,6 +8,7 @@ use std::io::Read;
 use std::time::Duration;
 
 use mosaico_core::http::HttpClient;
+use mosaico_core::update;
 
 use super::context::{Context, Exit};
 
@@ -18,18 +19,17 @@ const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(60);
 pub fn execute(cx: &mut Context, force: bool) -> Exit {
     // 1. Check for update.
     print!("Checking for updates...");
-    let tag = match mosaico_windows::version_check::fetch_latest_tag() {
-        Some(t) => t,
-        None => {
+    let tag = match update::latest_tag(cx.http) {
+        Ok(t) => t,
+        Err(_) => {
             println!(" failed.");
             eprintln!("Error: could not reach GitHub to check for updates.");
             return Exit::Failure;
         }
     };
 
-    let remote = tag.strip_prefix('v').unwrap_or(&tag);
     let local = env!("CARGO_PKG_VERSION");
-    let is_update = mosaico_core::version::is_newer(remote, local);
+    let is_update = update::is_newer_tag(&tag, local);
 
     if !is_update && !force {
         println!();
@@ -54,7 +54,7 @@ pub fn execute(cx: &mut Context, force: bool) -> Exit {
 
     // 4. Download the release zip.
     println!("Downloading {tag}...");
-    let zip_bytes = match download_release(&tag) {
+    let zip_bytes = match download_release(cx.http, &tag) {
         Ok(bytes) => bytes,
         Err(e) => {
             eprintln!("Error: {e}");
@@ -105,10 +105,9 @@ pub fn execute(cx: &mut Context, force: bool) -> Exit {
 }
 
 /// Downloads the release zip from GitHub.
-fn download_release(tag: &str) -> Result<Vec<u8>, String> {
+fn download_release(http: &dyn HttpClient, tag: &str) -> Result<Vec<u8>, String> {
     let path = format!("/jmelosegui/mosaico/releases/download/{tag}/mosaico-windows-amd64.zip");
-    mosaico_windows::http::WinHttpClient
-        .get_bytes(GITHUB_HOST, &path, DOWNLOAD_TIMEOUT)
+    http.get_bytes(GITHUB_HOST, &path, DOWNLOAD_TIMEOUT)
         .map_err(|e| e.to_string())
 }
 

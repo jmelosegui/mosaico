@@ -1,8 +1,7 @@
 //! Platform-agnostic version comparison utilities.
 //!
-//! Parses GitHub release JSON and compares semver strings.
-//! The actual HTTP fetch is platform-specific and lives in the
-//! platform crate (e.g. `mosaico-windows::version_check`).
+//! Parses GitHub release JSON and compares semver strings. Looking up
+//! the latest release is in [`crate::update`].
 
 /// Returns `true` when `remote` is a higher semver than `local`.
 ///
@@ -29,20 +28,6 @@ pub fn extract_tag_name(json: &str) -> Option<String> {
     let inner = &rest[quote_start..];
     let quote_end = inner.find('"')?;
     Some(inner[..quote_end].to_string())
-}
-
-/// Returns the remote tag if it is newer than `local_version`.
-///
-/// Parses a GitHub releases JSON body, extracts the tag, and compares
-/// it against the given local version string.
-pub fn check_for_update(json: &str, local_version: &str) -> Option<String> {
-    let tag = extract_tag_name(json)?;
-    let remote = tag.strip_prefix('v').unwrap_or(&tag);
-    if is_newer(remote, local_version) {
-        Some(tag)
-    } else {
-        None
-    }
 }
 
 #[cfg(test)]
@@ -95,23 +80,5 @@ mod tests {
     #[test]
     fn extract_tag_missing() {
         assert_eq!(extract_tag_name(r#"{"name":"foo"}"#), None);
-    }
-
-    #[test]
-    fn check_finds_update() {
-        let json = r#"{"tag_name":"v0.2.0"}"#;
-        assert_eq!(check_for_update(json, "0.1.0"), Some("v0.2.0".into()));
-    }
-
-    #[test]
-    fn check_no_update_when_same() {
-        let json = r#"{"tag_name":"v0.1.0"}"#;
-        assert_eq!(check_for_update(json, "0.1.0"), None);
-    }
-
-    #[test]
-    fn check_no_update_when_local_is_newer() {
-        let json = r#"{"tag_name":"v0.1.0"}"#;
-        assert_eq!(check_for_update(json, "0.2.0"), None);
     }
 }

@@ -95,8 +95,9 @@ binary with the hidden `daemon` subcommand using Windows process creation flags
 On success, prints a startup banner showing the ASCII logo, config directory,
 PID, repository URL, and a rotating tip. Tips cycle based on the current
 timestamp so users see a different one each launch. After the banner, a
-version check queries the GitHub releases API (via `version_check` module)
-and prints an update notice if a newer release exists.
+version check queries the GitHub releases API (`update::newer_release` in
+`mosaico-core`, through the platform's HTTP client) and prints an update
+notice if a newer release exists.
 
 If a daemon is already running (detected via IPC pipe check), it reports the
 existing state instead of starting a second instance.

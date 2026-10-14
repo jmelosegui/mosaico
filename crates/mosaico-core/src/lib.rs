@@ -40,6 +40,8 @@ pub mod spatial;
 pub mod system;
 /// The tiling state machine.
 pub mod tiler;
+/// Finding newer releases of mosaico.
+pub mod update;
 /// Build-time version information.
 pub mod version;
 /// The contract for changing windows through the platform.

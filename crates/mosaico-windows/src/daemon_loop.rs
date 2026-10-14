@@ -12,6 +12,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
 
 use crate::bar_manager::BarManager;
 use crate::enumerate::WindowsEnumerator;
+use crate::http::WinHttpClient;
 use crate::tiling::TilingManager;
 
 use super::daemon_inputs::Inputs;
@@ -82,7 +83,7 @@ pub(super) fn daemon_loop(pipe_name: &str) -> Result<()> {
     manager.refresh_border();
 
     // Background version check — runs once, stores result for the bar.
-    let update_text = daemon_threads::spawn_version_check();
+    let update_text = daemon_threads::spawn_version_check(WinHttpClient);
 
     // Background community-rules download — updates cached rules.toml.
     daemon_threads::spawn_rules_download(tx.clone());

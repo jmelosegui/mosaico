@@ -5,6 +5,8 @@ use std::sync::mpsc;
 use std::thread;
 
 use mosaico_core::Action;
+use mosaico_core::http::HttpClient;
+use mosaico_core::update;
 
 use crate::config_watcher::ConfigReload;
 
@@ -12,11 +14,13 @@ use super::daemon_ipc;
 use super::daemon_types::DaemonMsg;
 
 /// Spawns a background thread for the version check and returns the shared text.
-pub(super) fn spawn_version_check() -> Arc<Mutex<String>> {
+///
+/// The thread takes `http` with it, so the client must be `Send`.
+pub(super) fn spawn_version_check(http: impl HttpClient + Send + 'static) -> Arc<Mutex<String>> {
     let update_text: Arc<Mutex<String>> = Arc::new(Mutex::new(String::new()));
     let update_text_writer = update_text.clone();
     thread::spawn(move || {
-        if let Some(tag) = crate::version_check::check_for_update()
+        if let Ok(Some(tag)) = update::newer_release(&http, env!("CARGO_PKG_VERSION"))
             && let Ok(mut text) = update_text_writer.lock()
         {
             *text = format!("{tag} available");

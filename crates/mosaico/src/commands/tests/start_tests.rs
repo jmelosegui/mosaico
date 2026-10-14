@@ -97,6 +97,55 @@ fn gives_up_on_a_daemon_that_never_answers() {
 }
 
 #[test]
+fn tells_about_a_newer_release_once_started() {
+    // Arrange
+    let mut h = Harness::new("start-newer-release");
+    h.world.releases.publish("v99.0.0");
+
+    // Act
+    let exit = h.run(execute);
+
+    // Assert
+    assert_eq!(exit, Exit::Success);
+    let out = h.out();
+    let local = env!("CARGO_PKG_VERSION");
+    assert!(
+        out.contains(&format!("Update available: v{local} -> v99.0.0")),
+        "{out}"
+    );
+    assert!(out.contains("Run 'mosaico update' to install it"), "{out}");
+}
+
+#[test]
+fn says_nothing_about_updates_on_the_latest_release() {
+    // Arrange
+    let mut h = Harness::new("start-latest-release");
+    h.world
+        .releases
+        .publish(&format!("v{}", env!("CARGO_PKG_VERSION")));
+
+    // Act
+    let exit = h.run(execute);
+
+    // Assert
+    assert_eq!(exit, Exit::Success);
+    assert!(!h.out().contains("Update available"), "{}", h.out());
+}
+
+#[test]
+fn says_nothing_about_updates_when_github_cannot_be_reached() {
+    // Arrange -- nothing is published, so the lookup fails.
+    let mut h = Harness::new("start-offline");
+
+    // Act
+    let exit = h.run(execute);
+
+    // Assert
+    assert_eq!(exit, Exit::Success);
+    assert!(!h.out().contains("Update available"), "{}", h.out());
+}
+
+#[test]
 fn reports_a_daemon_that_cannot_be_launched() {
     // Arrange
     let mut h = Harness::new("start-launch-fails");
