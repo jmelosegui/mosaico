@@ -18,7 +18,8 @@ use crate::Result;
 ///   The executable at `exe` may be running, since the caller usually
 ///   runs from it. After `Ok`, starting `exe` runs the new executable.
 /// - When `replace` fails, the old executable is still at `exe` and
-///   starts as before.
+///   starts as before. If it cannot be put back there, the error says
+///   where it is and how to restore it.
 /// - `replace` may leave files beside `exe` that cannot be deleted while
 ///   the old executable runs. `remove_leftovers` deletes them, and
 ///   succeeds when there is nothing to delete. The daemon calls it when

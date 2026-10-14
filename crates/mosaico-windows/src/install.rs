@@ -84,8 +84,18 @@ fn replace(files: &impl Files, exe: &Path, binary: &[u8]) -> Result<()> {
 
     // Write the new binary.
     if let Err(e) = files.write(exe, binary) {
-        // Attempt rollback.
-        let _ = files.rename(&backup, exe);
+        // Put the old binary back. When that fails too, `exe` is gone
+        // or holds part of the new one, so the error says where the
+        // working one is.
+        if let Err(back) = files.rename(&backup, exe) {
+            let name = exe.file_name().unwrap_or_default().to_string_lossy();
+            let where_it_is = format!(
+                "{back} (writing the new one had failed: {e}). It is at {}: \
+                 rename it to {name} to restore it",
+                backup.display()
+            );
+            return Err(Error::platform("put the old executable back", where_it_is));
+        }
         return Err(Error::platform("write the new executable", e));
     }
 
