@@ -151,3 +151,7 @@ fn close_key(key: HKEY) {
 fn to_wide(s: &str) -> Vec<u16> {
     s.encode_utf16().chain(std::iter::once(0)).collect()
 }
+
+#[cfg(test)]
+#[path = "autostart_registry_tests.rs"]
+mod tests;
