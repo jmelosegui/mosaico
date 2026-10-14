@@ -27,6 +27,8 @@ mod focus_tests;
 mod layout_tests;
 #[path = "tests/move_tests.rs"]
 mod move_tests;
+#[path = "tests/pipeline_tests.rs"]
+mod pipeline_tests;
 #[path = "tests/pre_place_tests.rs"]
 mod pre_place_tests;
 #[path = "tests/work_area_tests.rs"]
@@ -79,6 +81,10 @@ pub(super) struct FakeDesktop {
     pub(super) windows: HashMap<WindowId, FakeWindow>,
     pub(super) cursor: Option<(i32, i32)>,
     pub(super) focused: Option<WindowId>,
+    /// Border overlays, as the platform keeps them: one per window,
+    /// created when first drawn and destroyed by `DropBorder`. The value
+    /// is whether the overlay is showing.
+    pub(super) borders: HashMap<WindowId, bool>,
 }
 
 impl Desktop for FakeDesktop {
@@ -151,9 +157,34 @@ impl FakeDesktop {
                 }
             }
             Effect::Focus { window, .. } => self.focused = Some(window),
+            Effect::Border {
+                window,
+                style: Some(_),
+            } => {
+                self.borders.insert(window, true);
+            }
+            Effect::Border {
+                window,
+                style: None,
+            } => {
+                if let Some(showing) = self.borders.get_mut(&window) {
+                    *showing = false;
+                }
+            }
+            Effect::DropBorder { window } => {
+                self.borders.remove(&window);
+            }
             _ => {}
         }
     }
+}
+
+/// The platform side of the effect pipeline: what the applier does
+/// between the tiler and the desktop.
+#[derive(Debug, Default)]
+pub(super) struct Pipeline {
+    pub(super) coalescer: Coalescer,
+    pub(super) expectations: Expectations,
 }
 
 /// `count` monitors side by side, the first one primary, with ids
@@ -184,6 +215,10 @@ pub(super) struct Harness {
     pub(super) now: Instant,
     /// Effects of the latest step.
     pub(super) effects: Vec<Effect>,
+    /// When set, effects go through the coalescer and the echo filter
+    /// the way the platform applier sends them, instead of straight to
+    /// the desktop. See [`Harness::through_platform`].
+    pub(super) pipeline: Option<Pipeline>,
 }
 
 impl Harness {
@@ -210,16 +245,53 @@ impl Harness {
             desktop,
             now,
             effects: Vec::new(),
+            pipeline: None,
         };
         harness.apply(effects);
         harness
     }
 
+    /// From here on, sends effects through a [`Coalescer`] and records
+    /// them in [`Expectations`], as the platform applier does: held
+    /// effects reach the desktop only on [`Harness::flush`], and events
+    /// that echo our own effects are dropped before the tiler sees them.
+    pub(super) fn through_platform(mut self) -> Self {
+        self.pipeline = Some(Pipeline::default());
+        self
+    }
+
     fn apply(&mut self, effects: Vec<Effect>) {
-        for effect in &effects {
-            self.desktop.apply(effect);
+        match self.pipeline.as_mut() {
+            None => {
+                for effect in &effects {
+                    self.desktop.apply(effect);
+                }
+            }
+            Some(pipeline) => {
+                for effect in effects.iter().cloned() {
+                    if matches!(effect, Effect::Focus { .. }) {
+                        pipeline.expectations.held(&effect);
+                    }
+                    if let Some(effect) = pipeline.coalescer.admit(effect) {
+                        self.desktop.apply(&effect);
+                        pipeline.expectations.applied(&effect, self.now);
+                    }
+                }
+            }
         }
         self.effects = effects;
+    }
+
+    /// Applies everything the coalescer held, as the platform does once
+    /// input goes quiet. Does nothing without [`Harness::through_platform`].
+    pub(super) fn flush(&mut self) {
+        let Some(pipeline) = self.pipeline.as_mut() else {
+            return;
+        };
+        for effect in pipeline.coalescer.take() {
+            self.desktop.apply(&effect);
+            pipeline.expectations.applied(&effect, self.now);
+        }
     }
 
     /// Runs one input and applies its effects.
@@ -233,7 +305,16 @@ impl Harness {
         self.step(Input::Action(action))
     }
 
+    /// Reports a window event. Through the platform, an echo of our own
+    /// effects is dropped before the tiler sees it.
     pub(super) fn event(&mut self, event: WindowEvent) -> &[Effect] {
+        let now = self.now;
+        if let Some(pipeline) = self.pipeline.as_mut()
+            && pipeline.expectations.echo(&event, now).is_some()
+        {
+            self.effects.clear();
+            return &self.effects;
+        }
         self.step(Input::Event(event))
     }
 
