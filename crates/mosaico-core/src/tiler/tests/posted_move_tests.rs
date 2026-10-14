@@ -7,6 +7,7 @@
 
 use crate::config::Config;
 
+use super::adopt_order_support::posted_move;
 use super::fake_platform::{Call, FakePlatform};
 use super::manager_support::start;
 use super::*;
@@ -109,4 +110,33 @@ fn the_move_that_does_not_wait_comes_before_the_corners() {
         matches!(effects.first(), Some(Effect::PrePlace { window, .. }) if *window == wid(99)),
         "{effects:?}"
     );
+}
+
+#[test]
+fn a_window_taken_in_on_a_monocle_workspace_in_view_keeps_the_monocle_order() {
+    // Arrange -- monocle, with a window waiting behind the monocle window,
+    // as one a display change brings onto the workspace does (#132)
+    let mut h = Harness::new(1, &[(1, 0), (2, 0)]);
+    h.action(Action::ToggleMonocle);
+    h.tiler.monitors[0].active_ws_mut().wait_behind(wid(2));
+
+    // Act -- the new window becomes the monocle window
+    let effects = h.open(99, 0).to_vec();
+
+    // Assert -- no early move: the new monocle window is placed first,
+    // then the waiting window goes behind it and fills the monocle rect
+    assert_eq!(posted_move(&effects, 99), None, "{effects:?}");
+    let order: Vec<String> = effects
+        .iter()
+        .filter_map(|e| match *e {
+            Effect::PutBehind { window, other } => {
+                Some(format!("behind {} {}", window.raw(), other.raw()))
+            }
+            Effect::Place { window, .. } => Some(format!("place {}", window.raw())),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(order, ["place 99", "behind 2 99", "place 2"]);
+    assert!(h.desktop.in_front(wid(99), wid(2)));
+    assert_eq!(h.rect_of(99), h.tiler.monocle_rect(0));
 }
