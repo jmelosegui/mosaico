@@ -32,11 +32,13 @@ pub enum Error {
     /// A daemon of this instance is already running, so another one
     /// must not start.
     AlreadyRunning,
-    /// A call into the operating system failed.
+    /// A call into the operating system, or the platform layer around it,
+    /// failed.
     Platform {
         /// What was being done, such as "create the border window".
         operation: &'static str,
-        /// The error the OS reported.
+        /// The error the OS reported, or what went wrong in the platform
+        /// layer, such as a thread it needs that exited.
         source: Box<dyn std::error::Error + Send + Sync>,
     },
     /// Reading or writing a file or stream failed.
@@ -56,7 +58,8 @@ impl Error {
         }
     }
 
-    /// An OS call that failed while doing `operation`.
+    /// A failure while doing `operation`, in an OS call or the platform
+    /// layer around it.
     ///
     /// Platform crates use this to wrap their native errors, since they
     /// cannot implement `From` for a foreign error type.
