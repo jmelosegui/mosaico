@@ -4,7 +4,9 @@
 //! timeout: `ReadFile` waits until the client writes or goes away. A
 //! watchdog thread waits alongside the read and, if time runs out first,
 //! calls `CancelSynchronousIo` on the reading thread, which makes the
-//! pending `ReadFile` fail with `ERROR_OPERATION_ABORTED`.
+//! pending `ReadFile` fail with `ERROR_OPERATION_ABORTED`. The cancel is
+//! repeated until the watchdog is disarmed, because one that lands
+//! before the thread has entered `ReadFile` has nothing to cancel.
 
 use std::io;
 use std::sync::Arc;
@@ -16,6 +18,9 @@ use std::time::Duration;
 use windows::Win32::Foundation::{CloseHandle, HANDLE};
 use windows::Win32::System::IO::CancelSynchronousIo;
 use windows::Win32::System::Threading::{GetCurrentThreadId, OpenThread, THREAD_TERMINATE};
+
+/// How often a fired watchdog repeats the cancel until it is disarmed.
+const CANCEL_RETRY: Duration = Duration::from_millis(10);
 
 /// The reading thread's handle, owned by the watchdog.
 struct ThreadHandle(HANDLE);
@@ -71,7 +76,14 @@ impl Watchdog {
         let thread = thread::spawn(move || {
             if let Err(mpsc::RecvTimeoutError::Timeout) = stopped.recv_timeout(timeout) {
                 fired_flag.store(true, Ordering::SeqCst);
+                // A cancel only reaches I/O that is already pending. If
+                // the reading thread has not entered the read yet, the
+                // first one is lost, so keep cancelling until disarmed.
                 handle.cancel_io();
+                while let Err(mpsc::RecvTimeoutError::Timeout) = stopped.recv_timeout(CANCEL_RETRY)
+                {
+                    handle.cancel_io();
+                }
             }
         });
         Ok(Self {

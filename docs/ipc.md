@@ -142,7 +142,9 @@ stop it.
 - Pipe handles are synchronous and have no read timeout of their own.
   `PipeConnection` enforces `set_read_timeout` with a watchdog thread
   (`ipc_watchdog.rs`) that calls `CancelSynchronousIo` on the reading thread
-  if a read is still pending when the deadline passes.
+  if a read is still pending when the deadline passes. A cancel only reaches
+  I/O that has already started, so once the deadline has passed the watchdog
+  repeats it every 10 ms until the read returns and the watchdog is disarmed.
 - `PipeConnection::finish` calls `FlushFileBuffers` before
   `DisconnectNamedPipe`. Disconnecting first throws away the unread reply and
   the client gets error 233.
