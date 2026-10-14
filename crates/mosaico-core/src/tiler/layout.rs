@@ -120,13 +120,13 @@ impl Tiler {
                 && state.active_ws().contains(front)
             {
                 let rect = self.monocle_rect(monitor_idx);
-                self.place_waiting_behind(plan, monitor_idx, front, rect, timing);
                 plan.emit(Effect::Place {
                     window: front,
                     rect,
                     timing,
                 });
                 self.show_border_for(plan, front, rect, monitor_idx);
+                self.place_waiting_behind(plan, monitor_idx, front, rect, timing);
                 return;
             }
         }

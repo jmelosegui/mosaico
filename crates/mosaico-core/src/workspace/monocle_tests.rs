@@ -116,3 +116,21 @@ fn monocle_is_not_passed_on_when_nothing_waits() {
     assert!(!ws.pass_monocle_on());
     assert_eq!(ws.monocle_window(), Some(wid(2)));
 }
+
+#[test]
+fn the_windows_put_behind_before_wait_behind_the_window_handed_monocle() {
+    // Arrange -- window 4 was put behind window 2, which then left, and
+    // window 5 waits.
+    let mut ws = in_monocle(&[2, 4, 5], 2);
+    ws.wait_behind(wid(4));
+    ws.take_waiting(wid(2));
+    ws.wait_behind(wid(5));
+    ws.remove(wid(2));
+
+    // Act
+    ws.hand_monocle_to(wid(5));
+
+    // Assert -- window 4 may be in front of window 5, so it goes behind it.
+    assert_eq!(ws.monocle_window(), Some(wid(5)));
+    assert_eq!(ws.take_waiting(wid(5)), wids(&[4]));
+}

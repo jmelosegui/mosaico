@@ -21,6 +21,8 @@ pub(super) struct Rebuilt {
     /// The primary monitor, which took in the windows of the monitors
     /// that went away.
     pub(super) host: usize,
+    /// Windows that went back to a returning monitor, also in `moved`.
+    pub(super) went_home: Vec<WindowId>,
 }
 
 /// Builds the monitor list for a new display configuration.
@@ -87,7 +89,6 @@ pub(super) fn rebuild_monitors(
         moved.extend(memory.park(gone, &mut states[host]));
     }
 
-    let mut returning = Vec::new();
     let mut went_home = Vec::new();
     for (idx, parked_key) in returned {
         let back = memory.restore(&mut states, idx, &parked_key);
@@ -96,19 +97,19 @@ pub(super) fn rebuild_monitors(
             back.len(),
             states[idx].key
         );
-        returning.push(idx);
+        clear_stale_monocle(&mut states[idx]);
         went_home.extend(back);
     }
-    // After every move, so a host whose monocle window went home is
-    // settled as well as a returning monitor whose one did not come back.
-    clear_stale_monocle(&mut states, &returning, &went_home);
-    moved.extend(went_home);
+    // A host workspace whose monocle window went home is settled once the
+    // windows that moved have joined it (`join_monocle`).
+    moved.extend(&went_home);
 
     Rebuilt {
         monitors: states,
         moved,
         pairs,
         host,
+        went_home,
     }
 }
 

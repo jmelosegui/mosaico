@@ -288,17 +288,24 @@ of the workspace leave monocle on.
 
 A window a display change moves onto a monocle workspace from another
 monitor, in view or not, waits behind the monocle window, whether it held
-focus or not. The next time the workspace is laid out in monocle, it is put
-directly behind the monocle window in the stacking order
-(`WindowControl::put_behind`), then placed at the same rect, once. A window
-that comes home with a returning monitor does the same on its own workspace.
-One that held focus hands it to the monocle window (`settle_focus`), so focus
-is on the window in front. A monocle workspace with no window takes the
-newcomer as its monocle window, as adoption does, and if that window leaves in
-a display change while others wait behind it, the one in front of them becomes
-the monocle window. So a window that arrives never turns monocle off, and a
-visit from another monitor, with focus or not, leaves the monocle window,
-monocle and the stacking as they were.
+focus or not. The next time the workspace is laid out in monocle, the monocle
+window is placed first, then the window is put directly behind it in the
+stacking order (`WindowControl::put_behind`) and placed at the same rect,
+once. A window that comes home with a returning monitor does the same on its
+own workspace. One that held focus hands it to the monocle window
+(`settle_focus`), so focus is on the window in front. A window hidden with
+`hide` is put behind again once it is shown, in case showing it brought it to
+the front. A monocle workspace with no window takes a newcomer as its monocle
+window, as adoption does: the one that has focus, or else the first. If that
+window leaves in a display change while others wait behind it, the one with
+focus or else the one in front of them becomes the monocle window, counting
+the windows that come in the same change. So a window that arrives never turns
+monocle off, and a visit from another monitor, with focus or not, leaves the
+monocle window, monocle and the stacking as they were.
+
+A workspace whose monocle window the user sent or dragged away stays in
+monocle for it to come back, but is tiled meanwhile. A window that lands there
+is tiled with the others and keeps focus, as on any tiled workspace.
 
 The workspace keeps the windows that wait (`Workspace::wait_behind`), so a
 window that leaves it, by any way, leaves nothing waiting, and leaving monocle

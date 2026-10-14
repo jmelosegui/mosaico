@@ -100,6 +100,18 @@ impl Workspace {
         self.visits.forget(next);
         true
     }
+
+    /// Makes `window`, which waits behind the monocle window, the monocle
+    /// window, when the workspace has none on it. The windows that were
+    /// put behind before wait behind it in turn, as they may be in front
+    /// of it.
+    pub(crate) fn hand_monocle_to(&mut self, window: WindowId) {
+        self.monocle_window = Some(window);
+        self.visits.forget(window);
+        for behind in std::mem::take(&mut self.visits.behind) {
+            self.wait_behind(behind);
+        }
+    }
 }
 
 #[cfg(test)]

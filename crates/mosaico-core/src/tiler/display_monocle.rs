@@ -21,7 +21,8 @@ use super::{Effect, MonitorState, Plan, Tiler, Timing};
 impl Tiler {
     /// Puts the windows waiting on the monitor's monocle workspace behind
     /// its monocle window `front`, then at its `rect`, once. Each is put
-    /// behind first, so it never shows in front at full size.
+    /// behind first, so it never shows in front at full size. The caller
+    /// places `front` first, so a waiting window never shows there alone.
     pub(super) fn place_waiting_behind(
         &mut self,
         plan: &mut Plan,
@@ -45,72 +46,96 @@ impl Tiler {
             });
         }
     }
+
+    /// Puts the windows in `waiting` that were just `shown` behind their
+    /// monocle window again. They were put behind it before they were
+    /// shown, while still hidden, and showing a window that was hidden may
+    /// bring it to the front.
+    pub(super) fn put_shown_behind(
+        &self,
+        plan: &mut Plan,
+        waiting: &[WindowId],
+        shown: &[WindowId],
+    ) {
+        for &window in waiting.iter().filter(|w| shown.contains(w)) {
+            let Some((mi, wi)) = self.find_window(window) else {
+                continue;
+            };
+            let ws = &self.monitors[mi].workspaces[wi];
+            if let Some(other) = ws
+                .monocle_window()
+                .filter(|&front| front != window && ws.contains(front))
+            {
+                plan.emit(Effect::PutBehind { window, other });
+            }
+        }
+    }
 }
 
-/// Settles monocle on the workspaces a display change took the monocle
-/// window from.
-///
-/// - One of the `returning` monitors whose monocle window did not come
-///   back leaves monocle, as it always did.
-/// - One whose monocle window `went_home` stays in monocle when windows
-///   wait behind it, with the one in front of them as its monocle window.
-///   Otherwise it keeps monocle with no monocle window if it is empty, as
-///   it was before the window came, and leaves monocle if other windows
-///   remain.
-///
-/// A stale monocle anywhere else is left for its window to come back to.
-pub(super) fn clear_stale_monocle(
-    monitors: &mut [MonitorState],
-    returning: &[usize],
-    went_home: &[WindowId],
-) {
-    for (mi, mon) in monitors.iter_mut().enumerate() {
-        for ws in &mut mon.workspaces {
-            let gone = ws.monocle_window().filter(|&w| !ws.contains(w));
-            if !ws.monocle() {
-                continue;
-            }
-            if returning.contains(&mi) {
-                if !ws.monocle_window().is_some_and(|w| ws.contains(w)) {
-                    ws.set_monocle(false);
-                    ws.set_monocle_window(None);
-                }
-                continue;
-            }
-            if !gone.is_some_and(|w| went_home.contains(&w)) || ws.pass_monocle_on() {
-                continue;
-            }
-            if !ws.is_empty() {
-                ws.set_monocle(false);
-            }
+/// Turns monocle off on the workspaces of a returning monitor whose
+/// monocle window did not come back, as it always did.
+pub(super) fn clear_stale_monocle(monitor: &mut MonitorState) {
+    for ws in &mut monitor.workspaces {
+        if ws.monocle() && !ws.monocle_window().is_some_and(|w| ws.contains(w)) {
+            ws.set_monocle(false);
             ws.set_monocle_window(None);
         }
     }
 }
 
 /// Settles monocle on the workspaces that the windows in `joined`, which
-/// came from another monitor, moved onto.
+/// came from another monitor, moved onto, and on those whose monocle
+/// window `went_home`, once all of them have joined. Returns the windows
+/// that joined and wait behind a monocle window.
 ///
-/// - One that is alone on a monocle workspace with no monocle window
-///   becomes its monocle window, as on adoption.
-/// - Any other waits behind the monocle window, with focus or not.
-/// - A workspace's own monocle window coming home changes nothing.
-pub(super) fn join_monocle(monitors: &mut [MonitorState], joined: &[WindowId]) {
-    for &window in joined {
-        let Some(ws) = monitors
-            .iter_mut()
-            .flat_map(|m| m.workspaces.iter_mut())
-            .find(|ws| ws.contains(window))
-        else {
-            continue;
-        };
-        if !ws.monocle() || ws.monocle_window() == Some(window) {
+/// - A workspace whose monocle window is set but not on it, because the
+///   user sent or dragged it away, is tiled until it comes back, so
+///   nothing waits there.
+/// - Anywhere else in monocle each window waits behind the monocle
+///   window, with focus or not. A workspace's own monocle window coming
+///   home changes nothing.
+/// - A workspace whose monocle window went home, or an empty one with no
+///   monocle window, takes one of the windows that wait as its monocle
+///   window: the `focused` one, else the one put behind last, which is in
+///   front of the others, else the first. Without one, a workspace whose
+///   monocle window went home keeps monocle with no monocle window if it
+///   is empty, as it was before the window came, and leaves monocle if
+///   other windows remain.
+pub(super) fn join_monocle(
+    monitors: &mut [MonitorState],
+    joined: &[WindowId],
+    went_home: &[WindowId],
+    focused: Option<WindowId>,
+) -> Vec<WindowId> {
+    let mut waiting = Vec::new();
+    for ws in monitors.iter_mut().flat_map(|m| m.workspaces.iter_mut()) {
+        let monocle_window = ws.monocle_window();
+        let away = monocle_window.filter(|&w| !ws.contains(w));
+        let gone_home = away.is_some_and(|w| went_home.contains(&w));
+        if !ws.monocle() || (away.is_some() && !gone_home) {
             continue;
         }
-        if ws.monocle_window().is_none() && ws.len() == 1 {
-            ws.set_monocle_window(Some(window));
-        } else {
+        let newcomers: Vec<WindowId> = ws
+            .windows()
+            .iter()
+            .copied()
+            .filter(|&w| joined.contains(&w) && Some(w) != monocle_window)
+            .collect();
+        let was_empty = monocle_window.is_none() && newcomers.len() == ws.len();
+        for &window in &newcomers {
             ws.wait_behind(window);
         }
+        if gone_home || (was_empty && !newcomers.is_empty()) {
+            if let Some(window) = focused.filter(|&w| ws.waits_behind(w)) {
+                ws.hand_monocle_to(window);
+            } else if !ws.pass_monocle_on() && gone_home {
+                if !ws.is_empty() {
+                    ws.set_monocle(false);
+                }
+                ws.set_monocle_window(None);
+            }
+        }
+        waiting.extend(newcomers.into_iter().filter(|&w| ws.waits_behind(w)));
     }
+    waiting
 }

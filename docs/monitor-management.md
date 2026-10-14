@@ -149,14 +149,14 @@ which keeps a `ReconnectMemory` (`tiler/reconnect.rs`) owned by the core
   whose home is that monitor back to its workspace, in slot order, but only
   if it is still on the host workspace it was put on. A window the user
   moved somewhere else stays there. The record is dropped either way.
-  Once every window has moved, monocle is settled on the workspaces the
-  change took the monocle window from. One of a returning monitor whose
-  monocle window did not come back leaves monocle. One whose monocle window
-  went home stays in monocle when windows wait behind it there, with the one
-  in front of them as its monocle window; otherwise it keeps monocle with no
-  monocle window if it is empty, and leaves monocle if other windows remain.
-  A stale monocle anywhere else, such as one whose monocle window the user
-  sent away, is left for that window to come back to.
+  A returning monitor's workspace whose monocle window did not come back
+  leaves monocle. A workspace whose monocle window went home is settled once
+  the windows that moved have joined it: it stays in monocle when windows wait
+  behind it there, with the one that has focus, or else the one in front of
+  them, as its monocle window. Otherwise it keeps monocle with no monocle
+  window if it is empty, and leaves monocle if other windows remain. A stale
+  monocle anywhere else, such as one whose monocle window the user sent away,
+  is left for that window to come back to.
 - **New monitors** start with workspaces built from `[workspaces.layouts]`.
 
 A window displaced twice (its host disconnects as well) keeps its original

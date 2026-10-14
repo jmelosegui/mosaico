@@ -64,16 +64,21 @@ impl Tiler {
     /// `hiding` are hidden. The caller draws the borders afterwards.
     ///
     /// A focused window still in view keeps focus, wherever it moved,
-    /// unless the change has it wait behind a monocle window: then it
-    /// hands focus to the workspace's window ([`focus_target`]), the one
-    /// in front, so focus is on what is on screen (#132). One about to be
-    /// hidden hands focus to the focused monitor's window, as in a
-    /// workspace switch, and with nothing there to take it, focus is
-    /// parked on that monitor. Either way the system's own pick, once the
-    /// focused window is hidden, is not followed: the echo filter drops it
-    /// while the focus change is held, and the empty claim while focus is
-    /// parked.
-    pub(super) fn settle_focus(&mut self, plan: &mut Plan, hiding: &[WindowId]) {
+    /// unless it is one of the windows the change has `waiting` behind a
+    /// monocle window: then it hands focus to the workspace's window
+    /// ([`focus_target`]), the one in front, so focus is on what is on
+    /// screen (#132). One about to be hidden hands focus to the focused
+    /// monitor's window, as in a workspace switch, and with nothing there
+    /// to take it, focus is parked on that monitor. Either way the
+    /// system's own pick, once the focused window is hidden, is not
+    /// followed: the echo filter drops it while the focus change is held,
+    /// and the empty claim while focus is parked.
+    pub(super) fn settle_focus(
+        &mut self,
+        plan: &mut Plan,
+        hiding: &[WindowId],
+        waiting: &[WindowId],
+    ) {
         if let Some((mi, _)) = self
             .focused_window
             .filter(|&w| self.is_on_active_workspace(w))
@@ -83,7 +88,7 @@ impl Tiler {
             let ws = self.monitors[mi].active_ws();
             if let Some(front) = self
                 .focused_window
-                .filter(|&w| ws.waits_behind(w))
+                .filter(|w| waiting.contains(w))
                 .and_then(|w| focus_target(ws).filter(|&front| front != w))
             {
                 self.take_focus(plan, front, false);

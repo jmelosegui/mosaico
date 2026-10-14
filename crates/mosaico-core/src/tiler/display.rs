@@ -104,7 +104,12 @@ impl Tiler {
         // it to the monocle window as focus settles (#132). Only the
         // windows the rebuild moved count, once the line-up has settled
         // which workspaces are in view.
-        join_monocle(&mut self.monitors, &from_elsewhere);
+        let waiting = join_monocle(
+            &mut self.monitors,
+            &from_elsewhere,
+            &rebuilt.went_home,
+            self.focused_window,
+        );
 
         // Focus settles first, so a focused window about to be hidden has
         // handed it on and the system's own pick is not followed. Windows
@@ -116,7 +121,7 @@ impl Tiler {
         let (shown, hidden): (Vec<WindowId>, Vec<WindowId>) = moved
             .into_iter()
             .partition(|&w| self.is_on_active_workspace(w));
-        self.settle_focus(plan, &hidden);
+        self.settle_focus(plan, &hidden, &waiting);
         let how = self.layout.hiding;
         for &window in &hidden {
             self.hidden_how.hide(plan, window, how);
@@ -133,6 +138,7 @@ impl Tiler {
         for &window in &shown {
             self.hidden_how.show(plan, window, how);
         }
+        self.put_shown_behind(plan, &waiting, &shown);
         self.repaint_visible(plan);
         self.update_border(plan);
     }
