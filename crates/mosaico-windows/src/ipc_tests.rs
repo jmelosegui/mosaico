@@ -3,7 +3,9 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 
-use mosaico_core::ipc::{Command, Request, Response, read_message, serve, write_message};
+use mosaico_core::ipc::{
+    Command, Request, Response, read_message, serve, serve_with_timeout, write_message,
+};
 
 use super::*;
 
@@ -147,6 +149,49 @@ fn a_client_that_leaves_before_it_is_served_does_not_stop_the_server() {
     assert_eq!(reply.message.as_deref(), Some("Inspect"));
 
     // Cleanup
+    client.send(&Command::Stop).unwrap();
+    server.join().unwrap();
+}
+
+#[test]
+fn a_client_that_never_sends_does_not_block_the_next_one() {
+    // #83
+    // Arrange -- a server that gives a client 200 ms to send its request,
+    // and a client that connects and never sends anything.
+    let name = test_pipe("silent");
+    let server_name = name.clone();
+    let server = thread::spawn(move || {
+        let mut server = PipeServer::new(&server_name);
+        serve_with_timeout(&mut server, Duration::from_millis(200), |command| {
+            Some(Response::ok_with_message(format!("{command:?}")))
+        })
+    });
+    let client = PipeClient::new(&name);
+    for _ in 0..100 {
+        if client.is_daemon_running() {
+            break;
+        }
+        thread::sleep(Duration::from_millis(10));
+    }
+    let silent = client.connect().expect("the silent client connects");
+
+    // Act -- the next client asks for the status while the silent one
+    // is still connected.
+    let (reply_tx, reply_rx) = mpsc::channel();
+    let next_name = name.clone();
+    thread::spawn(move || {
+        let _ = reply_tx.send(PipeClient::new(&next_name).send(&Command::Status));
+    });
+
+    // Assert
+    let reply = reply_rx
+        .recv_timeout(Duration::from_secs(3))
+        .expect("the next client was never answered while a silent client held the daemon")
+        .expect("the next client gets a reply");
+    assert_eq!(reply.message.as_deref(), Some("Status"));
+
+    // Cleanup
+    drop(silent);
     client.send(&Command::Stop).unwrap();
     server.join().unwrap();
 }
