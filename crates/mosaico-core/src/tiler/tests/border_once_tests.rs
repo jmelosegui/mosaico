@@ -147,13 +147,18 @@ fn a_workspace_switch_draws_each_border_once() {
     // Arrange
     let mut h = colored(&[(1, 0), (2, 0), (3, 0)]);
 
-    // Act -- send a window away, follow it, and come back.
+    // Act -- send a window away, which follows it there, come back, and
+    // go there again.
     let sent = h.action(Action::SendToWorkspace(2)).to_vec();
-    let there = h.action(Action::GoToWorkspace(2)).to_vec();
     let back = h.action(Action::GoToWorkspace(1)).to_vec();
+    let again = h.action(Action::GoToWorkspace(2)).to_vec();
 
     // Assert
-    for effects in [sent, there, back] {
+    for effects in [sent, back, again] {
+        assert!(
+            effects.iter().any(|e| matches!(e, Effect::Border { .. })),
+            "a switch that draws no border: {effects:?}"
+        );
         assert_each_border_once_after_its_window(&effects);
     }
 }
