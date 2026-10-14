@@ -1,5 +1,7 @@
 use std::path::{Path, PathBuf};
 
+use crate::Result;
+
 use super::*;
 
 /// An absolute path on any system, named after `name`. Nothing is
@@ -185,4 +187,79 @@ fn an_entry_that_names_no_program_is_empty() {
 
     // Assert
     assert_eq!(status, AutostartStatus::Empty);
+}
+
+/// A registration for the tests, turned off when `turned_off` is set.
+struct Registered {
+    command: Option<LaunchCommand>,
+    turned_off: bool,
+}
+
+impl Autostart for Registered {
+    fn registered_command(&self) -> Result<Option<LaunchCommand>> {
+        Ok(self.command.clone())
+    }
+
+    fn is_turned_off(&self) -> Result<bool> {
+        Ok(self.turned_off)
+    }
+
+    fn enable(&self, _: &LaunchCommand) -> Result<()> {
+        unreachable!("reading does not enable")
+    }
+
+    fn disable(&self) -> Result<()> {
+        unreachable!("reading does not disable")
+    }
+}
+
+/// An executable lookup that must not be asked.
+fn no_exe() -> Result<PathBuf> {
+    panic!("asked for the running executable");
+}
+
+#[test]
+fn reading_nothing_registered_needs_no_executable() {
+    // Arrange
+    let autostart = Registered {
+        command: None,
+        turned_off: false,
+    };
+
+    // Act
+    let status = AutostartStatus::read(&autostart, &Untouched, no_exe).unwrap();
+
+    // Assert
+    assert_eq!(status, AutostartStatus::Disabled);
+}
+
+#[test]
+fn an_entry_the_user_turned_off_is_turned_off_whatever_it_starts() {
+    // Arrange
+    let autostart = Registered {
+        command: Some(LaunchCommand::autostart(path("another-mosaico"))),
+        turned_off: true,
+    };
+
+    // Act
+    let status = AutostartStatus::read(&autostart, &Untouched, no_exe).unwrap();
+
+    // Assert
+    assert_eq!(status, AutostartStatus::TurnedOff);
+}
+
+#[test]
+fn an_entry_that_is_on_is_compared_with_the_running_executable() {
+    // Arrange
+    let exe = path("mosaico");
+    let autostart = Registered {
+        command: Some(LaunchCommand::autostart(&exe)),
+        turned_off: false,
+    };
+
+    // Act
+    let status = AutostartStatus::read(&autostart, &Untouched, || Ok(exe.clone())).unwrap();
+
+    // Assert
+    assert_eq!(status, AutostartStatus::Enabled);
 }

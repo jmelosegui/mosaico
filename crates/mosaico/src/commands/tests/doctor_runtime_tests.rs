@@ -252,3 +252,22 @@ fn an_empty_autostart_entry_fails() {
         )
     );
 }
+
+#[test]
+fn an_autostart_entry_the_user_turned_off_is_a_warning() {
+    // Arrange
+    let mut h = Harness::new("doctor-autostart-turned-off");
+    *h.world.autostart.borrow_mut() = Some(LaunchCommand::autostart(EXE));
+    h.world.turned_off.set(true);
+
+    // Act
+    let out = autostart_check(&mut h);
+
+    // Assert
+    assert_eq!(
+        out,
+        format!(
+            "  {WARN} Autostart is turned off in the startup apps settings (run `mosaico autostart enable` to turn it back on)\n"
+        )
+    );
+}

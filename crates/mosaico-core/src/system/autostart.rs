@@ -55,8 +55,8 @@ impl fmt::Display for LaunchCommand {
 /// - `enable` registers exactly the command it is given: at login the
 ///   platform runs its `program` with its `args`, in order, and nothing
 ///   else. Once it succeeds, `registered_command` returns an equal
-///   command. A command the platform cannot store so that it reads back
-///   the same is refused with
+///   command and `is_turned_off` is false. A command the platform cannot
+///   store so that it reads back the same is refused with
 ///   [`Error::Unsupported`](crate::Error::Unsupported), and the
 ///   registration is left as it was.
 /// - `registered_command` reports the program and arguments that run at
@@ -69,6 +69,12 @@ impl fmt::Display for LaunchCommand {
 /// - `registered_command` returns `None` only when nothing is
 ///   registered. An entry that names no program comes back with an
 ///   empty `program`, and one that cannot be read is an error.
+/// - Some systems let the user turn a registered program off in their
+///   own startup settings without removing it, and then do not start it
+///   at login. `is_turned_off` reports that for mosaico's entry, `enable`
+///   turns the entry back on, and `disable` leaves the setting alone. A
+///   platform without such a setting returns false. The setting of
+///   another program's entry is never changed.
 /// - `disable` succeeds when nothing was registered.
 /// - A registration, removal or read that fails in the system is an
 ///   [`Error::Platform`](crate::Error::Platform).
@@ -80,7 +86,13 @@ pub trait Autostart {
     /// registered.
     fn registered_command(&self) -> Result<Option<LaunchCommand>>;
 
-    /// Registers `command` to run when the user logs in.
+    /// Whether the user turned mosaico's entry off in the system's own
+    /// startup settings, so that it does not run at login although it is
+    /// registered.
+    fn is_turned_off(&self) -> Result<bool>;
+
+    /// Registers `command` to run when the user logs in, turning the
+    /// entry on if the user had turned it off.
     fn enable(&self, command: &LaunchCommand) -> Result<()>;
 
     /// Removes the registration.

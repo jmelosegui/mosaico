@@ -69,6 +69,9 @@ pub struct World {
     pub launch: RefCell<Launch>,
     /// What is registered to start at login.
     pub autostart: RefCell<Option<LaunchCommand>>,
+    /// Whether the user turned the registration off in the system's
+    /// startup settings.
+    pub turned_off: Cell<bool>,
     /// Error the autostart registration fails with, if any.
     pub autostart_error: RefCell<Option<String>>,
     /// Windows placed, and where, in order.
@@ -94,6 +97,7 @@ impl Default for World {
             can_kill: Cell::new(true),
             launch: RefCell::new(Launch::Answers(4321)),
             autostart: RefCell::default(),
+            turned_off: Cell::new(false),
             autostart_error: RefCell::default(),
             placed: RefCell::default(),
             place_error: RefCell::default(),

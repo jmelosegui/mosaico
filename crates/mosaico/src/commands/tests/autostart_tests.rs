@@ -173,3 +173,36 @@ fn status_says_when_the_entry_is_empty() {
         "Autostart is currently enabled, but its entry is empty (run `mosaico autostart enable` or `mosaico autostart disable`).\n"
     );
 }
+
+#[test]
+fn status_says_when_the_user_turned_autostart_off() {
+    // Arrange
+    let mut h = Harness::new("autostart-status-turned-off");
+    *h.world.autostart.borrow_mut() = Some(LaunchCommand::autostart(EXE));
+    h.world.turned_off.set(true);
+
+    // Act
+    let exit = h.run(status);
+
+    // Assert
+    assert_eq!(exit, Exit::Success);
+    assert_eq!(
+        h.out(),
+        "Autostart is currently turned off in the startup apps settings (run `mosaico autostart enable` to turn it back on).\n"
+    );
+}
+
+#[test]
+fn enabling_turns_autostart_back_on() {
+    // Arrange
+    let mut h = Harness::new("autostart-enable-turned-off");
+    *h.world.autostart.borrow_mut() = Some(LaunchCommand::autostart(EXE));
+    h.world.turned_off.set(true);
+
+    // Act
+    let exit = h.run(enable);
+
+    // Assert
+    assert_eq!(exit, Exit::Success);
+    assert!(!h.world.turned_off.get(), "still turned off");
+}

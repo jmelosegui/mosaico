@@ -60,8 +60,8 @@ Checks performed:
 8. `user-rules.toml` syntax validation
 9. `bar.toml` syntax validation
 10. Autostart status: warns when the startup entry starts another copy of
-    mosaico or other arguments, fails when the program it starts no longer
-    exists
+    mosaico or other arguments, or is turned off in the startup apps
+    settings, fails when the program it starts no longer exists
 11. Daemon status (IPC pipe, PID file, process liveness)
 12. Monitor enumeration and dimensions
 
@@ -82,6 +82,11 @@ The entry starts the `mosaico.exe` you ran `enable` with. If you move the
 binary, or install another copy, the entry keeps pointing at the old one:
 `mosaico autostart status` and `mosaico doctor` say so, and running
 `mosaico autostart enable` again from the right copy fixes it.
+
+Turning mosaico off under Settings > Apps > Startup, or in Task Manager's
+Startup apps, keeps the entry but stops it from running at logon.
+`mosaico autostart status` and `mosaico doctor` report that too, and
+`mosaico autostart enable` turns it back on.
 
 On first run, `mosaico init` also prompts to enable autostart.
 

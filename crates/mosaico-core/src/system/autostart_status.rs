@@ -1,15 +1,20 @@
 //! Telling whether what is registered to start at login still starts
 //! this mosaico.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-use super::{FileProbe, LaunchCommand};
+use crate::Result;
+
+use super::{Autostart, FileProbe, LaunchCommand};
 
 /// How the registration compares with what this mosaico registers.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AutostartStatus {
     /// Nothing is registered.
     Disabled,
+    /// An entry is registered, but the user turned it off in the system's
+    /// startup settings, so it does not start at login.
+    TurnedOff,
     /// An entry is registered, but it names no program, so nothing starts
     /// at login.
     Empty,
@@ -30,6 +35,27 @@ pub enum AutostartStatus {
 }
 
 impl AutostartStatus {
+    /// Asks `autostart` what is registered and, unless the user turned it
+    /// off, compares it with what enabling autostart from the running
+    /// executable registers, see [`AutostartStatus::of`].
+    ///
+    /// `exe` finds the running executable. It is only asked when an entry
+    /// is registered and turned on, so "disabled" and "turned off" are
+    /// reported even when it cannot be found.
+    pub fn read(
+        autostart: &dyn Autostart,
+        files: &dyn FileProbe,
+        exe: impl FnOnce() -> Result<PathBuf>,
+    ) -> Result<Self> {
+        let Some(registered) = autostart.registered_command()? else {
+            return Ok(Self::Disabled);
+        };
+        if autostart.is_turned_off()? {
+            return Ok(Self::TurnedOff);
+        }
+        Ok(Self::of(Some(registered), &exe()?, files))
+    }
+
     /// Compares `registered` with what enabling autostart from `exe`, the
     /// running executable, registers, asking `files` about the program.
     ///

@@ -39,9 +39,15 @@ impl Autostart for World {
         Ok(self.autostart.borrow().clone())
     }
 
+    fn is_turned_off(&self) -> Result<bool> {
+        self.autostart_fails()?;
+        Ok(self.turned_off.get())
+    }
+
     fn enable(&self, command: &LaunchCommand) -> Result<()> {
         self.autostart_fails()?;
         *self.autostart.borrow_mut() = Some(command.clone());
+        self.turned_off.set(false);
         Ok(())
     }
 

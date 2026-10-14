@@ -37,6 +37,10 @@ pub fn status(cx: &mut Context) -> Exit {
     match check(cx) {
         Ok(AutostartStatus::Enabled) => say!(cx, "Autostart is currently enabled."),
         Ok(AutostartStatus::Disabled) => say!(cx, "Autostart is currently disabled."),
+        Ok(AutostartStatus::TurnedOff) => say!(
+            cx,
+            "Autostart is currently turned off in the startup apps settings (run `mosaico autostart enable` to turn it back on)."
+        ),
         Ok(AutostartStatus::Empty) => say!(
             cx,
             "Autostart is currently enabled, but its entry is empty (run `mosaico autostart enable` or `mosaico autostart disable`)."
@@ -62,23 +66,16 @@ pub fn status(cx: &mut Context) -> Exit {
 }
 
 /// Registers the mosaico executable this command runs from to start at
-/// login, replacing any earlier registration.
+/// login, replacing any earlier registration and turning it on.
 pub fn register(cx: &Context) -> mosaico_core::Result<()> {
     let exe = running_exe(cx)?;
     cx.autostart.enable(&LaunchCommand::autostart(exe))
 }
 
-/// How the registration compares with what [`register`] would register.
-///
-/// Reads the registration first, so that with nothing registered the
-/// answer is "disabled" even when the executable cannot be found.
+/// How the registration compares with what [`register`] would register,
+/// see [`AutostartStatus::read`].
 pub fn check(cx: &Context) -> mosaico_core::Result<AutostartStatus> {
-    let registered = cx.autostart.registered_command()?;
-    if registered.is_none() {
-        return Ok(AutostartStatus::Disabled);
-    }
-    let exe = running_exe(cx)?;
-    Ok(AutostartStatus::of(registered, &exe, cx.files))
+    AutostartStatus::read(cx.autostart, cx.files, || running_exe(cx))
 }
 
 /// The mosaico executable this command runs from.

@@ -143,9 +143,11 @@ Checks performed:
 6. **bar.toml** -- validates syntax via `try_load_bar()`
 7. **Autostart** -- compares what is registered to start at login with what
    `mosaico autostart enable` would register from the running executable
-   (`AutostartStatus::of` in `mosaico_core::system`): `[ok]` when they match,
-   `[warn]` when nothing is registered or another command is (another copy
-   of mosaico, or other arguments), `[fail]` when the registered program is
+   (`AutostartStatus::read` in `mosaico_core::system`): `[ok]` when they
+   match, `[warn]` when nothing is registered, when the user turned the
+   entry off in the startup apps settings (Settings or Task Manager), or
+   when another command is registered (another copy of mosaico, or other
+   arguments), `[fail]` when the registered program is
    not a file (the binary moved or was deleted), the entry names no program,
    or the registration cannot be read. A program on a network share is not
    looked at, so it counts as another command. Doctor only reports; it never
