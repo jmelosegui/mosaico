@@ -196,9 +196,8 @@ All loaders follow the same pattern:
    the theme, so `load_config()` validates the defaults it falls back to as
    well. The bar defaults are within every limit already, so the bar falls
    back to them as they are. Its colors are filled from the theme when the
-   bar is created, reloaded or rebuilt, for a loaded bar and the defaults
-   alike; widget colors given by name are not refilled after a theme change
-   (#109)
+   bar is created, reloaded or rebuilt, and again when the theme changes,
+   for a loaded bar and the defaults alike
 
 ### Files a Newer Version Updates
 
