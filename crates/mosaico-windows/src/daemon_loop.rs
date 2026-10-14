@@ -1,12 +1,14 @@
 use std::sync::mpsc;
 
 use mosaico_core::Result;
+use mosaico_core::bar::BarManager;
 use mosaico_core::config::ConfigStore;
 use mosaico_core::tiler::Enumerator;
 
-use crate::bar_manager::BarManager;
+use crate::bar::Win32BarRenderer;
 use crate::enumerate::WindowsEnumerator;
 use crate::http::WinHttpClient;
+use crate::system_info::Win32SystemInfo;
 use crate::tiling::TilingManager;
 
 use super::daemon_inputs::Inputs;
@@ -46,7 +48,13 @@ pub(super) fn daemon_loop(pipe_name: &str, store: &ConfigStore) -> Result<()> {
         .iter()
         .map(|m| m.work_area)
         .collect();
-    let mut bar_mgr = BarManager::new(bar_config, monitor_rects, current_theme);
+    let mut bar_mgr = BarManager::new(
+        Box::new(Win32BarRenderer),
+        Box::new(Win32SystemInfo),
+        bar_config,
+        monitor_rects,
+        current_theme,
+    );
 
     let (tx, rx) = mpsc::channel::<DaemonMsg>();
 

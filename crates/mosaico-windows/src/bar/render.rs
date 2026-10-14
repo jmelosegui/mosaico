@@ -5,6 +5,8 @@
 
 use std::mem;
 
+use mosaico_core::Error;
+use mosaico_core::bar::BarContent;
 use mosaico_core::config::bar::BarConfig;
 use windows::Win32::Foundation::HWND;
 use windows::Win32::Graphics::Gdi::{
@@ -16,10 +18,13 @@ use windows::Win32::UI::WindowsAndMessaging::{ULW_ALPHA, UpdateLayeredWindow};
 use windows::core::PCWSTR;
 
 use super::text::{DrawCtx, pixel_from_color_alpha};
-use super::widgets::{self, BarState};
+use super::widgets;
 use crate::border::Color;
+use crate::error::OrPlatform;
 
 /// Renders the full bar content and applies it to the layered window.
+///
+/// A bar with no area has nothing to draw, which is not an error.
 pub fn render_bar(
     hwnd: HWND,
     x: i32,
@@ -27,10 +32,10 @@ pub fn render_bar(
     w: i32,
     h: i32,
     config: &BarConfig,
-    state: &BarState,
-) {
+    content: &BarContent,
+) -> mosaico_core::Result<()> {
     if w <= 0 || h <= 0 {
-        return;
+        return Ok(());
     }
 
     // SAFETY: This block creates a temporary memory DC + DIB section,
@@ -54,17 +59,24 @@ pub fn render_bar(
         };
 
         let mut bits = std::ptr::null_mut();
-        let Ok(bmp) = CreateDIBSection(Some(mem_dc), &bmi, DIB_RGB_COLORS, &mut bits, None, 0)
-        else {
-            let _ = DeleteDC(mem_dc);
-            let _ = ReleaseDC(None, screen_dc);
-            return;
+        let created = CreateDIBSection(Some(mem_dc), &bmi, DIB_RGB_COLORS, &mut bits, None, 0)
+            .or_platform("create the bar bitmap");
+        let bmp = match created {
+            Ok(bmp) => bmp,
+            Err(e) => {
+                let _ = DeleteDC(mem_dc);
+                let _ = ReleaseDC(None, screen_dc);
+                return Err(e);
+            }
         };
         if bits.is_null() {
             let _ = DeleteObject(bmp.into());
             let _ = DeleteDC(mem_dc);
             let _ = ReleaseDC(None, screen_dc);
-            return;
+            return Err(Error::platform(
+                "create the bar bitmap",
+                "the bitmap has no pixels",
+            ));
         }
 
         let old_bmp = SelectObject(mem_dc, bmp.into());
@@ -115,11 +127,11 @@ pub fn render_bar(
         };
 
         // Delegate to widget renderers
-        widgets::draw_left(&mut ctx, config, state);
-        widgets::draw_right(&mut ctx, config, state);
+        widgets::draw_left(&mut ctx, config, &content.left);
+        widgets::draw_right(&mut ctx, config, &content.right);
 
         // Apply to layered window
-        apply_layered(hwnd, screen_dc, mem_dc, x, y, w, h);
+        let applied = apply_layered(hwnd, screen_dc, mem_dc, x, y, w, h);
 
         // Cleanup
         SelectObject(mem_dc, old_font);
@@ -128,6 +140,8 @@ pub fn render_bar(
         let _ = DeleteObject(bmp.into());
         let _ = DeleteDC(mem_dc);
         let _ = ReleaseDC(None, screen_dc);
+
+        applied.or_platform("show the bar's pixels")
     }
 }
 
@@ -140,7 +154,7 @@ unsafe fn apply_layered(
     y: i32,
     w: i32,
     h: i32,
-) {
+) -> windows::core::Result<()> {
     let blend = windows::Win32::Graphics::Gdi::BLENDFUNCTION {
         BlendOp: 0,
         SourceConstantAlpha: 255,
@@ -150,7 +164,7 @@ unsafe fn apply_layered(
     // SAFETY: UpdateLayeredWindow atomically sets the window's position,
     // size, and pixel content from the prepared memory DC.
     unsafe {
-        let _ = UpdateLayeredWindow(
+        UpdateLayeredWindow(
             hwnd,
             Some(screen_dc),
             Some(&windows::Win32::Foundation::POINT { x, y }),
@@ -160,6 +174,6 @@ unsafe fn apply_layered(
             windows::Win32::Foundation::COLORREF(0),
             Some(&blend),
             ULW_ALPHA,
-        );
+        )
     }
 }

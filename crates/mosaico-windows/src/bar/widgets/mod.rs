@@ -1,144 +1,86 @@
-//! Widget rendering dispatch for the status bar.
+//! Draws a bar's items into its pixel buffer.
 //!
-//! Each widget lives in its own module and knows how to produce its
-//! text content. The `left`/`right` arrays in `bar.toml` control
-//! which widgets appear and in what order — removing an entry hides
-//! that widget entirely.
+//! Core decides what each bar shows, as a list of
+//! [`BarItem`](mosaico_core::bar::BarItem)s per side. This module lays
+//! them out from the bar's edges and draws them with GDI.
 
 pub mod active_window;
-pub mod clock;
-pub mod cpu;
-pub mod date;
-pub mod layout;
-pub mod media;
-pub mod paused;
-pub mod ram;
-mod system;
-pub mod update;
 pub mod workspaces;
 
-use mosaico_core::WindowId;
-use mosaico_core::config::bar::{BarConfig, WidgetConfig};
+use mosaico_core::bar::BarItem;
+use mosaico_core::config::bar::BarConfig;
 
 use super::text::{DrawCtx, draw_pill, draw_text, measure_text};
 
-/// Snapshot of tiling and system state needed by bar widgets.
-///
-/// The daemon populates this and passes it to `Bar::update()`.
-#[derive(Debug, Clone)]
-pub struct BarState {
-    pub active_workspace: usize,
-    pub workspace_count: usize,
-    pub layout_name: String,
-    pub monocle: bool,
-    pub cpu_usage: u32,
-    /// Set by the daemon when a newer version is available.
-    pub update_text: String,
-    /// The focused window on this monitor, for the icon widget.
-    pub focused_window: Option<WindowId>,
-    /// Formatted media info (e.g. "Artist - Title"). Empty = nothing playing.
-    pub media_text: String,
-    /// Whether mosaico hotkeys are currently paused.
-    pub paused: bool,
-}
-
-impl Default for BarState {
-    fn default() -> Self {
-        Self {
-            active_workspace: 0,
-            workspace_count: 8,
-            layout_name: "BSP".into(),
-            monocle: false,
-            cpu_usage: 0,
-            update_text: String::new(),
-            focused_window: None,
-            media_text: String::new(),
-            paused: false,
-        }
-    }
-}
-
-/// Draws all left-side widgets. Returns the final cursor X.
-pub fn draw_left(ctx: &mut DrawCtx, config: &BarConfig, state: &BarState) -> i32 {
+/// Draws the left items from the left edge. Returns the final cursor X.
+pub fn draw_left(ctx: &mut DrawCtx, config: &BarConfig, items: &[BarItem]) -> i32 {
     let mut x = config.padding;
-    let mut drawn = 0;
-    for widget in &config.left {
-        if should_skip(widget, state) {
-            continue;
-        }
-        if drawn > 0 {
-            x = draw_separator(ctx, x, config);
-        }
-        x = match widget {
-            WidgetConfig::Workspaces { .. } => workspaces::draw(ctx, x, config, state),
-            WidgetConfig::ActiveWindow { .. } => {
-                active_window::draw(ctx, x, config, state.focused_window)
+    for item in items {
+        x = match item {
+            BarItem::Workspaces { labels, active } => {
+                workspaces::draw(ctx, x, config, labels, *active)
             }
-            _ => draw_pill_widget(ctx, x, config, state, widget),
+            BarItem::WindowIcon(window) => active_window::draw(ctx, x, config, *window),
+            BarItem::Pill {
+                label,
+                text_color,
+                border_color,
+            } => {
+                let pill_w = pill_width(ctx, config, label);
+                draw_label_pill(ctx, x, pill_w, config, label, text_color, border_color);
+                x + pill_w + config.item_gap
+            }
+            BarItem::Separator(text) => {
+                draw_text(ctx, x, text, &config.colors.separator) + config.item_gap
+            }
         };
-        drawn += 1;
     }
     x
 }
 
-/// Draws all right-side widgets. Returns the final right-edge X.
-pub fn draw_right(ctx: &mut DrawCtx, config: &BarConfig, state: &BarState) -> i32 {
+/// Draws the right items from the right edge. Returns the final
+/// right-edge X.
+pub fn draw_right(ctx: &mut DrawCtx, config: &BarConfig, items: &[BarItem]) -> i32 {
     let mut rx = ctx.w - config.padding;
-    let mut drawn = 0;
-    for widget in &config.right {
-        if should_skip(widget, state) {
-            continue;
-        }
-        if drawn > 0 {
-            rx = draw_separator_right(ctx, rx, config);
-        }
-        rx = draw_pill_right(ctx, rx, config, state, widget);
-        drawn += 1;
+    for item in items {
+        rx = match item {
+            BarItem::Pill {
+                label,
+                text_color,
+                border_color,
+            } => {
+                let pill_w = pill_width(ctx, config, label);
+                let x = rx - pill_w;
+                draw_label_pill(ctx, x, pill_w, config, label, text_color, border_color);
+                x - config.item_gap
+            }
+            BarItem::Separator(text) => {
+                let x = rx - measure_text(ctx.dc, text);
+                draw_text(ctx, x, text, &config.colors.separator);
+                x - config.item_gap
+            }
+            // Core draws these as pills on the right.
+            BarItem::Workspaces { .. } | BarItem::WindowIcon(_) => rx,
+        };
     }
     rx
 }
 
-/// Returns true if a widget should be skipped during rendering.
-fn should_skip(widget: &WidgetConfig, state: &BarState) -> bool {
-    if !widget.enabled() {
-        return true;
-    }
-    // Hide the update widget when there is no update available.
-    if matches!(widget, WidgetConfig::Update { .. }) && state.update_text.is_empty() {
-        return true;
-    }
-    // Hide the media widget when nothing is playing.
-    if matches!(widget, WidgetConfig::Media { .. }) && state.media_text.is_empty() {
-        return true;
-    }
-    // Hide the paused widget when hotkeys are not paused.
-    matches!(widget, WidgetConfig::Paused { .. }) && !state.paused
+/// Width of the pill around `label`.
+fn pill_width(ctx: &DrawCtx, config: &BarConfig, label: &str) -> i32 {
+    measure_text(ctx.dc, label) + config.pill_padding * 2
 }
 
-// -- shared pill rendering ------------------------------------------------
-
-/// Draws a widget as a pill (icon + text) and returns X after it.
-fn draw_pill_widget(
+/// Draws a pill `width` wide at `x`, with `label` inside it.
+fn draw_label_pill(
     ctx: &mut DrawCtx,
     x: i32,
+    width: i32,
     config: &BarConfig,
-    state: &BarState,
-    widget: &WidgetConfig,
-) -> i32 {
-    let label = widget_label(state, widget);
-    let wc = widget.color();
-    let fg = if wc.is_empty() {
-        &config.colors.foreground
-    } else {
-        wc
-    };
-    let border = if wc.is_empty() {
-        &config.colors.pill_border
-    } else {
-        wc
-    };
-    let tw = measure_text(ctx.dc, &label);
-    let pill_w = tw + config.pill_padding * 2;
+    label: &str,
+    text_color: &str,
+    border_color: &str,
+) {
     let pill_y = pill_top(ctx.h);
     let pill_h = ctx.h - pill_y * 2;
 
@@ -146,105 +88,14 @@ fn draw_pill_widget(
         ctx,
         x,
         pill_y,
-        pill_w,
+        width,
         pill_h,
         &config.colors.widget_background,
         config.pill_radius,
-        border,
+        border_color,
         config.pill_border_width,
     );
-    draw_text(ctx, x + config.pill_padding, &label, fg);
-    x + pill_w + config.item_gap
-}
-
-/// Draws a widget right-aligned and returns the new right edge.
-fn draw_pill_right(
-    ctx: &mut DrawCtx,
-    rx: i32,
-    config: &BarConfig,
-    state: &BarState,
-    widget: &WidgetConfig,
-) -> i32 {
-    let label = widget_label(state, widget);
-    let wc = widget.color();
-    let fg = if wc.is_empty() {
-        &config.colors.foreground
-    } else {
-        wc
-    };
-    let border = if wc.is_empty() {
-        &config.colors.pill_border
-    } else {
-        wc
-    };
-    let tw = measure_text(ctx.dc, &label);
-    let pill_w = tw + config.pill_padding * 2;
-    let pill_y = pill_top(ctx.h);
-    let pill_h = ctx.h - pill_y * 2;
-    let x = rx - pill_w;
-
-    draw_pill(
-        ctx,
-        x,
-        pill_y,
-        pill_w,
-        pill_h,
-        &config.colors.widget_background,
-        config.pill_radius,
-        border,
-        config.pill_border_width,
-    );
-    draw_text(ctx, x + config.pill_padding, &label, fg);
-    x - config.item_gap
-}
-
-fn draw_separator(ctx: &mut DrawCtx, x: i32, config: &BarConfig) -> i32 {
-    if config.separator.is_empty() {
-        return x;
-    }
-    let padded = format!(" {} ", config.separator);
-    draw_text(ctx, x, &padded, &config.colors.separator) + config.item_gap
-}
-
-fn draw_separator_right(ctx: &mut DrawCtx, rx: i32, config: &BarConfig) -> i32 {
-    if config.separator.is_empty() {
-        return rx;
-    }
-    let padded = format!(" {} ", config.separator);
-    let tw = measure_text(ctx.dc, &padded);
-    let x = rx - tw;
-    draw_text(ctx, x, &padded, &config.colors.separator);
-    x - config.item_gap
-}
-
-// -- helpers --------------------------------------------------------------
-
-/// Combines icon + text into the label string shown inside a pill.
-fn widget_label(state: &BarState, widget: &WidgetConfig) -> String {
-    let icon = widget.icon();
-    let text = widget_text(state, widget);
-    if icon.is_empty() {
-        text
-    } else if text.is_empty() {
-        icon.to_string()
-    } else {
-        format!("{icon} {text}")
-    }
-}
-
-/// Returns the raw text content for a widget (no icon).
-fn widget_text(state: &BarState, widget: &WidgetConfig) -> String {
-    match widget {
-        WidgetConfig::Workspaces { .. } | WidgetConfig::ActiveWindow { .. } => String::new(),
-        WidgetConfig::Layout { .. } => layout::text(state),
-        WidgetConfig::Clock { format, .. } => clock::text(format),
-        WidgetConfig::Date { format, .. } => date::text(format),
-        WidgetConfig::Ram { .. } => ram::text(),
-        WidgetConfig::Cpu { .. } => cpu::text(state.cpu_usage),
-        WidgetConfig::Update { .. } => update::text(state),
-        WidgetConfig::Media { max_length, .. } => media::text(state, *max_length),
-        WidgetConfig::Paused { .. } => paused::text(state),
-    }
+    draw_text(ctx, x + config.pill_padding, label, text_color);
 }
 
 /// Vertical offset for pill top edge.

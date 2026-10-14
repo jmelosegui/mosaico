@@ -144,6 +144,7 @@ impl BarManager {
                     self.bars.push(bar);
                     self.bar_monitor_indices.push(i);
                 }
+                // Same index as the `monitors` list in bar.toml.
                 Err(e) => crate::log_warn!("No bar on monitor {i}: {e}"),
             }
         }

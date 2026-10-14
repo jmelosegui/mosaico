@@ -11,12 +11,12 @@ mod inspect;
 
 use std::time::Instant;
 
+use mosaico_core::bar::BarState;
 use mosaico_core::config::{BorderConfig, Config, LayoutConfig, WindowRule, WorkspacesConfig};
 use mosaico_core::snapshot::DesktopSnapshot;
 use mosaico_core::tiler::{BarReservation, Display, Enumerator, Input, Settings, Tiler};
 use mosaico_core::{Action, HidingSupport, Result, WindowControl, WindowEvent};
 
-use crate::bar::BarState;
 use crate::enumerate::WindowsEnumerator;
 use crate::window_control::Win32WindowControl;
 
@@ -193,26 +193,7 @@ impl TilingManager {
 
     /// Returns a snapshot of bar state for each monitor.
     pub fn bar_states(&self, update_text: &str, paused: bool) -> Vec<BarState> {
-        self.tiler
-            .monitors()
-            .iter()
-            .enumerate()
-            .map(|(i, m)| BarState {
-                active_workspace: m.active_workspace(),
-                workspace_count: m.workspaces().len(),
-                layout_name: m.active().layout_kind().name().into(),
-                monocle: m.active().monocle(),
-                cpu_usage: 0,
-                update_text: update_text.to_string(),
-                focused_window: if i == self.tiler.focused_monitor() {
-                    self.tiler.focused_window()
-                } else {
-                    None
-                },
-                media_text: String::new(),
-                paused,
-            })
-            .collect()
+        self.tiler.bar_states(update_text, paused)
     }
 }
 

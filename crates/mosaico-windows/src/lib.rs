@@ -10,9 +10,6 @@ mod com;
 /// Status bar overlay windows.
 pub mod bar;
 
-/// Manages bar instances across all monitors.
-pub mod bar_manager;
-
 /// Border overlay windows for visual focus indicators.
 pub mod border;
 
@@ -93,6 +90,9 @@ pub mod process;
 
 /// What every mosaico process sets up first.
 pub mod setup;
+
+/// Machine readings for the bar's system widgets.
+pub mod system_info;
 
 /// Tiling manager that applies layouts to managed windows.
 pub mod tiling;

@@ -6,14 +6,17 @@
 
 use mosaico_core::config::bar::BarConfig;
 
-use super::BarState;
 use crate::bar::text::{DrawCtx, draw_pill, draw_text, measure_text};
 
-/// Draws the workspace container and returns the X after it.
-pub fn draw(ctx: &mut DrawCtx, start_x: i32, config: &BarConfig, state: &BarState) -> i32 {
-    let labels: Vec<String> = (0..state.workspace_count)
-        .map(|i| format!("{}", i + 1))
-        .collect();
+/// Draws the workspace container, highlighting `labels[active]`, and
+/// returns the X after it.
+pub fn draw(
+    ctx: &mut DrawCtx,
+    start_x: i32,
+    config: &BarConfig,
+    labels: &[String],
+    active: usize,
+) -> i32 {
     let widths: Vec<i32> = labels.iter().map(|l| measure_text(ctx.dc, l)).collect();
 
     // Each cell is pill_padding * 2 + text width, spaced by workspace_gap.
@@ -54,7 +57,7 @@ pub fn draw(ctx: &mut DrawCtx, start_x: i32, config: &BarConfig, state: &BarStat
     let mut x = start_x + outer_pad;
     for (i, (label, &tw)) in labels.iter().zip(widths.iter()).enumerate() {
         let cell_w = tw + config.pill_padding * 2;
-        let is_active = i == state.active_workspace;
+        let is_active = i == active;
 
         if is_active {
             draw_pill(
