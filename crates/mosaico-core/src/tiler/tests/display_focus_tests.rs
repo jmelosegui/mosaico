@@ -11,7 +11,10 @@
 use std::time::Duration;
 
 use crate::EdidIdentity;
+use crate::config::Config;
 
+use super::fake_platform::FakePlatform;
+use super::manager_support::start;
 use super::*;
 
 /// Applies a display change to `monitors`.
@@ -92,24 +95,28 @@ fn disconnecting_the_focused_monitor_focuses_the_primary_when_its_window_is_hidd
 fn the_systems_own_pick_does_not_take_focus_from_the_window_chosen() {
     // Arrange -- the primary shows workspace 2, with windows 3 and 5,
     // and remembers window 3 there. Window 1 on monitor 1 has focus.
-    let mut h = Harness::new(2, &[(3, 0), (5, 0), (1, 1)]);
+    let platform = FakePlatform::new(2, &[(3, 0), (5, 0), (1, 1)]);
+    let mut manager = start(&platform, None, &Config::default());
     // Window 3 has focus at the start.
-    h.action(Action::SendToWorkspace(2));
-    h.action(Action::GoToWorkspace(1));
-    h.action(Action::SendToWorkspace(2));
-    h.event(WindowEvent::Focused { window: wid(1) });
-    let mut h = h.through_platform();
+    manager.handle_action(&Action::SendToWorkspace(2));
+    manager.handle_action(&Action::GoToWorkspace(1));
+    manager.handle_action(&Action::SendToWorkspace(2));
+    // The user clicks window 1 once the switches have landed, so its
+    // report is not taken for theirs.
+    manager.flush_pending();
+    platform.advance(FOCUS_ECHO_TTL);
+    manager.handle_event(&WindowEvent::Focused { window: wid(1) });
 
     // Act -- window 1 moves to the primary's workspace 1, out of view,
     // and the system hands focus to window 5 once it is hidden.
-    change(&mut h, displays(1));
-    h.event(WindowEvent::Focused { window: wid(5) });
-    h.flush();
+    manager.handle_display_change(displays(1), 0, &[]);
+    manager.handle_event(&WindowEvent::Focused { window: wid(5) });
+    manager.flush_pending();
 
     // Assert -- #129: window 3 used to be taken as focused without the
     // system being asked, so its own pick of window 5 was followed.
-    assert_eq!(h.tiler.focused_window(), Some(wid(3)));
-    assert_eq!(h.desktop.focused, Some(wid(3)));
+    assert_eq!(manager.tiler().focused_window(), Some(wid(3)));
+    assert_eq!(platform.focused(), Some(wid(3)));
 }
 
 #[test]

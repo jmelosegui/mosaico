@@ -3,6 +3,8 @@
 use crate::HidingSupport;
 use crate::config::{Config, HidingBehaviour};
 
+use super::fake_platform::FakePlatform;
+use super::manager_support::{TempRecord, start};
 use super::*;
 
 /// A platform that cannot cloak windows, with `configured` in the config.
@@ -104,15 +106,17 @@ fn reloading_an_unchanged_strategy_keeps_its_fallback() {
 #[test]
 fn the_next_daemon_shows_a_window_the_way_the_fallback_hid_it() {
     // Arrange
-    let mut h = Harness::with_settings(cannot_cloak(HidingBehaviour::Cloak), 1, &[(1, 0)]);
+    let record = TempRecord::new("fallback-record");
+    let platform = FakePlatform::new(1, &[(1, 0)]);
+    platform.lack(HidingBehaviour::Cloak);
+    let mut manager = start(&platform, Some(record.file()), &Config::default());
 
     // Act
-    h.action(Action::GoToWorkspace(2));
+    manager.handle_action(&Action::GoToWorkspace(2));
 
     // Assert
-    let desktop = &h.desktop;
     assert_eq!(
-        h.hidden.restore(|w| desktop.identity(w)),
+        record.file().load().restore(|w| platform.identity(w)),
         [show(1, HidingBehaviour::Hide)]
     );
 }
@@ -122,15 +126,17 @@ fn hide_reports_the_fallback_causes_are_taken_for_the_tilers_own() {
     // Arrange -- hiding reports the window hidden. The window must be
     // really hidden: a hide report for a window still shown is ignored
     // whether or not it is an echo.
-    let settings = cannot_cloak(HidingBehaviour::Cloak);
-    let mut h = Harness::with_settings(settings, 1, &[(1, 0)]).through_platform();
-    h.action(Action::GoToWorkspace(2));
-    assert!(!h.desktop.windows[&wid(1)].visible);
+    let platform = FakePlatform::new(1, &[(1, 0)]);
+    platform.lack(HidingBehaviour::Cloak);
+    let mut manager = start(&platform, None, &Config::default());
+    manager.handle_action(&Action::GoToWorkspace(2));
+    assert!(!platform.window(1).visible);
+    platform.take_calls();
 
     // Act
-    let effects = h.event(WindowEvent::Hidden { window: wid(1) }).to_vec();
+    manager.handle_event(&WindowEvent::Hidden { window: wid(1) });
 
     // Assert
-    assert!(effects.is_empty(), "{effects:?}");
-    assert!(h.workspace(0, 0).contains(wid(1)));
+    assert!(platform.calls().is_empty(), "{:?}", platform.calls());
+    assert!(manager.tiler().monitors()[0].workspaces()[0].contains(wid(1)));
 }
