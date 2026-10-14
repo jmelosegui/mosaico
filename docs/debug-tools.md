@@ -138,21 +138,25 @@ colored status tags:
 1. **Config directory** -- verifies the instance's config directory
    (`~/.config/mosaico/` by default) exists; creates it if missing (`[fixed]`)
 2. **config.toml** -- validates TOML syntax via `ConfigStore::try_load_config()`
-3. **keybindings.toml** -- validates syntax via `try_load_keybindings()`
-4. **Keybinding key codes** -- loads all keybindings and checks each key
+3. **Theme** -- reports the theme in use, such as `[ok] Theme: tokyo-night night`,
+   or warns that the `[theme]` name or flavor is unknown and names what it
+   falls back to; it asks `ThemeConfig::check()`, which the daemon's
+   `resolve()` is built on, so both agree
+4. **keybindings.toml** -- validates syntax via `try_load_keybindings()`
+5. **Keybinding key codes** -- loads all keybindings and checks each key
    name with `Keybinding::combo()`, the check the daemon uses; reports the
    total count of valid bindings or lists any unknown key names
-5. **rules.toml** -- validates syntax via `try_load_rules()`
-6. **bar.toml** -- validates syntax via `try_load_bar()`
-7. **Autostart** -- checks that what starts at login is the running mosaico
+6. **rules.toml** -- validates syntax via `try_load_rules()`
+7. **bar.toml** -- validates syntax via `try_load_bar()`
+8. **Autostart** -- checks that what starts at login is the running mosaico
    executable with `start`: `[warn]` when nothing or another command is
    registered, or the entry is turned off in the startup apps settings,
    `[fail]` when the registered program is not a file, the entry is empty
    or the registration cannot be read. It never re-registers;
    `mosaico autostart enable` does
-8. **Daemon status** -- checks IPC pipe connectivity, PID file, and process
+9. **Daemon status** -- checks IPC pipe connectivity, PID file, and process
    liveness; auto-removes stale PID files (`[fixed]`)
-9. **Monitors** -- lists all connected monitors left to right via the
+10. **Monitors** -- lists all connected monitors left to right via the
    context's `Enumerator::monitors()` and prints per-monitor dimensions and
    positions, in the physical pixels the daemon and `debug list` use
 

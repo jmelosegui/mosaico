@@ -72,11 +72,14 @@ fn check_theme(store: &ConfigStore) {
 /// name or flavor falls back to.
 fn theme_line(theme: &ThemeConfig) -> String {
     match theme.check() {
-        ThemeCheck::Known(known) => format!(
-            "  {OK} Theme: {} {}",
-            known.name(),
-            theme.flavor.to_ascii_lowercase()
-        ),
+        ThemeCheck::Known(known) => {
+            // A flavor left out reads as empty: name the one it stands for.
+            let flavor = match theme.flavor.as_str() {
+                "" => known.flavor_name().to_string(),
+                written => written.to_ascii_lowercase(),
+            };
+            format!("  {OK} Theme: {} {flavor}", known.name())
+        }
         ThemeCheck::UnknownFlavor(fallback) => format!(
             "  {WARN} Unknown flavor \"{}\", falling back to {}",
             theme.flavor,

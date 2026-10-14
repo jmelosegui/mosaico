@@ -21,6 +21,10 @@ pub struct ThemeConfig {
     /// Theme family name (e.g. "catppuccin", "rose-pine", "tokyo-night").
     pub name: String,
     /// Flavor or variant within the theme (e.g. "mocha", "moon", "night").
+    ///
+    /// A `[theme]` without one reads it as empty, which stands for the
+    /// default flavor of the family, whichever family that is.
+    #[serde(default)]
     pub flavor: String,
 }
 
@@ -36,37 +40,28 @@ impl Default for ThemeConfig {
 impl ThemeConfig {
     /// Resolves the config into a concrete [`Theme`] for color lookups.
     ///
-    /// Unknown name/flavor combinations fall back to Catppuccin Mocha.
+    /// An unknown name falls back to Catppuccin Mocha, and an unknown
+    /// flavor to the default flavor of its family.
     pub fn resolve(&self) -> Theme {
-        match self.name.to_ascii_lowercase().as_str() {
-            "catppuccin" => Theme::Catppuccin(CatppuccinFlavor::resolve(&self.flavor)),
-            "rose-pine" | "rosepine" | "rose_pine" => {
-                Theme::RosePine(RosePineFlavor::resolve(&self.flavor))
-            }
-            "tokyo-night" | "tokyonight" | "tokyo_night" => {
-                Theme::TokyoNight(TokyoNightFlavor::resolve(&self.flavor))
-            }
-            _ => Theme::default(),
-        }
+        self.check().theme()
     }
 
     /// Says whether the name and the flavor are a theme and a flavor
-    /// that `mosaico doctor` knows, and which theme they stand for.
+    /// mosaico knows, and which theme they stand for.
     ///
-    /// Only Catppuccin and its flavors are known here so far, as doctor
-    /// has always checked.
+    /// [`resolve`](Self::resolve) is built on this answer, so what
+    /// `mosaico doctor` reports from it is what the daemon uses.
     pub fn check(&self) -> ThemeCheck {
-        if !self.name.eq_ignore_ascii_case("catppuccin") {
-            return ThemeCheck::UnknownName(Theme::default());
+        match self.name.to_ascii_lowercase().as_str() {
+            "catppuccin" => family(CatppuccinFlavor::parse(&self.flavor), Theme::Catppuccin),
+            "rose-pine" | "rosepine" | "rose_pine" => {
+                family(RosePineFlavor::parse(&self.flavor), Theme::RosePine)
+            }
+            "tokyo-night" | "tokyonight" | "tokyo_night" => {
+                family(TokyoNightFlavor::parse(&self.flavor), Theme::TokyoNight)
+            }
+            _ => ThemeCheck::UnknownName(Theme::default()),
         }
-        let flavor = match self.flavor.to_ascii_lowercase().as_str() {
-            "mocha" => CatppuccinFlavor::Mocha,
-            "macchiato" => CatppuccinFlavor::Macchiato,
-            "frappe" | "frappé" => CatppuccinFlavor::Frappe,
-            "latte" => CatppuccinFlavor::Latte,
-            _ => return ThemeCheck::UnknownFlavor(Theme::Catppuccin(CatppuccinFlavor::Mocha)),
-        };
-        ThemeCheck::Known(Theme::Catppuccin(flavor))
     }
 }
 
@@ -84,33 +79,60 @@ pub enum ThemeCheck {
     UnknownName(Theme),
 }
 
+impl ThemeCheck {
+    /// The theme mosaico uses: the one known, or the one it falls back to.
+    pub fn theme(self) -> Theme {
+        match self {
+            Self::Known(theme) | Self::UnknownFlavor(theme) | Self::UnknownName(theme) => theme,
+        }
+    }
+}
+
+/// The check of a theme of a known family: `flavor` is the flavor found,
+/// or `None` when the family's default flavor is used instead.
+fn family<F: Default>(flavor: Option<F>, theme: fn(F) -> Theme) -> ThemeCheck {
+    match flavor {
+        Some(flavor) => ThemeCheck::Known(theme(flavor)),
+        None => ThemeCheck::UnknownFlavor(theme(F::default())),
+    }
+}
+
 impl CatppuccinFlavor {
-    fn resolve(flavor: &str) -> Self {
+    /// The Catppuccin flavor `flavor` names, the default for an empty one.
+    fn parse(flavor: &str) -> Option<Self> {
         match flavor.to_ascii_lowercase().as_str() {
-            "macchiato" => Self::Macchiato,
-            "frappe" | "frappé" => Self::Frappe,
-            "latte" => Self::Latte,
-            _ => Self::Mocha,
+            "" => Some(Self::default()),
+            "mocha" => Some(Self::Mocha),
+            "macchiato" => Some(Self::Macchiato),
+            "frappe" | "frappé" => Some(Self::Frappe),
+            "latte" => Some(Self::Latte),
+            _ => None,
         }
     }
 }
 
 impl RosePineFlavor {
-    fn resolve(flavor: &str) -> Self {
+    /// The Rosé Pine flavor `flavor` names, the default for an empty one.
+    fn parse(flavor: &str) -> Option<Self> {
         match flavor.to_ascii_lowercase().as_str() {
-            "moon" => Self::Moon,
-            "dawn" => Self::Dawn,
-            _ => Self::Main,
+            "" => Some(Self::default()),
+            "main" => Some(Self::Main),
+            "moon" => Some(Self::Moon),
+            "dawn" => Some(Self::Dawn),
+            _ => None,
         }
     }
 }
 
 impl TokyoNightFlavor {
-    fn resolve(flavor: &str) -> Self {
+    /// The Tokyo Night flavor `flavor` names, the default for an empty one.
+    fn parse(flavor: &str) -> Option<Self> {
         match flavor.to_ascii_lowercase().as_str() {
-            "storm" => Self::Storm,
-            "day" => Self::Day,
-            _ => Self::Night,
+            "" => Some(Self::default()),
+            "night" => Some(Self::Night),
+            "storm" => Some(Self::Storm),
+            "day" => Some(Self::Day),
+            _ => None,
         }
     }
 }

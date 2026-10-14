@@ -142,13 +142,17 @@ Checks performed:
 1. **Config directory** -- verifies the instance's config directory
    (`~/.config/mosaico/` by default) exists; creates it if missing
 2. **config.toml** -- validates TOML syntax via `ConfigStore::try_load_config()`
-3. **keybindings.toml** -- validates syntax via `try_load_keybindings()`
-4. **Keybinding keys** -- verifies each key name is one mosaico knows, with
+3. **Theme** -- reports the theme in use, such as `[ok] Theme: tokyo-night night`,
+   or warns that the `[theme]` name or flavor is unknown and names what it
+   falls back to; it asks `ThemeConfig::check()`, which the daemon's
+   `resolve()` is built on, so both agree
+4. **keybindings.toml** -- validates syntax via `try_load_keybindings()`
+5. **Keybinding keys** -- verifies each key name is one mosaico knows, with
    the check the daemon uses (`Keybinding::combo()` in core); reports the
    total count and any unknown key names
-5. **rules.toml** -- validates syntax via `try_load_rules()`
-6. **bar.toml** -- validates syntax via `try_load_bar()`
-7. **Autostart** -- compares what is registered to start at login with what
+6. **rules.toml** -- validates syntax via `try_load_rules()`
+7. **bar.toml** -- validates syntax via `try_load_bar()`
+8. **Autostart** -- compares what is registered to start at login with what
    `mosaico autostart enable` would register from the running executable
    (`AutostartStatus::read` in `mosaico_core::system`): `[ok]` when they
    match, `[warn]` when nothing is registered, when the user turned the
@@ -159,9 +163,9 @@ Checks performed:
    or the registration cannot be read. A program on a network share is not
    looked at, so it counts as another command. Doctor only reports; it never
    changes the registration
-8. **Daemon** -- checks IPC pipe, PID file, and process liveness; cleans up
+9. **Daemon** -- checks IPC pipe, PID file, and process liveness; cleans up
    stale PID files
-9. **Monitors** -- enumerates monitors and reports count with per-monitor
+10. **Monitors** -- enumerates monitors and reports count with per-monitor
    dimensions and positions
 
 ### `mosaico action <verb> [direction]`
