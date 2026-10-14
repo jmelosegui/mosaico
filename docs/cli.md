@@ -53,9 +53,10 @@ in the CLI that picks a platform implementation. Commands that move windows
 or show where windows and monitors are run through `platform::run_on_desktop`,
 which first makes the process DPI aware so coordinates match the daemon's.
 The unit tests build one from `commands/test_support.rs`, a fake `World`
-standing in for the daemon, processes, registry, desktop, GitHub, the
-release installer and clock, and `commands/fake_desktop.rs`, a fake list of
-windows and monitors, so `start`, `stop`, `status`, `autostart`, `action`,
+standing in for the daemon, processes, registry, program files, desktop,
+GitHub, the release installer and clock, and `commands/fake_desktop.rs`, a
+fake list of windows and monitors, so `start`, `stop`, `status`,
+`autostart`, `action`,
 `pause`, `update`, `debug move`, `debug list` and `doctor`'s autostart,
 daemon and monitor checks are tested without a daemon, a desktop or a
 network.
