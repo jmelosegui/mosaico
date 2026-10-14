@@ -2,7 +2,8 @@
 //! look up and install releases.
 
 use std::cell::RefCell;
-use std::path::Path;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use mosaico_core::http::HttpClient;
@@ -21,12 +22,19 @@ pub const BINARY: &str = "mosaico-test";
 pub struct Releases {
     /// The tag of the latest release.
     latest: RefCell<Option<String>>,
+    /// The files attached to the latest release, by name.
+    assets: RefCell<HashMap<String, Vec<u8>>>,
 }
 
 impl Releases {
     /// Publishes a release tagged `tag` as the latest.
     pub fn publish(&self, tag: &str) {
         *self.latest.borrow_mut() = Some(tag.to_string());
+    }
+
+    /// Attaches a file named `name` to the latest release.
+    pub fn attach(&self, name: &str, content: Vec<u8>) {
+        self.assets.borrow_mut().insert(name.to_string(), content);
     }
 }
 
@@ -41,14 +49,27 @@ impl HttpClient for Releases {
         if path.ends_with("/releases/latest") {
             return Ok(format!(r#"{{"tag_name":"{tag}"}}"#).into_bytes());
         }
+        let download = format!("/jmelosegui/mosaico/releases/download/{tag}/");
+        if let Some(name) = path.strip_prefix(&download)
+            && let Some(content) = self.assets.borrow().get(name)
+        {
+            return Ok(content.clone());
+        }
         Err(Error::Network(format!(
             "{url} answered with HTTP status 404"
         )))
     }
 }
 
-/// The platform's installer in the fake world.
-pub struct FakeInstaller;
+/// The platform's installer in the fake world. It records what it would
+/// install instead of writing a file.
+#[derive(Default)]
+pub struct FakeInstaller {
+    /// The executable replaced, and the binary it was replaced with.
+    pub replaced: RefCell<Option<(PathBuf, Vec<u8>)>>,
+    /// Error replacing fails with, if any.
+    pub error: RefCell<Option<String>>,
+}
 
 impl Installer for FakeInstaller {
     fn asset_name(&self) -> &str {
@@ -59,7 +80,11 @@ impl Installer for FakeInstaller {
         BINARY
     }
 
-    fn replace(&self, _exe: &Path, _binary: &[u8]) -> Result<()> {
+    fn replace(&self, exe: &Path, binary: &[u8]) -> Result<()> {
+        if let Some(error) = self.error.borrow().clone() {
+            return Err(Error::platform("write the new executable", error));
+        }
+        *self.replaced.borrow_mut() = Some((exe.to_path_buf(), binary.to_vec()));
         Ok(())
     }
 

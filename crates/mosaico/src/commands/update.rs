@@ -5,13 +5,14 @@
 //! the running binary with the one in it, and restarts the daemon if it
 //! was running before the update.
 
+use std::fmt::Display;
 use std::io::Read;
 use std::time::Duration;
 
 use mosaico_core::http::HttpClient;
 use mosaico_core::update;
 
-use super::context::{Context, Exit};
+use super::context::{Context, Exit, complain, say};
 
 const GITHUB_HOST: &str = "github.com";
 const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(60);
@@ -19,12 +20,12 @@ const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(60);
 /// Runs the full update cycle.
 pub fn execute(cx: &mut Context, force: bool) -> Exit {
     // 1. Check for update.
-    print!("Checking for updates...");
+    let _ = write!(cx.out, "Checking for updates...");
     let tag = match update::latest_tag(cx.http) {
         Ok(t) => t,
         Err(_) => {
-            println!(" failed.");
-            eprintln!("Error: could not reach GitHub to check for updates.");
+            say!(cx, " failed.");
+            complain!(cx, "Error: could not reach GitHub to check for updates.");
             return Exit::Failure;
         }
     };
@@ -33,15 +34,15 @@ pub fn execute(cx: &mut Context, force: bool) -> Exit {
     let is_update = update::is_newer_tag(&tag, local);
 
     if !is_update && !force {
-        println!();
-        println!("You are already on the latest version (v{local}).");
+        say!(cx, "");
+        say!(cx, "You are already on the latest version (v{local}).");
         return Exit::Success;
     }
 
     if is_update {
-        println!(" v{local} -> {tag}.");
+        say!(cx, " v{local} -> {tag}.");
     } else {
-        println!(" reinstalling v{local}.");
+        say!(cx, " reinstalling v{local}.");
     }
 
     // 2. Was the daemon running?
@@ -49,61 +50,50 @@ pub fn execute(cx: &mut Context, force: bool) -> Exit {
 
     // 3. Stop daemon if running.
     if daemon_was_running {
-        println!("Stopping daemon...");
+        say!(cx, "Stopping daemon...");
         super::stop::execute(cx);
     }
 
     // 4. Download this platform's release archive.
-    println!("Downloading {tag}...");
+    say!(cx, "Downloading {tag}...");
     let path = format!(
         "/jmelosegui/mosaico/releases/download/{tag}/{}",
         cx.installer.asset_name()
     );
     let zip_bytes = match download_release(cx.http, &path) {
         Ok(bytes) => bytes,
-        Err(e) => {
-            eprintln!("Error: {e}");
-            print_recovery_hint(daemon_was_running);
-            return Exit::Failure;
-        }
+        Err(e) => return fail(cx, e, daemon_was_running),
     };
 
     // 5. Extract the binary from the zip.
     let exe_bytes = match extract_binary(&zip_bytes, cx.installer.binary_name()) {
         Ok(bytes) => bytes,
-        Err(e) => {
-            eprintln!("Error: {e}");
-            print_recovery_hint(daemon_was_running);
-            return Exit::Failure;
-        }
+        Err(e) => return fail(cx, e, daemon_was_running),
     };
 
     // 6. Replace the running binary.
     let current_exe = match (cx.current_exe)() {
         Ok(p) => p,
         Err(e) => {
-            eprintln!("Error: cannot determine current exe path: {e}");
-            print_recovery_hint(daemon_was_running);
-            return Exit::Failure;
+            let reason = format!("cannot determine current exe path: {e}");
+            return fail(cx, reason, daemon_was_running);
         }
     };
 
-    println!("Installing to {}...", current_exe.display());
+    say!(cx, "Installing to {}...", current_exe.display());
     if let Err(e) = cx.installer.replace(&current_exe, &exe_bytes) {
-        eprintln!("Error: {e}");
-        print_recovery_hint(daemon_was_running);
-        return Exit::Failure;
+        return fail(cx, e, daemon_was_running);
     }
 
     if is_update {
-        println!("Updated successfully: v{local} -> {tag}.");
+        say!(cx, "Updated successfully: v{local} -> {tag}.");
     } else {
-        println!("Reinstalled v{local}.");
+        say!(cx, "Reinstalled v{local}.");
     }
 
     // 7. Restart daemon if it was running.
     if daemon_was_running {
-        println!("Restarting daemon...");
+        say!(cx, "Restarting daemon...");
         return super::start::execute(cx);
     }
     Exit::Success
@@ -139,11 +129,20 @@ fn extract_binary(zip_bytes: &[u8], binary: &str) -> Result<Vec<u8>, String> {
     Err(format!("{binary} not found in zip archive"))
 }
 
-/// Prints a hint about recovery when the update fails after the
-/// daemon was stopped.
-fn print_recovery_hint(daemon_was_running: bool) {
+/// Reports why the update failed and, when the daemon was stopped for
+/// it, how to get it back.
+fn fail(cx: &mut Context, reason: impl Display, daemon_was_running: bool) -> Exit {
+    complain!(cx, "Error: {reason}");
     if daemon_was_running {
-        eprintln!("The daemon was stopped before the update failed.");
-        eprintln!("Run 'mosaico start' to restart with the current version.");
+        complain!(cx, "The daemon was stopped before the update failed.");
+        complain!(
+            cx,
+            "Run 'mosaico start' to restart with the current version."
+        );
     }
+    Exit::Failure
 }
+
+#[cfg(test)]
+#[path = "tests/update_tests.rs"]
+mod tests;

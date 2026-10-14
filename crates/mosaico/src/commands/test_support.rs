@@ -28,7 +28,7 @@ use super::context::{Clock, Context, Daemon, Exit};
 use super::fake_desktop::FakeDesktop;
 
 pub use autostart_fake::{EXE, MOVED_AWAY};
-pub use release::{FakeInstaller, Releases};
+pub use release::{ASSET, BINARY, FakeInstaller, Releases};
 
 /// How long a fake process stays alive.
 #[derive(Debug, Clone, Copy)]
@@ -112,7 +112,7 @@ impl Default for World {
             files: RefCell::default(),
             exe_missing: Cell::new(false),
             releases: Releases::default(),
-            installer: FakeInstaller,
+            installer: FakeInstaller::default(),
             now: Cell::new(Instant::now()),
         }
     }
