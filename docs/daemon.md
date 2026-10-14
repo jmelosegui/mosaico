@@ -1,9 +1,9 @@
 # Daemon & Event Loop
 
 The daemon is the long-running background process that manages window tiling.
-It orchestrates the Win32 event loop, hotkeys, IPC listener, status bar, and
-the tiling manager, all on separate threads unified by a single `mpsc`
-channel.
+It orchestrates window events, hotkeys, focus-follows-mouse, the IPC listener,
+the status bar, and the tiling manager, all on separate threads unified by a
+single `mpsc` channel.
 
 ## Architecture
 
@@ -11,11 +11,16 @@ The daemon uses a multi-thread architecture:
 
 1. **Main thread** -- runs `TilingManager` + `BarManager` logic, processes
    all messages
-2. **Event loop thread** -- runs `SetWinEventHook` + `GetMessageW` pump,
-   handles hotkey registration and dispatch
-3. **IPC thread** -- runs blocking named pipe server, accepts CLI commands
-4. **Config watcher thread** -- polls config files for changes every 2 seconds
-5. **Tick thread** -- sends a `DaemonMsg::Tick` every 1 second for bar
+2. **Window event thread** -- owns the `SetWinEventHook` hooks and the hidden
+   window for display and work-area broadcasts, and runs the `GetMessageW`
+   pump that delivers them (`WindowsEventSource`)
+3. **Hotkey thread** -- registers the keybindings with `RegisterHotKey` and
+   dispatches `WM_HOTKEY` (`HotkeyThread`)
+4. **Focus-follows-mouse thread** -- polls the pointer every 100 ms, and only
+   exists while `focus_follows_mouse` is on (`FocusFollowsMouse`)
+5. **IPC thread** -- runs blocking named pipe server, accepts CLI commands
+6. **Config watcher thread** -- polls config files for changes every 2 seconds
+7. **Tick thread** -- sends a `DaemonMsg::Tick` every 1 second for bar
    widget refresh (clock, CPU, RAM)
 
 Three additional bridge threads forward events, actions, and config reloads
@@ -26,7 +31,10 @@ from separate `mpsc` channels into the unified `DaemonMsg` channel.
 | File | Purpose |
 |------|---------|
 | `crates/mosaico-windows/src/daemon.rs` | `run()`, `daemon_loop()`, `ipc_loop()`, `DaemonMsg` |
-| `crates/mosaico-windows/src/event_loop.rs` | `start()`, `EventLoopHandle`, `run_message_pump()`, `win_event_proc()` |
+| `crates/mosaico-windows/src/daemon_inputs.rs` | `Inputs` -- starts and stops window events, hotkeys and focus-follows-mouse |
+| `crates/mosaico-windows/src/event_source.rs` | `WindowsEventSource` -- the WinEvent hooks and the broadcast window |
+| `crates/mosaico-windows/src/hotkey_thread.rs` | `HotkeyThread` -- registers and dispatches hotkeys on a thread of its own |
+| `crates/mosaico-windows/src/message_thread.rs` | `MessageThread` -- a thread with a message queue, stopped with `WM_QUIT` |
 | `crates/mosaico-windows/src/config_watcher.rs` | `watch()`, `ConfigReload` -- polls config files for changes |
 | `crates/mosaico-windows/src/bar_manager.rs` | `BarManager` -- manages status bar windows across monitors |
 
@@ -38,8 +46,9 @@ from separate `mpsc` channels into the unified `DaemonMsg` channel.
   - `Command(Command, ResponseSender)` -- CLI command from IPC with reply channel
   - `Reload(Box<ConfigReload>)` -- validated config change from file watcher
   - `Tick` -- 1-second timer for bar widget refresh
-- `EventLoopHandle` -- contains the thread ID and `JoinHandle`; `.stop()`
-  posts `WM_QUIT` to terminate the message pump
+- `Inputs` -- holds the `EventWatch` of the event source, the `HotkeyThread`
+  and `FocusFollowsMouse`; `.stop()` stops all three and waits for their
+  threads
 
 ## Startup Sequence
 
@@ -68,7 +77,8 @@ subcommand:
 6. Adjust work areas for bar height on monitors that display a bar
 7. Perform initial bar render with `bar_mgr.update(&manager.bar_states())`
 8. Create `mpsc` channels for events, actions, and the unified daemon channel
-9. Start the event loop thread (registers `SetWinEventHook` + hotkeys)
+9. Start the inputs: the window event source, the hotkey thread and, when
+   `focus_follows_mouse` is on, the focus-follows-mouse thread
 10. Start bridge threads to forward events and actions into `DaemonMsg`
 11. Start the IPC thread
 12. Start the config file watcher thread
@@ -100,28 +110,58 @@ The main thread runs a blocking `recv()` loop that dispatches messages:
 The blocking `recv()` is CPU-efficient (no polling) and wakes immediately
 when any message arrives.
 
-## Event Loop Thread
+## Input Threads
 
-`event_loop::start()` spawns the Win32 message pump thread:
+Win32 delivers WinEvent callbacks, `WM_HOTKEY` and window messages to the
+thread that set each of them up, and that thread must pump messages. The
+window events and the hotkeys therefore each run on a `MessageThread`, which
+creates the thread's message queue before it reports ready, so nothing
+posted to it is lost, and stops it by posting `WM_QUIT` and joining it.
 
-1. Registers `SetWinEventHook` with a callback (`win_event_proc`) for the
-   event range `EVENT_MIN` to `EVENT_MAX`
-2. Creates a `HotkeyManager` and registers all keybindings as global hotkeys
-3. Runs `GetMessageW` loop:
-   - `WM_HOTKEY` messages are dispatched to `HotkeyManager::dispatch()`
-   - All other messages go through `TranslateMessage`/`DispatchMessageW`
+### Window Event Thread
 
-The `win_event_proc` callback is an `extern "system"` function that uses
-thread-local storage (`EVENT_SENDER`) to access the `mpsc::Sender<WindowEvent>`
-since Win32 callbacks cannot capture Rust closures.
+`WindowsEventSource::start()` (the core `EventSource` contract, see
+[window-events.md](window-events.md)):
+
+1. Installs two `SetWinEventHook` hooks with a callback (`win_event_proc`),
+   for `0x0003` to `0x0017` and `0x8000` to `0x800C`
+2. Creates the hidden window that receives `WM_DISPLAYCHANGE` and
+   `WM_SETTINGCHANGE`
+3. Runs a `GetMessageW` loop until it is stopped, then destroys the window and
+   removes the hooks
+
+If the hooks cannot be installed, `start` fails, and the daemon stops with
+that error in its log. If only the hidden window cannot be created, the
+source runs without display and work area changes, and the daemon logs
+why.
+
+The callbacks are `extern "system"` functions that use thread-local storage
+(`EVENTS`) to reach the `mpsc::Sender<WindowEvent>`, since Win32 callbacks
+cannot capture Rust closures.
 
 ### Win32 Event Hook Configuration
 
-- Range: `EVENT_MIN=0x0003` to `EVENT_MAX=0x800C`
+- Ranges: `0x0003` to `0x0017` and `0x8000` to `0x800C`
 - Flags: `WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS`
 - `OUTOFCONTEXT` means the callback runs in Mosaico's process
 - `SKIPOWNPROCESS` prevents Mosaico's own windows (borders) from triggering
   events
+
+### Hotkey Thread
+
+`HotkeyThread::start()` creates a `HotkeyManager`, registers every keybinding
+with `RegisterHotKey` and no window, so `WM_HOTKEY` lands in this thread's
+queue, and runs a pump that dispatches `WM_HOTKEY` before anything else.
+Pausing and unpausing are posted to it as `WM_HOTKEY_PAUSE` thread messages.
+Nothing else is queued on this thread, so a flood of window events cannot
+hold a shortcut back.
+
+### Focus-Follows-Mouse Thread
+
+`FocusFollowsMouse` (core) polls the window under the pointer every 100 ms
+while `focus_follows_mouse` is on, and sends `MouseHover` once the pointer has
+rested on a window for 3 polls. A config reload that turns the setting off
+stops and joins the thread; one that turns it on starts a new one.
 
 ## IPC Thread
 
@@ -158,7 +198,7 @@ The config watcher runs on a dedicated thread, polling `config.toml`,
 5. The reload is forwarded via a bridge thread to `DaemonMsg::Reload`
 
 Keybindings are **not** hot-reloaded because `RegisterHotKey` requires
-unregistering and re-registering on the event loop thread. A daemon restart
+unregistering and re-registering on the hotkey thread. A daemon restart
 is required for keybinding changes.
 
 ## Shutdown
@@ -170,9 +210,10 @@ Shutdown is triggered by:
   - `TilingManager::restore_all_windows()` -- shows all hidden workspace
     windows so they are not left invisible after exit
   - `BarManager::hide_all()` -- hides all status bar overlay windows
-  - `EventLoopHandle::stop()` posts `WM_QUIT` to the event loop thread
-  - `HotkeyManager::Drop` unregisters all hotkeys
-  - `SetWinEventHook` is unhooked
+  - `Inputs::stop()` posts `WM_QUIT` to the window event thread, which
+    destroys its hidden window and removes its hooks, then to the hotkey
+    thread, where `HotkeyManager::Drop` unregisters all hotkeys, and stops
+    the focus-follows-mouse thread; it waits for each of them
   - PID file is removed
   - Bridge threads (event, action, reload) and tick thread are joined
 
@@ -202,5 +243,8 @@ and class.
   workspace indicators and window counts stay current.
 - Theme tracking (`current_theme`) lives in the daemon loop so that both
   config reloads and bar reloads can re-resolve named colors.
-- Thread-local `EVENT_SENDER` is the only way to pass data from a Win32
+- Thread-local `EVENTS` is the only way to pass data from a Win32
   callback to Rust code since the callback signature is fixed by the OS.
+- Window events, hotkeys and focus-follows-mouse each have a thread of their
+  own, so each is a separate contract a platform can implement on its own,
+  and none of them waits behind another's messages.

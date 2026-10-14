@@ -137,7 +137,8 @@ commands keep printing their own messages to the terminal.
 - **Custom implementation** over external crates (`log`, `tracing`, etc.)
   keeps the dependency count minimal for a system-level tool.
 - **Global `OnceLock<Option<Mutex<Logger>>>`** provides thread-safe access
-  from any thread (event loop, IPC, main) without passing references.
+  from any thread (window events, hotkeys, IPC, main) without passing
+  references.
 - **Disabled by default** avoids unexpected disk writes for users who just
   want a tiling manager.
 - **Single backup rotation** is simple and sufficient for diagnostics without

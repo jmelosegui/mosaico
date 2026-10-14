@@ -1,8 +1,9 @@
 # Window Event System
 
-Mosaico uses a platform-agnostic event model that represents meaningful OS
-window state changes. The Windows platform translates raw Win32 `WinEvent`
-codes into these events.
+Mosaico reacts to what happens to windows and displays through a
+platform-agnostic event model. Core defines the events and the contract a
+platform follows to produce them. The Windows platform implements it with
+WinEvent hooks and a hidden window that receives broadcasts.
 
 ## Architecture
 
@@ -10,100 +11,169 @@ codes into these events.
 
 | File | Purpose |
 |------|---------|
-| `crates/mosaico-core/src/event.rs` | `WindowEvent` enum definition |
-| `crates/mosaico-windows/src/event.rs` | `translate()` -- maps Win32 events to `WindowEvent` |
-
-### Key Types
-
-- `WindowEvent` (enum) -- platform-agnostic window state change events
-- `translate(event, hwnd, id_object)` -- Win32 event translator function
+| `crates/mosaico-core/src/event.rs` | `WindowEvent` and what each variant promises |
+| `crates/mosaico-core/src/event/source.rs` | `EventSource` contract and `EventWatch` |
+| `crates/mosaico-core/src/event/hover.rs` | `MousePointer` contract and `FocusFollowsMouse` |
+| `crates/mosaico-core/src/event/rest.rs` | `HoverTracker` -- when the pointer has come to rest |
+| `crates/mosaico-windows/src/event_source.rs` | `WindowsEventSource` and its Win32 notes |
+| `crates/mosaico-windows/src/event_source_hooks.rs` | The two `SetWinEventHook` hooks and their callback |
+| `crates/mosaico-windows/src/event_source_sink.rs` | The hidden window for `WM_DISPLAYCHANGE` and `WM_SETTINGCHANGE` |
+| `crates/mosaico-windows/src/event.rs` | `translate()` and `translate_broadcast()` -- Win32 values to `WindowEvent` |
+| `crates/mosaico-windows/src/pointer.rs` | `WindowsPointer` -- the window under the pointer |
+| `crates/mosaico-windows/src/message_thread.rs` | `MessageThread` -- a thread with a message queue |
 
 ## WindowEvent Variants
 
-| Variant | Description |
-|---------|-------------|
-| `Created { hwnd }` | A new window appeared on the desktop |
-| `Destroyed { hwnd }` | A window was closed |
-| `Hidden { hwnd }` | A window was hidden, but not necessarily closed |
-| `Focused { hwnd }` | A window received keyboard focus |
-| `Moved { hwnd }` | A window finished a move or resize operation |
-| `Minimized { hwnd }` | A window was minimized |
-| `Restored { hwnd }` | A window was restored from minimized state |
-| `TitleChanged { hwnd }` | A window's title text changed |
+| Variant | Reported when |
+|---------|---------------|
+| `Created { window }` | A window is created (before it is first shown, where the platform can tell) or shown |
+| `Destroyed { window }` | A window was closed and no longer exists |
+| `Hidden { window }` | A window was hidden, but not necessarily closed: it stopped being shown without being minimized, including a window that closes while shown (just before `Destroyed`). May be reported for a window that stays on screen |
+| `Focused { window }` | A window becomes the active one, including when the tiler focused it |
+| `MouseHover { window }` | The pointer came to rest on a window (focus-follows-mouse only) |
+| `Moved { window }` | The user finishes dragging a window to a new place or size |
+| `Minimized { window }` | A window is minimized |
+| `Restored { window }` | A minimized window is shown again |
+| `TitleChanged { window }` | A window's title changes |
+| `LocationChanged { window }` | A window's position or size changes, for any reason |
+| `DisplayChanged` | Monitors are connected, disconnected, rearranged or change resolution |
+| `WorkAreaChanged` | A taskbar, dock or panel changes the usable area of a monitor |
 
 ### Methods
 
-- `hwnd()` -- extracts the handle from any variant
+- `window()` -- the window the event is about, `None` for display events
 - `name()` -- returns the event name as a `&'static str`
-- `Display` implementation -- formats as `"EventName 0x{HWND:X}"`
+- `Display` implementation -- formats as `"EventName 0x1A0B2C"`, or just the
+  name for display events
+
+## The EventSource Contract
+
+`EventSource::start(sender)` returns an `EventWatch` once the source is
+watching. Stopping or dropping the watch stops the source, and once it has
+stopped nothing more is sent and the sender is dropped. Every platform
+follows these rules:
+
+- Mosaico's own windows (bars, borders) are never reported. What mosaico
+  does to other windows is reported like anything else.
+- Events may name windows that will never be managed, and any event may be
+  repeated: each one is a reason to look at the window again.
+- Events about one window keep their order. Nothing else is promised across
+  windows, except that focus changes keep their order whichever windows they
+  name, since the tiler follows the last one.
+- A kind of event the platform cannot observe is left out, never made up.
+- `start` fails, and sends nothing, when the platform cannot watch windows.
+  When it can watch windows but not the displays, `start` still succeeds,
+  and `EventWatch::display_error` says why display and work area changes
+  will not come.
+
+The details of each variant are in the docs of `WindowEvent`.
 
 ## Win32 Event Translation
 
-`translate()` maps raw Win32 accessibility events to `WindowEvent`:
+`translate()` maps the values the WinEvent hooks receive, and
+`translate_broadcast()` the messages the hidden window receives:
 
-| Win32 Constant | WindowEvent |
-|----------------|-------------|
-| `EVENT_OBJECT_SHOW` | `Created` |
-| `EVENT_OBJECT_CREATE` | `Created` |
+| Win32 | WindowEvent |
+|-------|-------------|
+| `EVENT_OBJECT_CREATE`, `EVENT_OBJECT_SHOW` | `Created` |
 | `EVENT_OBJECT_DESTROY` | `Destroyed` |
 | `EVENT_OBJECT_HIDE` | `Hidden` |
 | `EVENT_SYSTEM_FOREGROUND` | `Focused` |
-| `EVENT_OBJECT_FOCUS` | `Focused` |
 | `EVENT_SYSTEM_MOVESIZEEND` | `Moved` |
 | `EVENT_SYSTEM_MINIMIZESTART` | `Minimized` |
 | `EVENT_SYSTEM_MINIMIZEEND` | `Restored` |
 | `EVENT_OBJECT_NAMECHANGE` | `TitleChanged` |
+| `EVENT_OBJECT_LOCATIONCHANGE` | `LocationChanged` |
+| `WM_DISPLAYCHANGE` | `DisplayChanged` |
+| `WM_SETTINGCHANGE` with `SPI_SETWORKAREA` | `WorkAreaChanged` |
 
 ### Filtering
 
-- Events with `id_object != OBJID_WINDOW` (constant 0) are filtered out.
-  This excludes events on child objects like scrollbars, buttons, and other
-  non-window UI elements.
+- Reports that name no window, such as the mouse pointer being shown or
+  changing shape, are dropped.
+- Reports on child objects (`id_object != OBJID_WINDOW`: scroll bars,
+  carets, client areas) are dropped, except creation, show and name changes.
+  WPF windows such as Visual Studio's report those only on an object inside
+  the window.
+- Setting changes other than the work area are dropped.
 - Unrecognized event codes return `None` (silently ignored).
+
+Windows hides a window as it destroys it, so a window that closes while
+shown reports `EVENT_OBJECT_HIDE` and then `EVENT_OBJECT_DESTROY`: `Hidden`,
+then `Destroyed`.
+
+Both functions are pure. `event_tests.rs` checks them with the values Windows
+reports in each of these cases, including the hide and show a
+GPU-accelerated application reports while it recreates its drawing surface.
 
 ## Event Hook Configuration
 
-The Win32 event hook is set up in `event_loop::start()`:
+`WindowsEventSource::start()` sets up, on a thread of its own:
 
-- API: `SetWinEventHook`
-- Event range: `EVENT_MIN=0x0003` to `EVENT_MAX=0x800C`
+- Two `SetWinEventHook` hooks, for `0x0003` to `0x0017` (system events) and
+  `0x8000` to `0x800C` (object events), instead of one range that would also
+  deliver the thousands of unrelated events in between
 - Flags:
-  - `WINEVENT_OUTOFCONTEXT` -- callback runs in Mosaico's process, not the
-    target window's process
+  - `WINEVENT_OUTOFCONTEXT` -- the callback runs in Mosaico's process, on the
+    thread that set the hook, while that thread pumps messages. Such reports
+    arrive in the order they were made, and both hooks deliver on the one
+    thread, so every event keeps its order, focus changes included.
   - `WINEVENT_SKIPOWNPROCESS` -- ignores events from Mosaico's own windows
-    (border overlay, etc.)
+    (bars, borders)
+- A hidden `WS_EX_TOOLWINDOW` window that receives `WM_DISPLAYCHANGE` and
+  `WM_SETTINGCHANGE`. A message-only window would not get broadcasts.
+
+If the hooks cannot be installed, `start` returns the error and removes
+whichever hook was installed. If only the hidden window cannot be created,
+the source runs without display and work area changes, and
+`EventWatch::display_error` says why: the daemon logs it, and
+`mosaico debug events` prints it as a warning. The window's class is
+registered once per process, so a class of that name that something else
+registered counts as a failure.
 
 ## Event Flow
 
 ```
 Window state change in OS
-  -> SetWinEventHook callback (win_event_proc)
+  -> WinEvent hook callback (win_event_proc) on the event thread
   -> event::translate(event_code, hwnd, id_object)
   -> WindowEvent (or None if filtered/unrecognized)
-  -> thread-local EVENT_SENDER (mpsc::Sender<WindowEvent>)
+  -> the mpsc::Sender<WindowEvent> given to EventSource::start
   -> bridge thread wraps as DaemonMsg::Event
   -> TilingManager::handle_event()
 ```
 
-## How Events Drive Tiling
+## Focus-Follows-Mouse
 
-The `TilingManager` reacts to each event type:
+`MouseHover` does not come from the event source. While `focus_follows_mouse`
+is on, `FocusFollowsMouse` polls a `MousePointer` every 100 ms on a thread of
+its own, and reports a window once the pointer has stayed on it for 3 polls
+in a row, and only once until the pointer moves to another window. A poll
+that finds no window is skipped. Turning the setting off in `config.toml`
+stops the thread, and turning it back on starts a new one. On Windows the
+pointer is read with `GetCursorPos`, `WindowFromPoint` and
+`GetAncestor(GA_ROOT)`.
+
+## How Events Drive Tiling
 
 | Event | Tiling Response |
 |-------|-----------------|
-| `Created` | Add window to focused monitor's workspace, re-tile |
+| `Created` | Place a window that is not shown yet; adopt a visible one into the focused monitor's workspace |
 | `Destroyed` | Remove window from workspace, re-tile |
+| `Hidden` | Remove the window, if it is really no longer visible |
 | `Focused` | Update focus tracking, show/reposition border |
+| `MouseHover` | Focus the window, if it is managed and on the active workspace |
 | `Moved` | Detect monitor reassignment, re-tile if needed |
 | `Minimized` | Remove from workspace, re-tile |
 | `Restored` | Re-add to workspace, re-tile |
-| `TitleChanged` | (Currently no tiling action) |
+| `TitleChanged` | Adopt a window that only became recognizable once it had a title |
+| `LocationChanged` | Notice the focused window entering or leaving maximized state |
 
 ## Design Decisions
 
-- **Platform-agnostic event enum** in `mosaico-core` keeps the tiling logic
-  free of Win32 dependencies. A future Linux implementation would translate
-  X11/Wayland events to the same `WindowEvent` variants.
+- **Platform-agnostic event enum and contract** in `mosaico-core` keep the
+  tiling logic free of Win32 dependencies. A future Linux implementation
+  would implement `EventSource` and `MousePointer` with X11 or Wayland events.
 - **`OBJID_WINDOW` filter** is essential -- without it, every scrollbar
   scroll, button highlight, and caret blink would trigger event processing.
 - **`WINEVENT_SKIPOWNPROCESS`** prevents the border overlay window from
@@ -112,6 +182,10 @@ The `TilingManager` reacts to each event type:
 - **`EVENT_SYSTEM_MOVESIZEEND`** (not `MOVESTART` or continuous move events)
   ensures we only react once after the user finishes dragging a window,
   avoiding constant re-tiling during the drag operation.
-- **Both `SHOW`/`CREATE` and `DESTROY`/`HIDE`** are mapped to `Created` and
-  `Destroyed` because different applications use different event codes for
-  window lifecycle. Covering both ensures reliable detection.
+- **`EVENT_OBJECT_HIDE` is `Hidden`, not `Destroyed`**, because
+  GPU-accelerated applications report a hide while they recreate their
+  surface and stay on screen. The tiler checks visibility before it removes
+  the window.
+- **Window events, hotkeys and focus-follows-mouse run on separate
+  threads**, so each can be implemented on its own, and a flood of window
+  events cannot hold a hotkey back.

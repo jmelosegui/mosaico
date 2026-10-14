@@ -1,8 +1,8 @@
 # Keyboard Bindings
 
 Mosaico registers global system hotkeys via the Win32 `RegisterHotKey` API.
-Hotkey presses are delivered as `WM_HOTKEY` messages in the event loop's
-message pump and dispatched as actions to the tiling manager.
+Hotkey presses are delivered as `WM_HOTKEY` messages in the message pump of
+a thread dedicated to hotkeys and dispatched as actions to the tiling manager.
 
 ## Architecture
 
@@ -19,6 +19,7 @@ Keyboard binding handling spans two crates:
 |------|---------|
 | `crates/mosaico-core/src/config/keybinding.rs` | `Keybinding`, `Modifier`, `defaults()` |
 | `crates/mosaico-windows/src/hotkey.rs` | `HotkeyManager` -- registers/unregisters/dispatches hotkeys |
+| `crates/mosaico-windows/src/hotkey_thread.rs` | `HotkeyThread` -- the thread that owns the hotkeys, and its message pump |
 | `crates/mosaico-windows/src/keys.rs` | `vk_from_name()` -- maps key names to Win32 virtual key codes |
 
 ### Key Types
@@ -37,9 +38,10 @@ Keyboard binding handling spans two crates:
    actions (new bindings added by future versions) to the file, then returns the
    merged set. Falls back to `keybinding::defaults()` if the file is absent.
 
-2. **Pass to event loop** -- keybindings are passed to `event_loop::start()`
+2. **Start the hotkey thread** -- keybindings are passed to
+   `HotkeyThread::start()`, which runs on a thread of its own
 
-3. **Create HotkeyManager** -- on the event loop thread, a `HotkeyManager`
+3. **Create HotkeyManager** -- on the hotkey thread, a `HotkeyManager`
    is created with an `mpsc::Sender<Action>`
 
 4. **Per-binding registration** -- `register_from_config()` iterates each
@@ -79,7 +81,7 @@ application can use those same key combinations.
 ### How it works
 
 - **`toggle-pause` action** -- when triggered, sends a `WM_APP+2` message
-  (`WM_HOTKEY_PAUSE`) to the event loop thread via `PostThreadMessageW`.
+  (`WM_HOTKEY_PAUSE`) to the hotkey thread via `PostThreadMessageW`.
 - **On pause** -- `HotkeyManager::pause()` calls `UnregisterHotKey` for every
   hotkey *except* the `toggle-pause` binding (so you can always unpause).
   Sets `paused = true`.
@@ -89,8 +91,8 @@ application can use those same key combinations.
   local variable and passes it to the bar so the `paused` widget shows while
   paused.
 - **CLI** -- `mosaico pause` / `mosaico unpause` send `PauseHotkeys` /
-  `UnpauseHotkeys` IPC commands. The daemon forwards them to the event loop
-  via the same `WM_HOTKEY_PAUSE` mechanism.
+  `UnpauseHotkeys` IPC commands. The daemon forwards them to the hotkey
+  thread via the same `WM_HOTKEY_PAUSE` mechanism.
 
 ### Lockout prevention
 

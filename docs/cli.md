@@ -54,9 +54,10 @@ and `doctor`'s daemon and monitor checks are tested without a daemon or a
 desktop.
 
 Still calling the platform crate directly: `daemon` (it is the daemon),
-`debug events`, `doctor`'s keybinding check and `update`'s version lookup and
-download, which wait for the event source (#44), key name (#50) and HTTP (#54)
-contracts.
+`debug events`' Ctrl+C handler and window titles, `doctor`'s keybinding check
+and `update`'s version lookup and download, which wait for the signal (#48),
+key name (#50) and HTTP (#54) contracts. `debug events` gets its event source
+from `platform::event_source()`.
 
 ### Key Types
 
@@ -213,9 +214,9 @@ with their keys. Exits with status 1 when the windows cannot be listed.
 
 ### `mosaico debug events`
 
-Streams real-time window events to stdout. Starts the Win32 event loop without
-hotkeys, prints each event as it arrives. Ctrl+C gracefully stops the event
-loop.
+Streams real-time window events to stdout. Starts the window event source
+without hotkeys, prints each event as it arrives. Ctrl+C gracefully stops the
+event source.
 
 ### `mosaico debug move --window <id> --x <x> --y <y> --w <width> --h <height>`
 
