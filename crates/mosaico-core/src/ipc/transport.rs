@@ -97,6 +97,13 @@ pub trait IpcConnection: Read + Write {
         let _ = timeout;
         Ok(())
     }
+
+    /// Limits how long writing the reply and [`finish`](Self::finish)
+    /// may take, counted from now. The default does nothing.
+    fn set_write_timeout(&mut self, timeout: Duration) -> Result<(), IpcError> {
+        let _ = timeout;
+        Ok(())
+    }
 }
 
 /// Why [`serve`] returned.
