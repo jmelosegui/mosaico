@@ -33,9 +33,7 @@ fn a_quoted_program_ends_at_its_closing_quote() {
     // Assert
     assert_eq!(
         parsed,
-        Some(LaunchCommand::autostart(
-            r"C:\Program Files\mosaico\mosaico.exe"
-        ))
+        LaunchCommand::autostart(r"C:\Program Files\mosaico\mosaico.exe")
     );
 }
 
@@ -53,10 +51,10 @@ fn an_unquoted_program_with_spaces_is_found_the_way_logon_finds_it() {
     // Assert
     assert_eq!(
         parsed,
-        Some(command(
+        command(
             r"C:\Program Files\Logi\LogiBolt\LogiBolt.exe",
             &["--startup"]
-        ))
+        )
     );
 }
 
@@ -69,10 +67,7 @@ fn an_unquoted_name_without_an_extension_is_found_with_exe_added() {
     let parsed = split(r"C:\Tools\my app\mosaico start", is_file);
 
     // Assert
-    assert_eq!(
-        parsed,
-        Some(command(r"C:\Tools\my app\mosaico.exe", &["start"]))
-    );
+    assert_eq!(parsed, command(r"C:\Tools\my app\mosaico.exe", &["start"]));
 }
 
 #[test]
@@ -86,10 +81,7 @@ fn the_shortest_run_of_words_that_names_a_file_wins() {
     // Assert
     assert_eq!(
         parsed,
-        Some(command(
-            r"C:\Program.exe",
-            &[r"Files\mosaico\mosaico.exe", "start"]
-        ))
+        command(r"C:\Program.exe", &[r"Files\mosaico\mosaico.exe", "start"])
     );
 }
 
@@ -101,10 +93,7 @@ fn an_unquoted_program_that_names_no_file_ends_at_the_first_space() {
     // Assert
     assert_eq!(
         parsed,
-        Some(command(
-            r"C:\Program",
-            &[r"Files\mosaico\mosaico.exe", "start"]
-        ))
+        command(r"C:\Program", &[r"Files\mosaico\mosaico.exe", "start"])
     );
 }
 
@@ -114,7 +103,7 @@ fn a_relative_program_is_not_looked_up() {
     let parsed = split("mosaico start", |path: &Path| panic!("looked up {path:?}"));
 
     // Assert
-    assert_eq!(parsed, Some(command("mosaico", &["start"])));
+    assert_eq!(parsed, command("mosaico", &["start"]));
 }
 
 #[test]
@@ -128,20 +117,20 @@ fn arguments_split_the_way_mosaico_reads_its_own() {
     // Assert
     assert_eq!(
         parsed,
-        Some(command(
+        command(
             r"C:\mosaico.exe",
             &[r"C:\a\b", r"C:\c d\", r#"a\"b"#, r#"x"y"#, "abc de"]
-        ))
+        )
     );
 }
 
 #[test]
-fn a_line_without_a_program_names_nothing() {
+fn a_line_without_a_program_gives_an_empty_program() {
     for line in ["", " \t ", r#""""#, r#""" start"#] {
         // Act
         let parsed = split(line, nothing);
 
         // Assert
-        assert_eq!(parsed, None, "{line:?}");
+        assert!(parsed.program.as_os_str().is_empty(), "{line:?}");
     }
 }

@@ -37,6 +37,10 @@ pub fn status(cx: &mut Context) -> Exit {
     match check(cx) {
         Ok(AutostartStatus::Enabled) => say!(cx, "Autostart is currently enabled."),
         Ok(AutostartStatus::Disabled) => say!(cx, "Autostart is currently disabled."),
+        Ok(AutostartStatus::Empty) => say!(
+            cx,
+            "Autostart is currently enabled, but its entry is empty (run `mosaico autostart enable` or `mosaico autostart disable`)."
+        ),
         Ok(AutostartStatus::Other {
             registered,
             expected,

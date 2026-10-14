@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use mosaico_core::system::LaunchCommand;
 
 use super::*;
@@ -149,5 +151,25 @@ fn status_fails_when_the_executable_cannot_be_found() {
     assert_eq!(
         h.err(),
         "Error: could not find the mosaico executable: no executable\n"
+    );
+}
+
+#[test]
+fn status_says_when_the_entry_is_empty() {
+    // Arrange
+    let mut h = Harness::new("autostart-status-empty");
+    *h.world.autostart.borrow_mut() = Some(LaunchCommand {
+        program: PathBuf::new(),
+        args: Vec::new(),
+    });
+
+    // Act
+    let exit = h.run(status);
+
+    // Assert
+    assert_eq!(exit, Exit::Success);
+    assert_eq!(
+        h.out(),
+        "Autostart is currently enabled, but its entry is empty (run `mosaico autostart enable` or `mosaico autostart disable`).\n"
     );
 }

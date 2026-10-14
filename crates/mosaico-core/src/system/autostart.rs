@@ -67,8 +67,8 @@ impl fmt::Display for LaunchCommand {
 ///   the executable: after it moves or is deleted, the old path is
 ///   reported until `enable` runs again.
 /// - `registered_command` returns `None` only when nothing is
-///   registered. A registration that cannot be read, or that names no
-///   program, is an error.
+///   registered. An entry that names no program comes back with an
+///   empty `program`, and one that cannot be read is an error.
 /// - `disable` succeeds when nothing was registered.
 /// - A registration, removal or read that fails in the system is an
 ///   [`Error::Platform`](crate::Error::Platform).

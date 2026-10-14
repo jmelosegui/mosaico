@@ -10,6 +10,9 @@ use super::{FileProbe, LaunchCommand};
 pub enum AutostartStatus {
     /// Nothing is registered.
     Disabled,
+    /// An entry is registered, but it names no program, so nothing starts
+    /// at login.
+    Empty,
     /// This executable is registered, started the way enabling does it.
     Enabled,
     /// Another command is registered: another program, or this one with
@@ -41,6 +44,9 @@ impl AutostartStatus {
         let Some(registered) = registered else {
             return Self::Disabled;
         };
+        if registered.program.as_os_str().is_empty() {
+            return Self::Empty;
+        }
         let expected = LaunchCommand::autostart(exe);
         let program = registered.program.as_path();
         if program.is_absolute() {

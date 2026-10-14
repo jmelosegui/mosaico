@@ -103,6 +103,6 @@ fn a_written_command_splits_back_into_the_same_command() {
         let read_back = split(&join(&command).unwrap(), |_| false);
 
         // Assert
-        assert_eq!(read_back, Some(command));
+        assert_eq!(read_back, command);
     }
 }

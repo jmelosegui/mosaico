@@ -12,8 +12,8 @@ mod registry;
 
 use std::path::Path;
 
+use mosaico_core::Result;
 use mosaico_core::system::{Autostart, FileProbe, LaunchCommand};
-use mosaico_core::{Error, Result};
 
 use crate::files::WindowsFiles;
 
@@ -30,11 +30,7 @@ impl Autostart for RegistryAutostart {
             return Ok(None);
         };
         let is_file = |path: &Path| WindowsFiles.is_file(path) == Some(true);
-        command_line::split(&line, is_file)
-            .map(Some)
-            .ok_or_else(|| {
-                Error::platform("read the autostart entry", "the entry names no program")
-            })
+        Ok(Some(command_line::split(&line, is_file)))
     }
 
     /// Writes the command line that runs `command` to the Mosaico value,

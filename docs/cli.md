@@ -146,9 +146,10 @@ Checks performed:
    (`AutostartStatus::of` in `mosaico_core::system`): `[ok]` when they match,
    `[warn]` when nothing is registered or another command is (another copy
    of mosaico, or other arguments), `[fail]` when the registered program is
-   not a file (the binary moved or was deleted) or the registration cannot
-   be read. A program on a network share is not looked at, so it counts as
-   another command. Doctor only reports; it never changes the registration
+   not a file (the binary moved or was deleted), the entry names no program,
+   or the registration cannot be read. A program on a network share is not
+   looked at, so it counts as another command. Doctor only reports; it never
+   changes the registration
 8. **Daemon** -- checks IPC pipe, PID file, and process liveness; cleans up
    stale PID files
 9. **Monitors** -- enumerates monitors and reports count with per-monitor

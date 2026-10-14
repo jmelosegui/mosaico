@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use mosaico_core::system::LaunchCommand;
 
 use super::*;
@@ -226,6 +228,27 @@ fn an_autostart_entry_for_a_program_that_is_not_a_file_fails() {
         out,
         format!(
             "  {FAIL} Autostart starts \"{MOVED_AWAY}\", which is not a file (run `mosaico autostart enable` to fix)\n"
+        )
+    );
+}
+
+#[test]
+fn an_empty_autostart_entry_fails() {
+    // Arrange
+    let mut h = Harness::new("doctor-autostart-empty");
+    *h.world.autostart.borrow_mut() = Some(LaunchCommand {
+        program: PathBuf::new(),
+        args: Vec::new(),
+    });
+
+    // Act
+    let out = autostart_check(&mut h);
+
+    // Assert
+    assert_eq!(
+        out,
+        format!(
+            "  {FAIL} The autostart entry is empty (run `mosaico autostart enable` to set it, or `mosaico autostart disable` to remove it)\n"
         )
     );
 }

@@ -171,3 +171,18 @@ fn a_relative_program_is_another_command_and_the_disk_is_not_asked() {
     // Assert
     assert_eq!(status, other(registered, &path("mosaico")));
 }
+
+#[test]
+fn an_entry_that_names_no_program_is_empty() {
+    // Arrange
+    let registered = LaunchCommand {
+        program: PathBuf::new(),
+        args: vec!["start".into()],
+    };
+
+    // Act
+    let status = AutostartStatus::of(Some(registered), &path("mosaico"), &Untouched);
+
+    // Assert
+    assert_eq!(status, AutostartStatus::Empty);
+}

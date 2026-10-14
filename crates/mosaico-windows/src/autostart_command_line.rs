@@ -43,13 +43,13 @@ pub fn join(command: &LaunchCommand) -> Result<String> {
     Ok(line)
 }
 
-/// Splits a command line into the program and its arguments, or `None`
-/// when it names no program.
+/// Splits a command line into the program and its arguments. The
+/// program is empty when the line names none.
 ///
 /// A program in quotes ends at the closing quote. An unquoted one is
 /// found the way logon finds it, see `find_unquoted`. `is_file` says
 /// whether a file is at a path, and must answer without waiting.
-pub fn split(line: &str, is_file: impl Fn(&Path) -> bool) -> Option<LaunchCommand> {
+pub fn split(line: &str, is_file: impl Fn(&Path) -> bool) -> LaunchCommand {
     let line = line.trim_start_matches([' ', '\t']);
     let (program, rest) = match line.strip_prefix('"') {
         Some(quoted) => {
@@ -58,13 +58,10 @@ pub fn split(line: &str, is_file: impl Fn(&Path) -> bool) -> Option<LaunchComman
         }
         None => find_unquoted(line, &is_file),
     };
-    if program.as_os_str().is_empty() {
-        return None;
-    }
-    Some(LaunchCommand {
+    LaunchCommand {
         program,
         args: args::split(rest),
-    })
+    }
 }
 
 /// The program at the front of an unquoted command line, and the rest.
