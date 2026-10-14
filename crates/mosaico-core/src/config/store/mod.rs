@@ -9,7 +9,7 @@ mod migrate_workspaces;
 
 #[cfg(test)]
 #[path = "tests/support.rs"]
-mod test_support;
+pub(super) mod test_support;
 
 use std::fmt;
 use std::path::{Path, PathBuf};

@@ -28,7 +28,7 @@ pub(super) fn cleanup(path: &Path) {
 
 /// A store on a directory of its own, deleted with everything in it
 /// when the store is dropped, so a test leaves nothing behind.
-pub(super) struct TempStore(ConfigStore);
+pub(in crate::config) struct TempStore(ConfigStore);
 
 impl Deref for TempStore {
     type Target = ConfigStore;
@@ -45,7 +45,7 @@ impl Drop for TempStore {
 }
 
 /// A store on a fresh, empty directory named after `test`.
-pub(super) fn temp_store(test: &str) -> TempStore {
+pub(in crate::config) fn temp_store(test: &str) -> TempStore {
     let dir = std::env::temp_dir()
         .join("mosaico-config-store-tests")
         .join(format!("{test}-{}", std::process::id()));

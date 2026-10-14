@@ -16,7 +16,8 @@ pub enum DirectoryWake {
 /// Waits for the files in one directory to change.
 ///
 /// It only says when to look: the config hot-reload sleeps on it, then
-/// compares the files itself.
+/// compares the files itself (see
+/// [`ConfigWatch`](crate::config::ConfigWatch)).
 ///
 /// # Contract for platform implementations
 ///
@@ -50,4 +51,11 @@ pub trait DirectoryWatcher {
     /// Fails when the directory can no longer be watched, for instance
     /// because it was deleted. Nothing more is reported after that.
     fn wait(&mut self, timeout: Duration) -> Result<DirectoryWake>;
+}
+
+/// A lent watcher, so its owner can look at it once the watch is over.
+impl<W: DirectoryWatcher + ?Sized> DirectoryWatcher for &mut W {
+    fn wait(&mut self, timeout: Duration) -> Result<DirectoryWake> {
+        (**self).wait(timeout)
+    }
 }
