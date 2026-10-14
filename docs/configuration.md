@@ -351,3 +351,10 @@ error, the watcher logs a warning and keeps the current config.
   (by class, by title, first-match wins, no-rules default), validation
   clamping
 - 6 template tests: roundtrip parsing, template-matches-defaults verification
+- `ConfigStore` tests in `config/store/tests/`. The tests of the migration
+  and merge helpers work on single files in the system temp directory. The
+  tests of the store's operations each get a directory of their own, deleted
+  when the test ends: every load and its fallback, the errors that name the
+  file, the migrations of `config.toml` with their backups, and each merge of
+  new defaults, including what it adds, that a second run changes nothing, and
+  the daemon's order of merging before loading

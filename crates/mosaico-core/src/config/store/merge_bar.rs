@@ -109,3 +109,7 @@ impl ConfigStore {
         user
     }
 }
+
+#[cfg(test)]
+#[path = "tests/merge_bar_tests.rs"]
+mod tests;

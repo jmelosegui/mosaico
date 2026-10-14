@@ -137,3 +137,6 @@ fn append_to_file(path: &Path, text: &str) -> Result<()> {
 #[cfg(test)]
 #[path = "tests/errors_tests.rs"]
 mod errors_tests;
+#[cfg(test)]
+#[path = "tests/paths_tests.rs"]
+mod paths_tests;

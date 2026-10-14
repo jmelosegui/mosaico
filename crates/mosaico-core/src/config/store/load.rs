@@ -148,3 +148,7 @@ impl ConfigStore {
         load_or_default(&self.bar_path(), || self.try_load_bar(), BarConfig::default)
     }
 }
+
+#[cfg(test)]
+#[path = "tests/load_tests.rs"]
+mod tests;

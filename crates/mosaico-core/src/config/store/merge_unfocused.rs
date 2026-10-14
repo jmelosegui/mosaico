@@ -7,7 +7,7 @@ use super::{append_to_file, file_error, read_file};
 /// Comment block appended to `config.toml` when the file has no
 /// reference to the `unfocused` border color, so existing users
 /// discover the new option without having to read release notes.
-const UNFOCUSED_BORDER_HINT_SNIPPET: &str = r##"
+pub(super) const UNFOCUSED_BORDER_HINT_SNIPPET: &str = r##"
 # Added automatically -- new in this version of mosaico
 # The `unfocused` color under [borders.colors] sets the border drawn
 # around tiled windows that do not currently have focus. Recognized

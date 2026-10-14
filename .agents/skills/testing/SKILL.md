@@ -87,6 +87,8 @@ Examples to copy:
   without sleeping.
 - `serve` in `crates/mosaico-core/src/ipc/transport.rs` is tested against in-memory connections, so the
   daemon's request handling needs no pipe.
+- `ConfigStore` in `crates/mosaico-core/src/config/store/` is given its directory, so loading, merging and
+  migrating the config files are tested on a temporary one that the test deletes when it ends.
 
 Red flags:
 
@@ -98,7 +100,7 @@ Red flags:
   for something
 
 When a test needs one of these, add the missing seam instead of working around it. Known gaps are tracked in
-#62 and #64.
+#64.
 
 ## Writing tests
 

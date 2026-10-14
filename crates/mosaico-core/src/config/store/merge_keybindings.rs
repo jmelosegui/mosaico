@@ -93,3 +93,7 @@ fn keybinding_toml_entry(kb: &Keybinding) -> String {
         modifiers.join(", ")
     )
 }
+
+#[cfg(test)]
+#[path = "tests/merge_keybindings_tests.rs"]
+mod tests;
