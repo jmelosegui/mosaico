@@ -61,8 +61,8 @@ mod event;
 /// Single-instance daemon guard (named kernel mutex).
 pub mod instance_guard;
 
-/// Win32 event loop (SetWinEventHook + message pump).
-pub mod event_loop;
+/// Window events from Win32 event hooks and broadcasts.
+pub mod event_source;
 
 /// IPC via Named Pipes.
 pub mod ipc;

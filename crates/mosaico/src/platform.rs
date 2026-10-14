@@ -5,6 +5,7 @@
 //! touching every command.
 
 use mosaico_core::Instance;
+use mosaico_core::event::EventSource;
 use mosaico_core::pid::PidFile;
 
 use crate::commands::banner;
@@ -58,4 +59,10 @@ pub fn run(command: impl FnOnce(&mut Context) -> Exit) -> Exit {
 pub fn run_on_desktop(command: impl FnOnce(&mut Context) -> Exit) -> Exit {
     mosaico_windows::dpi::enable_dpi_awareness();
     run(command)
+}
+
+/// Where window events come from, for `debug events`.
+#[cfg(target_os = "windows")]
+pub fn event_source() -> impl EventSource {
+    mosaico_windows::event_source::WindowsEventSource
 }

@@ -1,17 +1,17 @@
 use std::sync::mpsc::Sender;
 
 use mosaico_core::config::Keybinding;
-use mosaico_core::event::FocusFollowsMouse;
+use mosaico_core::event::{EventSource, EventWatch, FocusFollowsMouse};
 use mosaico_core::{Action, Error, Result, WindowEvent};
 
-use crate::event_loop::{self, EventLoopHandle};
+use crate::event_source::WindowsEventSource;
 use crate::hotkey_thread::HotkeyThread;
 use crate::pointer::WindowsPointer;
 
 /// What the daemon listens to besides IPC: window events, hotkeys and
 /// the pointer, each on a thread of its own.
 pub(super) struct Inputs {
-    event_loop: EventLoopHandle,
+    events: EventWatch,
     hotkeys: HotkeyThread,
     focus_follows_mouse: FocusFollowsMouse,
 }
@@ -25,10 +25,10 @@ impl Inputs {
         keybindings: Vec<Keybinding>,
         focus_follows_mouse: bool,
     ) -> Result<Self> {
-        let event_loop = event_loop::start(events.clone())?;
+        let watch = WindowsEventSource.start(events.clone())?;
         let hotkeys = HotkeyThread::start(actions, keybindings)?;
         let mut inputs = Self {
-            event_loop,
+            events: watch,
             hotkeys,
             focus_follows_mouse: FocusFollowsMouse::new(WindowsPointer, events),
         };
@@ -39,7 +39,7 @@ impl Inputs {
     /// Why display and work area changes will not be noticed, when the
     /// window that reports them could not be created.
     pub(super) fn sink_error(&self) -> Option<&Error> {
-        self.event_loop.sink_error()
+        self.events.display_error()
     }
 
     /// Unregisters every hotkey except toggle-pause.
@@ -62,7 +62,7 @@ impl Inputs {
 
     /// Stops everything and waits for each thread to finish.
     pub(super) fn stop(self) {
-        self.event_loop.stop();
+        self.events.stop();
         self.hotkeys.stop();
         drop(self.focus_follows_mouse);
     }
