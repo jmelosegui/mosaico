@@ -3,6 +3,8 @@
 //! These checks inspect live system state (daemon process, monitors)
 //! rather than static configuration files.
 
+use mosaico_core::ipc::IpcClient;
+
 const OK: &str = "\x1b[32m[ok]\x1b[0m";
 const WARN: &str = "\x1b[33m[warn]\x1b[0m";
 const FAIL: &str = "\x1b[31m[fail]\x1b[0m";
@@ -44,7 +46,7 @@ pub fn check_autostart() {
 }
 
 pub fn check_daemon() {
-    if mosaico_windows::ipc::is_daemon_running() {
+    if crate::platform::ipc().is_daemon_running() {
         if let Ok(Some(pid)) = mosaico_core::pid::read_pid_file() {
             println!("  {OK} Daemon is running (PID: {pid})");
         } else {

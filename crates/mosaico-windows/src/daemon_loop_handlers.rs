@@ -1,4 +1,4 @@
-use mosaico_core::ipc::{Command, Response};
+use mosaico_core::ipc::{Command, DAEMON_VERSION, DaemonStatus, PROTOCOL_VERSION, Response};
 
 use crate::bar_manager::BarManager;
 use crate::monitor;
@@ -106,11 +106,14 @@ pub(super) fn handle_command(
             Some(Response::ok_with_message("Daemon stopping"))
         }
         Command::Status => {
-            let msg = format!(
-                "Daemon is running, managing {} windows",
-                manager.window_count()
-            );
-            Some(Response::ok_with_message(msg))
+            let windows = manager.window_count();
+            let status = DaemonStatus {
+                version: DAEMON_VERSION.to_string(),
+                protocol: PROTOCOL_VERSION,
+                windows,
+            };
+            let msg = format!("Daemon is running, managing {windows} windows");
+            Some(Response::ok_with_message(msg).with_data(&status))
         }
         Command::Action { action } => {
             run_action(action, manager, bar_mgr);

@@ -1,4 +1,4 @@
-use mosaico_core::ipc::ResponseStatus;
+use super::request;
 
 /// Sends a PauseHotkeys command to the running daemon.
 pub fn pause() {
@@ -11,28 +11,5 @@ pub fn unpause() {
 }
 
 fn send(command: mosaico_core::Command) {
-    if !mosaico_windows::ipc::is_daemon_running() {
-        eprintln!("Mosaico is not running.");
-        std::process::exit(1);
-    }
-
-    match mosaico_windows::ipc::send_command(&command) {
-        Ok(response) => {
-            if response.status == ResponseStatus::Ok {
-                if let Some(msg) = response.message {
-                    println!("{msg}");
-                }
-            } else {
-                eprintln!(
-                    "Error: {}",
-                    response.message.unwrap_or("unknown error".into()),
-                );
-                std::process::exit(1);
-            }
-        }
-        Err(e) => {
-            eprintln!("Failed to send command: {e}");
-            std::process::exit(1);
-        }
-    }
+    request::print_message(request::send_or_exit(&command));
 }

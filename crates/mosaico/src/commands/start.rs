@@ -2,6 +2,8 @@ use std::os::windows::process::CommandExt;
 use std::process::Command;
 use std::time::{Duration, Instant};
 
+use mosaico_core::ipc::IpcClient;
+
 /// Windows process creation flags for launching a fully detached daemon.
 ///
 /// `CREATE_NEW_PROCESS_GROUP` (0x200) — the daemon gets its own process
@@ -14,7 +16,7 @@ const DETACH_FLAGS: u32 = 0x08000000 | 0x00000200;
 
 pub fn execute() {
     // Check if the daemon is already running
-    if mosaico_windows::ipc::is_daemon_running() {
+    if crate::platform::ipc().is_daemon_running() {
         println!("Mosaico is already running.");
         return;
     }
@@ -77,7 +79,7 @@ const POLL_INTERVAL: Duration = Duration::from_millis(50);
 fn wait_for_daemon(child: &mut std::process::Child) -> bool {
     let deadline = Instant::now() + STARTUP_TIMEOUT;
     loop {
-        if mosaico_windows::ipc::is_daemon_running() {
+        if crate::platform::ipc().is_daemon_running() {
             return true;
         }
         // Exited without ever answering.

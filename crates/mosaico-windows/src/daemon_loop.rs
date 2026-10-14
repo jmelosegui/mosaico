@@ -32,7 +32,7 @@ const PUMP_INTERVAL: std::time::Duration = std::time::Duration::from_millis(50);
 /// desktop compositor paints an opaque ghost over what should be a
 /// transparent layered bar. Draining the queue on every iteration, and on
 /// every wait timeout, keeps those windows classified as alive.
-pub(super) fn daemon_loop() -> WindowResult<()> {
+pub(super) fn daemon_loop(pipe_name: &str) -> WindowResult<()> {
     // Append any missing top-level config sections introduced by newer
     // versions of mosaico (e.g. [workspaces]) before loading, so the
     // user's config.toml visibly tracks the latest schema.
@@ -107,7 +107,7 @@ pub(super) fn daemon_loop() -> WindowResult<()> {
     let action_bridge = daemon_threads::spawn_action_bridge(action_channel_rx, action_tx);
 
     // Start the IPC listener on its own thread.
-    let ipc_thread = daemon_threads::spawn_ipc_listener(tx.clone());
+    let ipc_thread = daemon_threads::spawn_ipc_listener(tx.clone(), pipe_name);
 
     // Start the config file watcher on its own thread.
     let (watcher_stop, watcher_thread, reload_bridge) =
@@ -251,6 +251,7 @@ pub(super) fn daemon_loop() -> WindowResult<()> {
                         &get_update,
                     );
                 }
+                DaemonMsg::IpcFailed => should_stop = true,
             }
         }
 

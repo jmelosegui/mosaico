@@ -1,13 +1,15 @@
-use std::io::{BufRead, BufReader, Write};
-use std::os::windows::io::FromRawHandle;
+//! Named pipe transport for the CLI to daemon channel.
+//!
+//! Only the byte streams live here. Framing, versioning and the accept
+//! loop are in [`mosaico_core::ipc`].
 
-use mosaico_core::WindowResult;
-use mosaico_core::ipc::{Command, Response};
+use std::fs::File;
+use std::io::{self, Read, Write};
+use std::os::windows::io::{AsRawHandle, FromRawHandle};
 
-/// The named pipe path used for IPC between CLI and daemon.
-const PIPE_NAME: &str = r"\\.\pipe\mosaico";
+use mosaico_core::ipc::{IpcClient, IpcConnection, IpcError, IpcServer};
 use windows::Win32::Foundation::{
-    CloseHandle, DUPLICATE_SAME_ACCESS, DuplicateHandle, HANDLE, INVALID_HANDLE_VALUE,
+    ERROR_FILE_NOT_FOUND, ERROR_PIPE_BUSY, ERROR_PIPE_CONNECTED, HANDLE, INVALID_HANDLE_VALUE,
 };
 use windows::Win32::Storage::FileSystem::{
     CreateFileW, FILE_SHARE_NONE, FlushFileBuffers, OPEN_EXISTING, PIPE_ACCESS_DUPLEX,
@@ -16,184 +18,169 @@ use windows::Win32::System::Pipes::{
     ConnectNamedPipe, CreateNamedPipeW, DisconnectNamedPipe, PIPE_READMODE_BYTE, PIPE_TYPE_BYTE,
     PIPE_UNLIMITED_INSTANCES, PIPE_WAIT, WaitNamedPipeW,
 };
-use windows::Win32::System::Threading::GetCurrentProcess;
 use windows::core::HSTRING;
+
+/// The pipe the daemon listens on unless told otherwise.
+pub const DEFAULT_PIPE_NAME: &str = r"\\.\pipe\mosaico";
+
+/// How long a client waits for a daemon that is busy with another
+/// client, in milliseconds.
+const BUSY_WAIT_MS: u32 = 2000;
 
 const GENERIC_READ_WRITE: u32 = 0x80000000 | 0x40000000;
 
-/// A Named Pipe server that the daemon uses to accept CLI connections.
+/// The CLI end of the pipe.
+pub struct PipeClient {
+    name: HSTRING,
+}
+
+impl PipeClient {
+    /// A client for the daemon listening on `name`, such as
+    /// [`DEFAULT_PIPE_NAME`].
+    pub fn new(name: &str) -> Self {
+        Self {
+            name: HSTRING::from(name),
+        }
+    }
+
+    fn open(&self) -> windows::core::Result<HANDLE> {
+        // SAFETY: CreateFileW opens an existing named pipe as a client.
+        unsafe {
+            CreateFileW(
+                &self.name,
+                GENERIC_READ_WRITE,
+                FILE_SHARE_NONE,
+                None,
+                OPEN_EXISTING,
+                Default::default(),
+                None,
+            )
+        }
+    }
+}
+
+impl IpcClient for PipeClient {
+    type Stream = File;
+
+    /// Checks for a listening pipe instance without connecting to it.
+    fn is_daemon_running(&self) -> bool {
+        // SAFETY: WaitNamedPipeW only checks whether a pipe instance is
+        // available; 1 ms makes it return almost immediately.
+        unsafe { WaitNamedPipeW(&self.name, 1).as_bool() }
+    }
+
+    fn connect(&self) -> Result<File, IpcError> {
+        let handle = match self.open() {
+            Ok(handle) => handle,
+            Err(e) if e.code() == ERROR_FILE_NOT_FOUND.to_hresult() => {
+                return Err(IpcError::NotRunning);
+            }
+            // The only instance is serving another client. Wait for it
+            // to free up, then try once more.
+            Err(e) if e.code() == ERROR_PIPE_BUSY.to_hresult() => {
+                // SAFETY: WaitNamedPipeW blocks for at most BUSY_WAIT_MS.
+                if !unsafe { WaitNamedPipeW(&self.name, BUSY_WAIT_MS) }.as_bool() {
+                    return Err(IpcError::Io(io::Error::from(e)));
+                }
+                self.open().map_err(|e| IpcError::Io(io::Error::from(e)))?
+            }
+            Err(e) => return Err(IpcError::Io(io::Error::from(e))),
+        };
+        // SAFETY: the handle was just opened and nothing else owns it, so
+        // the File takes sole ownership and closes it when dropped.
+        Ok(unsafe { File::from_raw_handle(handle.0) })
+    }
+}
+
+/// The daemon end of the pipe.
 ///
-/// The server creates a pipe, waits for a client to connect, reads one
-/// command, and returns a response. Each connection handles one request.
+/// Each accepted connection gets a fresh pipe instance, which is what
+/// lets the next client connect while one is being answered.
 pub struct PipeServer {
-    handle: HANDLE,
+    name: HSTRING,
 }
 
 impl PipeServer {
-    /// Creates a new Named Pipe server.
-    ///
-    /// This creates the pipe but does not yet wait for connections.
-    pub fn create() -> WindowResult<Self> {
-        let pipe_name = HSTRING::from(PIPE_NAME);
+    /// A server listening on `name`, such as [`DEFAULT_PIPE_NAME`].
+    pub fn new(name: &str) -> Self {
+        Self {
+            name: HSTRING::from(name),
+        }
+    }
+}
 
-        // SAFETY: CreateNamedPipeW creates a new named pipe instance.
-        // We pass valid parameters and check for INVALID_HANDLE_VALUE.
+impl IpcServer for PipeServer {
+    type Connection = PipeConnection;
+
+    fn accept(&mut self) -> Result<PipeConnection, IpcError> {
+        // SAFETY: CreateNamedPipeW creates a new instance of the pipe; the
+        // result is checked against INVALID_HANDLE_VALUE below. The
+        // default security descriptor only lets the creating user (and
+        // administrators) open the pipe for writing.
         let handle = unsafe {
             CreateNamedPipeW(
-                &pipe_name,
+                &self.name,
                 PIPE_ACCESS_DUPLEX,
                 PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT,
                 PIPE_UNLIMITED_INSTANCES,
-                512, // output buffer size
-                512, // input buffer size
-                0,   // default timeout
+                4096,
+                4096,
+                0,
                 None,
             )
         };
-
         if handle == INVALID_HANDLE_VALUE {
-            return Err("Failed to create named pipe".into());
+            return Err(IpcError::Io(io::Error::last_os_error()));
         }
+        // SAFETY: the handle is valid and owned by nobody else; the File
+        // closes it when the connection is dropped.
+        let file = unsafe { File::from_raw_handle(handle.0) };
 
-        Ok(Self { handle })
+        // SAFETY: ConnectNamedPipe blocks until a client connects. A
+        // client that connected between creation and this call is
+        // reported as ERROR_PIPE_CONNECTED, which is a success.
+        match unsafe { ConnectNamedPipe(handle, None) } {
+            Ok(()) => {}
+            Err(e) if e.code() == ERROR_PIPE_CONNECTED.to_hresult() => {}
+            Err(e) => return Err(IpcError::Io(io::Error::from(e))),
+        }
+        Ok(PipeConnection { file })
+    }
+}
+
+/// One client connection on the daemon side.
+pub struct PipeConnection {
+    file: File,
+}
+
+impl Read for PipeConnection {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        self.file.read(buf)
+    }
+}
+
+impl Write for PipeConnection {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.file.write(buf)
     }
 
-    /// Blocks until a client connects, reads a command, and returns it.
-    pub fn accept_command(&self) -> WindowResult<Command> {
-        // SAFETY: ConnectNamedPipe blocks until a client connects.
-        unsafe {
-            ConnectNamedPipe(self.handle, None)?;
-        }
-
-        let reader = duplicate_handle_as_file(self.handle)?;
-        let mut buf_reader = BufReader::new(reader);
-        let mut line = String::new();
-        buf_reader.read_line(&mut line)?;
-
-        let command: Command = serde_json::from_str(line.trim())?;
-        Ok(command)
+    fn flush(&mut self) -> io::Result<()> {
+        self.file.flush()
     }
+}
 
-    /// Sends a response back to the connected client and disconnects.
-    pub fn send_response(&self, response: &Response) -> WindowResult<()> {
-        let mut writer = duplicate_handle_as_file(self.handle)?;
-        let json = serde_json::to_string(response)?;
-        writeln!(writer, "{json}")?;
-        writer.flush()?;
-
+impl IpcConnection for PipeConnection {
+    fn finish(mut self) -> Result<(), IpcError> {
+        self.file.flush()?;
+        let handle = HANDLE(self.file.as_raw_handle());
         // SAFETY: FlushFileBuffers blocks until the client has read all
         // data from the pipe. Without this, DisconnectNamedPipe would
-        // discard unread data, causing the client to get error 233.
+        // discard the unread reply and the client would get error 233.
         unsafe {
-            let _ = FlushFileBuffers(self.handle);
+            let _ = FlushFileBuffers(handle);
         }
-
-        // SAFETY: DisconnectNamedPipe disconnects the server side so it
-        // can accept new connections.
-        unsafe {
-            DisconnectNamedPipe(self.handle)?;
-        }
-
-        Ok(())
-    }
-}
-
-impl Drop for PipeServer {
-    fn drop(&mut self) {
-        // SAFETY: CloseHandle releases the pipe handle when the server
-        // is dropped.
-        unsafe {
-            let _ = CloseHandle(self.handle);
-        }
-    }
-}
-
-/// RAII guard that closes a HANDLE on drop.
-struct HandleGuard(HANDLE);
-
-impl Drop for HandleGuard {
-    fn drop(&mut self) {
-        // SAFETY: CloseHandle releases the handle. The guard owns
-        // this handle exclusively.
-        unsafe {
-            let _ = CloseHandle(self.0);
-        }
-    }
-}
-
-/// Sends a command to the daemon over the named pipe and returns the response.
-///
-/// This is used by the CLI (client side). The pipe handle is closed
-/// automatically when the guard goes out of scope, even on error paths.
-pub fn send_command(command: &Command) -> WindowResult<Response> {
-    let pipe_name = HSTRING::from(PIPE_NAME);
-
-    // SAFETY: CreateFileW opens an existing named pipe as a client.
-    let handle = unsafe {
-        CreateFileW(
-            &pipe_name,
-            GENERIC_READ_WRITE,
-            FILE_SHARE_NONE,
-            None,
-            OPEN_EXISTING,
-            Default::default(),
-            None,
-        )?
-    };
-
-    let _guard = HandleGuard(handle);
-
-    let json = serde_json::to_string(command)?;
-
-    // Write the command
-    let mut writer = duplicate_handle_as_file(handle)?;
-    writeln!(writer, "{json}")?;
-    writer.flush()?;
-
-    // Read the response
-    let reader = duplicate_handle_as_file(handle)?;
-    let mut buf_reader = BufReader::new(reader);
-    let mut response_line = String::new();
-    buf_reader.read_line(&mut response_line)?;
-
-    let response: Response = serde_json::from_str(response_line.trim())?;
-    Ok(response)
-}
-
-/// Checks if the daemon's named pipe exists (i.e. the daemon is running).
-///
-/// Uses `WaitNamedPipeW` with a 1 ms timeout instead of `CreateFileW`.
-/// This avoids consuming a pipe connection — it only checks whether the
-/// pipe exists without actually connecting to it.
-pub fn is_daemon_running() -> bool {
-    let pipe_name = HSTRING::from(PIPE_NAME);
-
-    // SAFETY: WaitNamedPipeW checks whether a pipe instance is available.
-    // A timeout of 1 ms means we return almost immediately.
-    // Returns BOOL — as_bool() converts to a native Rust bool.
-    unsafe { WaitNamedPipeW(&pipe_name, 1).as_bool() }
-}
-
-/// Duplicates a HANDLE and wraps it as a `std::fs::File`.
-///
-/// We duplicate instead of converting directly so that the original handle
-/// and the File can be closed independently — avoids double-close bugs.
-fn duplicate_handle_as_file(handle: HANDLE) -> WindowResult<std::fs::File> {
-    let mut dup = HANDLE::default();
-
-    // SAFETY: DuplicateHandle creates a copy of the handle. The duplicate
-    // will be owned by the returned File and closed when it's dropped.
-    unsafe {
-        DuplicateHandle(
-            GetCurrentProcess(),
-            handle,
-            GetCurrentProcess(),
-            &mut dup,
-            0,
-            false,
-            DUPLICATE_SAME_ACCESS,
-        )?;
-
-        Ok(std::fs::File::from_raw_handle(dup.0))
+        // SAFETY: DisconnectNamedPipe ends this instance's connection; the
+        // handle itself is closed when the File is dropped.
+        unsafe { DisconnectNamedPipe(handle) }.map_err(|e| IpcError::Io(io::Error::from(e)))
     }
 }

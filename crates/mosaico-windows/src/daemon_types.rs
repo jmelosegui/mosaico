@@ -17,6 +17,8 @@ pub(super) enum DaemonMsg {
     Reload(Box<ConfigReload>),
     /// 1-second tick for refreshing bar system widgets.
     Tick,
+    /// The IPC listener died, so the daemon can no longer be controlled.
+    IpcFailed,
 }
 
 /// Sends a response back to the IPC thread for the connected client.

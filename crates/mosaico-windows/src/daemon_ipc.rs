@@ -1,44 +1,28 @@
 use std::sync::mpsc;
 
-use mosaico_core::ipc::Command;
+use mosaico_core::ipc::{Served, serve};
 
 use crate::ipc::PipeServer;
 
 use super::daemon_types::{DaemonMsg, ResponseSender};
 
-/// Accepts IPC connections in a loop and forwards commands to the
-/// main daemon thread. Runs on a dedicated thread.
-pub(super) fn ipc_loop(tx: mpsc::Sender<DaemonMsg>) {
-    loop {
-        let server = match PipeServer::create() {
-            Ok(s) => s,
-            Err(e) => {
-                eprintln!("Failed to create pipe: {e}");
-                return;
-            }
-        };
-
-        let command = match server.accept_command() {
-            Ok(cmd) => cmd,
-            Err(e) => {
-                eprintln!("Error reading command: {e}");
-                continue;
-            }
-        };
-
+/// Answers CLI connections on `pipe_name` and forwards each command to
+/// the main daemon thread. Runs on a dedicated thread.
+///
+/// If the pipe can no longer accept connections the daemon has lost its
+/// only control channel: `mosaico stop` could not reach it. Rather than
+/// keep tiling with no way to stop it, it asks the main thread to shut
+/// down, which restores every window.
+pub(super) fn ipc_loop(tx: mpsc::Sender<DaemonMsg>, pipe_name: String) {
+    let mut server = PipeServer::new(&pipe_name);
+    let served = serve(&mut server, |command| {
         let (reply_tx, reply_rx): (ResponseSender, _) = mpsc::channel();
-        let is_stop = matches!(command, Command::Stop);
+        tx.send(DaemonMsg::Command(command, reply_tx)).ok()?;
+        reply_rx.recv().ok()
+    });
 
-        if tx.send(DaemonMsg::Command(command, reply_tx)).is_err() {
-            return;
-        }
-
-        if let Ok(response) = reply_rx.recv() {
-            let _ = server.send_response(&response);
-        }
-
-        if is_stop {
-            return;
-        }
+    if let Served::Failed(e) = served {
+        mosaico_core::log_error!("IPC listener on {pipe_name} failed, shutting down: {e}");
+        let _ = tx.send(DaemonMsg::IpcFailed);
     }
 }

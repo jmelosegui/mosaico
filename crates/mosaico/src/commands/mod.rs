@@ -7,6 +7,7 @@ pub mod doctor;
 mod doctor_runtime;
 pub mod init;
 pub mod pause;
+mod request;
 pub mod start;
 pub mod status;
 pub mod stop;

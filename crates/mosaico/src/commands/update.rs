@@ -6,6 +6,8 @@
 
 use std::io::Read;
 
+use mosaico_core::ipc::IpcClient;
+
 const GITHUB_HOST: &str = "github.com";
 const DOWNLOAD_TIMEOUT_MS: i32 = 60_000;
 
@@ -39,7 +41,7 @@ pub fn execute(force: bool) {
     }
 
     // 2. Was the daemon running?
-    let daemon_was_running = mosaico_windows::ipc::is_daemon_running();
+    let daemon_was_running = crate::platform::ipc().is_daemon_running();
 
     // 3. Stop daemon if running.
     if daemon_was_running {
