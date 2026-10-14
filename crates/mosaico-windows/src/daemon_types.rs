@@ -1,9 +1,8 @@
 use std::sync::mpsc;
 
 use mosaico_core::Action;
+use mosaico_core::config::ConfigReload;
 use mosaico_core::ipc::{Command, Response};
-
-use crate::config_watcher::ConfigReload;
 
 /// Internal message type for the main daemon thread.
 pub(super) enum DaemonMsg {

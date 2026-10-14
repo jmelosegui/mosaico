@@ -16,9 +16,6 @@ pub mod bar_manager;
 /// Border overlay windows for visual focus indicators.
 pub mod border;
 
-/// Config file watcher for hot-reloading.
-pub mod config_watcher;
-
 /// Ctrl+C in the console, through SetConsoleCtrlHandler.
 pub mod ctrl_c;
 
@@ -27,6 +24,9 @@ pub mod daemon;
 
 /// Focus borders and window corners through Win32.
 mod decorations;
+
+/// Change notifications on a directory, for config hot-reload.
+pub mod directory_watcher;
 
 /// DPI awareness, which [`setup`] turns on in every process.
 mod dpi;
