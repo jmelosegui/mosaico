@@ -9,7 +9,7 @@ use std::time::Duration;
 
 use serde_json::Value;
 
-use super::framing::{read_message, write_message};
+use super::framing::{MAX_MESSAGE_BYTES, read_message, write_message};
 use super::{Command, ErrorCode, IpcError, Request, Response, decode_request};
 
 /// How the CLI reaches the daemon.
@@ -246,13 +246,27 @@ pub fn serve_with_timeout<S: IpcServer>(
         if let Err(e) = connection.set_write_timeout(timeout) {
             crate::log_warn!("IPC: could not limit how long a reply may take: {e}");
         }
-        let replied = write_message(&mut connection, &response).and_then(|()| connection.finish());
+        let replied = reply(&mut connection, &response).and_then(|()| connection.finish());
         if let Err(e) = replied {
             crate::log_warn!("IPC: could not reply: {e}");
         }
         if is_stop {
             return Served::Stopped;
         }
+    }
+}
+
+/// Writes `response`, or a too-large error in its place when it does not
+/// fit in one message, so the client always learns what happened.
+fn reply(connection: &mut impl Write, response: &Response) -> Result<(), IpcError> {
+    match write_message(connection, response) {
+        // write_message checks the size first, so nothing went out yet.
+        Err(IpcError::TooLarge) => {
+            crate::log_warn!("IPC: a reply was larger than {MAX_MESSAGE_BYTES} bytes");
+            let too_large = Response::error(ErrorCode::TooLarge, "the reply is too large to send");
+            write_message(connection, &too_large)
+        }
+        other => other,
     }
 }
 

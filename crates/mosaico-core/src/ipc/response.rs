@@ -36,7 +36,8 @@ pub enum ResponseStatus {
 pub enum ErrorCode {
     /// The request was not a valid JSON object.
     Malformed,
-    /// The request was larger than the daemon accepts.
+    /// The request, or the reply to it, was larger than one message may
+    /// be.
     TooLarge,
     /// The daemon does not know this command.
     UnknownCommand,

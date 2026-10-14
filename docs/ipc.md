@@ -64,6 +64,7 @@ The daemon checks every request before running it, and always answers:
 | `Stop` from any version | carried out, so a mismatched daemon can always be stopped |
 | an unknown command | `unknown-command` |
 | a known command with bad fields | `malformed` |
+| carried out, but the reply is larger than the limit | `too-large`, in place of the reply |
 
 Bump `PROTOCOL_VERSION` whenever a change would make one side misread the
 other.
