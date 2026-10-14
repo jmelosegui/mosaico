@@ -13,25 +13,16 @@ use crate::{frame, monitor};
 ///
 /// Windows come from `EnumWindows`, which walks the top-level windows in
 /// Z order, topmost first, so the list runs front to back. Monitors come
-/// from `EnumDisplayMonitors`; see [`monitor`].
+/// from `EnumDisplayMonitors`, with keys from the display configuration.
 pub struct WindowsEnumerator;
 
 impl Enumerator for WindowsEnumerator {
     fn windows(&self) -> Result<Vec<WindowId>> {
-        Ok(enumerate_windows()?.iter().map(Window::id).collect())
+        enumerate_windows()
     }
 
     fn connected_monitors(&self) -> Result<Vec<Display>> {
-        let monitors = monitor::enumerate_monitors()?;
-        Ok(monitors
-            .into_iter()
-            .map(|m| Display {
-                id: m.id,
-                key: m.key,
-                work_area: m.work_area,
-                primary: m.primary,
-            })
-            .collect())
+        monitor::enumerate_monitors()
     }
 
     /// The frame is the invisible resize border Windows 10 and 11 draw
@@ -65,12 +56,12 @@ impl Enumerator for WindowsEnumerator {
 /// This calls the Win32 `EnumWindows` API, which iterates over every top-level
 /// window and invokes a callback for each one. We filter inside the callback
 /// to keep only "real" application windows.
-pub fn enumerate_windows() -> Result<Vec<Window>> {
-    let mut windows: Vec<Window> = Vec::new();
+fn enumerate_windows() -> Result<Vec<WindowId>> {
+    let mut windows: Vec<WindowId> = Vec::new();
 
     // SAFETY: EnumWindows calls our callback for each top-level window.
     // We pass a pointer to our Vec as LPARAM (user data). The callback
-    // casts it back to &mut Vec<Window> to collect results. This is safe
+    // casts it back to &mut Vec<WindowId> to collect results. This is safe
     // because EnumWindows runs synchronously — the Vec outlives the call.
     unsafe {
         EnumWindows(
@@ -91,14 +82,14 @@ pub fn enumerate_windows() -> Result<Vec<Window>> {
 ///
 /// Win32 can't call Rust closures directly. Instead, we use `extern "system"`
 /// (the Windows calling convention) and pass data through an `LPARAM` — a
-/// pointer-sized integer used as "user data". We cast our `Vec<Window>` pointer
+/// pointer-sized integer used as "user data". We cast our `Vec<WindowId>` pointer
 /// into an `LPARAM` when calling `EnumWindows`, and cast it back here.
 unsafe extern "system" fn enum_window_callback(hwnd: HWND, lparam: LPARAM) -> BOOL {
-    // SAFETY: lparam is a pointer to our Vec<Window>, cast from enumerate_windows().
-    let windows = unsafe { &mut *(lparam.0 as *mut Vec<Window>) };
+    // SAFETY: lparam is a pointer to our Vec<WindowId>, cast from enumerate_windows().
+    let windows = unsafe { &mut *(lparam.0 as *mut Vec<WindowId>) };
 
     if should_include_window(hwnd) {
-        windows.push(Window::new(hwnd));
+        windows.push(Window::new(hwnd).id());
     }
 
     BOOL(1) // TRUE — continue enumerating

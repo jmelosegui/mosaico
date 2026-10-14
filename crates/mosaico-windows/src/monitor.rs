@@ -1,6 +1,7 @@
 use std::mem;
 
-use mosaico_core::{Error, MonitorId, MonitorKey, Rect, Result, WindowId};
+use mosaico_core::tiler::Display;
+use mosaico_core::{Error, MonitorId, Rect, Result, WindowId};
 use windows::Win32::Foundation::{LPARAM, RECT};
 use windows::Win32::Graphics::Gdi::{
     EnumDisplayMonitors, GetMonitorInfoW, HDC, HMONITOR, MONITOR_DEFAULTTOPRIMARY, MONITORINFO,
@@ -13,40 +14,13 @@ use crate::monitor_identity;
 /// `MONITORINFOF_PRIMARY` flag in `MONITORINFO::dwFlags`.
 const MONITORINFOF_PRIMARY: u32 = 1;
 
-/// Information about a connected monitor.
-pub struct MonitorInfo {
-    /// Runtime handle: the HMONITOR value.
-    ///
-    /// Only valid until the next display change: Windows hands out new
-    /// handles whenever the configuration changes. Use `key` to
-    /// recognise a monitor across changes.
-    pub id: MonitorId,
-    /// Identity that survives reconnects. See [`MonitorKey`].
-    pub key: MonitorKey,
-    /// Work area excluding the taskbar and docked toolbars.
-    pub work_area: Rect,
-    /// Whether this is the primary monitor.
-    pub primary: bool,
-}
-
-impl mosaico_core::Monitor for MonitorInfo {
-    fn key(&self) -> &MonitorKey {
-        &self.key
-    }
-
-    fn work_area(&self) -> Rect {
-        self.work_area
-    }
-
-    fn is_primary(&self) -> bool {
-        self.primary
-    }
-}
-
 /// Returns the monitor ID for the monitor containing the given window.
 ///
-/// Falls back to the primary monitor if the window handle is invalid.
-pub fn monitor_id_for_window(window: WindowId) -> MonitorId {
+/// `MonitorFromWindow` picks the monitor with the largest share of the
+/// window, uses the restored position of a minimized window, and falls
+/// back to the primary monitor for a window on no monitor or a handle
+/// that is no longer valid.
+pub(crate) fn monitor_id_for_window(window: WindowId) -> MonitorId {
     let hwnd = crate::window::Window::from_id(window).hwnd();
     // SAFETY: MonitorFromWindow is a read-only query on a window handle.
     let hmonitor = unsafe { MonitorFromWindow(hwnd, MONITOR_DEFAULTTOPRIMARY) };
@@ -66,8 +40,11 @@ struct RawMonitor {
     gdi_name: String,
 }
 
-/// Enumerates all connected monitors, sorted left-to-right.
-pub fn enumerate_monitors() -> Result<Vec<MonitorInfo>> {
+/// Enumerates all connected monitors, in the order `EnumDisplayMonitors`
+/// reports them. [`Enumerator::monitors`] puts them left to right.
+///
+/// [`Enumerator::monitors`]: mosaico_core::tiler::Enumerator::monitors
+pub(crate) fn enumerate_monitors() -> Result<Vec<Display>> {
     let mut raw: Vec<RawMonitor> = Vec::new();
 
     // SAFETY: EnumDisplayMonitors calls our callback for each monitor.
@@ -90,20 +67,15 @@ pub fn enumerate_monitors() -> Result<Vec<MonitorInfo>> {
     }
 
     let mut identities = monitor_identity::display_identities();
-    let mut monitors: Vec<MonitorInfo> = raw
+    Ok(raw
         .into_iter()
-        .map(|m| MonitorInfo {
+        .map(|m| Display {
             id: m.id,
             key: identities.remove(&m.gdi_name).unwrap_or_default(),
             work_area: m.work_area,
             primary: m.primary,
         })
-        .collect();
-
-    // Sort left-to-right so "next" and "previous" are spatial.
-    monitors.sort_by_key(|m| m.work_area.x);
-
-    Ok(monitors)
+        .collect())
 }
 
 /// Callback invoked by `EnumDisplayMonitors` for each connected monitor.

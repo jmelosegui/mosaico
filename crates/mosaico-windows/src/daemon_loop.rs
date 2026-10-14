@@ -5,13 +5,14 @@ use std::time::Instant;
 use mosaico_core::Result;
 use mosaico_core::config;
 use mosaico_core::ipc::Command;
+use mosaico_core::tiler::Enumerator;
 use windows::Win32::UI::WindowsAndMessaging::{
     DispatchMessageW, MSG, PM_REMOVE, PeekMessageW, TranslateMessage,
 };
 
 use crate::bar_manager::BarManager;
+use crate::enumerate::WindowsEnumerator;
 use crate::event_loop;
-use crate::monitor;
 use crate::tiling::TilingManager;
 
 use super::daemon_loop_handlers;
@@ -57,7 +58,8 @@ pub(super) fn daemon_loop(pipe_name: &str) -> Result<()> {
     let mut current_theme = config.theme.resolve();
 
     let bar_config = config::merge_missing_bar_widgets();
-    let monitor_rects: Vec<_> = monitor::enumerate_monitors()?
+    let monitor_rects: Vec<_> = WindowsEnumerator
+        .monitors()?
         .iter()
         .map(|m| m.work_area)
         .collect();

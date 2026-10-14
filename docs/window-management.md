@@ -22,7 +22,8 @@ which includes invisible frame compensation and DPI awareness.
 | `crates/mosaico-windows/src/window/kind.rs` | `app_window_caption()`: whether a window is an application window |
 | `crates/mosaico-windows/src/window_control.rs` | `Win32WindowControl`, the Win32 `WindowControl` |
 | `crates/mosaico-windows/src/frame.rs` | `visible_rect()`, `border_offset()`, `BorderOffset` |
-| `crates/mosaico-windows/src/enumerate.rs` | `enumerate_windows()` |
+| `crates/mosaico-core/src/tiler/enumerator.rs` | `Enumerator`, the contract for listing windows and monitors |
+| `crates/mosaico-windows/src/enumerate.rs` | `WindowsEnumerator`, `enumerate_windows()` |
 | `crates/mosaico-windows/src/dpi.rs` | `enable_dpi_awareness()` |
 
 ### Key Types
@@ -173,15 +174,29 @@ rect), falling back to `GetWindowRect` if DWM is unavailable.
 
 ## Window Enumeration
 
-`enumerate_windows()` uses `EnumWindows` with a callback to discover all
-visible application windows. It filters to:
+Windows are listed through the core `Enumerator` contract
+(`mosaico-core/src/tiler/enumerator.rs`). `Enumerator::windows()` returns
+every top-level window that is shown and not minimized, front to back,
+except tool palettes and floating toolbars, windows owned by another window
+(dialogs, property sheets) and modal dialogs. Windows without a title bar are
+listed, since the window rules may opt them in. It makes no other judgement:
+windows the system keeps out of view and windows mosaico cannot move are
+listed too, and `Desktop::candidate` rules them out. The daemon tiles the
+windows it accepts in this order at startup, and `mosaico debug list` prints
+them.
+
+On Windows, `WindowsEnumerator` calls `enumerate_windows()`, which uses
+`EnumWindows` (top-level windows in Z order, topmost first) and keeps:
 
 - Visible windows (`IsWindowVisible`)
-- Non-minimized windows
-- Application windows (has `WS_CAPTION`, not `WS_EX_TOOLWINDOW`)
+- Non-minimized windows (`IsIconic`)
+- Application windows: not `WS_EX_TOOLWINDOW`, no owner, not
+  `WS_EX_DLGMODALFRAME` (`Window::app_window_caption()`). `WS_CAPTION` is
+  not required
 
-Returns a `Vec<Window>` used during daemon initialization to discover existing
-windows on the desktop.
+`Enumerator::details()` describes one window for `debug list`: title, class,
+executable path, whether it has a title bar, rect, state, monitor and the
+invisible frame border (`frame::border_offset()`).
 
 ## DPI Awareness
 

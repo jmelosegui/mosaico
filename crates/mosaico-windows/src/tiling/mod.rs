@@ -12,13 +12,11 @@ mod inspect;
 use std::time::Instant;
 
 use mosaico_core::config::{BorderConfig, Config, LayoutConfig, WindowRule, WorkspacesConfig};
-use mosaico_core::tiler::{BarReservation, Display, Input, Settings, Tiler};
-use mosaico_core::{Action, HidingSupport, Result, WindowControl, WindowEvent, WindowId};
+use mosaico_core::tiler::{BarReservation, Display, Enumerator, Input, Settings, Tiler};
+use mosaico_core::{Action, HidingSupport, Result, WindowControl, WindowEvent};
 
 use crate::bar::BarState;
-use crate::enumerate;
-use crate::monitor::{self, MonitorInfo};
-use crate::window::Window;
+use crate::enumerate::WindowsEnumerator;
 use crate::window_control::Win32WindowControl;
 
 use applier::Applier;
@@ -50,11 +48,8 @@ impl TilingManager {
         let mut applier = Applier::new(HiddenFile::current(), hiding);
         applier.restore_previous(&desktop, &control, Instant::now());
 
-        let displays = displays(monitor::enumerate_monitors()?);
-        let windows: Vec<WindowId> = enumerate::enumerate_windows()?
-            .iter()
-            .map(Window::id)
-            .collect();
+        let displays = WindowsEnumerator.monitors()?;
+        let windows = WindowsEnumerator.windows()?;
         let settings = Settings {
             layout: layout_config.clone(),
             workspaces: workspaces_config.clone(),
@@ -142,14 +137,17 @@ impl TilingManager {
     }
 
     /// Rebuilds the monitor state after a display configuration change.
+    ///
+    /// `new_monitors` are left to right, as [`Enumerator::monitors`]
+    /// lists them.
     pub fn handle_display_change(
         &mut self,
-        new_monitors: Vec<MonitorInfo>,
+        new_monitors: Vec<Display>,
         bar_height: i32,
         bar_monitor_indices: &[usize],
     ) {
         self.step(Input::Displays {
-            monitors: displays(new_monitors),
+            monitors: new_monitors,
             bar: bar(bar_height, bar_monitor_indices),
         });
     }
@@ -162,9 +160,7 @@ impl TilingManager {
 
     /// Re-reads the OS work areas, then re-reserves the bar and retiles.
     pub fn reset_and_adjust_work_areas(&mut self, bar_height: i32, bar_monitors: &[usize]) {
-        let monitors = monitor::enumerate_monitors()
-            .map(displays)
-            .unwrap_or_default();
+        let monitors = WindowsEnumerator.monitors().unwrap_or_default();
         self.step(Input::WorkAreas {
             monitors,
             bar: bar(bar_height, bar_monitors),
@@ -204,19 +200,6 @@ impl TilingManager {
             })
             .collect()
     }
-}
-
-/// The monitors as the tiler sees them.
-fn displays(monitors: Vec<MonitorInfo>) -> Vec<Display> {
-    monitors
-        .into_iter()
-        .map(|m| Display {
-            id: m.id,
-            key: m.key,
-            work_area: m.work_area,
-            primary: m.primary,
-        })
-        .collect()
 }
 
 fn bar(height: i32, monitors: &[usize]) -> BarReservation {

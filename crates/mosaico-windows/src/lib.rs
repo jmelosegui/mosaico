@@ -65,7 +65,7 @@ pub mod event_loop;
 pub mod ipc;
 
 /// Monitor work area queries.
-pub mod monitor;
+mod monitor;
 
 /// Workarounds for Chromium-based windows.
 mod chromium;
@@ -91,5 +91,4 @@ pub mod window;
 /// Moving, showing, hiding and focusing windows through Win32.
 pub mod window_control;
 
-pub use enumerate::enumerate_windows;
 pub use window::Window;
