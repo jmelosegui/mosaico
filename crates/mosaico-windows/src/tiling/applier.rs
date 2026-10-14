@@ -19,25 +19,16 @@
 use std::collections::HashMap;
 use std::time::Instant;
 
-use mosaico_core::config::BorderColors;
 use mosaico_core::tiler::{
     BorderStyle, Coalescer, Desktop, Effect, Expectations, HiddenWindows, apply_window_effect,
 };
 use mosaico_core::{HidingSupport, WindowControl, WindowId};
 
-use crate::border::{Border, Color};
+use crate::border::Border;
 use crate::frame;
 use crate::window::Window;
 
 use super::hidden_file::HiddenFile;
-
-/// Border color used when a configured value does not parse. Matches
-/// the historical default focused color.
-const FALLBACK_COLOR: Color = Color {
-    r: 0,
-    g: 0xB4,
-    b: 0xD8,
-};
 
 /// Executes effects and remembers what the OS should report back.
 #[derive(Default)]
@@ -208,17 +199,10 @@ impl Applier {
         };
         border.show(
             &style.rect,
-            parse_color(&style.color),
+            style.color,
             style.width,
             style.radius,
             Window::from_id(window).hwnd(),
         );
     }
-}
-
-fn parse_color(hex: &str) -> Color {
-    if hex == BorderColors::NONE {
-        return FALLBACK_COLOR;
-    }
-    Color::from_hex(hex).unwrap_or(FALLBACK_COLOR)
 }

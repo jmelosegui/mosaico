@@ -77,6 +77,12 @@ color. The bar draws with it too.
 The literal `"none"` on `unfocused` disables unfocused borders;
 `BorderColors::unfocused_enabled()` reports the toggle state.
 
+The tiler parses the configured value when it decides how a border is
+drawn, and sends the platform a `Color` in `BorderStyle`. A value that is
+still not a hex color after theme resolution, such as a name the theme
+does not know or `"none"` on `focused` or `monocle`, is drawn in
+`BorderColors::FALLBACK` (`#00b4d8`).
+
 ## Integration
 
 The applier in `mosaico-windows` keeps a `HashMap<WindowId, Border>` keyed by window id,

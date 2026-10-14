@@ -71,7 +71,8 @@ focused = "blue"
 3. **Otherwise** -- looked up as a named color in the active palette
 
 This applies to border colors in `config.toml` and all color fields in
-`bar.toml`.
+`bar.toml`. A name the palette does not know is kept as written; a
+border color that is not a hex color is drawn in `#00b4d8`.
 
 ## Color Mapping
 

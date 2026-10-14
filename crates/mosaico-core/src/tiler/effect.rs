@@ -1,4 +1,4 @@
-use crate::config::{CornerStyle, HidingBehaviour};
+use crate::config::{Color, CornerStyle, HidingBehaviour};
 use crate::{Rect, WindowId};
 
 /// A change the tiler wants made to the desktop.
@@ -124,8 +124,10 @@ pub enum Timing {
 pub struct BorderStyle {
     /// The window's visible bounds.
     pub rect: Rect,
-    /// Hex color, such as `"#00b4d8"`.
-    pub color: String,
+    /// The stroke color. A configured value that is not a color is
+    /// already replaced by
+    /// [`BorderColors::FALLBACK`](crate::config::BorderColors::FALLBACK).
+    pub color: Color,
     /// Stroke width in pixels.
     pub width: i32,
     /// Corner radius in pixels.
