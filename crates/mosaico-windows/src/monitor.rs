@@ -79,7 +79,7 @@ pub fn enumerate_monitors() -> Result<Vec<MonitorInfo>> {
 
     if !success.as_bool() {
         return Err(Error::platform(
-            "enumerate monitors",
+            "list monitors",
             "EnumDisplayMonitors failed",
         ));
     }

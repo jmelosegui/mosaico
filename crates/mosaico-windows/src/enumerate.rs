@@ -25,7 +25,7 @@ pub fn enumerate_windows() -> Result<Vec<Window>> {
             LPARAM(&mut windows as *mut _ as isize),
         )
     }
-    .or_platform("enumerate windows")?;
+    .or_platform("list windows")?;
 
     Ok(windows)
 }
