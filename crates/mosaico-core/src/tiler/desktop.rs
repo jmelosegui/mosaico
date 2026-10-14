@@ -42,7 +42,9 @@ pub trait Desktop {
     /// Session id of the monitor the window is on.
     ///
     /// Must be one of the ids in the latest [`Display`] list. A window
-    /// that is on no monitor reports the primary monitor.
+    /// that spans monitors is on the one that holds the largest part of
+    /// it, and a minimized window is on the monitor it will be restored
+    /// to. A window that is on no monitor reports the primary monitor.
     fn monitor_of(&self, window: WindowId) -> MonitorId;
 
     /// Pointer position in desktop coordinates, if it can be read.
@@ -73,7 +75,7 @@ pub struct WindowFacts {
     pub has_caption: bool,
 }
 
-/// A connected monitor as the tiler sees it.
+/// A connected monitor, as [`Enumerator`](super::Enumerator) lists it.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Display {
     /// Session id. Platforms may hand out new ids on every display

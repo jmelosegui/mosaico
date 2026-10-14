@@ -15,7 +15,8 @@ pub enum Input {
     Event(WindowEvent),
     /// The set of monitors changed.
     Displays {
-        /// Every monitor now connected, in the platform's order.
+        /// Every monitor now connected, left to right as
+        /// [`Enumerator::monitors`](super::Enumerator::monitors) lists them.
         monitors: Vec<Display>,
         /// Space to keep free for the bar.
         bar: BarReservation,
