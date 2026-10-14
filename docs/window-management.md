@@ -71,6 +71,10 @@ The contract, in the trait's docs, spells out what callers rely on:
   resize borders or shadows.
 - Placing a maximized window takes it out of maximized state, and a placement
   is never reported as the user moving the window.
+- Placing a window hidden with `hide` moves it and keeps it out of view, so it
+  can be shown in place. Placing a minimized window leaves it minimized and
+  need not change where it is restored to, so the tiler restores a window
+  before it places it.
 - Pre-placement, for windows that exist but are not shown yet, never waits for
   the application, even one that never handles its messages.
 - A minimize is reported back as a `Minimized` event, which is what takes the

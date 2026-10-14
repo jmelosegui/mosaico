@@ -170,10 +170,11 @@ impl FakeDesktop {
     fn apply(&mut self, effect: &Effect) {
         match *effect {
             Effect::Place { window, rect, .. } => {
+                // As `WindowControl::place` promises: no longer maximized,
+                // but a minimized window stays minimized.
                 if let Some(w) = self.windows.get_mut(&window) {
                     w.rect = rect;
                     w.maximized = false;
-                    w.minimized = false;
                 }
             }
             Effect::Hide { window, how } => {

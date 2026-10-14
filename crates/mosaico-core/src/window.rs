@@ -31,6 +31,12 @@ pub trait WindowControl {
     /// Moves and resizes a window so its visible bounds are `rect`.
     ///
     /// - A maximized window is no longer maximized afterwards.
+    /// - A window [`hide`](Self::hide) took out of view with
+    ///   [`HidingBehaviour::Hide`] is moved and stays out of view, so
+    ///   showing it afterwards shows it in place.
+    /// - A minimized window stays minimized, and placing it need not
+    ///   change where it goes once restored: the tiler restores a window
+    ///   before it places it.
     /// - The window is not raised or focused. Whatever its drawing needs
     ///   after the move is left to [`repaint`](Self::repaint).
     /// - The move must not be reported as the user moving the window
