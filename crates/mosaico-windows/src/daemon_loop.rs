@@ -86,7 +86,7 @@ pub(super) fn daemon_loop(pipe_name: &str) -> Result<()> {
     let update_text = daemon_threads::spawn_version_check(WinHttpClient);
 
     // Background community-rules download — updates cached rules.toml.
-    daemon_threads::spawn_rules_download(tx.clone());
+    daemon_threads::spawn_rules_download(WinHttpClient, config::rules_path(), tx.clone());
 
     let get_update = || update_text.lock().map_or(String::new(), |t| t.clone());
     bar_mgr.update(&manager.bar_states(&get_update(), false));

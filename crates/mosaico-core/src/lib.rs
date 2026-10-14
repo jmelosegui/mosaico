@@ -4,6 +4,8 @@
 
 /// User-triggerable actions (focus, move, workspace switch).
 pub mod action;
+/// Downloading the community window rules.
+pub mod community_rules;
 /// Configuration loading and types.
 pub mod config;
 /// The contract for drawing borders and corners on windows.
