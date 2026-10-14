@@ -121,3 +121,7 @@ impl Tiler {
         self.update_border(plan);
     }
 }
+
+#[cfg(test)]
+#[path = "tests/display_bar_tests.rs"]
+mod tests;
