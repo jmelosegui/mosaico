@@ -39,9 +39,12 @@ Commands do not reach for the OS themselves. They take a
 (`mosaico_core::system::Autostart`), window control
 (`mosaico_core::WindowControl`), the windows and monitors on the desktop
 (`mosaico_core::tiler::Enumerator`), the path of the running executable
-(`current_exe`, which is what autostart registers), file checks that never
-wait on the network (`mosaico_core::system::FileProbe`, for the autostart
-check), the instance's `PidFile`, a clock, the update check, the logo, and
+(`current_exe`, which is what autostart registers and what `update`
+replaces), file checks that never wait on the network
+(`mosaico_core::system::FileProbe`, for the autostart check), the
+instance's `PidFile`, a clock, the HTTP client that looks up and downloads
+releases (`mosaico_core::http::HttpClient`), how this platform's release is
+packaged and installed (`mosaico_core::update::Installer`), the logo, and
 the output and error streams. They return an `Exit` (`Success` or
 `Failure`), and only `main` calls `std::process::exit`.
 
@@ -50,16 +53,16 @@ in the CLI that picks a platform implementation. Commands that move windows
 or show where windows and monitors are run through `platform::run_on_desktop`,
 which first makes the process DPI aware so coordinates match the daemon's.
 The unit tests build one from `commands/test_support.rs`, a fake `World`
-standing in for the daemon, processes, registry, desktop and clock, and
-`commands/fake_desktop.rs`, a fake list of windows and monitors, so `start`,
-`stop`, `status`, `autostart`, `action`, `pause`, `debug move`, `debug list`
-and `doctor`'s autostart, daemon and monitor checks are tested without a
-daemon or a desktop.
+standing in for the daemon, processes, registry, desktop, GitHub, the
+release installer and clock, and `commands/fake_desktop.rs`, a fake list of
+windows and monitors, so `start`, `stop`, `status`, `autostart`, `action`,
+`pause`, `update`, `debug move`, `debug list` and `doctor`'s autostart,
+daemon and monitor checks are tested without a daemon, a desktop or a
+network.
 
-Still calling the platform crate directly: `daemon` (it is the daemon),
-`debug events`' Ctrl+C handler and window titles, and `update`'s version
-lookup and download, which wait for the signal (#48) and HTTP (#54)
-contracts. `debug events` gets its event source from
+Still calling the platform crate directly: `daemon` (it is the daemon), and
+`debug events`' Ctrl+C handler and window titles, which wait for the signal
+contract (#48). `debug events` gets its event source from
 `platform::event_source()`.
 
 ### Key Types
