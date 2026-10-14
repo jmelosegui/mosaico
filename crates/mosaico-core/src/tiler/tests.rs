@@ -45,6 +45,8 @@ mod move_tests;
 mod pipeline_tests;
 #[path = "tests/pre_place_tests.rs"]
 mod pre_place_tests;
+#[path = "tests/rules_reload_tests.rs"]
+mod rules_reload_tests;
 #[path = "tests/session_tests.rs"]
 mod session_tests;
 #[path = "tests/window_effects_tests.rs"]
