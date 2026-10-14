@@ -1,56 +1,134 @@
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::{Instance, WindowResult};
 
-/// Returns the path to the PID file of this process's [`Instance`],
-/// creating its data directory if needed.
+/// The file a running daemon records its process id in.
 ///
-/// For the default instance that is `%LOCALAPPDATA%\mosaico\mosaico.pid`.
+/// The CLI uses it to tell a daemon that stopped answering apart from
+/// one that is gone, and to end a stuck daemon.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PidFile {
+    path: PathBuf,
+}
+
+impl PidFile {
+    /// A PID file at `path`.
+    pub fn new(path: impl Into<PathBuf>) -> Self {
+        Self { path: path.into() }
+    }
+
+    /// The PID file of this process's [`Instance`],
+    /// `%LOCALAPPDATA%\mosaico\mosaico.pid` for the default instance.
+    pub fn current() -> WindowResult<Self> {
+        Ok(Self::new(Instance::current()?.pid_path()))
+    }
+
+    /// Where the file is.
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    /// Records `pid`, creating the directory if needed.
+    pub fn write(&self, pid: u32) -> WindowResult<()> {
+        if let Some(dir) = self.path.parent() {
+            fs::create_dir_all(dir)?;
+        }
+        fs::write(&self.path, pid.to_string())?;
+        Ok(())
+    }
+
+    /// The recorded process id, or `None` when there is no file.
+    pub fn read(&self) -> WindowResult<Option<u32>> {
+        if !self.path.exists() {
+            return Ok(None);
+        }
+        let contents = fs::read_to_string(&self.path)?;
+        let pid: u32 = contents
+            .trim()
+            .parse()
+            .map_err(|e| format!("invalid PID file contents: {e}"))?;
+        Ok(Some(pid))
+    }
+
+    /// Deletes the file, if there is one.
+    pub fn remove(&self) -> WindowResult<()> {
+        if self.path.exists() {
+            fs::remove_file(&self.path)?;
+        }
+        Ok(())
+    }
+}
+
+/// Returns the path to the PID file of this process's [`Instance`].
 pub fn pid_path() -> WindowResult<PathBuf> {
-    let instance = Instance::current()?;
-    fs::create_dir_all(instance.data_dir())?;
-    Ok(instance.pid_path())
+    Ok(PidFile::current()?.path.clone())
 }
 
 /// Writes the current process's PID to the PID file.
 ///
-/// Called when the daemon starts. The PID file allows the CLI to detect
-/// a running daemon even if the IPC check fails, and to forcibly
-/// kill a stuck daemon process.
+/// Called when the daemon starts.
 pub fn write_pid_file() -> WindowResult<()> {
-    let path = pid_path()?;
-    let pid = std::process::id();
-    fs::write(&path, pid.to_string())?;
-    Ok(())
+    PidFile::current()?.write(std::process::id())
 }
 
 /// Reads the PID from the PID file, if it exists.
 pub fn read_pid_file() -> WindowResult<Option<u32>> {
-    let path = pid_path()?;
-
-    if !path.exists() {
-        return Ok(None);
-    }
-
-    let contents = fs::read_to_string(&path)?;
-    let pid: u32 = contents
-        .trim()
-        .parse()
-        .map_err(|e| format!("invalid PID file contents: {e}"))?;
-
-    Ok(Some(pid))
+    PidFile::current()?.read()
 }
 
 /// Removes the PID file.
 ///
 /// Called when the daemon shuts down cleanly.
 pub fn remove_pid_file() -> WindowResult<()> {
-    let path = pid_path()?;
+    PidFile::current()?.remove()
+}
 
-    if path.exists() {
-        fs::remove_file(&path)?;
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn temp_file(name: &str) -> PidFile {
+        let dir = std::env::temp_dir()
+            .join("mosaico-pid-tests")
+            .join(format!("{name}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        PidFile::new(dir.join("nested").join("mosaico.pid"))
     }
 
-    Ok(())
+    #[test]
+    fn a_missing_file_reads_as_none() {
+        // Arrange
+        let file = temp_file("missing");
+
+        // Act / Assert
+        assert_eq!(file.read().unwrap(), None);
+        assert!(file.remove().is_ok(), "removing nothing is fine");
+    }
+
+    #[test]
+    fn a_written_pid_reads_back_and_can_be_removed() {
+        // Arrange
+        let file = temp_file("round-trip");
+
+        // Act
+        file.write(4242).unwrap();
+        let read = file.read().unwrap();
+        file.remove().unwrap();
+
+        // Assert
+        assert_eq!(read, Some(4242));
+        assert_eq!(file.read().unwrap(), None);
+    }
+
+    #[test]
+    fn garbage_in_the_file_is_an_error() {
+        // Arrange
+        let file = temp_file("garbage");
+        file.write(1).unwrap();
+        fs::write(file.path(), "not a pid").unwrap();
+
+        // Act / Assert
+        assert!(file.read().is_err());
+    }
 }

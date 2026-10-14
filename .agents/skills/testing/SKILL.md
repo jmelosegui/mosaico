@@ -69,8 +69,9 @@ on the effects.
 
 Examples to copy:
 
-- `wait_until_gone` in `crates/mosaico/src/commands/stop.rs` takes the liveness check and timings as parameters,
-  so its tests never start a process.
+- CLI commands take a `Context` (`crates/mosaico/src/commands/context.rs`) and return an `Exit`. Their tests
+  run them against the fake `World` in `commands/test_support.rs`, so `stop` against a daemon that never
+  exits, or `start` against one that is rejected at once, run in microseconds with no process involved.
 - `DisplaySettle` in `crates/mosaico-windows/src/daemon_settle.rs` takes `now`, so settle timing is tested
   without sleeping.
 - `serve` in `crates/mosaico-core/src/ipc/transport.rs` is tested against in-memory connections, so the
@@ -86,7 +87,7 @@ Red flags:
   for something
 
 When a test needs one of these, add the missing seam instead of working around it. Known gaps are tracked in
-#57 and #61 to #64.
+#62 and #64.
 
 ## Writing tests
 

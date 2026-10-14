@@ -1,33 +1,46 @@
 //! Sending a command to the daemon from a CLI command.
 
 use mosaico_core::ipc::{
-    Command, DAEMON_VERSION, DaemonStatus, ErrorCode, IpcClient, IpcError, Response, ResponseStatus,
+    Command, DAEMON_VERSION, DaemonStatus, ErrorCode, IpcError, Response, ResponseStatus,
 };
 
-use crate::platform;
+use super::context::{Context, Exit, complain, say};
 
 /// Sends `command` to the running daemon and returns its successful
-/// reply. Prints why and exits with status 1 otherwise.
-pub fn send_or_exit(command: &Command) -> Response {
-    let ipc = platform::ipc();
-    if !ipc.is_daemon_running() {
-        eprintln!("Mosaico is not running.");
-        std::process::exit(1);
+/// reply. Otherwise writes why to the error stream and returns the
+/// failure to exit with.
+pub fn send(cx: &mut Context, command: &Command) -> Result<Response, Exit> {
+    if !cx.daemon.is_running() {
+        complain!(cx, "Mosaico is not running.");
+        return Err(Exit::Failure);
     }
-    match ipc.send(command) {
-        Ok(response) if response.status == ResponseStatus::Ok => response,
+    match cx.daemon.send(command) {
+        Ok(response) if response.status == ResponseStatus::Ok => Ok(response),
         Ok(response) => {
-            eprintln!("Error: {}", describe_refusal(&response));
-            std::process::exit(1);
+            complain!(cx, "Error: {}", describe_refusal(&response));
+            Err(Exit::Failure)
         }
         Err(IpcError::NotRunning) => {
-            eprintln!("Mosaico is not running.");
-            std::process::exit(1);
+            complain!(cx, "Mosaico is not running.");
+            Err(Exit::Failure)
         }
         Err(e) => {
-            eprintln!("Failed to reach the daemon: {e}");
-            std::process::exit(1);
+            complain!(cx, "Failed to reach the daemon: {e}");
+            Err(Exit::Failure)
         }
+    }
+}
+
+/// Sends `command` and prints the message of its reply.
+pub fn run(cx: &mut Context, command: &Command) -> Exit {
+    match send(cx, command) {
+        Ok(response) => {
+            if let Some(message) = response.message {
+                say!(cx, "{message}");
+            }
+            Exit::Success
+        }
+        Err(exit) => exit,
     }
 }
 
@@ -49,9 +62,6 @@ pub fn describe_refusal(response: &Response) -> String {
         .unwrap_or_else(|| "unknown error".into())
 }
 
-/// Prints the message of a successful reply, if it has one.
-pub fn print_message(response: Response) {
-    if let Some(message) = response.message {
-        println!("{message}");
-    }
-}
+#[cfg(test)]
+#[path = "tests/request_tests.rs"]
+mod tests;

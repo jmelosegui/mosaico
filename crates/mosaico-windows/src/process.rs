@@ -1,3 +1,7 @@
+use std::os::windows::process::CommandExt;
+use std::process::{Command, Stdio};
+
+use mosaico_core::system::ProcessControl;
 use windows::Win32::Foundation::CloseHandle;
 use windows::Win32::System::Threading::{
     OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_TERMINATE, TerminateProcess,
@@ -80,5 +84,44 @@ pub fn kill_process(pid: u32) -> bool {
             killed.is_ok()
         }
         Err(_) => false,
+    }
+}
+
+/// Process creation flags for launching a fully detached daemon.
+///
+/// `CREATE_NEW_PROCESS_GROUP` (0x200): the daemon gets its own process
+/// group, so Ctrl+C in the CLI terminal does not reach it.
+///
+/// `CREATE_NO_WINDOW` (0x08000000): the daemon gets no console, which
+/// also keeps it from inheriting the parent's console handles. Inherited
+/// handles are what make `cmd.output()` hang in tests.
+const DETACH_FLAGS: u32 = 0x08000000 | 0x00000200;
+
+/// [`ProcessControl`] on Windows.
+pub struct WindowsProcesses;
+
+impl ProcessControl for WindowsProcesses {
+    /// Re-runs the current executable with the hidden `daemon`
+    /// subcommand, detached and with its standard streams closed.
+    fn launch_daemon(&self) -> Result<u32, String> {
+        let exe = std::env::current_exe()
+            .map_err(|e| format!("could not find the mosaico executable: {e}"))?;
+        let child = Command::new(exe)
+            .arg("daemon")
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .creation_flags(DETACH_FLAGS)
+            .spawn()
+            .map_err(|e| format!("could not start the daemon: {e}"))?;
+        Ok(child.id())
+    }
+
+    fn is_alive(&self, pid: u32) -> bool {
+        is_process_alive(pid)
+    }
+
+    fn kill(&self, pid: u32) -> bool {
+        kill_process(pid)
     }
 }

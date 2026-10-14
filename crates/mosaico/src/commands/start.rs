@@ -1,95 +1,73 @@
-use std::os::windows::process::CommandExt;
-use std::process::Command;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
-use mosaico_core::ipc::IpcClient;
+use super::context::{Context, Exit, complain, say};
 
-/// Windows process creation flags for launching a fully detached daemon.
-///
-/// `CREATE_NEW_PROCESS_GROUP` (0x200) — the daemon gets its own process
-/// group, so Ctrl+C in the CLI terminal won't kill it.
-///
-/// `CREATE_NO_WINDOW` (0x08000000) — the daemon doesn't get a console
-/// window. This also prevents inheriting the parent's console handles,
-/// which avoids handle leaks that cause `cmd.output()` to hang in tests.
-const DETACH_FLAGS: u32 = 0x08000000 | 0x00000200;
-
-pub fn execute() {
-    // Check if the daemon is already running
-    if crate::platform::ipc().is_daemon_running() {
-        println!("Mosaico is already running.");
-        return;
-    }
-
-    // Clean up stale PID file from a previous unclean shutdown
-    if let Ok(Some(pid)) = mosaico_core::pid::read_pid_file() {
-        if mosaico_windows::process::is_process_alive(pid) {
-            println!("Mosaico process exists (PID: {pid}) but is not responding.");
-            return;
-        }
-        let _ = mosaico_core::pid::remove_pid_file();
-    }
-
-    // Get the path to the current executable so we can re-spawn it
-    let exe = std::env::current_exe().expect("failed to get current executable path");
-
-    // Spawn the daemon as a fully detached background process.
-    // We re-run ourselves with the hidden `daemon` subcommand.
-    // DETACH_FLAGS prevent handle inheritance so the parent can exit
-    // immediately without waiting for the daemon to finish.
-    let mut child = Command::new(exe)
-        .arg("daemon")
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .creation_flags(DETACH_FLAGS)
-        .spawn()
-        .expect("failed to start daemon");
-
-    let pid = child.id();
-
-    // Confirm it is actually up before claiming it started. The daemon
-    // takes the single instance mutex first thing, and a daemon that is
-    // still shutting down holds that mutex well after `mosaico stop`
-    // returned, so a start issued in that window is rejected and exits.
-    // Reporting success for a pid that is already dead is how that
-    // window went unnoticed.
-    if !wait_for_daemon(&mut child) {
-        eprintln!("Error: the daemon exited immediately after starting.");
-        eprintln!(
-            "A previous daemon may still be shutting down and holding the single instance lock."
-        );
-        eprintln!("Check 'mosaico status', then try again.");
-        std::process::exit(1);
-    }
-
-    print_banner(pid);
-}
-
-/// How long to wait for a freshly spawned daemon to answer.
+/// How long to wait for a freshly launched daemon to answer.
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// How often to check whether it is up yet.
 const POLL_INTERVAL: Duration = Duration::from_millis(50);
 
-/// Waits until the spawned daemon answers on its IPC pipe.
+pub fn execute(cx: &mut Context) -> Exit {
+    if cx.daemon.is_running() {
+        say!(cx, "Mosaico is already running.");
+        return Exit::Success;
+    }
+
+    // Clean up a stale PID file from a previous unclean shutdown.
+    if let Ok(Some(pid)) = cx.pid_file.read() {
+        if cx.processes.is_alive(pid) {
+            say!(
+                cx,
+                "Mosaico process exists (PID: {pid}) but is not responding."
+            );
+            return Exit::Success;
+        }
+        let _ = cx.pid_file.remove();
+    }
+
+    let pid = match cx.processes.launch_daemon() {
+        Ok(pid) => pid,
+        Err(e) => {
+            complain!(cx, "Error: {e}");
+            return Exit::Failure;
+        }
+    };
+
+    // Confirm it is actually up before claiming it started. The daemon
+    // takes the single instance lock first thing, and a daemon that is
+    // still shutting down holds that lock well after `mosaico stop`
+    // returned, so a start issued in that window is rejected and exits.
+    // Reporting success for a pid that is already dead is how that
+    // window went unnoticed.
+    if !wait_for_daemon(cx, pid) {
+        complain!(cx, "Error: the daemon exited immediately after starting.");
+        complain!(
+            cx,
+            "A previous daemon may still be shutting down and holding the single instance lock."
+        );
+        complain!(cx, "Check 'mosaico status', then try again.");
+        return Exit::Failure;
+    }
+
+    print_banner(cx, pid);
+    Exit::Success
+}
+
+/// Waits until the launched daemon answers on its IPC channel.
 ///
 /// Returns false if it exits first, which is what a daemon rejected by
-/// the single instance guard does.
-fn wait_for_daemon(child: &mut std::process::Child) -> bool {
-    let deadline = Instant::now() + STARTUP_TIMEOUT;
+/// the single instance guard does, or if it never answers in time.
+fn wait_for_daemon(cx: &Context, pid: u32) -> bool {
+    let deadline = cx.clock.now() + STARTUP_TIMEOUT;
     loop {
-        if crate::platform::ipc().is_daemon_running() {
+        if cx.daemon.is_running() {
             return true;
         }
-        // Exited without ever answering.
-        if matches!(child.try_wait(), Ok(Some(_))) {
+        if !cx.processes.is_alive(pid) || cx.clock.now() >= deadline {
             return false;
         }
-        if Instant::now() >= deadline {
-            return false;
-        }
-        std::thread::sleep(POLL_INTERVAL);
+        cx.clock.sleep(POLL_INTERVAL);
     }
 }
 
@@ -106,30 +84,30 @@ const TIPS: &[&str] = &[
     "Run 'mosaico debug events' to watch window events live",
 ];
 
-fn print_banner(pid: u32) {
-    let d = "\x1b[90m"; // Dim gray — labels
-    let w = "\x1b[1;97m"; // Bold bright white — values
+fn print_banner(cx: &mut Context, pid: u32) {
+    let d = "\x1b[90m"; // Dim gray: labels
+    let w = "\x1b[1;97m"; // Bold bright white: values
     let r = "\x1b[0m"; // Reset
-    let secs = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0);
-    let tip = TIPS[secs as usize % TIPS.len()];
+    let tip = TIPS[pid as usize % TIPS.len()];
 
-    super::banner::print_logo();
-    println!();
-    println!("  {d}Config{r}   ~/.config/mosaico/");
-    println!("  {d}Daemon{r}   Started (PID: {w}{pid}{r})");
-    println!("  {d}Repo{r}     https://github.com/jmelosegui/mosaico");
-    println!("  {d}Tip{r}      {tip}");
+    (cx.logo)(&mut *cx.out);
+    say!(cx, "");
+    say!(cx, "  {d}Config{r}   {}", cx.config_dir.display());
+    say!(cx, "  {d}Daemon{r}   Started (PID: {w}{pid}{r})");
+    say!(cx, "  {d}Repo{r}     https://github.com/jmelosegui/mosaico");
+    say!(cx, "  {d}Tip{r}      {tip}");
 
-    if let Some(remote) = mosaico_windows::version_check::check_for_update() {
+    if let Some(remote) = (cx.check_update)() {
         let y = "\x1b[33m"; // Yellow
         let local = env!("CARGO_PKG_VERSION");
-        println!();
-        println!("  {y}Update available: v{local} -> {remote}{r}");
-        println!("  {y}Run 'mosaico update' to install it{r}");
+        say!(cx, "");
+        say!(cx, "  {y}Update available: v{local} -> {remote}{r}");
+        say!(cx, "  {y}Run 'mosaico update' to install it{r}");
     }
 
-    println!();
+    say!(cx, "");
 }
+
+#[cfg(test)]
+#[path = "tests/start_tests.rs"]
+mod tests;

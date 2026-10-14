@@ -1,20 +1,22 @@
 use mosaico_core::config;
 
+use super::context::{Context, Exit};
+
 /// Creates the default configuration files at `~/.config/mosaico/`.
 ///
 /// Generates `config.toml`, `keybindings.toml`, `rules.toml`,
 /// `user-rules.toml`, and `bar.toml` with comments explaining every
 /// option. Existing files are not overwritten. On first run, prompts
 /// the user to enable autostart.
-pub fn execute() {
+pub fn execute(cx: &mut Context) -> Exit {
     let Some(dir) = config::config_dir() else {
         eprintln!("Error: could not determine home directory.");
-        std::process::exit(1);
+        return Exit::Failure;
     };
 
     if let Err(e) = std::fs::create_dir_all(&dir) {
         eprintln!("Error: could not create {}: {e}", dir.display());
-        std::process::exit(1);
+        return Exit::Failure;
     }
 
     let is_first_run = !dir.join("config.toml").exists();
@@ -37,7 +39,7 @@ pub fn execute() {
     write_if_missing(&dir.join("bar.toml"), &config::template::generate_bar());
 
     if is_first_run {
-        prompt_autostart();
+        prompt_autostart(cx);
     }
 
     println!(
@@ -45,18 +47,19 @@ pub fn execute() {
     );
     println!("Add personal window rules in user-rules.toml (community rules in rules.toml are");
     println!("downloaded automatically and will be overwritten on daemon startup).");
+    Exit::Success
 }
 
 /// Asks the user whether to register Mosaico for automatic startup.
 ///
 /// Default is No (`[y/N]`) so pressing Enter skips autostart.
-fn prompt_autostart() {
+fn prompt_autostart(cx: &mut Context) {
     use std::io::Write;
     print!("\nWould you like Mosaico to start automatically when Windows starts? [y/N]: ");
     let _ = std::io::stdout().flush();
     let mut input = String::new();
     if std::io::stdin().read_line(&mut input).is_ok() && input.trim().eq_ignore_ascii_case("y") {
-        match mosaico_windows::autostart::enable() {
+        match cx.autostart.enable() {
             Ok(()) => println!("Autostart enabled."),
             Err(e) => eprintln!("Warning: could not enable autostart: {e}"),
         }

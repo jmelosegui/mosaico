@@ -30,6 +30,27 @@ dedicated handler module under `crates/mosaico/src/commands/`.
 | `crates/mosaico/src/commands/debug/events.rs` | `mosaico debug events` handler |
 | `crates/mosaico/src/commands/debug/move_window.rs` | `mosaico debug move` handler |
 
+### Command Context
+
+Commands do not reach for the OS themselves. They take a
+`commands::context::Context` holding everything they use: the daemon (through
+`mosaico_core::ipc::IpcClient`), process control
+(`mosaico_core::system::ProcessControl`), start at login
+(`mosaico_core::system::Autostart`), the instance's `PidFile`, a clock, the
+update check, the logo, and the output and error streams. They return an
+`Exit` (`Success` or `Failure`), and only `main` calls `std::process::exit`.
+
+`crates/mosaico/src/platform.rs` builds the real context; it is the one place
+in the CLI that picks a platform implementation. The unit tests build one from
+`commands/test_support.rs`, a fake `World` standing in for the daemon,
+processes, registry and clock, so `start`, `stop`, `status`, `autostart`,
+`action`, `pause` and `doctor`'s daemon check are tested without a daemon or a
+desktop.
+
+Still calling the platform crate directly: `daemon` (it is the daemon),
+the `debug` tools, `doctor`'s monitor check and `update`'s download, which
+wait for the enumeration (#46) and HTTP (#54) contracts.
+
 ### Key Types
 
 - `Cli` -- top-level `clap::Parser` struct

@@ -1,6 +1,10 @@
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
-use mosaico_core::ipc::{IpcClient, ResponseStatus};
+use mosaico_core::Command;
+use mosaico_core::ipc::ResponseStatus;
+
+use super::context::{Clock, Context, Exit, complain, say};
+use super::request;
 
 /// How long to wait for the daemon process to actually exit.
 ///
@@ -9,20 +13,19 @@ use mosaico_core::ipc::{IpcClient, ResponseStatus};
 /// and dropping the single instance mutex. Generous enough to cover a
 /// loaded machine, short enough that a wedged daemon does not hold the
 /// CLI indefinitely.
-const SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(10);
+pub(super) const SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// How often to check whether the process has gone.
 const POLL_INTERVAL: Duration = Duration::from_millis(25);
 
-pub fn execute() {
+pub fn execute(cx: &mut Context) -> Exit {
     // Read the pid before anything else. The daemon owns the pid file
     // while it is alive, and the wait below needs something to watch.
-    let pid = mosaico_core::pid::read_pid_file().ok().flatten();
+    let pid = cx.pid_file.read().ok().flatten();
 
     // Try graceful shutdown via IPC first.
-    if crate::platform::ipc().is_daemon_running() {
-        let command = mosaico_core::Command::Stop;
-        match crate::platform::ipc().send(&command) {
+    if cx.daemon.is_running() {
+        match cx.daemon.send(&Command::Stop) {
             Ok(response) if response.status == ResponseStatus::Ok => {
                 let message = response.message.unwrap_or_default();
 
@@ -32,141 +35,80 @@ pub fn execute() {
                 // follows be rejected with nothing left running.
                 let exited = match pid {
                     Some(pid) => wait_until_gone(
-                        || mosaico_windows::process::is_process_alive(pid),
+                        || cx.processes.is_alive(pid),
+                        cx.clock,
                         SHUTDOWN_TIMEOUT,
                         POLL_INTERVAL,
                     ),
-                    // No pid file to watch. Nothing to wait on, so fall
-                    // back to the old behaviour rather than blocking.
+                    // No pid file to watch, so there is nothing to wait on.
                     None => true,
                 };
 
-                let _ = mosaico_core::pid::remove_pid_file();
-
-                if exited {
-                    println!("Mosaico stopped. {message}");
-                } else {
-                    println!("Mosaico stopped. {message}");
-                    eprintln!(
+                let _ = cx.pid_file.remove();
+                say!(cx, "Mosaico stopped. {message}");
+                if !exited {
+                    complain!(
+                        cx,
                         "Warning: the daemon acknowledged the stop but was still running after \
                          {}s. Starting again may fail until it exits.",
                         SHUTDOWN_TIMEOUT.as_secs()
                     );
                 }
-                return;
+                return Exit::Success;
             }
             Ok(response) => {
-                eprintln!("Error: {}", super::request::describe_refusal(&response));
-                return;
+                complain!(cx, "Error: {}", request::describe_refusal(&response));
+                return Exit::Failure;
             }
-            Err(e) => eprintln!("IPC failed: {e}"),
+            Err(e) => complain!(cx, "IPC failed: {e}"),
         }
     }
 
     // Fallback: the IPC pipe is gone but the process may still be
     // alive (e.g. the IPC thread crashed). Check the PID file.
-    match mosaico_core::pid::read_pid_file() {
-        Ok(Some(pid)) if mosaico_windows::process::is_process_alive(pid) => {
-            if mosaico_windows::process::kill_process(pid) {
-                // A killed process releases its handles as it is torn
-                // down, which is not instant either.
-                wait_until_gone(
-                    || mosaico_windows::process::is_process_alive(pid),
-                    SHUTDOWN_TIMEOUT,
-                    POLL_INTERVAL,
-                );
-                let _ = mosaico_core::pid::remove_pid_file();
-                println!("Mosaico stopped (killed PID {pid}).");
-            } else {
-                eprintln!("Failed to kill process {pid}.");
-                std::process::exit(1);
+    match cx.pid_file.read() {
+        Ok(Some(pid)) if cx.processes.is_alive(pid) => {
+            if !cx.processes.kill(pid) {
+                complain!(cx, "Failed to kill process {pid}.");
+                return Exit::Failure;
             }
+            // A killed process releases its handles as it is torn
+            // down, which is not instant either.
+            wait_until_gone(
+                || cx.processes.is_alive(pid),
+                cx.clock,
+                SHUTDOWN_TIMEOUT,
+                POLL_INTERVAL,
+            );
+            let _ = cx.pid_file.remove();
+            say!(cx, "Mosaico stopped (killed PID {pid}).");
         }
-        _ => {
-            println!("Mosaico is not running.");
-        }
+        _ => say!(cx, "Mosaico is not running."),
     }
+    Exit::Success
 }
 
 /// Polls `alive` until it reports false or `timeout` elapses.
 ///
-/// Returns whether it went away in time. Takes the predicate as a
-/// closure so the timing behaviour can be tested without a process.
-fn wait_until_gone(mut alive: impl FnMut() -> bool, timeout: Duration, poll: Duration) -> bool {
-    let deadline = Instant::now() + timeout;
+/// Returns whether it went away in time.
+fn wait_until_gone(
+    mut alive: impl FnMut() -> bool,
+    clock: &dyn Clock,
+    timeout: Duration,
+    poll: Duration,
+) -> bool {
+    let deadline = clock.now() + timeout;
     loop {
         if !alive() {
             return true;
         }
-        if Instant::now() >= deadline {
+        if clock.now() >= deadline {
             return false;
         }
-        std::thread::sleep(poll);
+        clock.sleep(poll);
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use std::cell::Cell;
-
-    #[test]
-    fn returns_immediately_when_the_process_is_already_gone() {
-        // Arrange
-        let calls = Cell::new(0);
-
-        // Act
-        let gone = wait_until_gone(
-            || {
-                calls.set(calls.get() + 1);
-                false
-            },
-            Duration::from_secs(10),
-            Duration::from_millis(1),
-        );
-
-        // Assert -- one check, no sleeping.
-        assert!(gone);
-        assert_eq!(calls.get(), 1);
-    }
-
-    #[test]
-    fn waits_for_a_process_that_is_still_unwinding() {
-        // Arrange -- alive for the first few polls, which is the window
-        // between the daemon acknowledging the stop and releasing the
-        // single instance mutex.
-        let calls = Cell::new(0);
-
-        // Act
-        let gone = wait_until_gone(
-            || {
-                calls.set(calls.get() + 1);
-                calls.get() < 4
-            },
-            Duration::from_secs(10),
-            Duration::from_millis(1),
-        );
-
-        // Assert
-        assert!(gone);
-        assert_eq!(calls.get(), 4);
-    }
-
-    #[test]
-    fn gives_up_on_a_daemon_that_never_exits() {
-        // Arrange
-        let start = Instant::now();
-
-        // Act
-        let gone = wait_until_gone(
-            || true,
-            Duration::from_millis(60),
-            Duration::from_millis(10),
-        );
-
-        // Assert -- reports failure rather than blocking the CLI, and
-        // does not return before the timeout either.
-        assert!(!gone);
-        assert!(start.elapsed() >= Duration::from_millis(60));
-    }
-}
+#[path = "tests/stop_tests.rs"]
+mod tests;
