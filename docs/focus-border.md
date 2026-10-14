@@ -180,13 +180,15 @@ border lands right after its own window, never before the
 placement it was decided for, and a hide or drop wins over an earlier
 draw.
 
-Laying out every window again draws every border from scratch. A retile,
-a display change, a change of the work areas or the bar, and a config
-reload start with `RedrawBorders`, which has the platform forget how it
-drew each border: what it kept may be lost by then, as when the display
-changes, and a retile is how the user sets a stale desktop right. Other
-steps, such as a focus change, draw from scratch only the borders that
-look different.
+The user's retile and a display change that changes anything draw every
+border from scratch. They start with `RedrawBorders`, which has the
+platform forget how it drew each border: what it kept may be lost by
+then, as when the display changes, and a retile is how the user sets a
+stale desktop right. The daemon runs the retile action after reading the
+work areas again. Other steps draw from scratch only the borders that
+look different, even when they lay out every window again: reading the
+work areas again, which a taskbar change reports several times,
+reserving the bar and reloading the config.
 
 While a burst of moves is held until input goes quiet, each window's
 border is held with its move: only the latest style, drawn around the slot
@@ -294,9 +296,11 @@ still draws each border around its window's new slot, in the right color.
 
 `tiler/tests/last_drawn_tests.rs` checks when a border needs drawing
 again. `tiler/tests/border_redraw_tests.rs` runs the tiling manager on a
-platform that keeps what it drew, and checks that a retile, reading the
-work areas again and a display change draw every border from scratch,
-while a focus change draws only the borders that change. In
+platform that keeps what it drew, and checks that a retile, also after
+reading the work areas again as the daemon runs it, and a display change
+draw every border from scratch, while reading the work areas again,
+reserving the bar and a display change that changes nothing draw none
+again, and a focus change draws only the borders that change. In
 `mosaico-windows`, `border/show_tests.rs` checks that restacking a hidden
 border, as drawing it again the same way does, shows it again, and only
 once it is at its new rect, with overlays of its own off screen, and

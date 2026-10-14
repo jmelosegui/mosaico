@@ -10,7 +10,12 @@ impl Tiler {
         match action {
             Action::Focus(dir) => self.focus_direction(plan, *dir),
             Action::Move(dir) => self.move_direction(plan, *dir),
-            Action::Retile => self.retile_all(plan),
+            Action::Retile => {
+                // The user's repair for a stale desktop, which includes a
+                // border that lost what the platform drew of it.
+                plan.emit(Effect::RedrawBorders);
+                self.retile_all(plan);
+            }
             Action::ToggleMonocle => self.toggle_monocle(plan),
             Action::CloseFocused => {
                 if let Some(window) = self.focused_window {

@@ -1,6 +1,7 @@
-//! Laying every window out again draws every border from scratch, since
-//! what a platform kept of a border may be lost by then. Other steps keep
-//! what still looks right (#125).
+//! The user's retile and a display change that changes anything draw
+//! every border from scratch, since what a platform kept of a border may
+//! be lost by then. Other steps keep what still looks right, a work area
+//! or the bar read again with nothing changed included (#125).
 
 use crate::Direction;
 use crate::config::Config;
@@ -49,18 +50,48 @@ fn a_retile_draws_every_border_from_scratch() {
 }
 
 #[test]
-fn reading_the_work_areas_again_draws_every_border_from_scratch() {
-    // Arrange -- as a retile from the daemon does.
+fn a_retile_that_reads_the_work_areas_first_draws_every_border_from_scratch() {
+    // Arrange
     let (platform, mut manager) = three_windows(1);
     let before = slots(&platform);
 
-    // Act
+    // Act -- as the daemon runs the user's retile.
     let read = manager.reset_and_adjust_work_areas(0, &[]);
+    manager.handle_action(&Action::Retile);
 
     // Assert
     assert!(read.is_ok());
     assert_eq!(slots(&platform), before);
     assert_eq!(drawn_from_scratch(&platform), [1, 2, 3]);
+}
+
+#[test]
+fn reading_the_work_areas_again_draws_no_border_again() {
+    // Arrange
+    let (platform, mut manager) = three_windows(1);
+    let before = slots(&platform);
+
+    // Act -- a taskbar change reports the work areas changed several
+    // times, here with nothing changed.
+    let first = manager.reset_and_adjust_work_areas(0, &[]);
+    let second = manager.reset_and_adjust_work_areas(0, &[]);
+
+    // Assert
+    assert!(first.is_ok() && second.is_ok());
+    assert_eq!(slots(&platform), before);
+    assert_eq!(drawn_from_scratch(&platform), Vec::<u64>::new());
+}
+
+#[test]
+fn reserving_the_bar_again_draws_no_border_again() {
+    // Arrange
+    let (platform, mut manager) = three_windows(1);
+
+    // Act
+    manager.adjust_work_areas_for_bar(0, &[]);
+
+    // Assert
+    assert_eq!(drawn_from_scratch(&platform), Vec::<u64>::new());
 }
 
 #[test]
@@ -75,6 +106,18 @@ fn a_display_change_draws_every_border_from_scratch() {
     // Assert
     assert_eq!(slots(&platform), before);
     assert_eq!(drawn_from_scratch(&platform), [1, 2, 3]);
+}
+
+#[test]
+fn a_display_change_that_changes_nothing_draws_no_border_again() {
+    // Arrange -- several notifications can describe the same layout.
+    let (platform, mut manager) = three_windows(2);
+
+    // Act
+    manager.handle_display_change(displays(2), 0, &[]);
+
+    // Assert
+    assert_eq!(drawn_from_scratch(&platform), Vec::<u64>::new());
 }
 
 #[test]

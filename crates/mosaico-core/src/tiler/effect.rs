@@ -121,8 +121,8 @@ pub enum Effect {
     /// A platform may keep what it drew of a border and only move it
     /// when the border is drawn again the same way, and what it kept can
     /// be lost outside mosaico, as when the display changes. The tiler
-    /// asks for this when it lays out every window again, ahead of the
-    /// borders it draws then.
+    /// asks for this ahead of the borders of a retile the user asks for
+    /// and of a display change that changes anything.
     RedrawBorders,
 }
 

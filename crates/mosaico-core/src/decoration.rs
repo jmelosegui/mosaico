@@ -67,8 +67,9 @@ pub trait Decorations {
     /// A platform may keep what it drew of a border and, when the border
     /// is drawn again the same way, only move it. What it kept can be
     /// lost outside mosaico, as when the display changes, so the tiler
-    /// asks for this when it lays out every window again. A platform that
-    /// draws every border from scratch has nothing to forget.
+    /// asks for this on a retile the user asks for and on a display change
+    /// that changes anything. A platform that draws every border from
+    /// scratch has nothing to forget.
     fn forget_drawn(&mut self);
 
     /// Draws the corners of `window` the way `corners` says, see
