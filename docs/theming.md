@@ -154,8 +154,9 @@ fields.
 The daemon tracks `current_theme`. On `ConfigReload::Config`:
 
 1. Re-resolves the theme from the new config
-2. If the theme changed, calls `bar_mgr.resolve_colors(new_theme)` to
-   update bar colors without recreating bar windows
+2. Calls `bar_mgr.resolve_colors(new_theme)`, which resolves every bar
+   color again from what `bar.toml` says, the `[colors]` table and each
+   widget's `color`, without recreating bar windows
 3. Passes updated border colors to `TilingManager::reload_config()`
 
 ### Doctor Integration

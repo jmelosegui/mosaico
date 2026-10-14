@@ -143,6 +143,9 @@ monocle = "green"
 
 ## Hot-Reload
 
-Theme changes in `config.toml` are hot-reloaded. When the flavor changes,
-all named colors are re-resolved against the new palette and the bar is
-updated without restarting.
+Theme changes in `config.toml` are hot-reloaded. When the theme or its
+flavor changes, every named color is resolved again against the new
+palette: the bar's `[colors]`, each bar widget's `color` (such as the red
+of the `paused` widget) and the border colors. Colors you leave empty take
+the new theme's defaults, and hex colors stay as written. The bar and the
+borders update without restarting.

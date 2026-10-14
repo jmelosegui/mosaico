@@ -2,7 +2,7 @@
 
 use crate::Rect;
 use crate::config::Theme;
-use crate::config::bar::{BarColors, BarConfig};
+use crate::config::bar::BarConfig;
 
 use super::{
     BarContent, BarRenderer, BarState, BarSurface, CpuTracker, SystemInfo, SystemReadings,
@@ -24,12 +24,11 @@ pub struct BarManager {
     system: Box<dyn SystemInfo>,
     /// The config, with its colors resolved against the theme.
     config: BarConfig,
-    /// The `[colors]` table as loaded from the file, before theme
-    /// resolution. Kept so that switching themes re-resolves those colors
-    /// from the originals instead of treating the previous theme's hex
-    /// values as overrides. Widget colors are not kept, see
-    /// [`resolve_colors`](Self::resolve_colors).
-    raw_colors: BarColors,
+    /// The config as loaded from the file, before theme resolution.
+    /// Kept so that switching themes resolves every color again from what
+    /// the file says, the `[colors]` table and each widget's `color`,
+    /// instead of from the previous theme's hex values.
+    raw_config: BarConfig,
     /// Monitor work areas, before the bar is reserved.
     monitor_areas: Vec<Rect>,
     /// Only kept while a CPU widget is configured, so the CPU is not
@@ -53,7 +52,7 @@ impl BarManager {
             bar_monitor_indices: Vec::new(),
             renderer,
             system,
-            raw_colors: config.colors.clone(),
+            raw_config: config.clone(),
             config,
             monitor_areas,
             cpu: None,
@@ -102,13 +101,12 @@ impl BarManager {
 
     /// Re-resolves the colors against a theme that may have changed.
     ///
-    /// The `[colors]` table starts again from the file, so the new
-    /// theme's colors replace the old theme's instead of being kept as
-    /// user overrides. Widget colors do not: a widget `color` given by
-    /// name was turned into the old theme's hex value when it was first
-    /// resolved, and keeps it (#109).
+    /// Every color starts again from the file, the `[colors]` table and
+    /// each widget's `color`, so a color given by name follows the new
+    /// theme and an empty one takes the new theme's default, instead of
+    /// keeping the old theme's hex value as if the user had set it.
     pub fn resolve_colors(&mut self, theme: Theme) {
-        self.config.colors = self.raw_colors.clone();
+        self.config = self.raw_config.clone();
         self.config.resolve_colors(theme);
     }
 
@@ -133,7 +131,7 @@ impl BarManager {
     /// Replaces the bars with ones for `config` and returns the new bar
     /// height. The colors are left as loaded, so resolve them next.
     pub fn reload(&mut self, config: BarConfig) -> i32 {
-        self.raw_colors = config.colors.clone();
+        self.raw_config = config.clone();
         self.config = config;
         self.create_bars();
         self.cpu = self.cpu_tracker();
