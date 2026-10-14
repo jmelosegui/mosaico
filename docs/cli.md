@@ -110,7 +110,7 @@ existing state instead of starting a second instance.
 
 Sends a `Stop` command to the running daemon over IPC (named pipe). If the
 IPC pipe is unavailable (e.g. the IPC thread crashed), falls back to reading
-the PID file and terminating the process via `kill_process()`. Reports
+the PID file and terminating the process via `ProcessControl::kill()`. Reports
 success or failure.
 
 ### `mosaico status`

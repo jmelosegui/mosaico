@@ -88,7 +88,7 @@ mod monitor_edid;
 /// Stable monitor identity from the display configuration.
 mod monitor_identity;
 
-/// Process utilities (alive check).
+/// Starting, checking and ending processes.
 pub mod process;
 
 /// Tiling manager that applies layouts to managed windows.

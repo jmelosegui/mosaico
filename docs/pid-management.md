@@ -11,7 +11,8 @@ CLI commands.
 | File | Purpose |
 |------|---------|
 | `crates/mosaico-core/src/pid.rs` | `pid_path()`, `write_pid_file()`, `read_pid_file()`, `remove_pid_file()` |
-| `crates/mosaico-windows/src/process.rs` | `is_process_alive()`, `kill_process()` |
+| `crates/mosaico-core/src/system.rs` | `ProcessControl`, what commands use to check and end processes |
+| `crates/mosaico-windows/src/process.rs` | `WindowsProcesses`, the Windows `ProcessControl` |
 | `crates/mosaico/src/commands/stop.rs` | `mosaico stop` with PID-based fallback |
 
 ### Key Types
@@ -45,24 +46,29 @@ hold a number an `Error::Io` of kind `InvalidData`; `start`, `stop` and
 Deletes the PID file. Called during daemon shutdown in `daemon::run()` after
 the main loop exits.
 
-### `is_process_alive(pid: u32) -> bool`
+## Process Control
 
-Windows-specific function that calls `OpenProcess` with
-`PROCESS_QUERY_LIMITED_INFORMATION` to check if a process with the given PID
-exists. Returns `true` if the process is alive, `false` otherwise.
+Commands check and end processes only through `ProcessControl`
+(`cx.processes`); the Windows functions behind it are private to
+`process.rs`.
+
+### `ProcessControl::is_alive(pid: u32) -> bool`
+
+On Windows, calls `OpenProcess` with `PROCESS_QUERY_LIMITED_INFORMATION` to
+check if a process with the given PID exists. Returns `true` if the process
+is alive, `false` otherwise.
 
 This uses the minimal permission flag to check process existence without
 requiring elevated privileges.
 
-### `kill_process(pid: u32) -> Result<()>`
+### `ProcessControl::kill(pid: u32) -> Result<()>`
 
-Windows-specific function that opens the process with `PROCESS_TERMINATE`
-permission and calls `TerminateProcess` to forcefully kill it. Fails with
-`Error::Platform` when the process cannot be opened or terminated, which
-includes a process that exited after `mosaico stop` found it alive. Used,
-through `ProcessControl::kill`, as a fallback when the IPC pipe is
-unavailable. When it fails, `mosaico stop` reports `Failed to kill process
-<pid>.` and keeps the PID file, so the process can still be found.
+On Windows, opens the process with `PROCESS_TERMINATE` permission and calls
+`TerminateProcess` to forcefully kill it. Fails with `Error::Platform` when
+the process cannot be opened or terminated, which includes a process that
+exited after `mosaico stop` found it alive. Used as a fallback when the IPC
+pipe is unavailable. When it fails, `mosaico stop` reports `Failed to kill
+process <pid>.` and keeps the PID file, so the process can still be found.
 
 ## Usage Across Commands
 
@@ -81,8 +87,8 @@ unavailable. When it fails, `mosaico stop` reports `Failed to kill process
 2. If IPC succeeds: the daemon's main loop exits, and PID file is removed by
    both the daemon cleanup path and the stop command
 3. If IPC fails (pipe unavailable): falls back to reading the PID file and
-   calling `kill_process(pid)` to forcefully terminate the daemon process,
-   then removes the PID file
+   calling `ProcessControl::kill(pid)` to forcefully terminate the daemon
+   process, then removes the PID file
 
 ### `mosaico status`
 
@@ -105,7 +111,7 @@ through the normal shutdown path (e.g., `taskkill /F`). The `start` and
 `status` commands detect this by:
 
 1. Reading the PID from the file
-2. Checking if the process is alive via `is_process_alive()`
+2. Checking if the process is alive via `ProcessControl::is_alive()`
 3. If dead: the PID file is considered stale
 
 The `start` command automatically cleans up stale PID files before launching
@@ -128,6 +134,6 @@ a new daemon instance.
 - **PID-based kill fallback** in `stop` ensures the daemon can be stopped
   even when the IPC thread has crashed, covering scenarios like thread panics
   or resource exhaustion that leave the process alive but unresponsive.
-- **`kill_process` uses `PROCESS_TERMINATE`** rather than sending a signal
+- **Killing uses `PROCESS_TERMINATE`** on Windows rather than sending a signal
   because Windows does not have Unix-style signals; `TerminateProcess` is
   the standard forceful shutdown mechanism.
