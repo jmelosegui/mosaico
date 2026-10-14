@@ -1,12 +1,26 @@
 //! Taking windows out of the layout.
 
-use crate::WindowId;
+use crate::{WindowId, Workspace};
 
-use super::{Plan, Tiler};
+use super::{Effect, Plan, Tiler};
+
+/// Takes `window` out of `ws` for good, and has what is still held back
+/// for it dropped.
+///
+/// A move held for the window was decided while it was tiled, and must
+/// not reach it now, whether or not it has a border to drop. Every way a
+/// window leaves the layout goes through here: an event that takes it
+/// out, rules that stop managing it, and the layout finding it gone or
+/// minimized. Moving it to another workspace or monitor does not.
+pub(super) fn untile(plan: &mut Plan, ws: &mut Workspace, window: WindowId) {
+    if ws.remove(window) {
+        plan.emit(Effect::Untile { window });
+    }
+}
 
 impl Tiler {
-    /// Removes a window from the layout, hands focus to a sibling if it
-    /// had it, and retiles.
+    /// Removes a window from the layout, see [`untile`], hands focus to a
+    /// sibling if it had it, and retiles.
     ///
     /// With `active_only`, a window on an inactive workspace is left
     /// alone.
@@ -29,7 +43,7 @@ impl Tiler {
         // and its id may go to a new window.
         self.hidden_how.forget(window);
         let ws = &mut self.monitors[mon_idx].workspaces[ws_idx];
-        ws.remove(window);
+        untile(plan, ws, window);
         crate::log_info!(
             "-{} {} from mon {} ws {} (now {})",
             reason,

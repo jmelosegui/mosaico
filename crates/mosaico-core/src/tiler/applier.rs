@@ -77,6 +77,17 @@ impl Applier {
             if let Some(effect) = self.held.admit(effect, now) {
                 self.run(&effect, platform, now);
             }
+            self.release_dropped_focus();
+        }
+    }
+
+    /// Stops the echo filter waiting for a focus change the coalescer no
+    /// longer holds, because its window left. Otherwise every later focus
+    /// report would be taken for the system moving focus while ours
+    /// waits.
+    fn release_dropped_focus(&mut self) {
+        if !self.held.holds_focus() {
+            self.expectations.release_held_focus();
         }
     }
 
@@ -101,6 +112,7 @@ impl Applier {
         // Nothing held for a window that no longer exists may be applied.
         if let crate::WindowEvent::Destroyed { window } = *event {
             self.held.forget(window);
+            self.release_dropped_focus();
             self.moved_on_screen.remove(&window);
         }
         self.expectations.echo(event, now)
@@ -133,6 +145,9 @@ impl Applier {
             | Effect::PutBehind { .. } => {
                 apply_window_effect(effect, platform.desktop(), platform.control())
             }
+            // Admitting it dropped what was held for the window, and the
+            // platform has nothing to do.
+            Effect::Untile { .. } => {}
             Effect::Decorate { .. }
             | Effect::Undecorate { .. }
             | Effect::Border { .. }

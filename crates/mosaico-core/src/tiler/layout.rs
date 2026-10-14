@@ -5,6 +5,7 @@ use crate::{BspLayout, LayoutKind, Rect, ThreeColumnLayout, VerticalStackLayout}
 use crate::WindowId;
 use crate::config::HidingBehaviour;
 
+use super::removal::untile;
 use super::{Effect, Plan, Tiler, Timing};
 
 /// The rect a monocle window fills, given a work area and a gap.
@@ -112,14 +113,14 @@ impl Tiler {
     /// A window that is no longer shown is also forgotten as decorated,
     /// so a later window given its id does not get the system's corners
     /// back for it. A minimized one keeps the tiler's corners until it
-    /// hides or closes.
+    /// hides or closes. Either leaves the layout, see [`untile`].
     ///
     /// A window the tiler hid with "hide" is kept while it still exists
     /// and is still hidden: it is out of view by the tiler's doing, and
     /// the display change that brings it into view, by moving it or by
     /// switching its monitor's workspace, shows it after this retile
     /// (#119, #124).
-    pub(super) fn prune_stale_handles(&mut self, plan: &Plan, monitor_idx: usize) {
+    pub(super) fn prune_stale_handles(&mut self, plan: &mut Plan, monitor_idx: usize) {
         let Some(state) = self.monitors.get_mut(monitor_idx) else {
             return;
         };
@@ -132,7 +133,7 @@ impl Tiler {
             .filter(|&w| !plan.is_visible(w) || plan.is_minimized(w))
             .collect();
         for window in stale {
-            state.active_ws_mut().remove(window);
+            untile(plan, state.active_ws_mut(), window);
             if !plan.is_visible(window) {
                 self.decorated.remove(&window);
             }

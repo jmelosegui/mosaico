@@ -47,7 +47,8 @@ pub fn apply_window_effect(effect: &Effect, desktop: &dyn Desktop, windows: &dyn
         Effect::PutBehind { window, other } => {
             report("put behind", window, windows.put_behind(window, other));
         }
-        Effect::Decorate { .. }
+        Effect::Untile { .. }
+        | Effect::Decorate { .. }
         | Effect::Undecorate { .. }
         | Effect::Border { .. }
         | Effect::DropBorder { .. }

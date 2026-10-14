@@ -88,6 +88,12 @@ impl Expectations {
         self.focus.is_held()
     }
 
+    /// Forgets the focus change held back, which the applier dropped and
+    /// will not apply.
+    pub fn release_held_focus(&mut self) {
+        self.focus.release_held();
+    }
+
     /// Checks an event against what we expect, and returns why it is an
     /// echo of our own effects, or `None` when the tiler should see it.
     pub fn echo(&mut self, event: &WindowEvent, now: Instant) -> Option<&'static str> {

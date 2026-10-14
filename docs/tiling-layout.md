@@ -200,6 +200,15 @@ events and user actions.
 - `Restored` -- re-adds window to workspace, moving it ahead of the layout
   like a new one
 
+A window that leaves the layout gets none of the moves or focus changes
+still held back for it from a burst of key presses, whether it was
+destroyed, minimized or hidden, new rules stopped managing it, or the
+layout found it gone or minimized. `untile()` (in `removal.rs`), which
+every one of those goes through, emits `Untile` for it, and the tiling
+manager drops them, whether or not the window has a border to drop. A
+placement made at once for a window still lets a focus change held for
+it land.
+
 ### Action Handling
 
 `Tiler::handle_action()` (in `actions.rs`) dispatches `Action` variants to
