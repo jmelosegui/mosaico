@@ -1,15 +1,21 @@
-use mosaico_core::ipc::{Command, DAEMON_VERSION, DaemonStatus, Response, ResponseStatus};
+use mosaico_core::ipc::{
+    Command, DAEMON_VERSION, DaemonStatus, IpcError, Response, ResponseStatus,
+};
 
 use super::context::{Context, Exit, say};
 use super::request;
 
 pub fn execute(cx: &mut Context) -> Exit {
-    if cx.daemon.is_running() {
-        match cx.daemon.send(&Command::Status) {
-            Ok(response) => say!(cx, "{}", describe_running(&response)),
-            Err(e) => say!(cx, "Mosaico is running, but did not answer: {e}"),
+    match cx.daemon.send(&Command::Status) {
+        Ok(response) => {
+            say!(cx, "{}", describe_running(&response));
+            return Exit::Success;
         }
-        return Exit::Success;
+        Err(IpcError::NotRunning) => {}
+        Err(e) => {
+            say!(cx, "Mosaico is running, but did not answer: {e}");
+            return Exit::Success;
+        }
     }
 
     // The pipe is not answering, so check whether a daemon that was

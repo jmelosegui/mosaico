@@ -24,13 +24,17 @@ use super::{Command, ErrorCode, IpcError, Request, Response, decode_request};
 /// - Once connected, reads block until the daemon replies or goes away.
 ///   A daemon that exits mid-request must end the stream, so the client
 ///   sees [`IpcError::Closed`] rather than hanging.
-/// - `is_daemon_running` must not consume the daemon's attention: it
-///   checks for a listener without connecting to it.
+/// - `is_daemon_running` reports whether the daemon's endpoint exists. A
+///   daemon busy answering another client is running. It must not
+///   consume the daemon's attention: it checks without connecting.
+/// - Callers about to send a command do not need `is_daemon_running`
+///   first: `send` reports [`IpcError::NotRunning`] by itself, and a
+///   separate check can only add a window in which the answer changes.
 pub trait IpcClient {
     /// A connection to the daemon.
     type Stream: Read + Write;
 
-    /// Whether a daemon is listening.
+    /// Whether a daemon is listening, busy or not.
     fn is_daemon_running(&self) -> bool;
 
     /// Opens a connection to the daemon.
@@ -50,6 +54,9 @@ pub trait IpcClient {
 ///
 /// - `accept` blocks until a client connects. Each connection carries
 ///   exactly one command and one reply.
+/// - While one connection is being answered, the endpoint keeps
+///   existing and accepts the next client, so a second CLI command run
+///   at the same time never finds the daemon missing.
 /// - An error from `accept` means the daemon can no longer listen at
 ///   all; [`serve`] stops on it.
 /// - Only clients of the same user may connect.
