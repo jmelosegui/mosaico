@@ -27,13 +27,16 @@ impl Tiler {
             return;
         }
 
-        // Several change notifications can describe the same layout.
+        // Several change notifications can describe the same layout. The
+        // bars may still have changed with it, when one could not be made
+        // again or was made for the first time, so their space follows.
         let unchanged = displays.len() == self.monitors.len()
             && displays
                 .iter()
                 .zip(&self.monitors)
                 .all(|(new, old)| new.id == old.id && new.work_area == old.os_work_area);
         if unchanged {
+            self.reserve_bar_if_moved(plan, bar);
             return;
         }
 
