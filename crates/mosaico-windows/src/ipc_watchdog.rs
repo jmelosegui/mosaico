@@ -105,10 +105,10 @@ impl Drop for Watchdog {
 
 #[cfg(test)]
 mod tests {
-    use std::io::Write;
+    use std::io::{self, Read, Write};
     use std::sync::mpsc;
     use std::thread;
-    use std::time::Duration;
+    use std::time::{Duration, Instant};
 
     use mosaico_core::ipc::{Command, IpcClient, Response, serve_with_timeout};
 
@@ -154,6 +154,90 @@ mod tests {
         drop(stalled);
         client.send(&Command::Stop).unwrap();
         server.join().unwrap();
+    }
+
+    #[test]
+    fn a_client_trickling_its_request_cannot_extend_the_deadline() {
+        // Arrange -- a client keeps sending a byte well inside the
+        // deadline, but never finishes its request. A deadline per read
+        // would let it hold the server for as long as it keeps trickling.
+        let name = format!(r"\\.\pipe\mosaico-test-trickle-{}", std::process::id());
+        let server_name = name.clone();
+        let server = thread::spawn(move || {
+            let mut server = PipeServer::new(&server_name);
+            serve_with_timeout(&mut server, Duration::from_millis(200), |command| {
+                Some(Response::ok_with_message(format!("{command:?}")))
+            })
+        });
+        let client = PipeClient::new(&name);
+        for _ in 0..100 {
+            if client.is_daemon_running() {
+                break;
+            }
+            thread::sleep(Duration::from_millis(10));
+        }
+        let mut trickling = client.connect().expect("the trickling client connects");
+        trickling.write_all(b"{").unwrap();
+        let trickler = thread::spawn(move || {
+            // Up to 3 s of one byte every 50 ms, until the server hangs up.
+            for _ in 0..60 {
+                thread::sleep(Duration::from_millis(50));
+                if trickling.write_all(b" ").is_err() {
+                    break;
+                }
+            }
+        });
+
+        // Act
+        let started = Instant::now();
+        let (reply_tx, reply_rx) = mpsc::channel();
+        let next_name = name.clone();
+        thread::spawn(move || {
+            let _ = reply_tx.send(PipeClient::new(&next_name).send(&Command::Status));
+        });
+
+        // Assert -- answered long before the trickle would end on its own.
+        let reply = reply_rx
+            .recv_timeout(Duration::from_secs(1))
+            .expect("the next client waited for the trickling one")
+            .expect("the next client gets a reply");
+        assert_eq!(reply.message.as_deref(), Some("Status"));
+        assert!(started.elapsed() < Duration::from_secs(1));
+
+        // Cleanup
+        trickler.join().unwrap();
+        client.send(&Command::Stop).unwrap();
+        server.join().unwrap();
+    }
+
+    #[test]
+    fn a_watchdog_that_fires_before_the_read_starts_still_cancels_it() {
+        // Arrange -- the deadline passes before the guarded read begins,
+        // as when the reading thread is preempted between arming the
+        // watchdog and entering the read. The writer stays open and
+        // silent, so nothing but the watchdog can end the read.
+        let (mut reader, writer) = io::pipe().unwrap();
+        let (done_tx, done_rx) = mpsc::channel();
+
+        // Act
+        thread::spawn(move || {
+            let watchdog = super::Watchdog::arm(Duration::from_millis(1)).unwrap();
+            thread::sleep(Duration::from_millis(50));
+            let mut buf = [0u8; 1];
+            let result = reader.read(&mut buf);
+            let fired = watchdog.disarm();
+            let _ = done_tx.send((result.is_err(), fired));
+        });
+
+        // Assert
+        let (failed, fired) = done_rx
+            .recv_timeout(Duration::from_secs(2))
+            .expect("the read blocked: the cancel was lost because it came before the read");
+        assert!(fired);
+        assert!(failed, "the cancelled read must fail");
+
+        // Cleanup -- a blocked read ends once the writer goes away.
+        drop(writer);
     }
 
     #[test]
