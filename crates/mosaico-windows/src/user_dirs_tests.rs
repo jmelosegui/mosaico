@@ -2,7 +2,8 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use mosaico_core::Instance;
-use mosaico_core::instance::{INSTANCE_VAR, InstanceError};
+use mosaico_core::instance::{CONFIG_DIR_VAR, DATA_DIR_VAR, INSTANCE_VAR, InstanceError};
+use mosaico_core::user_dirs::Unusable;
 
 use super::*;
 
@@ -149,10 +150,51 @@ fn a_missing_folder_is_refused() {
     // Act / Assert
     assert_eq!(
         instance(&[LOCAL_APP_DATA]),
-        Err(InstanceError::NoDirectory("config"))
+        Err(InstanceError::NoDirectory {
+            dir: "config",
+            override_var: CONFIG_DIR_VAR,
+            reason: Unusable::Unset("USERPROFILE"),
+        })
     );
     assert_eq!(
         instance(&[PROFILE]),
-        Err(InstanceError::NoDirectory("data"))
+        Err(InstanceError::NoDirectory {
+            dir: "data",
+            override_var: DATA_DIR_VAR,
+            reason: Unusable::Unset("LOCALAPPDATA"),
+        })
     );
+}
+
+#[test]
+fn an_empty_or_relative_folder_is_refused_rather_than_used() {
+    // An empty USERPROFILE used to put the config in `.config\mosaico`
+    // under whatever directory mosaico ran in, even with HOME set.
+    let cases: [(&[(&str, &str)], &str); 3] = [
+        (
+            &[("USERPROFILE", ""), HOME, LOCAL_APP_DATA],
+            "could not determine the config directory: USERPROFILE is empty; \
+             set MOSAICO_CONFIG_DIR to choose one",
+        ),
+        (
+            &[("USERPROFILE", r"Users\me"), LOCAL_APP_DATA],
+            "could not determine the config directory: USERPROFILE is not an \
+             absolute path (Users\\me); set MOSAICO_CONFIG_DIR to choose one",
+        ),
+        (
+            &[PROFILE, ("LOCALAPPDATA", r"AppData\Local")],
+            "could not determine the data directory: LOCALAPPDATA is not an \
+             absolute path (AppData\\Local); set MOSAICO_DATA_DIR to choose one",
+        ),
+    ];
+    for (pairs, message) in cases {
+        // Act
+        let result = instance(pairs);
+
+        // Assert
+        match result {
+            Err(error) => assert_eq!(error.to_string(), message),
+            Ok(instance) => panic!("{pairs:?} must be refused, got {instance:?}"),
+        }
+    }
 }

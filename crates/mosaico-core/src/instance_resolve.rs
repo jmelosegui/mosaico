@@ -4,7 +4,7 @@ use std::ffi::OsString;
 use std::path::PathBuf;
 
 use super::{Instance, InstanceError, validate_name};
-use crate::user_dirs::{UserDir, UserDirs};
+use crate::user_dirs::{Unusable, UserDir, UserDirs};
 
 /// Selects a named instance. Unset or empty means the default instance.
 pub const INSTANCE_VAR: &str = "MOSAICO_INSTANCE";
@@ -51,13 +51,21 @@ impl Instance {
             Some(dir) => PathBuf::from(dir),
             None => base(dirs.config_dir())
                 .map(per_instance)
-                .ok_or(InstanceError::NoDirectory("config"))?,
+                .map_err(|reason| InstanceError::NoDirectory {
+                    dir: "config",
+                    override_var: CONFIG_DIR_VAR,
+                    reason,
+                })?,
         };
         let data_dir = match var(DATA_DIR_VAR).filter(|v| !v.is_empty()) {
             Some(dir) => PathBuf::from(dir),
-            None => base(dirs.data_dir())
-                .map(per_instance)
-                .ok_or(InstanceError::NoDirectory("data"))?,
+            None => base(dirs.data_dir()).map(per_instance).map_err(|reason| {
+                InstanceError::NoDirectory {
+                    dir: "data",
+                    override_var: DATA_DIR_VAR,
+                    reason,
+                }
+            })?,
         };
 
         Ok(Self {
@@ -68,11 +76,20 @@ impl Instance {
     }
 }
 
-/// The base directory `dir` gives, or `None` when its setting is not
-/// set.
-fn base(dir: UserDir) -> Option<PathBuf> {
-    let value = dir.value?;
-    Some(match dir.subfolder {
+/// The base directory `dir` gives, if its setting holds an absolute path.
+///
+/// An empty or relative one would put the files wherever mosaico happens
+/// to run, so separate runs of the CLI, or the daemon started at login,
+/// would not find each other's files.
+fn base(dir: UserDir) -> Result<PathBuf, Unusable> {
+    let value = dir.value.ok_or(Unusable::Unset(dir.setting))?;
+    if value.as_os_str().is_empty() {
+        return Err(Unusable::Empty(dir.setting));
+    }
+    if !value.is_absolute() {
+        return Err(Unusable::NotAbsolute(dir.setting, value));
+    }
+    Ok(match dir.subfolder {
         Some(folder) => value.join(folder),
         None => value,
     })

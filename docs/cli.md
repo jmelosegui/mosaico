@@ -277,7 +277,12 @@ the CLI and daemon use the default instance, with the usual names and paths.
 The usual folders come from the platform (`mosaico_core::user_dirs::UserDirs`).
 On Windows the config directory is `.config\mosaico` in the profile folder
 (`USERPROFILE`, or `HOME` when `USERPROFILE` is not set) and the data directory
-is `mosaico` in `LOCALAPPDATA`.
+is `mosaico` in `LOCALAPPDATA`. When the variable a folder comes from is not
+set, is empty or is not an absolute path, and the override is not set either,
+every command exits with status 2 and says which variable is wrong and which
+override to set, for example `could not determine the config directory:
+USERPROFILE is empty; set MOSAICO_CONFIG_DIR to choose one`. The overrides
+themselves are used as given, relative paths included.
 
 `mosaico start` passes its environment to the daemon it launches, so both
 belong to the same instance. An invalid instance name makes every command

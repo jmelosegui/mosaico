@@ -192,13 +192,74 @@ fn a_directory_the_platform_does_not_know_is_reported() {
     };
 
     // Act / Assert -- with no override either, there is nowhere to keep
-    // the files, so the CLI refuses to start.
+    // the files, so the CLI refuses to start and says what to set.
     assert_eq!(
         Instance::from_env(env(&[]), &no_config),
-        Err(InstanceError::NoDirectory("config"))
+        Err(InstanceError::NoDirectory {
+            dir: "config",
+            override_var: CONFIG_DIR_VAR,
+            reason: Unusable::Unset("CONFIG_HOME"),
+        })
     );
     assert_eq!(
         Instance::from_env(env(&[]), &no_data),
-        Err(InstanceError::NoDirectory("data"))
+        Err(InstanceError::NoDirectory {
+            dir: "data",
+            override_var: DATA_DIR_VAR,
+            reason: Unusable::Unset("DATA_HOME"),
+        })
     );
+}
+
+#[test]
+fn a_setting_that_is_empty_or_not_absolute_is_refused() {
+    // Arrange -- a relative base would put the files wherever mosaico
+    // happens to run.
+    let relative = PathBuf::from("me").join("config");
+    let cases = [
+        (Some(PathBuf::new()), "CONFIG_HOME is empty".to_string()),
+        (
+            Some(relative.clone()),
+            format!(
+                "CONFIG_HOME is not an absolute path ({})",
+                relative.display()
+            ),
+        ),
+    ];
+    for (value, reason) in cases {
+        let dirs = Dirs {
+            config: setting("CONFIG_HOME", value),
+            ..user()
+        };
+
+        // Act
+        let result = Instance::from_env(env(&[]), &dirs);
+
+        // Assert
+        match result {
+            Err(error) => assert_eq!(
+                error.to_string(),
+                format!(
+                    "could not determine the config directory: {reason}; \
+                     set MOSAICO_CONFIG_DIR to choose one"
+                )
+            ),
+            Ok(instance) => panic!("{reason}: must be refused, got {instance:?}"),
+        }
+    }
+}
+
+#[test]
+fn an_override_needs_no_usable_setting() {
+    // Arrange
+    let dirs = Dirs {
+        config: setting("CONFIG_HOME", Some(PathBuf::from("rel"))),
+        ..user()
+    };
+
+    // Act
+    let instance = Instance::from_env(env(&[(CONFIG_DIR_VAR, "cfg")]), &dirs).unwrap();
+
+    // Assert -- the override is used as given.
+    assert_eq!(instance.config_dir(), Path::new("cfg"));
 }

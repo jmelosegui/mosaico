@@ -1,5 +1,6 @@
 //! Where the platform keeps each user's files.
 
+use std::fmt;
 use std::path::PathBuf;
 
 /// Where the platform keeps the current user's base directories for
@@ -8,6 +9,10 @@ use std::path::PathBuf;
 /// An [`Instance`](crate::Instance) keeps its files in a `mosaico` folder
 /// inside each and applies the `MOSAICO_*` overrides, so a platform only
 /// reports where the user's directories come from and what they hold.
+/// The instance refuses a setting that is not set, is empty or is not an
+/// absolute path, with an error that names the setting, so a platform
+/// only checks a value when its own convention falls back to another
+/// setting.
 ///
 /// # Contract for platform implementations
 ///
@@ -48,4 +53,28 @@ pub struct UserDir {
     /// The folder inside `value` that is the base directory, when the
     /// setting names a folder above it, such as the home folder.
     pub subfolder: Option<&'static str>,
+}
+
+/// Why the setting of a [`UserDir`] gives no directory mosaico can use.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Unusable {
+    /// The setting is not set.
+    Unset(&'static str),
+    /// The setting is set but empty.
+    Empty(&'static str),
+    /// The setting holds a path that is not absolute, which would put the
+    /// files wherever mosaico happens to run.
+    NotAbsolute(&'static str, PathBuf),
+}
+
+impl fmt::Display for Unusable {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Unset(setting) => write!(f, "{setting} is not set"),
+            Self::Empty(setting) => write!(f, "{setting} is empty"),
+            Self::NotAbsolute(setting, path) => {
+                write!(f, "{setting} is not an absolute path ({})", path.display())
+            }
+        }
+    }
 }

@@ -10,6 +10,8 @@
 use std::fmt;
 use std::path::{Path, PathBuf};
 
+use crate::user_dirs::Unusable;
+
 #[path = "instance_current.rs"]
 mod current;
 #[path = "instance_resolve.rs"]
@@ -35,8 +37,16 @@ pub enum InstanceError {
     /// The name is empty, too long, or has characters other than ASCII
     /// letters, digits, `-` and `_`.
     InvalidName(String),
-    /// A directory was not given and has no default on this system.
-    NoDirectory(&'static str),
+    /// A directory was not given, and the setting the platform keeps it
+    /// in does not hold one mosaico can use.
+    NoDirectory {
+        /// Which directory: `"config"` or `"data"`.
+        dir: &'static str,
+        /// The variable that gives the directory instead.
+        override_var: &'static str,
+        /// What is wrong with the platform's setting.
+        reason: Unusable,
+    },
     /// The instance given is not the one this process resolved at
     /// startup, or the process has not resolved one.
     NotCurrent,
@@ -49,7 +59,14 @@ impl fmt::Display for InstanceError {
                 f,
                 "invalid {INSTANCE_VAR} {name:?}: use 1-{MAX_NAME_LEN} ASCII letters, digits, '-' or '_'"
             ),
-            Self::NoDirectory(what) => write!(f, "could not determine the {what} directory"),
+            Self::NoDirectory {
+                dir,
+                override_var,
+                reason,
+            } => write!(
+                f,
+                "could not determine the {dir} directory: {reason}; set {override_var} to choose one"
+            ),
             Self::NotCurrent => {
                 f.write_str("the instance given is not the one this process resolved at startup")
             }
