@@ -1,4 +1,5 @@
-//! How long the effects the tiler holds back can be kept waiting.
+//! How long the effects the tiling manager holds back can be kept
+//! waiting.
 
 use super::*;
 

@@ -6,22 +6,22 @@
 
 use std::time::{Duration, Instant};
 
-/// How long the platform has to wait with no input arriving before it
-/// applies held effects.
+/// How long the daemon has to wait with no input arriving before it
+/// has the tiling manager apply the effects it holds.
 ///
-/// The wait starts once the platform has handled everything it was
-/// given, so the time it spends applying effects, which is long for a
+/// The wait starts once the daemon has handled everything it was
+/// given, so the time spent applying effects, which is long for a
 /// workspace switch, never counts as quiet.
 pub const QUIET: Duration = Duration::from_millis(25);
 
 /// The longest effects are held while input keeps arriving.
 ///
 /// A window that reports its position on every frame of an animation,
-/// or a title that keeps changing, never lets the platform wait
+/// or a title that keeps changing, never lets the daemon wait
 /// [`QUIET`], and would otherwise hold focus changes and moves back for
 /// as long as it lasts.
 ///
-/// The cap counts from the first time the platform waits with the
+/// The cap counts from the first time the daemon waits with the
 /// effects held, not from when they were held, so the time spent
 /// handling a slow batch or starting up never shortens the quiet window.
 /// Only input that keeps ending every wait early reaches it.
@@ -34,7 +34,7 @@ pub const QUIET: Duration = Duration::from_millis(25);
 /// coalesce more under a stream, but moves would visibly lag.
 pub const MAX_HOLD: Duration = Duration::from_millis(100);
 
-/// When held effects are due, if the platform waits for input from
+/// When held effects are due, if the daemon waits for input from
 /// `waiting_since` and none arrives first: once it has waited [`QUIET`],
 /// and no later than [`MAX_HOLD`] after `first_wait`, the first time it
 /// waited with these effects held.

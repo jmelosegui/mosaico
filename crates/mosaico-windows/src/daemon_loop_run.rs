@@ -3,9 +3,9 @@
 //!
 //! [`Scheduler`] makes every timing decision: what runs first, which
 //! window events are repeats, when a display change has settled and when
-//! the effects the tiler holds back are applied. This loop only waits,
-//! keeps the thread's windows pumped, reads the clock and carries out the
-//! steps it gets back.
+//! the effects the tiling manager holds back are flushed. This loop only
+//! waits, keeps the thread's windows pumped, reads the clock and carries
+//! out the steps it gets back.
 
 use std::sync::mpsc;
 use std::time::Instant;

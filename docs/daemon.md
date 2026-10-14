@@ -127,8 +127,8 @@ the wait ends, it hands what ended it (the messages that were queued, or a
 timeout) to the scheduler with the current time, and runs the steps it gets
 back, in order:
 
-1. **Flush** the focus changes and coalesced moves the tiler holds back,
-   once the loop has waited 25 ms (`tiler::QUIET`) with no message
+1. **Flush** the focus changes and coalesced moves the tiling manager holds
+   back, once the loop has waited 25 ms (`tiler::QUIET`) with no message
    arriving. The wait starts once everything before it has run, so a slow
    batch, a display rebuild or startup never counts as quiet. They are
    flushed at the latest 100 ms after the loop first waited with them held

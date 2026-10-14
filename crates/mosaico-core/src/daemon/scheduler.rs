@@ -82,7 +82,8 @@ impl Scheduler {
     /// Starts a wait at `now`, once the loop has run every step it was
     /// given, and returns how long it may wait for messages, or `None`
     /// when nothing is due until one arrives. `held_since` is when the
-    /// effects the tiler holds started being held, if it holds any.
+    /// effects the tiling manager holds started being held, if it holds
+    /// any.
     pub fn begin_wait(&mut self, held_since: Option<Instant>, now: Instant) -> Option<Duration> {
         self.waiting_since = Some(now);
         self.hold = held_since.map(|since| match self.hold {
