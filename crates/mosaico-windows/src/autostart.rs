@@ -31,7 +31,7 @@ impl Autostart for RegistryAutostart {
     /// Writes the command line that runs `command` to the Mosaico value,
     /// replacing what was there.
     fn enable(&self, command: &LaunchCommand) -> Result<()> {
-        registry::write(&command_line::join(command))
+        registry::write(&command_line::join(command)?)
     }
 
     /// Deletes the Mosaico value. Succeeds if it did not exist.

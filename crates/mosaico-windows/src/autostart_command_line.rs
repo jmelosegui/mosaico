@@ -10,17 +10,18 @@
 use std::iter::repeat_n;
 use std::path::PathBuf;
 
+use mosaico_core::Result;
 use mosaico_core::system::LaunchCommand;
 
 /// The command line that runs `command`: the program in quotes, then
 /// each argument.
-pub fn join(command: &LaunchCommand) -> String {
+pub fn join(command: &LaunchCommand) -> Result<String> {
     let mut line = format!("\"{}\"", command.program.display());
     for arg in &command.args {
         line.push(' ');
         push_arg(&mut line, arg);
     }
-    line
+    Ok(line)
 }
 
 /// Appends `arg` as it is, or in quotes when it is empty or has spaces,
