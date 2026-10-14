@@ -1,5 +1,5 @@
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use crate::Error;
@@ -145,4 +145,44 @@ fn a_cache_that_cannot_be_written_is_an_error() {
     // Assert
     assert!(matches!(error, Error::Io(_)), "{error:?}");
     assert!(!cache.exists());
+}
+
+#[test]
+fn a_cache_held_open_by_a_reader_is_replaced_whole() {
+    // Arrange -- a reader holds a lock on the cache, so writing into the
+    // file fails once opening it has emptied it.
+    let cache = cache("locked");
+    let reader = fs::File::open(&cache).unwrap();
+    reader.lock_shared().unwrap();
+    let http = serving(VALID);
+
+    // Act
+    let result = download(&http, "test-os", &cache);
+
+    // Assert
+    assert_eq!(fs::read_to_string(&cache).unwrap(), VALID);
+    assert_eq!(result.unwrap().len(), 2);
+    assert!(!partial_file_of(&cache).exists());
+}
+
+#[test]
+fn a_cache_that_cannot_be_replaced_is_kept_and_nothing_is_left_behind() {
+    // Arrange -- a folder is in the way of the cache file.
+    let cache = cache("folder-in-the-way");
+    fs::remove_file(&cache).unwrap();
+    fs::create_dir(&cache).unwrap();
+    let http = serving(VALID);
+
+    // Act
+    let error = download(&http, "test-os", &cache).unwrap_err();
+
+    // Assert
+    assert!(matches!(error, Error::Io(_)), "{error:?}");
+    assert!(cache.is_dir());
+    assert!(!partial_file_of(&cache).exists());
+}
+
+/// Where the download is written before it replaces `cache`.
+fn partial_file_of(cache: &Path) -> PathBuf {
+    cache.with_file_name("rules.toml.part")
 }
