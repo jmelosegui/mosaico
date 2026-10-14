@@ -107,7 +107,7 @@ impl Applier {
             if matches!(effect, Effect::Focus { .. }) {
                 self.expectations.held(&effect);
             }
-            if let Some(effect) = self.held.admit(effect) {
+            if let Some(effect) = self.held.admit(effect, now) {
                 self.run(&effect, desktop, control, now);
             }
         }

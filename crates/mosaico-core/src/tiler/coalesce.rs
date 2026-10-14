@@ -5,11 +5,14 @@
 //! every intermediate one is slow (a focus change is a cross-process
 //! call) and makes windows repaint once per key press.
 
+use std::time::Instant;
+
 use crate::{Rect, WindowId};
 
 use super::{Effect, Timing};
 
-/// Effects held back until input goes quiet.
+/// Effects held back until input goes quiet. [`release_at`](super::release_at)
+/// says when that is.
 #[derive(Debug, Default)]
 pub struct Coalescer {
     /// Coalesced placements, latest per window, in arrival order.
@@ -19,18 +22,22 @@ pub struct Coalescer {
     after: Vec<Effect>,
     /// The latest focus change.
     focus: Option<Effect>,
+    /// When the effects held now started being held. Stale while
+    /// nothing is held.
+    since: Option<Instant>,
 }
 
 impl Coalescer {
-    /// Takes the next effect of a step. Returns it when it should be
-    /// applied right away, or `None` when it is being held.
-    pub fn admit(&mut self, effect: Effect) -> Option<Effect> {
+    /// Takes the next effect of a step made at `now`. Returns it when it
+    /// should be applied right away, or `None` when it is being held.
+    pub fn admit(&mut self, effect: Effect, now: Instant) -> Option<Effect> {
         match effect {
             Effect::Place {
                 window,
                 rect,
                 timing: Timing::Coalesced,
             } => {
+                self.hold(now);
                 match self.places.iter_mut().find(|(w, _)| *w == window) {
                     Some(held) => held.1 = rect,
                     None => self.places.push((window, rect)),
@@ -54,6 +61,7 @@ impl Coalescer {
                 Some(effect)
             }
             Effect::Focus { .. } => {
+                self.hold(now);
                 self.focus = Some(effect);
                 None
             }
@@ -77,6 +85,20 @@ impl Coalescer {
     /// Whether anything is held.
     pub fn is_empty(&self) -> bool {
         self.focus.is_none() && self.places.is_empty()
+    }
+
+    /// When the effects held now started being held, or `None` when
+    /// nothing is held.
+    pub fn held_since(&self) -> Option<Instant> {
+        if self.is_empty() { None } else { self.since }
+    }
+
+    /// Starts the hold at `now`, unless something is held already. Call
+    /// it before holding the effect.
+    fn hold(&mut self, now: Instant) {
+        if self.is_empty() {
+            self.since = Some(now);
+        }
     }
 
     /// Releases everything held, in the order to apply it: placements,
@@ -111,3 +133,7 @@ mod tests;
 #[cfg(test)]
 #[path = "tests/coalesce_forget_tests.rs"]
 mod forget_tests;
+
+#[cfg(test)]
+#[path = "tests/coalesce_hold_tests.rs"]
+mod hold_tests;
