@@ -4,6 +4,8 @@
 
 /// User-triggerable actions (focus, move, workspace switch).
 pub mod action;
+/// What the status bar shows, and the contracts that put it on screen.
+pub mod bar;
 /// Downloading the community window rules.
 pub mod community_rules;
 /// Configuration loading and types.
