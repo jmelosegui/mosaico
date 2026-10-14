@@ -24,7 +24,9 @@ mod daemon_types;
 /// manages the tiling workspace.
 ///
 /// The daemon has no console, so it reports through the log. An error
-/// that ends it is logged here as well as returned.
+/// from the daemon loop is logged here as well as returned. Errors before
+/// it, such as another daemon holding the lock, come before the logger
+/// is set up and are only returned.
 pub fn run() -> Result<()> {
     dpi::enable_dpi_awareness();
     clean_old_binary();

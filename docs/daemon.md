@@ -52,7 +52,9 @@ subcommand:
 3. Write PID file to `%LOCALAPPDATA%\mosaico\mosaico.pid`
 4. Log that it started
 5. Call `daemon_loop()` for the main logic
-6. Log the error that ended it, if any, since the daemon has no console
+6. Log the error `daemon_loop()` returned, if any, since the daemon has no
+   console. Errors from the steps before it come before the logger is set up
+   and are only printed by the `daemon` subcommand
 7. On exit, remove PID file
 
 `daemon_loop()` performs:

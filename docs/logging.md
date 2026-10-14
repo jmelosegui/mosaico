@@ -111,8 +111,10 @@ and in `daemon.rs` for startup/shutdown information.
 
 The daemon runs without a console, so everything it reports goes through
 these macros: hotkeys that cannot be registered, a missing event sink window,
-a bar that cannot be created, and the error that ends it, which
-`daemon::run()` logs before returning it.
+a bar that cannot be created, and an error from the daemon loop, which
+`daemon::run()` logs before returning it. Errors before the loop, such as
+another daemon holding the single instance lock, happen before the logger is
+set up, so they only reach `mosaico daemon`'s standard error.
 
 The CLI and the daemon load the config the same way, so the problems found
 while loading it go to both places: to standard error, where commands such as
