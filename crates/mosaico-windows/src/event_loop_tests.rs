@@ -31,10 +31,9 @@ fn a_missing_event_sink_window_is_reported_to_the_caller() {
     let atom = unsafe { RegisterClassW(&class) };
     assert_ne!(atom, 0, "the test could not register the class");
     let (event_tx, _events) = mpsc::channel();
-    let (action_tx, _actions) = mpsc::channel();
 
     // Act
-    let Ok(event_loop) = start(event_tx, action_tx, Vec::new()) else {
+    let Ok(event_loop) = start(event_tx) else {
         // No desktop to hook into, nothing to assert.
         return;
     };

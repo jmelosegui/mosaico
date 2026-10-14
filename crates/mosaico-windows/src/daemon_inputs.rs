@@ -5,12 +5,14 @@ use mosaico_core::event::FocusFollowsMouse;
 use mosaico_core::{Action, Error, Result, WindowEvent};
 
 use crate::event_loop::{self, EventLoopHandle};
+use crate::hotkey_thread::HotkeyThread;
 use crate::pointer::WindowsPointer;
 
 /// What the daemon listens to besides IPC: window events, hotkeys and
-/// the pointer.
+/// the pointer, each on a thread of its own.
 pub(super) struct Inputs {
     event_loop: EventLoopHandle,
+    hotkeys: HotkeyThread,
     focus_follows_mouse: FocusFollowsMouse,
 }
 
@@ -23,9 +25,11 @@ impl Inputs {
         keybindings: Vec<Keybinding>,
         focus_follows_mouse: bool,
     ) -> Result<Self> {
-        let event_loop = event_loop::start(events.clone(), actions, keybindings)?;
+        let event_loop = event_loop::start(events.clone())?;
+        let hotkeys = HotkeyThread::start(actions, keybindings)?;
         let mut inputs = Self {
             event_loop,
+            hotkeys,
             focus_follows_mouse: FocusFollowsMouse::new(WindowsPointer, events),
         };
         inputs.set_focus_follows_mouse(focus_follows_mouse);
@@ -40,12 +44,12 @@ impl Inputs {
 
     /// Unregisters every hotkey except toggle-pause.
     pub(super) fn pause_hotkeys(&self) {
-        self.event_loop.pause_hotkeys();
+        self.hotkeys.pause();
     }
 
     /// Registers the paused hotkeys again.
     pub(super) fn unpause_hotkeys(&self) {
-        self.event_loop.unpause_hotkeys();
+        self.hotkeys.unpause();
     }
 
     /// Turns focus-follows-mouse on or off, as the config asks. When it
@@ -59,6 +63,7 @@ impl Inputs {
     /// Stops everything and waits for each thread to finish.
     pub(super) fn stop(self) {
         self.event_loop.stop();
+        self.hotkeys.stop();
         drop(self.focus_follows_mouse);
     }
 }

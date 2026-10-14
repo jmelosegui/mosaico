@@ -49,6 +49,9 @@ pub mod http;
 /// Global hotkey registration.
 pub mod hotkey;
 
+/// The thread that owns the global hotkeys.
+mod hotkey_thread;
+
 /// Key name to virtual key code mapping.
 pub mod keys;
 
@@ -63,6 +66,9 @@ pub mod event_loop;
 
 /// IPC via Named Pipes.
 pub mod ipc;
+
+/// Threads that own Win32 state delivered through a message queue.
+mod message_thread;
 
 /// Monitor work area queries.
 mod monitor;

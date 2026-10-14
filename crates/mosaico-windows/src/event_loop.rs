@@ -1,21 +1,14 @@
 use std::sync::mpsc::Sender;
-use std::thread;
 
-use mosaico_core::config::Keybinding;
-use mosaico_core::{Action, Error, Result, WindowEvent};
+use mosaico_core::{Error, Result, WindowEvent};
 use windows::Win32::Foundation::HWND;
-use windows::Win32::Foundation::{LPARAM, WPARAM};
 use windows::Win32::UI::Accessibility::{SetWinEventHook, UnhookWinEvent};
-use windows::Win32::UI::WindowsAndMessaging::{
-    PostThreadMessageW, WINEVENT_OUTOFCONTEXT, WINEVENT_SKIPOWNPROCESS, WM_QUIT,
-};
+use windows::Win32::UI::WindowsAndMessaging::{WINEVENT_OUTOFCONTEXT, WINEVENT_SKIPOWNPROCESS};
 
-use crate::hotkey::HotkeyManager;
+use crate::message_thread::{self, MessageThread};
 
 #[path = "event_loop_event_sink.rs"]
 mod event_loop_event_sink;
-#[path = "event_loop_message_pump.rs"]
-mod event_loop_message_pump;
 #[path = "event_loop_win_event.rs"]
 mod event_loop_win_event;
 
@@ -41,28 +34,17 @@ thread_local! {
 
 /// Starts the Win32 event loop on a new thread.
 ///
-/// Registers window event hooks and global hotkeys from the provided
-/// keybinding configuration. Events and actions are sent through the
-/// provided channels.
+/// Registers window event hooks and sends the events through the
+/// provided channel.
 ///
 /// Fails when the hooks cannot be installed. The loop runs without the
 /// window that reports display and work area changes if that cannot be
 /// created; [`EventLoopHandle::sink_error`] says why.
-pub fn start(
-    event_tx: Sender<WindowEvent>,
-    action_tx: Sender<Action>,
-    keybindings: Vec<Keybinding>,
-) -> Result<EventLoopHandle> {
-    let (ready_tx, ready_rx) = std::sync::mpsc::channel::<Result<(u32, Option<Error>)>>();
-
-    let handle = thread::spawn(move || {
+pub fn start(event_tx: Sender<WindowEvent>) -> Result<EventLoopHandle> {
+    let (thread, sink_error) = MessageThread::spawn("window events", move |ready| {
         EVENT_SENDER.with(|cell| {
             *cell.borrow_mut() = Some(event_tx);
         });
-
-        // SAFETY: GetCurrentThreadId returns the calling thread's ID.
-        // It is always safe to call and never fails.
-        let thread_id = unsafe { windows::Win32::System::Threading::GetCurrentThreadId() };
 
         let flags = WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS;
 
@@ -98,16 +80,19 @@ pub fn start(
         };
 
         if hook_system.is_invalid() || hook_object.is_invalid() {
-            let _ = ready_tx.send(Err(Error::platform(
-                "set the window event hooks",
-                "SetWinEventHook failed",
-            )));
+            for hook in [hook_system, hook_object] {
+                if !hook.is_invalid() {
+                    // SAFETY: UnhookWinEvent removes the hook that was
+                    // installed above, so a failed start leaves none.
+                    unsafe {
+                        let _ = UnhookWinEvent(hook);
+                    }
+                }
+            }
+            let reason = "SetWinEventHook failed";
+            ready.report(Err(Error::platform("set the window event hooks", reason)));
             return;
         }
-
-        // Register hotkeys on this thread's message queue.
-        let mut hotkeys = HotkeyManager::new(action_tx);
-        hotkeys.register_from_config(&keybindings);
 
         // Create a hidden window that receives display/work-area changes.
         // Without it the loop still runs, it just misses those, so the
@@ -117,16 +102,14 @@ pub fn start(
             Err(e) => (HWND::default(), Some(e)),
         };
 
-        let _ = ready_tx.send(Ok((thread_id, sink_error)));
+        ready.report(Ok(sink_error));
 
-        // Run the message pump with hotkey dispatching.
-        event_loop_message_pump::run_message_pump(&mut hotkeys);
+        message_thread::pump();
 
-        // Cleanup: destroy event sink, hotkeys unregistered in Drop.
+        // Cleanup: destroy the event sink, then the hooks.
         if !event_sink.is_invalid() {
             event_loop_event_sink::destroy_event_sink(event_sink);
         }
-        drop(hotkeys);
 
         // SAFETY: UnhookWinEvent removes the hooks installed above.
         // Called during thread shutdown after the message pump exits.
@@ -134,25 +117,16 @@ pub fn start(
             let _ = UnhookWinEvent(hook_system);
             let _ = UnhookWinEvent(hook_object);
         }
-    });
+        EVENT_SENDER.with(|cell| cell.borrow_mut().take());
+    })?;
 
-    let ready = ready_rx
-        .recv()
-        .map_err(|_| Error::platform("start the event loop", "its thread exited unexpectedly"))?;
-    let (thread_id, sink_error) = ready?;
-
-    Ok(EventLoopHandle {
-        thread_id,
-        sink_error,
-        handle,
-    })
+    Ok(EventLoopHandle { thread, sink_error })
 }
 
-/// Handle for controlling the event loop from the daemon.
+/// Handle for stopping the event loop.
 pub struct EventLoopHandle {
-    thread_id: u32,
+    thread: MessageThread,
     sink_error: Option<Error>,
-    handle: thread::JoinHandle<()>,
 }
 
 impl EventLoopHandle {
@@ -163,58 +137,9 @@ impl EventLoopHandle {
         self.sink_error.as_ref()
     }
 
-    /// Pauses all hotkeys (unregisters all except toggle-pause).
-    pub fn pause_hotkeys(&self) {
-        // SAFETY: PostThreadMessageW sends a thread message that is picked up
-        // by GetMessageW in the event loop's message pump (run_message_pump).
-        unsafe {
-            let _ = PostThreadMessageW(
-                self.thread_id,
-                event_loop_message_pump::WM_HOTKEY_PAUSE,
-                WPARAM(1),
-                LPARAM(0),
-            );
-        }
-    }
-
-    /// Unpauses all hotkeys (re-registers all previously paused hotkeys).
-    pub fn unpause_hotkeys(&self) {
-        // SAFETY: PostThreadMessageW sends a thread message that is picked up
-        // by GetMessageW in the event loop's message pump (run_message_pump).
-        unsafe {
-            let _ = PostThreadMessageW(
-                self.thread_id,
-                event_loop_message_pump::WM_HOTKEY_PAUSE,
-                WPARAM(0),
-                LPARAM(0),
-            );
-        }
-    }
-
-    /// Toggles hotkey pause state.
-    pub fn toggle_pause_hotkeys(&self) {
-        // SAFETY: PostThreadMessageW sends a thread message that is picked up
-        // by GetMessageW in the event loop's message pump (run_message_pump).
-        unsafe {
-            let _ = PostThreadMessageW(
-                self.thread_id,
-                event_loop_message_pump::WM_HOTKEY_PAUSE,
-                WPARAM(2),
-                LPARAM(0),
-            );
-        }
-    }
-
     /// Signals the event loop to stop and waits for the thread to finish.
     pub fn stop(self) {
-        // SAFETY: PostThreadMessageW sends WM_QUIT to the event loop
-        // thread, causing GetMessageW to return false and the pump to
-        // exit. The thread_id was obtained from GetCurrentThreadId on
-        // the target thread.
-        unsafe {
-            let _ = PostThreadMessageW(self.thread_id, WM_QUIT, WPARAM(0), LPARAM(0));
-        }
-        let _ = self.handle.join();
+        self.thread.stop();
     }
 }
 

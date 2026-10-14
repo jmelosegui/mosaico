@@ -21,9 +21,9 @@ mod daemon_types;
 
 /// Runs the Mosaico daemon.
 ///
-/// Starts background threads for the Win32 event loop (which also
-/// handles global hotkeys), focus-follows-mouse and the IPC listener.
-/// The main thread manages the tiling workspace.
+/// Starts background threads for the Win32 event loop, global hotkeys,
+/// focus-follows-mouse and the IPC listener. The main thread manages
+/// the tiling workspace.
 ///
 /// The daemon has no console, so it reports through the log. An error
 /// from the daemon loop is logged here as well as returned. Errors before
