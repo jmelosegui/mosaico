@@ -17,7 +17,8 @@ impl Tiler {
     /// order would stay where it is until all of that is done. This move
     /// lands as soon as the window's application handles its messages,
     /// and nothing waits for it. The layout pass then places the window as
-    /// it always did, and usually finds it in place.
+    /// it always did, and the applier makes that placement in full, so the
+    /// window is repainted even when this move landed first.
     ///
     /// Nothing is emitted in monocle mode, which keeps the order its pass
     /// gives the monocle window and the windows waiting behind it. Nor is

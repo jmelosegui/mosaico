@@ -395,7 +395,9 @@ the application:
 
 A window restored from minimized, or taken in later because its title or
 focus changed, is moved the same way. A maximized one is left to the
-layout, since only a placement takes a window out of maximized state.
+layout, since only a placement takes a window out of maximized state, and
+so is a window taken in on a monocle workspace: it becomes the monocle
+window, which the layout places right after any window waiting behind it.
 
 Hiding the window across the move does not help. Explorer can cloak a
 window only once it has registered it, a few milliseconds after the window
