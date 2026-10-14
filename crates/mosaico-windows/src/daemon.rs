@@ -9,6 +9,10 @@ mod daemon_ipc;
 mod daemon_loop;
 #[path = "daemon_loop_handlers.rs"]
 mod daemon_loop_handlers;
+#[path = "daemon_loop_pump.rs"]
+mod daemon_loop_pump;
+#[path = "daemon_loop_run.rs"]
+mod daemon_loop_run;
 #[path = "daemon_settle.rs"]
 mod daemon_settle;
 #[path = "daemon_threads.rs"]
