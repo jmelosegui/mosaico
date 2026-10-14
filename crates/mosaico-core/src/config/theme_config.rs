@@ -114,3 +114,7 @@ impl TokyoNightFlavor {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "theme_check_tests.rs"]
+mod tests;

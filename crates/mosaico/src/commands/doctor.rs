@@ -138,3 +138,7 @@ fn check_bar_file(store: &ConfigStore) {
         store.try_load_bar().map(|_| ())
     });
 }
+
+#[cfg(test)]
+#[path = "tests/doctor_tests.rs"]
+mod tests;
