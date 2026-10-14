@@ -57,6 +57,7 @@ impl Tiler {
             WindowEvent::Destroyed { window } => {
                 self.adopt_rejected.remove(&window);
                 self.reconnect.forget(window);
+                self.hidden_how.forget(window);
                 self.undecorate(plan, window);
                 self.remove_from_tiling(plan, window, "del", false);
             }
@@ -185,6 +186,9 @@ impl Tiler {
             return;
         }
 
+        // Out of the layout, it is no longer the tiler's to show again,
+        // and its id may go to a new window.
+        self.hidden_how.forget(window);
         let ws = &mut self.monitors[mon_idx].workspaces[ws_idx];
         ws.remove(window);
         crate::log_info!(

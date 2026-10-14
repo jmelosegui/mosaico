@@ -65,6 +65,7 @@ impl Tiler {
         for (mi, wi, window) in removals {
             self.undecorate(plan, window);
             self.monitors[mi].workspaces[wi].remove(window);
+            self.hidden_how.forget(window);
             crate::log_info!("-rule {window} (unmanaged by new rules)");
             if !affected.contains(&mi) {
                 affected.push(mi);

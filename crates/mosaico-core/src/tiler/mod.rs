@@ -26,6 +26,7 @@ mod events;
 mod events_focus;
 mod focus;
 mod hidden;
+mod hidden_how;
 mod input;
 mod layout;
 mod lifecycle;
@@ -99,6 +100,9 @@ pub struct Tiler {
     /// The ways the platform can hide windows, to choose from again when
     /// the configured strategy changes.
     hiding_support: HidingSupport,
+    /// How each window the tiler hid, for a workspace switch or a display
+    /// change, was hidden, so it is shown again the same way.
+    hidden_how: hidden_how::HiddenHow,
     /// Whether workspace switches affect one monitor or all monitors.
     workspace_mode: WorkspaceMode,
     rules: Vec<WindowRule>,
@@ -167,6 +171,7 @@ impl Tiler {
             layout,
             configured_hiding,
             hiding_support: settings.hiding_support,
+            hidden_how: hidden_how::HiddenHow::default(),
             workspace_mode: settings.workspaces.mode,
             rules: settings.rules,
             border_config: settings.borders,

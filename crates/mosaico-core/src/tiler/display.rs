@@ -6,7 +6,7 @@ use crate::config::WorkspaceMode;
 use crate::WindowId;
 
 use super::display_rebuild::rebuild_monitors;
-use super::{BarReservation, Display, Effect, Plan, Tiler};
+use super::{BarReservation, Display, Plan, Tiler};
 
 impl Tiler {
     /// Rebuilds the monitor state after the set of monitors changed.
@@ -95,13 +95,13 @@ impl Tiler {
             .partition(|&w| self.is_on_active_workspace(w));
         let how = self.layout.hiding;
         for &window in &hidden {
-            plan.emit(Effect::Hide { window, how });
+            self.hidden_how.hide(plan, window, how);
         }
 
         self.reserve_bar(plan, bar);
 
         for &window in &shown {
-            plan.emit(Effect::Show { window, how });
+            self.hidden_how.show(plan, window, how);
         }
         self.repaint_visible(plan);
 

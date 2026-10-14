@@ -323,6 +323,7 @@ same way.
   resolved again against the theme, so they follow a theme change. Hiding changes
   take effect on the next workspace switch; a strategy the platform does not
   have is swapped for one it has, with a warning in the log, as at startup.
+  Windows hidden before the change are shown again the way they were hidden.
   The workspace mode
   (`workspaces.mode`) is reloaded live. Per-workspace layout overrides
   (`[workspaces.layouts]` and `layout.default`) are applied at startup only;
