@@ -46,8 +46,9 @@ hold a number an `Error::Io` of kind `InvalidData`; `start`, `stop` and
 ### `PidFile::remove()`
 
 Deletes the PID file. `lifecycle::run()` calls it during daemon shutdown,
-after the main loop exits and before it releases the single instance lock,
-so it never removes the PID file of a daemon that starts next.
+after the main loop exits, or while a panic in it unwinds, and before it
+releases the single instance lock, so it never removes the PID file of a
+daemon that starts next.
 
 ## Process Control
 
@@ -135,8 +136,11 @@ a new daemon instance.
 - **Automatic stale cleanup** in `start` means users never need to manually
   delete a PID file after a crash.
 - **PID file is removed in the cleanup path of `lifecycle::run()`**, which
-  uses a simple sequential flow (not a `Drop` guard), so cleanup runs even
-  if the daemon loop returns an error.
+  keeps it in a guard dropped before the lock, so it is removed before the
+  lock is released when the daemon loop returns, with or without an error,
+  and when a panic in it unwinds. Release builds abort on a panic and leave
+  the PID file behind, as a crash does, which `start` and `status` treat as
+  stale.
 - **PID-based kill fallback** in `stop` ensures the daemon can be stopped
   even when the IPC thread has crashed, covering scenarios like thread panics
   or resource exhaustion that leave the process alive but unresponsive.

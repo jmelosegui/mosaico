@@ -76,7 +76,9 @@ order, it:
    console. Errors from the steps before it come before the logger is set up
    and are only printed by the `daemon` subcommand
 7. Removes the PID file, then releases the lock, so a daemon that starts next
-   never has its PID file removed by this one
+   never has its PID file removed by this one. This also happens when a panic
+   in the loop unwinds; release builds abort on a panic and leave the PID file
+   behind, as a crash does
 
 `daemon_loop()` performs:
 

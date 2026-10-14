@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::fs;
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
@@ -209,6 +210,29 @@ fn a_loop_that_fails_still_removes_the_pid_file_and_releases_the_lock() {
     assert_eq!(
         h.journal().last().map(String::as_str),
         Some("released without the PID file")
+    );
+    assert_eq!(h.pid_file().read().unwrap(), None);
+}
+
+#[test]
+fn a_loop_that_panics_still_removes_the_pid_file_before_the_lock_goes() {
+    // Arrange
+    let h = Harness::new("loop-panics");
+    let serve = |_: &Instance| -> Result<()> { panic!("the loop broke") };
+
+    // Act -- tests unwind. A release build aborts on a panic instead and
+    // leaves the PID file behind, as a crash does.
+    let unwound = catch_unwind(AssertUnwindSafe(|| h.run(&serve)));
+
+    // Assert -- the panic goes on to the caller, after the cleanup.
+    assert!(unwound.is_err(), "the panic should reach the caller");
+    assert_eq!(
+        h.journal(),
+        [
+            format!("leftovers of {EXE}"),
+            "locked".into(),
+            "released without the PID file".into(),
+        ]
     );
     assert_eq!(h.pid_file().read().unwrap(), None);
 }

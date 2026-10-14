@@ -55,6 +55,10 @@ pub struct Startup<'a> {
 ///    and only then releases the lock, so a daemon that starts next never
 ///    has its PID file removed by this one.
 ///
+/// Step 5 also runs, in that order, when a panic in the loop unwinds
+/// through here. A build that aborts on a panic leaves the PID file
+/// behind instead, as a crash does, and the CLI takes it for stale.
+///
 /// The daemon has no console, so it reports through the log, which the
 /// loop sets up. A failure before the loop, such as another daemon
 /// holding the lock, is only returned.
@@ -65,6 +69,9 @@ pub fn run(startup: Startup<'_>) -> Result<()> {
     let lock = startup.lock.acquire(startup.instance)?;
     let pid_file = PidFile::new(startup.instance.pid_path());
     pid_file.write(startup.pid)?;
+    // Declared after the lock, so it is dropped first, also when a panic
+    // unwinds.
+    let pid_file = PidFileGuard(pid_file);
     crate::log_info!("Daemon started (PID: {})", startup.pid);
 
     let result = (startup.serve)(startup.instance);
@@ -72,9 +79,18 @@ pub fn run(startup: Startup<'_>) -> Result<()> {
         crate::log_error!("Daemon stopped: {e}");
     }
 
-    let _ = pid_file.remove();
+    drop(pid_file);
     drop(lock);
     result
+}
+
+/// The daemon's PID file, removed when the guard is dropped.
+struct PidFileGuard(PidFile);
+
+impl Drop for PidFileGuard {
+    fn drop(&mut self) {
+        let _ = self.0.remove();
+    }
 }
 
 #[cfg(test)]
