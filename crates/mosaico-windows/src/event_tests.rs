@@ -8,8 +8,9 @@ use windows::Win32::UI::WindowsAndMessaging::{
     EVENT_OBJECT_LOCATIONCHANGE, EVENT_OBJECT_NAMECHANGE, EVENT_OBJECT_REORDER, EVENT_OBJECT_SHOW,
     EVENT_OBJECT_STATECHANGE, EVENT_SYSTEM_CAPTURESTART, EVENT_SYSTEM_FOREGROUND,
     EVENT_SYSTEM_MINIMIZEEND, EVENT_SYSTEM_MINIMIZESTART, EVENT_SYSTEM_MOVESIZEEND,
-    EVENT_SYSTEM_MOVESIZESTART, OBJID_CARET, OBJID_CLIENT, OBJID_VSCROLL, OBJID_WINDOW,
-    SPI_SETDESKWALLPAPER, SPI_SETWORKAREA, WM_DISPLAYCHANGE, WM_SETTINGCHANGE, WM_THEMECHANGED,
+    EVENT_SYSTEM_MOVESIZESTART, OBJID_CARET, OBJID_CLIENT, OBJID_CURSOR, OBJID_VSCROLL,
+    OBJID_WINDOW, SPI_SETDESKWALLPAPER, SPI_SETWORKAREA, WM_DISPLAYCHANGE, WM_SETTINGCHANGE,
+    WM_THEMECHANGED,
 };
 
 use super::{translate, translate_broadcast};
@@ -140,6 +141,23 @@ fn other_reports_on_an_inner_object_are_dropped() {
             assert_eq!(translated, vec![], "event 0x{event:04X} on {object}");
         }
     }
+}
+
+#[test]
+fn reports_about_the_mouse_pointer_are_dropped() {
+    // Arrange -- the pointer reports being shown, and changing shape, on
+    // its own object and with no window. Creation and title reports on
+    // inner objects are kept, but these name no window at all.
+    let reports = [
+        (EVENT_OBJECT_SHOW, 0, OBJID_CURSOR.0),
+        (EVENT_OBJECT_NAMECHANGE, 0, OBJID_CURSOR.0),
+    ];
+
+    // Act
+    let events = replay(&reports);
+
+    // Assert
+    assert_eq!(events, vec![]);
 }
 
 #[test]
