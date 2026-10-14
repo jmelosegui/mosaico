@@ -1,8 +1,9 @@
 //! Self-update command: downloads and installs the latest release.
 //!
 //! Checks GitHub for a newer version, stops the daemon if running,
-//! downloads the release zip, replaces the binary via rename-then-copy,
-//! and restarts the daemon if it was running before the update.
+//! downloads this platform's release archive, has the platform replace
+//! the running binary with the one in it, and restarts the daemon if it
+//! was running before the update.
 
 use std::io::Read;
 use std::time::Duration;
@@ -52,9 +53,13 @@ pub fn execute(cx: &mut Context, force: bool) -> Exit {
         super::stop::execute(cx);
     }
 
-    // 4. Download the release zip.
+    // 4. Download this platform's release archive.
     println!("Downloading {tag}...");
-    let zip_bytes = match download_release(cx.http, &tag) {
+    let path = format!(
+        "/jmelosegui/mosaico/releases/download/{tag}/{}",
+        cx.installer.asset_name()
+    );
+    let zip_bytes = match download_release(cx.http, &path) {
         Ok(bytes) => bytes,
         Err(e) => {
             eprintln!("Error: {e}");
@@ -63,8 +68,8 @@ pub fn execute(cx: &mut Context, force: bool) -> Exit {
         }
     };
 
-    // 5. Extract mosaico.exe from the zip.
-    let exe_bytes = match extract_exe(&zip_bytes) {
+    // 5. Extract the binary from the zip.
+    let exe_bytes = match extract_binary(&zip_bytes, cx.installer.binary_name()) {
         Ok(bytes) => bytes,
         Err(e) => {
             eprintln!("Error: {e}");
@@ -74,7 +79,7 @@ pub fn execute(cx: &mut Context, force: bool) -> Exit {
     };
 
     // 6. Replace the running binary.
-    let current_exe = match std::env::current_exe() {
+    let current_exe = match (cx.current_exe)() {
         Ok(p) => p,
         Err(e) => {
             eprintln!("Error: cannot determine current exe path: {e}");
@@ -84,7 +89,7 @@ pub fn execute(cx: &mut Context, force: bool) -> Exit {
     };
 
     println!("Installing to {}...", current_exe.display());
-    if let Err(e) = install_exe(&current_exe, &exe_bytes) {
+    if let Err(e) = cx.installer.replace(&current_exe, &exe_bytes) {
         eprintln!("Error: {e}");
         print_recovery_hint(daemon_was_running);
         return Exit::Failure;
@@ -104,61 +109,34 @@ pub fn execute(cx: &mut Context, force: bool) -> Exit {
     Exit::Success
 }
 
-/// Downloads the release zip from GitHub.
-fn download_release(http: &dyn HttpClient, tag: &str) -> Result<Vec<u8>, String> {
-    let path = format!("/jmelosegui/mosaico/releases/download/{tag}/mosaico-windows-amd64.zip");
-    http.get_bytes(GITHUB_HOST, &path, DOWNLOAD_TIMEOUT)
+/// Downloads the release zip at `path` from GitHub.
+fn download_release(http: &dyn HttpClient, path: &str) -> Result<Vec<u8>, String> {
+    http.get_bytes(GITHUB_HOST, path, DOWNLOAD_TIMEOUT)
         .map_err(|e| e.to_string())
 }
 
-/// Extracts `mosaico.exe` from a zip archive.
-fn extract_exe(zip_bytes: &[u8]) -> Result<Vec<u8>, String> {
+/// Extracts the file named `binary` from a zip archive.
+fn extract_binary(zip_bytes: &[u8], binary: &str) -> Result<Vec<u8>, String> {
     let reader = std::io::Cursor::new(zip_bytes);
     let mut archive =
         zip::ZipArchive::new(reader).map_err(|e| format!("invalid zip archive: {e}"))?;
 
+    let wanted = binary.to_lowercase();
     for i in 0..archive.len() {
         let mut file = archive
             .by_index(i)
             .map_err(|e| format!("cannot read zip entry: {e}"))?;
 
         let name = file.name().to_lowercase();
-        if name == "mosaico.exe" || name.ends_with("/mosaico.exe") {
+        if name == wanted || name.ends_with(&format!("/{wanted}")) {
             let mut buf = Vec::with_capacity(file.size() as usize);
             file.read_to_end(&mut buf)
-                .map_err(|e| format!("cannot extract mosaico.exe: {e}"))?;
+                .map_err(|e| format!("cannot extract {binary}: {e}"))?;
             return Ok(buf);
         }
     }
 
-    Err("mosaico.exe not found in zip archive".into())
-}
-
-/// Replaces the current binary using rename-then-write.
-///
-/// Windows allows renaming a running `.exe` but not overwriting it.
-/// We rename the current binary to `.old`, write the new one, then
-/// try to delete the backup.
-fn install_exe(current_exe: &std::path::Path, exe_bytes: &[u8]) -> Result<(), String> {
-    let backup = current_exe.with_extension("exe.old");
-
-    // Remove leftover backup from a previous update.
-    let _ = std::fs::remove_file(&backup);
-
-    // Rename the running binary out of the way.
-    std::fs::rename(current_exe, &backup).map_err(|e| format!("cannot rename current exe: {e}"))?;
-
-    // Write the new binary.
-    if let Err(e) = std::fs::write(current_exe, exe_bytes) {
-        // Attempt rollback.
-        let _ = std::fs::rename(&backup, current_exe);
-        return Err(format!("cannot write new exe: {e}"));
-    }
-
-    // Try to delete the backup (may fail if still locked).
-    let _ = std::fs::remove_file(&backup);
-
-    Ok(())
+    Err(format!("{binary} not found in zip archive"))
 }
 
 /// Prints a hint about recovery when the update fails after the

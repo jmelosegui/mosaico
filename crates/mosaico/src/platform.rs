@@ -42,6 +42,7 @@ pub fn run(command: impl FnOnce(&mut Context) -> Exit) -> Exit {
         config_dir: instance.config_dir().to_path_buf(),
         clock: &SystemClock,
         http: &mosaico_windows::http::WinHttpClient,
+        installer: &mosaico_windows::install::RenameInstaller,
         logo: &banner::draw_logo,
         out: &mut out,
         err: &mut err,

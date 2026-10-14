@@ -1,0 +1,101 @@
+use std::fs;
+use std::path::PathBuf;
+
+use mosaico_core::Error;
+
+use super::*;
+
+/// A `mosaico.exe` holding `old` in a fresh directory for `test`.
+fn installed(test: &str) -> PathBuf {
+    let dir = std::env::temp_dir()
+        .join("mosaico-install-tests")
+        .join(format!("{test}-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir).unwrap();
+    let exe = dir.join("mosaico.exe");
+    fs::write(&exe, "old").unwrap();
+    exe
+}
+
+#[test]
+fn the_release_is_the_64_bit_windows_archive_with_mosaico_exe() {
+    // Act / Assert
+    assert_eq!(RenameInstaller.asset_name(), "mosaico-windows-amd64.zip");
+    assert_eq!(RenameInstaller.binary_name(), "mosaico.exe");
+}
+
+#[test]
+fn replacing_puts_the_new_binary_in_place_and_leaves_no_backup() {
+    // Arrange
+    let exe = installed("replace");
+
+    // Act
+    RenameInstaller.replace(&exe, b"new").unwrap();
+
+    // Assert
+    assert_eq!(fs::read(&exe).unwrap(), b"new");
+    assert!(!exe.with_extension("exe.old").exists());
+}
+
+#[test]
+fn replacing_first_removes_a_backup_left_by_an_earlier_update() {
+    // Arrange
+    let exe = installed("stale-backup");
+    fs::write(exe.with_extension("exe.old"), "older").unwrap();
+
+    // Act
+    RenameInstaller.replace(&exe, b"new").unwrap();
+
+    // Assert
+    assert_eq!(fs::read(&exe).unwrap(), b"new");
+    assert!(!exe.with_extension("exe.old").exists());
+}
+
+#[test]
+fn replacing_an_executable_that_is_not_there_fails_without_writing() {
+    // Arrange
+    let exe = installed("missing");
+    fs::remove_file(&exe).unwrap();
+
+    // Act
+    let error = RenameInstaller.replace(&exe, b"new").unwrap_err();
+
+    // Assert
+    assert!(
+        matches!(
+            error,
+            Error::Platform {
+                operation: "rename the running executable aside",
+                ..
+            }
+        ),
+        "{error:?}"
+    );
+    assert!(!exe.exists());
+}
+
+#[test]
+fn the_backup_of_an_earlier_update_is_removed_as_a_leftover() {
+    // Arrange
+    let exe = installed("leftovers");
+    fs::write(exe.with_extension("exe.old"), "older").unwrap();
+
+    // Act
+    RenameInstaller.remove_leftovers(&exe).unwrap();
+
+    // Assert
+    assert!(!exe.with_extension("exe.old").exists());
+    assert_eq!(fs::read(&exe).unwrap(), b"old", "the executable stays");
+}
+
+#[test]
+fn removing_leftovers_when_there_are_none_succeeds() {
+    // Arrange
+    let exe = installed("no-leftovers");
+
+    // Act
+    let result = RenameInstaller.remove_leftovers(&exe);
+
+    // Assert
+    assert!(result.is_ok(), "{result:?}");
+}

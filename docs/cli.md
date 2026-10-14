@@ -189,10 +189,14 @@ it was running before.
 The `--force` flag reinstalls even if already on the latest version, useful for
 recovering a corrupted binary or verifying the update mechanism.
 
-The self-replacement works by renaming the running `mosaico.exe` to
-`mosaico.exe.old` (Windows allows renaming but not overwriting a locked file),
-then writing the new binary in its place. The `.old` backup is cleaned up
-immediately or on the next daemon start.
+The command itself is the same on every platform. Which release archive it
+downloads, which file in it is the binary, and how that binary replaces the
+running one come from the platform's `Installer` (`mosaico_core::update`).
+
+On Windows the archive is `mosaico-windows-amd64.zip`, and the self-replacement
+works by renaming the running `mosaico.exe` to `mosaico.exe.old` (Windows allows
+renaming but not overwriting a locked file), then writing the new binary in its
+place. The `.old` backup is cleaned up immediately or on the next daemon start.
 
 ### `mosaico pause`
 

@@ -58,6 +58,9 @@ mod keys;
 /// Win32 event translation.
 mod event;
 
+/// Installing a downloaded release over the running executable.
+pub mod install;
+
 /// Single-instance daemon guard (named kernel mutex).
 pub mod instance_guard;
 

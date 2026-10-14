@@ -1,9 +1,12 @@
-//! Finding newer releases of mosaico.
+//! Finding newer releases of mosaico and installing them.
 //!
 //! Releases are published on GitHub. Looking them up goes through an
 //! [`HttpClient`](crate::http::HttpClient), so it is tested without a
-//! network.
+//! network. How a release is packaged and installed differs per
+//! platform, which says so through an [`Installer`].
 
+mod install;
 mod release;
 
+pub use install::Installer;
 pub use release::{is_newer_tag, latest_tag, newer_release};

@@ -28,7 +28,7 @@ use super::context::{Clock, Context, Daemon, Exit};
 use super::fake_desktop::FakeDesktop;
 
 pub use autostart_fake::{EXE, MOVED_AWAY};
-pub use release::Releases;
+pub use release::{FakeInstaller, Releases};
 
 /// How long a fake process stays alive.
 #[derive(Debug, Clone, Copy)]
@@ -88,6 +88,8 @@ pub struct World {
     pub exe_missing: Cell<bool>,
     /// The releases GitHub has published.
     pub releases: Releases,
+    /// How releases are installed.
+    pub installer: FakeInstaller,
     /// The fake time.
     pub now: Cell<Instant>,
 }
@@ -110,6 +112,7 @@ impl Default for World {
             files: RefCell::default(),
             exe_missing: Cell::new(false),
             releases: Releases::default(),
+            installer: FakeInstaller,
             now: Cell::new(Instant::now()),
         }
     }
@@ -256,6 +259,7 @@ impl Harness {
             config_dir: "C:\\config\\mosaico".into(),
             clock: &self.world,
             http: &self.world.releases,
+            installer: &self.world.installer,
             logo: &|_| {},
             out: &mut self.out,
             err: &mut self.err,

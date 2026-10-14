@@ -42,7 +42,7 @@ pub mod spatial;
 pub mod system;
 /// The tiling state machine.
 pub mod tiler;
-/// Finding newer releases of mosaico.
+/// Finding newer releases of mosaico and installing them.
 pub mod update;
 /// Build-time version information.
 pub mod version;

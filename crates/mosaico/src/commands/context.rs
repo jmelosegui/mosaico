@@ -16,6 +16,7 @@ use mosaico_core::ipc::{Command, IpcClient, IpcError, Response};
 use mosaico_core::pid::PidFile;
 use mosaico_core::system::{Autostart, FileProbe, ProcessControl};
 use mosaico_core::tiler::Enumerator;
+use mosaico_core::update::Installer;
 
 /// How a command ended.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -104,7 +105,7 @@ pub struct Context<'a> {
     /// the system scales them for such a process.
     pub desktop: &'a dyn Enumerator,
     /// Finds the mosaico executable this command runs from, which is what
-    /// autostart registers.
+    /// autostart registers and what `update` replaces.
     pub current_exe: &'a dyn Fn() -> std::io::Result<PathBuf>,
     /// Looks at program files without waiting on the network, for telling
     /// whether autostart starts this mosaico.
@@ -117,6 +118,8 @@ pub struct Context<'a> {
     pub clock: &'a dyn Clock,
     /// The web, for looking up and downloading releases.
     pub http: &'a dyn HttpClient,
+    /// How this platform's release is packaged and installed.
+    pub installer: &'a dyn Installer,
     /// Draws the mosaico logo.
     pub logo: &'a dyn Fn(&mut dyn Write),
     /// Standard output.
