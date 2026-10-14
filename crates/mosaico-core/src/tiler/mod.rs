@@ -11,6 +11,7 @@
 mod adopt;
 mod borders;
 mod coalesce;
+mod decoration_effects;
 mod desktop;
 mod display;
 mod display_rebuild;
@@ -44,6 +45,7 @@ use crate::config::{
 use crate::{HidingSupport, LayoutKind, WindowId};
 
 pub use coalesce::Coalescer;
+pub use decoration_effects::apply_decoration_effect;
 pub use desktop::{Desktop, Display, WindowFacts};
 pub use echo::{Expectations, HIDE_FOCUS_ECHO_TTL};
 pub use echo_focus::FOCUS_ECHO_TTL;

@@ -17,8 +17,9 @@ use super::{Desktop, Effect};
 ///
 /// Failures are logged rather than returned: an effect that cannot be
 /// applied, for example because its window closed in the meantime, must
-/// not hold up the ones after it. Borders and frame decorations are not
-/// window changes, so their effects are left to the caller.
+/// not hold up the ones after it. Borders and corners are not window
+/// changes: [`apply_decoration_effect`](super::apply_decoration_effect)
+/// carries out their effects.
 pub fn apply_window_effect(effect: &Effect, desktop: &dyn Desktop, windows: &dyn WindowControl) {
     match *effect {
         Effect::Place { window, rect, .. } => place(window, rect, desktop, windows),
@@ -82,7 +83,7 @@ fn center_cursor(window: WindowId, desktop: &dyn Desktop, windows: &dyn WindowCo
 /// Logs a change the platform could not make. Most are expected now
 /// and then, such as a window that closed before its effect was
 /// applied, so they are only logged for debugging.
-fn report(what: &str, window: WindowId, result: crate::Result<()>) {
+pub(super) fn report(what: &str, window: WindowId, result: crate::Result<()>) {
     if let Err(e) = result {
         crate::log_debug!("{} {} failed: {}", what, window, e);
     }

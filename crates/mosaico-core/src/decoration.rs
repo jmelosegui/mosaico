@@ -11,7 +11,9 @@ use crate::{Result, WindowId};
 /// The tiler decides which windows have a border, how it looks and which
 /// corners windows get. It returns those decisions as effects, and the
 /// ones that draw borders or change corners reach the platform through
-/// this trait. Changes to the windows themselves go through
+/// this trait, by way of
+/// [`apply_decoration_effect`](crate::tiler::apply_decoration_effect).
+/// Changes to the windows themselves go through
 /// [`WindowControl`](crate::WindowControl).
 ///
 /// # Contract for platform implementations
