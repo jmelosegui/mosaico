@@ -149,3 +149,10 @@ palette: the bar's `[colors]`, each bar widget's `color` (such as the red
 of the `paused` widget) and the border colors. Colors you leave empty take
 the new theme's defaults, and hex colors stay as written. The bar and the
 borders update without restarting.
+
+A name the new theme does not have, such as Rose Pine's `pine` after a
+switch to Catppuccin, is left as written, so mosaico draws its built-in
+fallback in its place (for a widget, its fallback text color and no
+outline), the same as after a restart. To keep a color across theme
+families, use a name every family has (`red`, `blue`, `green`, `yellow`)
+or a hex value.

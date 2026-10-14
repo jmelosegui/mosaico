@@ -101,10 +101,12 @@ impl BarManager {
 
     /// Re-resolves the colors against a theme that may have changed.
     ///
-    /// Every color starts again from the file, the `[colors]` table and
-    /// each widget's `color`, so a color given by name follows the new
-    /// theme and an empty one takes the new theme's default, instead of
-    /// keeping the old theme's hex value as if the user had set it.
+    /// The whole config starts again from the copy loaded from the file,
+    /// then every color, the `[colors]` table and each widget's `color`,
+    /// is resolved against `theme`: a color given by name follows the new
+    /// theme, and an empty one takes its default. Anything else changed in
+    /// the config since it was loaded is undone too; only
+    /// [`reload`](Self::reload) replaces that copy.
     pub fn resolve_colors(&mut self, theme: Theme) {
         self.config = self.raw_config.clone();
         self.config.resolve_colors(theme);
@@ -129,7 +131,9 @@ impl BarManager {
     }
 
     /// Replaces the bars with ones for `config` and returns the new bar
-    /// height. The colors are left as loaded, so resolve them next.
+    /// height. `config` also becomes the copy that
+    /// [`resolve_colors`](Self::resolve_colors) starts from. The colors are
+    /// left as loaded, so resolve them next.
     pub fn reload(&mut self, config: BarConfig) -> i32 {
         self.raw_config = config.clone();
         self.config = config;

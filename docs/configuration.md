@@ -320,7 +320,8 @@ same way.
 - **config.toml**: gap/ratio, hiding behaviour, border settings, and theme
   are reloaded. The tiling manager calls `reload_config()` which updates the
   layout gap/ratio, hiding strategy, and `BorderConfig`, then retiles all
-  windows. If the theme changed, bar colors are re-resolved. Hiding changes
+  windows. Bar colors, the `[colors]` table and each widget's `color`, are
+  resolved again against the theme, so they follow a theme change. Hiding changes
   take effect on the next workspace switch; a strategy the platform does not
   have is swapped for one it has, with a warning in the log, as at startup.
   The workspace mode
