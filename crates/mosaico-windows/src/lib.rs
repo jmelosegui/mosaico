@@ -41,7 +41,7 @@ pub mod enumerate;
 mod error;
 
 /// Window frame and border offset helpers.
-pub mod frame;
+mod frame;
 
 /// Minimal HTTPS GET client using WinHTTP.
 pub mod http;

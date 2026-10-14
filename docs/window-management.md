@@ -121,8 +121,8 @@ to implement the core contracts.
 - `is_visible()` -- `IsWindowVisible`
 - `is_maximized()`, `is_minimized()`, `is_cloaked()`, `owner()`,
   `process_id()`, `is_elevated()`, `exe_path()`, `app_window_caption()` --
-  the queries behind `Win32Desktop`
-- `hwnd()` -- returns the underlying `HWND`
+  the queries behind `Win32Desktop` and `WindowsEnumerator::details`
+- `hwnd()` -- returns the underlying `HWND` (inside the crate)
 
 ### Window Control on Win32
 
