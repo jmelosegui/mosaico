@@ -17,6 +17,8 @@ mod adopt_order_kept_tests;
 mod adopt_order_support;
 #[path = "tests/adopt_order_tests.rs"]
 mod adopt_order_tests;
+#[path = "tests/border_once_tests.rs"]
+mod border_once_tests;
 #[path = "tests/border_tests.rs"]
 mod border_tests;
 #[path = "tests/corner_tests.rs"]

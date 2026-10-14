@@ -144,6 +144,13 @@ point:
 - `hide_borders()` -- hides every border without dropping it, when the
   tiler stops.
 
+One step often decides a window's border more than once: when the layout
+places the window, when `update_border()` runs after the layout, and again
+after focus moves. The step keeps only the last decision for each window,
+where it was, so each border is drawn at most once per step, never before
+its window's last placement in the step, and a hide or drop wins over an
+earlier draw.
+
 Color selection per window:
 
 - The focused window uses the configured `focused` color, or the

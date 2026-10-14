@@ -17,6 +17,9 @@ use crate::{MonitorId, Rect, WindowId};
 
 use super::{Desktop, Effect, WindowFacts};
 
+#[path = "plan_borders.rs"]
+mod borders;
+
 /// What a window will look like after this step's effects.
 #[derive(Debug, Default, Clone, Copy)]
 struct Planned {
@@ -80,9 +83,11 @@ impl<'a> Plan<'a> {
         self.effects.push(effect);
     }
 
-    /// Ends the step, returning its effects in order.
+    /// Ends the step, returning its effects in order, with at most one
+    /// border per window: the last one decided, see
+    /// [`keep_last_borders`](borders::keep_last_borders).
     pub(super) fn finish(self) -> Vec<Effect> {
-        self.effects
+        borders::keep_last_borders(self.effects)
     }
 
     fn planned(&self, window: WindowId) -> Planned {
