@@ -14,17 +14,19 @@ pub struct SystemReadings {
     pub memory_usage: u32,
     /// The media that is playing, if any.
     pub now_playing: Option<NowPlaying>,
-    /// The local time.
+    /// The local time, or the default when no clock or date widget
+    /// shows it.
     pub time: LocalTime,
 }
 
 impl SystemReadings {
     /// Reads what the enabled widgets of `config` show.
     ///
-    /// Memory and media are only read when an enabled widget shows them,
-    /// and CPU usage only comes from `cpu`, which the bar keeps while a
-    /// CPU widget is configured. A reading that fails shows as 0, or as
-    /// nothing playing.
+    /// Memory, media and the time are only read when an enabled widget
+    /// shows them, and CPU usage only comes from `cpu`, which the bar
+    /// keeps while a CPU widget is configured. A reading that is not
+    /// taken, or that fails, shows as 0, as nothing playing, or as the
+    /// default time.
     pub fn read(system: &dyn SystemInfo, config: &BarConfig, cpu: Option<&mut CpuTracker>) -> Self {
         let memory_usage = if shows(config, |w| matches!(w, WidgetConfig::Ram { .. })) {
             system.memory_usage().unwrap_or(0)
@@ -36,11 +38,18 @@ impl SystemReadings {
         } else {
             None
         };
+        let clock =
+            |w: &WidgetConfig| matches!(w, WidgetConfig::Clock { .. } | WidgetConfig::Date { .. });
+        let time = if shows(config, clock) {
+            system.local_time()
+        } else {
+            LocalTime::default()
+        };
         Self {
             cpu_usage: cpu.map_or(0, |tracker| tracker.sample(system)),
             memory_usage,
             now_playing,
-            time: system.local_time(),
+            time,
         }
     }
 }

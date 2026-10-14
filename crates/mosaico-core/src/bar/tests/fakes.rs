@@ -30,6 +30,7 @@ pub(super) struct Reads {
     pub(super) cpu: usize,
     pub(super) memory: usize,
     pub(super) media: usize,
+    pub(super) time: usize,
 }
 
 /// A machine whose readings the test sets.
@@ -76,7 +77,9 @@ impl SystemInfo for FakeSystem {
     }
 
     fn local_time(&self) -> LocalTime {
-        self.0.borrow().time
+        let mut machine = self.0.borrow_mut();
+        machine.reads.time += 1;
+        machine.time
     }
 }
 

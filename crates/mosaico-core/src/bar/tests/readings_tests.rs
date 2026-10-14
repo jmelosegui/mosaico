@@ -144,7 +144,7 @@ fn without_a_tracker_the_cpu_is_not_read() {
 }
 
 #[test]
-fn the_local_time_is_always_read() {
+fn the_local_time_is_read_when_a_clock_or_a_date_shows() {
     // Arrange
     let system = FakeSystem::default();
     let time = LocalTime {
@@ -155,8 +155,23 @@ fn the_local_time_is_always_read() {
     system.set(|m| m.time = time);
 
     // Act
-    let readings = SystemReadings::read(&system, &right(""), None);
+    let clock = SystemReadings::read(&system, &right(r#"{ type = "clock" }"#), None);
+    let date = SystemReadings::read(&system, &right(r#"{ type = "date" }"#), None);
 
     // Assert
-    assert_eq!(readings.time, time);
+    assert_eq!(clock.time, time);
+    assert_eq!(date.time, time);
+}
+
+#[test]
+fn the_local_time_is_not_read_without_an_enabled_clock_or_date() {
+    // Arrange
+    let system = FakeSystem::default();
+    let config = right(r#"{ type = "clock", enabled = false }, { type = "ram" }"#);
+
+    // Act
+    SystemReadings::read(&system, &config, None);
+
+    // Assert
+    assert_eq!(system.reads().time, 0);
 }

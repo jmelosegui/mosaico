@@ -149,6 +149,26 @@ fn without_a_cpu_widget_the_cpu_is_never_read() {
 }
 
 #[test]
+fn nothing_is_read_while_no_monitor_has_a_bar() {
+    // Arrange -- every widget that reads the machine, for a monitor that
+    // is not connected.
+    let system = FakeSystem::default();
+    let config = bar(r#"
+        monitors = [1]
+        left = []
+        right = [{ type = "cpu" }, { type = "ram" }, { type = "media" }, { type = "clock" }]
+    "#);
+    let mut manager = start(config, &[left()], &FakeRenderer::default(), &system);
+    let before = system.reads();
+
+    // Act
+    manager.update(&[]);
+
+    // Assert
+    assert_eq!(system.reads(), before);
+}
+
+#[test]
 fn reloading_with_a_cpu_widget_measures_the_cpu_from_the_reload() {
     // Arrange -- 40 of the 100 units after the reload are busy.
     let renderer = FakeRenderer::default();

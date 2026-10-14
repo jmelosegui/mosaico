@@ -77,9 +77,13 @@ impl BarManager {
 
     /// Renders and shows every bar with its monitor's state.
     ///
-    /// The machine is read once for all bars. A monitor that `states`
-    /// has no entry for shows [`BarState::default`].
+    /// The machine is read once for all bars, and not at all while no
+    /// monitor has a bar. A monitor that `states` has no entry for shows
+    /// [`BarState::default`].
     pub fn update(&mut self, states: &[BarState]) {
+        if self.bars.is_empty() {
+            return;
+        }
         let readings = SystemReadings::read(self.system.as_ref(), &self.config, self.cpu.as_mut());
         let fallback = BarState::default();
         for (bar, &monitor) in self.bars.iter_mut().zip(&self.bar_monitor_indices) {
