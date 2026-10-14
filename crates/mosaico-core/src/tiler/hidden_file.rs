@@ -21,7 +21,7 @@ pub struct HiddenFile {
 
 impl HiddenFile {
     /// The record at `path`.
-    pub fn new(path: impl Into<PathBuf>) -> Self {
+    pub(crate) fn new(path: impl Into<PathBuf>) -> Self {
         Self { path: path.into() }
     }
 
@@ -33,7 +33,7 @@ impl HiddenFile {
     /// Reads the record a previous daemon left. A missing file is an
     /// empty record; an unreadable one is logged and treated as empty,
     /// since there is nothing better to do with it.
-    pub fn load(&self) -> HiddenWindows {
+    pub(crate) fn load(&self) -> HiddenWindows {
         let text = match fs::read_to_string(&self.path) {
             Ok(text) => text,
             Err(_) => return HiddenWindows::default(),
@@ -49,7 +49,7 @@ impl HiddenFile {
     /// Written to a temporary file and renamed over the old one, so a
     /// daemon killed mid-write leaves the previous record rather than
     /// half of a new one.
-    pub fn save(&self, record: &HiddenWindows) {
+    pub(crate) fn save(&self, record: &HiddenWindows) {
         if record.is_empty() {
             let _ = fs::remove_file(&self.path);
             return;
