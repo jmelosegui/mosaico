@@ -11,6 +11,12 @@ use super::*;
 use fake_desktop::{FakeDesktop, FakeWindow};
 pub(super) use harness::Harness;
 
+#[path = "tests/adopt_order_kept_tests.rs"]
+mod adopt_order_kept_tests;
+#[path = "tests/adopt_order_support.rs"]
+mod adopt_order_support;
+#[path = "tests/adopt_order_tests.rs"]
+mod adopt_order_tests;
 #[path = "tests/border_tests.rs"]
 mod border_tests;
 #[path = "tests/corner_tests.rs"]
