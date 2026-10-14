@@ -17,6 +17,63 @@ fn installed(test: &str) -> PathBuf {
     exe
 }
 
+/// The disk, except for the steps told to fail.
+#[derive(Default)]
+struct Flaky {
+    /// Writing stops halfway and fails, as on a full disk.
+    write_fails: bool,
+    /// Renaming onto this path fails, as while it is locked.
+    rename_onto_fails: Option<PathBuf>,
+}
+
+impl Files for Flaky {
+    fn rename(&self, from: &Path, to: &Path) -> io::Result<()> {
+        if self.rename_onto_fails.as_deref() == Some(to) {
+            return Err(io::Error::other("the file is locked"));
+        }
+        Disk.rename(from, to)
+    }
+
+    fn write(&self, path: &Path, contents: &[u8]) -> io::Result<()> {
+        if self.write_fails {
+            Disk.write(path, &contents[..contents.len() / 2])?;
+            return Err(io::Error::other("the disk is full"));
+        }
+        Disk.write(path, contents)
+    }
+
+    fn remove(&self, path: &Path) -> io::Result<()> {
+        Disk.remove(path)
+    }
+}
+
+#[test]
+fn a_failed_write_puts_the_old_executable_back() {
+    // Arrange
+    let exe = installed("write-fails");
+    let files = Flaky {
+        write_fails: true,
+        ..Flaky::default()
+    };
+
+    // Act
+    let error = replace(&files, &exe, b"new binary").unwrap_err();
+
+    // Assert
+    assert!(
+        matches!(
+            error,
+            Error::Platform {
+                operation: "write the new executable",
+                ..
+            }
+        ),
+        "{error:?}"
+    );
+    assert_eq!(fs::read(&exe).unwrap(), b"old");
+    assert!(!exe.with_extension("exe.old").exists());
+}
+
 #[test]
 fn the_release_is_the_64_bit_windows_archive_with_mosaico_exe() {
     // Act / Assert

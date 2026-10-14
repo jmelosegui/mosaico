@@ -31,25 +31,7 @@ impl Installer for RenameInstaller {
     /// to delete the old file. If the write fails, the old file is
     /// renamed back.
     fn replace(&self, exe: &Path, binary: &[u8]) -> Result<()> {
-        let backup = backup_of(exe);
-
-        // Remove leftover backup from a previous update.
-        let _ = fs::remove_file(&backup);
-
-        // Rename the running binary out of the way.
-        fs::rename(exe, &backup)
-            .map_err(|e| Error::platform("rename the running executable aside", e))?;
-
-        // Write the new binary.
-        if let Err(e) = fs::write(exe, binary) {
-            // Attempt rollback.
-            let _ = fs::rename(&backup, exe);
-            return Err(Error::platform("write the new executable", e));
-        }
-
-        // Try to delete the backup (fails while it is still locked).
-        let _ = fs::remove_file(&backup);
-        Ok(())
+        replace(&Disk, exe, binary)
     }
 
     /// Deletes the `.exe.old` beside `exe`, if there is one.
@@ -61,6 +43,55 @@ impl Installer for RenameInstaller {
             _ => Ok(()),
         }
     }
+}
+
+/// The file operations `replace` is made of, so tests can make one of
+/// them fail.
+trait Files {
+    fn rename(&self, from: &Path, to: &Path) -> io::Result<()>;
+    fn write(&self, path: &Path, contents: &[u8]) -> io::Result<()>;
+    fn remove(&self, path: &Path) -> io::Result<()>;
+}
+
+/// The real file system.
+struct Disk;
+
+impl Files for Disk {
+    fn rename(&self, from: &Path, to: &Path) -> io::Result<()> {
+        fs::rename(from, to)
+    }
+
+    fn write(&self, path: &Path, contents: &[u8]) -> io::Result<()> {
+        fs::write(path, contents)
+    }
+
+    fn remove(&self, path: &Path) -> io::Result<()> {
+        fs::remove_file(path)
+    }
+}
+
+/// [`RenameInstaller::replace`] on `files`.
+fn replace(files: &impl Files, exe: &Path, binary: &[u8]) -> Result<()> {
+    let backup = backup_of(exe);
+
+    // Remove leftover backup from a previous update.
+    let _ = files.remove(&backup);
+
+    // Rename the running binary out of the way.
+    files
+        .rename(exe, &backup)
+        .map_err(|e| Error::platform("rename the running executable aside", e))?;
+
+    // Write the new binary.
+    if let Err(e) = files.write(exe, binary) {
+        // Attempt rollback.
+        let _ = files.rename(&backup, exe);
+        return Err(Error::platform("write the new executable", e));
+    }
+
+    // Try to delete the backup (fails while it is still locked).
+    let _ = files.remove(&backup);
+    Ok(())
 }
 
 /// Where `replace` moves the running executable: `mosaico.exe.old`.
