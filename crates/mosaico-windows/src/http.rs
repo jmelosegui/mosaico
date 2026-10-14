@@ -1,4 +1,4 @@
-//! [`HttpClient`] through WinHTTP.
+//! [`HttpClient`](mosaico_core::http::HttpClient) through WinHTTP.
 //!
 //! Each request opens its own synchronous WinHTTP session. WinHTTP
 //! follows redirects by itself (by default from HTTPS only to HTTPS),

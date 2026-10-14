@@ -1,4 +1,5 @@
-//! [`Installer`] for the Windows release.
+//! [`Installer`](mosaico_core::update::Installer) for the Windows
+//! release.
 //!
 //! Windows lets a running executable be renamed but not overwritten, so
 //! `replace` renames `mosaico.exe` to `mosaico.exe.old` and writes the
@@ -18,8 +19,9 @@ use mosaico_core::{Error, Result};
 pub struct RenameInstaller;
 
 impl Installer for RenameInstaller {
-    /// The archive for the CPU this binary was built for, see
-    /// [`archive_for`].
+    /// The archive for the CPU this binary was built for:
+    /// `mosaico-windows-amd64.zip` for x86-64, `mosaico-windows-arm64.zip`
+    /// for ARM64. A build for another CPU cannot update itself.
     fn asset_name(&self) -> Result<&str> {
         archive_for(std::env::consts::ARCH)
     }
