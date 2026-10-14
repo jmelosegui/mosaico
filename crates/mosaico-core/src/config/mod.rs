@@ -1,5 +1,7 @@
 /// Status bar configuration.
 pub mod bar;
+/// How windows are hidden on a workspace switch.
+mod hiding_behaviour;
 /// Keybinding definitions and defaults.
 pub mod keybinding;
 /// Configuration file loading and path resolution.
@@ -20,6 +22,7 @@ pub mod types;
 use serde::{Deserialize, Serialize};
 
 pub use bar::{BarColors, BarConfig, WidgetConfig};
+pub use hiding_behaviour::HidingBehaviour;
 pub use keybinding::{Keybinding, Modifier};
 pub use loader::{
     bar_path, config_dir, config_path, keybindings_path, load, load_bar, load_keybindings,
