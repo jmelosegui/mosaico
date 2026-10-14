@@ -22,8 +22,9 @@ monitors:
 | `crates/mosaico-core/src/action.rs` | `GoToWorkspace(u8)`, `SendToWorkspace(u8)`, `MAX_WORKSPACES` |
 | `crates/mosaico-core/src/workspace.rs` | `Workspace` -- ordered window handle collection |
 | `crates/mosaico-core/src/config/keybinding.rs` | Default workspace keybindings |
-| `crates/mosaico-windows/src/tiling/mod.rs` | `MonitorState` with `Vec<Workspace>`, `active_workspace`; `TilingManager.workspace_mode` |
-| `crates/mosaico-windows/src/tiling/workspace.rs` | `goto_workspace()`, `goto_workspace_on()`, `send_to_workspace()` |
+| `crates/mosaico-core/src/tiler/state.rs` | `MonitorState` with `Vec<Workspace>` and `active_workspace` |
+| `crates/mosaico-core/src/tiler/mod.rs` | `Tiler.workspace_mode` |
+| `crates/mosaico-core/src/tiler/workspace.rs` | `goto_workspace()`, `goto_workspace_on()`, `send_to_workspace()` |
 | `crates/mosaico-core/src/config/types.rs` | `WorkspacesConfig`, `WorkspaceMode` |
 
 ### Key Types
@@ -47,7 +48,7 @@ Actions use 1-based indexing in the user-facing interface (config, CLI) and
 
 ## Switching Workspaces
 
-`goto_workspace(n)` (in `tiling/workspace.rs`) dispatches on
+`goto_workspace(n)` (in `crates/mosaico-core/src/tiler/workspace.rs`) dispatches on
 `workspace_mode`:
 
 - `PerMonitor` -- calls `goto_workspace_on(focused_monitor, n, refocus=true)`.
@@ -58,30 +59,47 @@ Actions use 1-based indexing in the user-facing interface (config, CLI) and
 `goto_workspace_on(mon_idx, idx, refocus)` performs the per-monitor work:
 
 1. If the monitor is already on workspace `idx`, does nothing
-2. Hides all windows in the current workspace using the configured hiding
+2. Remembers the focused window as the left workspace's `last_focused`
+   (nothing when `refocus` is false)
+3. Sets `active_workspace` to `idx`
+4. Shows all windows in the target workspace, undoing the configured hiding
    strategy (see below)
-3. For `Hide` and `Minimize` strategies: adds hidden windows to
-   `hidden_by_switch` set to prevent spurious event handlers from removing
-   them. Skipped for `Cloak` because cloaking does not fire events.
-4. Sets `active_workspace` to `idx`
-5. Shows all windows in the target workspace (reverses the hiding strategy)
-6. For `Hide` and `Minimize` strategies: removes shown windows from
-   `hidden_by_switch`
-7. Retiles the monitor
-8. When `refocus` is true, focuses the first window in the new workspace
-   (or the remembered `last_focused`); otherwise leaves keyboard focus
-   alone
+5. Retiles the monitor
+6. When `refocus` is true, focuses the monocle window, the remembered
+   `last_focused` or the first window of the new workspace; otherwise leaves
+   keyboard focus alone
+7. Hides all windows of the workspace left. Showing the target first means
+   the window that held focus is not hidden while nothing else can take it,
+   which would let the OS show it again during rapid switching.
+8. When `refocus` is true and the new workspace is empty, pins focus to the
+   monitor until something takes it
 
 ### Hiding Behaviour
 
 The `hiding` setting in `[layout]` controls how windows are hidden during
-workspace switches. Three strategies are available:
+workspace switches. `HidingBehaviour` describes each value by what the user
+sees:
 
-| Strategy | Method | Taskbar Icon | Fires Events |
-|----------|--------|-------------|-------------|
-| `"cloak"` (default) | COM ImmersiveShell cloaking | Kept | No |
-| `"hide"` | `ShowWindow(SW_HIDE)` | Removed | `EVENT_OBJECT_HIDE` |
-| `"minimize"` | `ShowWindow(SW_MINIMIZE)` | Kept (minimized) | `EVENT_SYSTEM_MINIMIZESTART` |
+| Strategy | What the user sees | The desktop reports the window |
+|----------|--------------------|--------------------------------|
+| `"cloak"` (default) | Invisible, keeps its taskbar icon | Shown, not minimized |
+| `"hide"` | Fully hidden, taskbar icon removed | Not shown |
+| `"minimize"` | Minimized, taskbar icon kept | Minimized |
+
+Which strategies a platform has, and which window events each causes, is the
+platform's to say: `WindowControl::hiding_events` answers, for each one,
+whether hiding a window that way reports it hidden or minimized, and whether
+showing it again reports it restored (`HidingEvents`), or `None` when the
+platform does not have it. The daemon asks once, at startup, and keeps the
+answers in a `HidingSupport`.
+
+On Windows every strategy is available:
+
+| Strategy | Method | Events |
+|----------|--------|--------|
+| `"cloak"` | COM ImmersiveShell cloaking | None |
+| `"hide"` | `ShowWindow(SW_HIDE)`, shown with `SW_SHOWNOACTIVATE` | `EVENT_OBJECT_HIDE` |
+| `"minimize"` | `ShowWindow(SW_MINIMIZE)`, shown with `SW_SHOWNOACTIVATE` | `EVENT_SYSTEM_MINIMIZESTART`, and `EVENT_SYSTEM_MINIMIZEEND` when shown |
 
 **Cloak** is the recommended default. It uses the same undocumented COM
 interface (`IApplicationView::SetCloak`) that Windows uses internally for
@@ -96,18 +114,24 @@ user-mode processes. Only the COM approach works.
 
 ### Hidden Window Tracking
 
-When using `Hide` or `Minimize` strategies, the OS fires events
-(`EVENT_OBJECT_HIDE` or `EVENT_SYSTEM_MINIMIZESTART`) that would normally
-cause the tiling manager to remove windows from the workspace.
+The events a switch causes look exactly like an application hiding or
+restoring a window itself, which would make the tiler stop managing the
+window or focus it. `tiler::Expectations` (`crates/mosaico-core/src/tiler/echo.rs`)
+records every hide and show the applier carries out, with the `HidingEvents`
+of the strategy used, and drops the matching events before the tiler sees
+them:
 
-The `hidden_by_switch: HashSet<usize>` field tracks windows that were
-programmatically hidden. When a `Destroyed` or `Minimized` event arrives:
+- a `Hidden` or `Minimized` event for a window hidden a way that reports one,
+  until the window is shown again;
+- one `Restored` event for a window shown again a way that reports one, within
+  `FOCUS_ECHO_TTL` of the show;
+- a `Focused` event for a window hidden less than `HIDE_FOCUS_ECHO_TTL` ago,
+  whatever the strategy.
 
-- If the handle is in `hidden_by_switch`, the event is ignored
-- If the handle is not in the set, normal handling proceeds
-
-This tracking is skipped for `Cloak` mode because cloaking does not fire
-any relevant events.
+A hide event for a window hidden a way that reports nothing, such as cloaking
+on Windows, comes from the application itself and reaches the tiler. Showing a
+hidden window can also report it as `Created`, which the tiler ignores for a
+window it already manages.
 
 ### Cloaked Window Focus Handling
 
@@ -126,7 +150,7 @@ startup from the record kept in the instance's data directory, whatever
 
 ## Sending Windows
 
-`send_to_workspace(n)` (in `tiling/workspace.rs`):
+`send_to_workspace(n)` (in `crates/mosaico-core/src/tiler/workspace.rs`):
 
 1. Removes the focused window from the current workspace
 2. Adds it to workspace N on the same monitor
@@ -190,9 +214,12 @@ N is 1-8. Parsing validates the range and rejects invalid workspace numbers.
   Hide, and Minimize. Cloak preserves taskbar icons and avoids spurious
   events. Hide is the legacy approach. Minimize keeps taskbar icons but
   may trigger app-specific behaviour (e.g. pausing media).
-- **`hidden_by_switch` tracking** is essential for Hide and Minimize modes
-  to prevent the tiling manager from interpreting programmatic hides as
-  window closures. Skipped for Cloak mode which fires no events.
+- **Echo suppression follows what the platform reports.** The platform says
+  which hide and restore events each hiding strategy causes, and those are
+  taken for the tiler's own, so programmatic hides are not mistaken for
+  windows closing. Focus reports for a window hidden moments ago are the one
+  thing dropped whatever the strategy: hiding the focused window makes the OS
+  report it for a while after the switch.
 - **Per-monitor by default, global as opt-in.** Per-monitor matches the
   mental model where each monitor is independent (you can flip one screen
   without disturbing the others). The `Global` mode is for users who

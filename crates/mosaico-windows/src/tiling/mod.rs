@@ -13,7 +13,7 @@ use std::time::Instant;
 
 use mosaico_core::config::{BorderConfig, Config, LayoutConfig, WindowRule, WorkspacesConfig};
 use mosaico_core::tiler::{BarReservation, Display, Input, Settings, Tiler};
-use mosaico_core::{Action, Result, WindowEvent, WindowId};
+use mosaico_core::{Action, HidingSupport, Result, WindowControl, WindowEvent, WindowId};
 
 use crate::bar::BarState;
 use crate::enumerate;
@@ -46,7 +46,8 @@ impl TilingManager {
         // at the windows, so they are found and adopted like any other.
         let desktop = Win32Desktop::new();
         let control = Win32WindowControl;
-        let mut applier = Applier::with_hidden_file(HiddenFile::current());
+        let hiding = HidingSupport::new(|how| control.hiding_events(how));
+        let mut applier = Applier::new(HiddenFile::current(), hiding);
         applier.restore_previous(&desktop, &control, Instant::now());
 
         let displays = displays(monitor::enumerate_monitors()?);
