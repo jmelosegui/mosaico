@@ -214,3 +214,21 @@ fn gives_up_on_a_daemon_that_never_exits() {
     assert!(!gone);
     assert!(world.now.get() - start >= Duration::from_millis(60));
 }
+
+#[test]
+fn a_daemon_that_does_not_reply_is_killed_from_its_pid_file() {
+    // #86
+    // Arrange -- the daemon is listening but never answers the stop.
+    let mut h = Harness::new("stop-unresponsive");
+    h.world.daemon_up(77);
+    h.pid_file.write(77).unwrap();
+    h.world.reply(Err(IpcError::TimedOut));
+
+    // Act
+    let exit = h.run(execute);
+
+    // Assert
+    assert_eq!(exit, Exit::Success);
+    assert_eq!(h.out(), "Mosaico stopped (killed PID 77).\n");
+    assert!(!h.world.processes.borrow().contains_key(&77));
+}

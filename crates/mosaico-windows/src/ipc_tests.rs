@@ -239,3 +239,45 @@ fn a_client_that_never_reads_its_reply_does_not_block_the_next_one() {
     client.send(&Command::Stop).unwrap();
     server.join().unwrap();
 }
+
+#[test]
+fn a_daemon_that_never_replies_is_reported_instead_of_waited_on() {
+    // #86
+    // Arrange -- a server that takes the connection and never answers,
+    // like a daemon whose main thread is stuck.
+    let name = test_pipe("noreply");
+    let (release_tx, release_rx) = mpsc::channel::<()>();
+    let server_name = name.clone();
+    let server = thread::spawn(move || {
+        let mut server = PipeServer::new(&server_name);
+        let connection = server.accept();
+        let _ = release_rx.recv_timeout(Duration::from_secs(10));
+        drop(connection);
+    });
+    let client = PipeClient::new(&name);
+    for _ in 0..100 {
+        if client.is_daemon_running() {
+            break;
+        }
+        thread::sleep(Duration::from_millis(10));
+    }
+
+    // Act
+    let (reply_tx, reply_rx) = mpsc::channel();
+    let send_name = name.clone();
+    thread::spawn(move || {
+        let reply = PipeClient::new(&send_name)
+            .send_with_timeout(&Command::Status, Duration::from_millis(200));
+        let _ = reply_tx.send(reply);
+    });
+
+    // Assert
+    let reply = reply_rx
+        .recv_timeout(Duration::from_secs(3))
+        .expect("send is still waiting for a daemon that never replies");
+    assert!(matches!(reply, Err(IpcError::TimedOut)), "{reply:?}");
+
+    // Cleanup
+    release_tx.send(()).unwrap();
+    server.join().unwrap();
+}
