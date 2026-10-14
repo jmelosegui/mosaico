@@ -126,6 +126,10 @@ impl Applier {
         event: &mosaico_core::WindowEvent,
         now: Instant,
     ) -> Option<&'static str> {
+        // Nothing held for a window that no longer exists may be applied.
+        if let mosaico_core::WindowEvent::Destroyed { window } = *event {
+            self.held.forget(window);
+        }
         self.expectations.echo(event, now)
     }
 
