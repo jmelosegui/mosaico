@@ -49,6 +49,8 @@ mod hiding_change_tests;
 mod layout_tests;
 #[path = "tests/manager_config_tests.rs"]
 mod manager_config_tests;
+#[path = "tests/manager_daemon_tests.rs"]
+mod manager_daemon_tests;
 #[path = "tests/manager_focus_tests.rs"]
 mod manager_focus_tests;
 #[path = "tests/manager_record_tests.rs"]
