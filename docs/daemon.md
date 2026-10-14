@@ -69,7 +69,8 @@ order, it:
    `Error::AlreadyRunning` ("Mosaico daemon is already running."), or with an
    `Error::Platform` when it may not open the other daemon's lock, such as
    another user's, leaving the running daemon's PID file alone
-3. Writes the PID file to `%LOCALAPPDATA%\mosaico\mosaico.pid`
+3. Writes the instance's PID file (`%LOCALAPPDATA%\mosaico\mosaico.pid` for
+   the default instance)
 4. Logs that it started
 5. Calls `serve()`, which runs `daemon_loop()` for the main logic
 6. Logs the error the loop returned, if any, since the daemon has no

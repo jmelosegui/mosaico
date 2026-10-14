@@ -11,6 +11,7 @@ CLI commands.
 | File | Purpose |
 |------|---------|
 | `crates/mosaico-core/src/pid.rs` | `PidFile` with `write()`, `read()` and `remove()` |
+| `crates/mosaico-core/src/instance.rs` | `Instance::pid_path()`, where an instance keeps its PID file |
 | `crates/mosaico-core/src/lifecycle.rs` | writes and removes the daemon's PID file |
 | `crates/mosaico-core/src/system.rs` | `ProcessControl`, what commands use to check and end processes |
 | `crates/mosaico-windows/src/process.rs` | `WindowsProcesses`, the Windows `ProcessControl` |
@@ -22,11 +23,10 @@ CLI commands.
 
 ## PID File Location
 
-The PID file is stored at `%LOCALAPPDATA%\mosaico\mosaico.pid`. The data
-directory (`%LOCALAPPDATA%\mosaico\`) is created automatically if it does
-not exist.
-
-The `data_dir()` function resolves this path using `dirs::data_local_dir()`.
+The PID file is `mosaico.pid` in the instance's data directory:
+`%LOCALAPPDATA%\mosaico\mosaico.pid` for the default instance. The directory
+is created automatically if it does not exist. See Instances in
+[cli.md](cli.md) for named instances and `MOSAICO_DATA_DIR`.
 
 ## Functions
 
@@ -45,10 +45,10 @@ hold a number an `Error::Io` of kind `InvalidData`; `start`, `stop` and
 
 ### `PidFile::remove()`
 
-Deletes the PID file. `lifecycle::run()` calls it during daemon shutdown,
-after the main loop exits, or while a panic in it unwinds, and before it
-releases the single instance lock, so it never removes the PID file of a
-daemon that starts next.
+Deletes the PID file, if there is one. `lifecycle::run()` calls it during
+daemon shutdown, after the main loop exits, or while a panic in it unwinds,
+and before it releases the single instance lock, so it never removes the PID
+file of a daemon that starts next.
 
 ## Process Control
 

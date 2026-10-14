@@ -2,12 +2,13 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use crate::{Instance, Result};
+use crate::Result;
 
 /// The file a running daemon records its process id in.
 ///
 /// The CLI uses it to tell a daemon that stopped answering apart from
-/// one that is gone, and to end a stuck daemon.
+/// one that is gone, and to end a stuck daemon. Each instance has its
+/// own, at [`Instance::pid_path`](crate::Instance::pid_path).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PidFile {
     path: PathBuf,
@@ -17,12 +18,6 @@ impl PidFile {
     /// A PID file at `path`.
     pub fn new(path: impl Into<PathBuf>) -> Self {
         Self { path: path.into() }
-    }
-
-    /// The PID file of this process's [`Instance`],
-    /// `%LOCALAPPDATA%\mosaico\mosaico.pid` for the default instance.
-    pub fn current() -> Result<Self> {
-        Ok(Self::new(Instance::current()?.pid_path()))
     }
 
     /// Where the file is.
@@ -63,30 +58,6 @@ impl PidFile {
         }
         Ok(())
     }
-}
-
-/// Returns the path to the PID file of this process's [`Instance`].
-pub fn pid_path() -> Result<PathBuf> {
-    Ok(PidFile::current()?.path.clone())
-}
-
-/// Writes the current process's PID to the PID file.
-///
-/// Called when the daemon starts.
-pub fn write_pid_file() -> Result<()> {
-    PidFile::current()?.write(std::process::id())
-}
-
-/// Reads the PID from the PID file, if it exists.
-pub fn read_pid_file() -> Result<Option<u32>> {
-    PidFile::current()?.read()
-}
-
-/// Removes the PID file.
-///
-/// Called when the daemon shuts down cleanly.
-pub fn remove_pid_file() -> Result<()> {
-    PidFile::current()?.remove()
 }
 
 #[cfg(test)]
