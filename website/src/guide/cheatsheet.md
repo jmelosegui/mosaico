@@ -125,7 +125,7 @@ Combine in `keybindings.toml` with
 |------|----------|
 | Letters | `A` .. `Z` (case-insensitive) |
 | Digits | `0` .. `9` |
-| Function | `F1` .. `F12` |
+| Function | `F1` .. `F24` |
 | Named | `Enter`, `Escape`, `Tab`, `Space`, `Backspace`, `Delete`, `Insert`, `Home`, `End`, `PageUp`, `PageDown`, `Up`, `Down`, `Left`, `Right` |
 
 Set them in `~/.config/mosaico/keybindings.toml` like this:

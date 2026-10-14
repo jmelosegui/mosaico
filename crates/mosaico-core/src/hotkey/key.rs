@@ -105,8 +105,8 @@ impl Digit {
 pub struct FunctionKey(u8);
 
 impl FunctionKey {
-    /// The number of the last function key a binding can name, `F12`.
-    pub const LAST: u8 = 12;
+    /// The number of the last function key a binding can name, `F24`.
+    pub const LAST: u8 = 24;
 
     /// Function key `F<number>`, or `None` when there is no such key.
     pub fn new(number: u8) -> Option<Self> {

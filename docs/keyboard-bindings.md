@@ -123,7 +123,7 @@ codes. Matching is case-insensitive.
 |----------|----------|------------|
 | Single letters | `"A"` - `"Z"` | ASCII value of uppercase letter |
 | Digits | `"0"` - `"9"` | ASCII value |
-| Function keys | `"F1"` - `"F12"` | `0x70 + n - 1` |
+| Function keys | `"F1"` - `"F24"` | `0x70 + n - 1` |
 | Named keys | `"Enter"`, `"Tab"`, `"Escape"`, `"Space"` | Match table |
 | Arrow keys | `"Left"`, `"Right"`, `"Up"`, `"Down"` | Match table |
 | Punctuation | `"Minus"`, `"Plus"`, `"Comma"`, `"Period"` | OEM virtual keys |

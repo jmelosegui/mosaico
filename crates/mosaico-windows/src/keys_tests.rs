@@ -19,10 +19,12 @@ fn letters_in_either_case_and_digits_register_their_ascii_codes() {
 }
 
 #[test]
-fn function_keys_register_vk_f1_onwards() {
+fn function_keys_register_vk_f1_to_vk_f24() {
     // Assert
     assert_eq!(code_of("F1"), Some(0x70));
     assert_eq!(code_of("f12"), Some(0x7B));
+    assert_eq!(code_of("F13"), Some(0x7C));
+    assert_eq!(code_of("F24"), Some(0x87));
 }
 
 #[test]

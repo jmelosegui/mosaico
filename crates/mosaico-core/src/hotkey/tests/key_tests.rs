@@ -70,8 +70,8 @@ fn every_digit_parses() {
 }
 
 #[test]
-fn function_keys_go_from_f1_to_f12() {
-    for number in 1..=12u8 {
+fn function_keys_go_from_f1_to_f24() {
+    for number in 1..=24u8 {
         // Act
         let key = parse(&format!("F{number}"));
 
@@ -81,10 +81,10 @@ fn function_keys_go_from_f1_to_f12() {
 }
 
 #[test]
-fn there_is_no_f0_or_f13() {
+fn there_is_no_f0_or_f25() {
     // Assert
     assert_eq!(parse("F0"), None);
-    assert_eq!(parse("F13"), None);
+    assert_eq!(parse("F25"), None);
 }
 
 #[test]
@@ -126,7 +126,7 @@ fn an_unknown_key_name_is_a_config_error_that_names_it() {
     assert!(matches!(error, Error::Config { path: None, .. }));
     assert_eq!(
         error.to_string(),
-        "unknown key name \"Foo\" (expected A-Z, 0-9, F1-F12 or a name such as \
+        "unknown key name \"Foo\" (expected A-Z, 0-9, F1-F24 or a name such as \
          Enter, Space or PageUp)"
     );
 }
@@ -146,7 +146,7 @@ fn every_key_is_shown_with_a_name_that_parses_back_to_it() {
     // Arrange
     let letters = ('A'..='Z').map(letter);
     let digits = (0..=9).map(digit);
-    let function_keys = (1..=12).map(function);
+    let function_keys = (1..=24).map(function);
     let others = NAMES.map(|(_, key)| key);
     let keys = letters.chain(digits).chain(function_keys).chain(others);
 
