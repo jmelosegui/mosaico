@@ -176,3 +176,7 @@ mod tests;
 #[cfg(test)]
 #[path = "tests/manager_update_tests.rs"]
 mod update_tests;
+
+#[cfg(test)]
+#[path = "tests/reservation_tests.rs"]
+mod reservation_tests;
