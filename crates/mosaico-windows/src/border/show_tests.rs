@@ -18,9 +18,10 @@ fn visible(border: &Border) -> bool {
 }
 
 #[test]
-fn a_hidden_border_put_back_with_its_bitmap_is_shown_again() {
-    // Arrange -- a second overlay of our own stands for the window the
-    // border surrounds. Without a desktop to make them on, skip.
+fn restacking_a_hidden_border_shows_it_again() {
+    // Arrange -- a second overlay of our own, never drawn, stands for the
+    // window the border surrounds. Without a desktop to make them on,
+    // skip.
     let (Ok(border), Ok(window)) = (Border::new(), Border::new()) else {
         return;
     };
@@ -35,7 +36,7 @@ fn a_hidden_border_put_back_with_its_bitmap_is_shown_again() {
     border.hide();
     let hidden = !visible(&border);
 
-    // Act -- drawn again the same way, which keeps the bitmap.
+    // Act -- what drawing it again the same way does.
     border.restack(&OFF_SCREEN, 4, window.hwnd);
 
     // Assert

@@ -271,6 +271,6 @@ checks that a focus change or a border refresh before a held move lands
 still draws each border around its window's new slot, in the right color.
 
 `tiler/tests/last_drawn_tests.rs` checks when a border needs drawing
-again. In `mosaico-windows`, `border/show_tests.rs` checks that a hidden
-border put back with its bitmap is shown again, with overlays of its own
-drawn off screen.
+again. In `mosaico-windows`, `border/show_tests.rs` checks that restacking
+a hidden border, as drawing it again the same way does, shows it again,
+with overlays of its own off screen.
