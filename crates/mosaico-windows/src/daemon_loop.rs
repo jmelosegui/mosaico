@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::mpsc;
 use std::time::Instant;
 
-use mosaico_core::WindowResult;
+use mosaico_core::Result;
 use mosaico_core::config;
 use mosaico_core::ipc::Command;
 use windows::Win32::UI::WindowsAndMessaging::{
@@ -32,7 +32,7 @@ const PUMP_INTERVAL: std::time::Duration = std::time::Duration::from_millis(50);
 /// desktop compositor paints an opaque ghost over what should be a
 /// transparent layered bar. Draining the queue on every iteration, and on
 /// every wait timeout, keeps those windows classified as alive.
-pub(super) fn daemon_loop(pipe_name: &str) -> WindowResult<()> {
+pub(super) fn daemon_loop(pipe_name: &str) -> Result<()> {
     // Append any missing top-level config sections introduced by newer
     // versions of mosaico (e.g. [workspaces]) before loading, so the
     // user's config.toml visibly tracks the latest schema.

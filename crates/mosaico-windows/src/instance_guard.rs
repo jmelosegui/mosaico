@@ -7,7 +7,9 @@ use windows::Win32::Foundation::{CloseHandle, ERROR_ALREADY_EXISTS, GetLastError
 use windows::Win32::System::Threading::CreateMutexW;
 use windows::core::HSTRING;
 
-use mosaico_core::{Instance, WindowResult};
+use mosaico_core::{Error, Instance, Result};
+
+use crate::error::OrPlatform;
 
 /// Namespace-qualified mutex name visible across all sessions.
 const MUTEX_PREFIX: &str = "Global\\MosaicoDaemon";
@@ -33,10 +35,10 @@ pub struct InstanceGuard {
 impl InstanceGuard {
     /// Attempts to acquire the single-instance mutex of `instance`.
     ///
-    /// Returns `Ok(guard)` if no daemon of this instance runs yet, or an
-    /// error if one already holds the mutex. Daemons of other instances
-    /// do not get in the way.
-    pub fn acquire(instance: &Instance) -> WindowResult<Self> {
+    /// Returns `Ok(guard)` if no daemon of this instance runs yet, or
+    /// [`Error::AlreadyRunning`] if one already holds the mutex. Daemons
+    /// of other instances do not get in the way.
+    pub fn acquire(instance: &Instance) -> Result<Self> {
         Self::acquire_named(&mutex_name(instance))
     }
 
@@ -44,13 +46,14 @@ impl InstanceGuard {
     ///
     /// This is the implementation behind [`acquire`]; it accepts an
     /// arbitrary name so unit tests can use isolated mutex names.
-    fn acquire_named(name: &str) -> WindowResult<Self> {
+    fn acquire_named(name: &str) -> Result<Self> {
         let name = HSTRING::from(name);
 
         // SAFETY: CreateMutexW creates or opens a named mutex.
         // `None` for security attributes, `false` for initial owner
         // since we only need it as a sentinel, not for synchronization.
-        let handle = unsafe { CreateMutexW(None, false, &name) }?;
+        let handle = unsafe { CreateMutexW(None, false, &name) }
+            .or_platform("create the single instance lock")?;
 
         // CreateMutexW succeeds even when the mutex already exists,
         // but sets the last error to ERROR_ALREADY_EXISTS.
@@ -62,7 +65,7 @@ impl InstanceGuard {
             unsafe {
                 let _ = CloseHandle(handle);
             }
-            return Err("Mosaico daemon is already running.".into());
+            return Err(Error::AlreadyRunning);
         }
 
         Ok(Self { handle })
@@ -94,6 +97,23 @@ mod tests {
 
         // Assert
         assert!(second.is_err());
+    }
+
+    #[test]
+    fn a_second_daemon_is_told_that_one_is_already_running() {
+        // Arrange
+        let _first = InstanceGuard::acquire_named("Local\\MosaicoTest_AlreadyRunning")
+            .expect("first acquire should succeed");
+
+        // Act
+        let second = InstanceGuard::acquire_named("Local\\MosaicoTest_AlreadyRunning");
+
+        // Assert -- not mistaken for a failed OS call.
+        assert!(
+            matches!(second, Err(Error::AlreadyRunning)),
+            "{:?}",
+            second.err()
+        );
     }
 
     #[test]

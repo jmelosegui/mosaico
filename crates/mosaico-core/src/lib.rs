@@ -49,5 +49,5 @@ pub use ipc::{Command, Response};
 pub use layout::{BspLayout, Layout, LayoutKind, ThreeColumnLayout, VerticalStackLayout};
 pub use monitor::{EdidIdentity, Monitor, MonitorKey, match_monitors, pnp_manufacturer};
 pub use rect::Rect;
-pub use window::{Window, WindowResult};
+pub use window::Window;
 pub use workspace::Workspace;

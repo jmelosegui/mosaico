@@ -2,7 +2,7 @@ use std::sync::mpsc::Sender;
 use std::thread;
 
 use mosaico_core::config::Keybinding;
-use mosaico_core::{Action, WindowEvent, WindowResult};
+use mosaico_core::{Action, Error, Result, WindowEvent};
 use windows::Win32::Foundation::HWND;
 use windows::Win32::Foundation::{LPARAM, WPARAM};
 use windows::Win32::UI::Accessibility::{SetWinEventHook, UnhookWinEvent};
@@ -49,8 +49,8 @@ pub fn start(
     action_tx: Sender<Action>,
     keybindings: Vec<Keybinding>,
     focus_follows_mouse: bool,
-) -> WindowResult<EventLoopHandle> {
-    let (ready_tx, ready_rx) = std::sync::mpsc::channel::<Result<(u32, usize), String>>();
+) -> Result<EventLoopHandle> {
+    let (ready_tx, ready_rx) = std::sync::mpsc::channel::<Result<(u32, usize)>>();
 
     let handle = thread::spawn(move || {
         EVENT_SENDER.with(|cell| {
@@ -95,7 +95,10 @@ pub fn start(
         };
 
         if hook_system.is_invalid() || hook_object.is_invalid() {
-            let _ = ready_tx.send(Err("Failed to set WinEvent hook".to_string()));
+            let _ = ready_tx.send(Err(Error::platform(
+                "set the window event hooks",
+                "SetWinEventHook failed",
+            )));
             return;
         }
 
@@ -127,12 +130,10 @@ pub fn start(
         }
     });
 
-    let (thread_id, event_sink): (u32, usize) = ready_rx
+    let ready = ready_rx
         .recv()
-        .map_err(|_| -> Box<dyn std::error::Error> {
-            "event loop thread exited unexpectedly".into()
-        })?
-        .map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
+        .map_err(|_| Error::platform("start the event loop", "its thread exited unexpectedly"))?;
+    let (thread_id, event_sink) = ready?;
 
     Ok(EventLoopHandle {
         thread_id,

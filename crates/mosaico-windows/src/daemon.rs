@@ -1,5 +1,5 @@
 use mosaico_core::pid;
-use mosaico_core::{Instance, WindowResult};
+use mosaico_core::{Instance, Result};
 
 use crate::dpi;
 use crate::instance_guard::InstanceGuard;
@@ -22,7 +22,7 @@ mod daemon_types;
 /// Starts background threads for the Win32 event loop (which also
 /// handles global hotkeys) and the IPC listener. The main thread
 /// manages the tiling workspace.
-pub fn run() -> WindowResult<()> {
+pub fn run() -> Result<()> {
     dpi::enable_dpi_awareness();
     clean_old_binary();
     let instance = Instance::current()?;

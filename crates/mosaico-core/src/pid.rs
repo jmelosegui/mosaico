@@ -1,7 +1,8 @@
 use std::fs;
+use std::io;
 use std::path::{Path, PathBuf};
 
-use crate::{Instance, WindowResult};
+use crate::{Instance, Result};
 
 /// The file a running daemon records its process id in.
 ///
@@ -20,7 +21,7 @@ impl PidFile {
 
     /// The PID file of this process's [`Instance`],
     /// `%LOCALAPPDATA%\mosaico\mosaico.pid` for the default instance.
-    pub fn current() -> WindowResult<Self> {
+    pub fn current() -> Result<Self> {
         Ok(Self::new(Instance::current()?.pid_path()))
     }
 
@@ -30,7 +31,7 @@ impl PidFile {
     }
 
     /// Records `pid`, creating the directory if needed.
-    pub fn write(&self, pid: u32) -> WindowResult<()> {
+    pub fn write(&self, pid: u32) -> Result<()> {
         if let Some(dir) = self.path.parent() {
             fs::create_dir_all(dir)?;
         }
@@ -38,21 +39,25 @@ impl PidFile {
         Ok(())
     }
 
-    /// The recorded process id, or `None` when there is no file.
-    pub fn read(&self) -> WindowResult<Option<u32>> {
+    /// The recorded process id, or `None` when there is no file. A file
+    /// that does not hold a process id is an [`io::ErrorKind::InvalidData`]
+    /// error.
+    pub fn read(&self) -> Result<Option<u32>> {
         if !self.path.exists() {
             return Ok(None);
         }
         let contents = fs::read_to_string(&self.path)?;
-        let pid: u32 = contents
-            .trim()
-            .parse()
-            .map_err(|e| format!("invalid PID file contents: {e}"))?;
+        let pid: u32 = contents.trim().parse().map_err(|e| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("invalid PID file contents: {e}"),
+            )
+        })?;
         Ok(Some(pid))
     }
 
     /// Deletes the file, if there is one.
-    pub fn remove(&self) -> WindowResult<()> {
+    pub fn remove(&self) -> Result<()> {
         if self.path.exists() {
             fs::remove_file(&self.path)?;
         }
@@ -61,26 +66,26 @@ impl PidFile {
 }
 
 /// Returns the path to the PID file of this process's [`Instance`].
-pub fn pid_path() -> WindowResult<PathBuf> {
+pub fn pid_path() -> Result<PathBuf> {
     Ok(PidFile::current()?.path.clone())
 }
 
 /// Writes the current process's PID to the PID file.
 ///
 /// Called when the daemon starts.
-pub fn write_pid_file() -> WindowResult<()> {
+pub fn write_pid_file() -> Result<()> {
     PidFile::current()?.write(std::process::id())
 }
 
 /// Reads the PID from the PID file, if it exists.
-pub fn read_pid_file() -> WindowResult<Option<u32>> {
+pub fn read_pid_file() -> Result<Option<u32>> {
     PidFile::current()?.read()
 }
 
 /// Removes the PID file.
 ///
 /// Called when the daemon shuts down cleanly.
-pub fn remove_pid_file() -> WindowResult<()> {
+pub fn remove_pid_file() -> Result<()> {
     PidFile::current()?.remove()
 }
 

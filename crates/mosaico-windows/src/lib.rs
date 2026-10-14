@@ -34,6 +34,9 @@ pub mod dpi;
 /// Win32 window enumeration.
 pub mod enumerate;
 
+/// Wrapping native errors in the core error.
+mod error;
+
 /// Window frame and border offset helpers.
 pub mod frame;
 

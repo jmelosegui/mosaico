@@ -1,6 +1,6 @@
 use std::mem;
 
-use mosaico_core::{MonitorId, MonitorKey, Rect, WindowId, WindowResult};
+use mosaico_core::{Error, MonitorId, MonitorKey, Rect, Result, WindowId};
 use windows::Win32::Foundation::{LPARAM, RECT};
 use windows::Win32::Graphics::Gdi::{
     EnumDisplayMonitors, GetMonitorInfoW, HDC, HMONITOR, MONITOR_DEFAULTTOPRIMARY, MONITORINFO,
@@ -62,7 +62,7 @@ struct RawMonitor {
 }
 
 /// Enumerates all connected monitors, sorted left-to-right.
-pub fn enumerate_monitors() -> WindowResult<Vec<MonitorInfo>> {
+pub fn enumerate_monitors() -> Result<Vec<MonitorInfo>> {
     let mut raw: Vec<RawMonitor> = Vec::new();
 
     // SAFETY: EnumDisplayMonitors calls our callback for each monitor.
@@ -78,7 +78,10 @@ pub fn enumerate_monitors() -> WindowResult<Vec<MonitorInfo>> {
     };
 
     if !success.as_bool() {
-        return Err("Failed to enumerate monitors".into());
+        return Err(Error::platform(
+            "enumerate monitors",
+            "EnumDisplayMonitors failed",
+        ));
     }
 
     let mut identities = monitor_identity::display_identities();
@@ -122,7 +125,7 @@ pub(crate) fn rect_from_win32(r: &RECT) -> Rect {
 }
 
 /// Queries the work area, primary flag and GDI device name of a monitor.
-fn query_monitor(monitor: HMONITOR) -> WindowResult<RawMonitor> {
+fn query_monitor(monitor: HMONITOR) -> Result<RawMonitor> {
     let mut info = MONITORINFOEXW {
         monitorInfo: MONITORINFO {
             cbSize: mem::size_of::<MONITORINFOEXW>() as u32,
@@ -136,7 +139,10 @@ fn query_monitor(monitor: HMONITOR) -> WindowResult<RawMonitor> {
     let success = unsafe { GetMonitorInfoW(monitor, &mut info.monitorInfo) };
 
     if !success.as_bool() {
-        return Err("Failed to get monitor info".into());
+        return Err(Error::platform(
+            "read the monitor info",
+            "GetMonitorInfoW failed",
+        ));
     }
 
     let name_len = info

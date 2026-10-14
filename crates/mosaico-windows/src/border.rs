@@ -1,7 +1,7 @@
 use std::mem;
 use std::sync::Once;
 
-use mosaico_core::{Rect, WindowResult};
+use mosaico_core::{Rect, Result};
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
 use windows::Win32::Graphics::Gdi::{
     BI_RGB, BITMAPINFO, BITMAPINFOHEADER, CreateCompatibleDC, CreateDIBSection, DIB_RGB_COLORS,
@@ -14,6 +14,8 @@ use windows::Win32::UI::WindowsAndMessaging::{
     WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_EX_TRANSPARENT, WS_POPUP,
 };
 use windows::core::PCWSTR;
+
+use crate::error::OrPlatform;
 
 /// RGB color parsed from a hex string.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -99,7 +101,7 @@ unsafe extern "system" fn border_wnd_proc(
 
 impl Border {
     /// Creates a new hidden border overlay window.
-    pub fn new() -> WindowResult<Self> {
+    pub fn new() -> Result<Self> {
         ensure_class_registered();
 
         let ex = WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT;
@@ -120,8 +122,9 @@ impl Border {
                 None,
                 None,
                 None,
-            )?
-        };
+            )
+        }
+        .or_platform("create a border window")?;
 
         Ok(Self { hwnd })
     }
