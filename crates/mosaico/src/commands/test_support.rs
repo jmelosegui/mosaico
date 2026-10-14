@@ -190,8 +190,9 @@ impl ProcessControl for World {
 }
 
 impl Autostart for World {
-    fn is_enabled(&self) -> bool {
-        self.autostart.borrow().is_some()
+    fn registered_command(&self) -> Result<Option<LaunchCommand>> {
+        self.autostart_fails()?;
+        Ok(self.autostart.borrow().clone())
     }
 
     fn enable(&self, command: &LaunchCommand) -> Result<()> {

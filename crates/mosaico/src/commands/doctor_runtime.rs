@@ -38,13 +38,13 @@ pub fn check_rules_cache_age() {
 }
 
 pub fn check_autostart(cx: &mut Context) {
-    if cx.autostart.is_enabled() {
-        say!(cx, "  {OK} Autostart is enabled");
-    } else {
-        say!(
+    match cx.autostart.registered_command() {
+        Ok(Some(_)) => say!(cx, "  {OK} Autostart is enabled"),
+        Ok(None) => say!(
             cx,
             "  {WARN} Autostart is disabled (run `mosaico autostart enable` to set up)"
-        );
+        ),
+        Err(e) => say!(cx, "  {FAIL} Autostart: {e}"),
     }
 }
 

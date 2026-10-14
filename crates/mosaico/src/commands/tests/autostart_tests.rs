@@ -48,3 +48,18 @@ fn status_reports_the_registration() {
     assert_eq!(exit, Exit::Success);
     assert_eq!(h.out(), "Autostart is currently enabled.\n");
 }
+
+#[test]
+fn a_registration_that_cannot_be_read_fails_the_status() {
+    // Arrange
+    let mut h = Harness::new("autostart-status-unreadable");
+    *h.world.autostart_error.borrow_mut() = Some("access denied".into());
+
+    // Act
+    let exit = h.run(status);
+
+    // Assert
+    assert_eq!(exit, Exit::Failure);
+    assert_eq!(h.err(), "Error: access denied\n");
+    assert_eq!(h.out(), "", "not reported as disabled");
+}

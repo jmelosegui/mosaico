@@ -1,9 +1,9 @@
 //! Reading and writing the `Mosaico` value under the per-user Run key.
 
-use windows::Win32::Foundation::ERROR_FILE_NOT_FOUND;
+use windows::Win32::Foundation::{ERROR_FILE_NOT_FOUND, ERROR_MORE_DATA, ERROR_SUCCESS};
 use windows::Win32::System::Registry::{
-    HKEY, HKEY_CURRENT_USER, KEY_QUERY_VALUE, KEY_SET_VALUE, REG_SAM_FLAGS, REG_SZ, RegCloseKey,
-    RegDeleteValueW, RegOpenKeyExW, RegQueryValueExW, RegSetValueExW,
+    HKEY, HKEY_CURRENT_USER, KEY_SET_VALUE, REG_SAM_FLAGS, REG_SZ, RRF_RT_REG_SZ, RegCloseKey,
+    RegDeleteValueW, RegGetValueW, RegOpenKeyExW, RegSetValueExW,
 };
 use windows::core::PCWSTR;
 
@@ -11,17 +11,51 @@ use mosaico_core::Result;
 
 use crate::error::OrPlatform;
 
+use crate::monitor_edid::wide_to_string;
+
 const RUN_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
 const VALUE_NAME: &str = "Mosaico";
 
-/// Whether the Mosaico value exists.
-pub fn exists() -> bool {
-    let Ok(key) = open_run_key(KEY_QUERY_VALUE) else {
-        return false;
-    };
-    let exists = query_value_exists(key);
-    close_key(key);
-    exists
+/// Reads the Mosaico value as a string, or `None` when it, or the Run
+/// key, does not exist.
+///
+/// RRF_RT_REG_SZ makes RegGetValueW expand the variables of a
+/// REG_EXPAND_SZ value, as logon does, and fail for values that are not
+/// strings. It always null-terminates what it returns.
+pub fn read() -> Result<Option<String>> {
+    let wide_key = to_wide(RUN_KEY);
+    let wide_name = to_wide(VALUE_NAME);
+    let mut buffer = vec![0u16; 512];
+    loop {
+        let mut size = (buffer.len() * 2) as u32;
+        // SAFETY: RegGetValueW is a standard Win32 registry API. Both names
+        // are null-terminated and the buffer holds `size` bytes.
+        let status = unsafe {
+            RegGetValueW(
+                HKEY_CURRENT_USER,
+                PCWSTR(wide_key.as_ptr()),
+                PCWSTR(wide_name.as_ptr()),
+                RRF_RT_REG_SZ,
+                None,
+                Some(buffer.as_mut_ptr().cast()),
+                Some(&mut size),
+            )
+        };
+        match status {
+            ERROR_SUCCESS => return Ok(Some(wide_to_string(&buffer))),
+            ERROR_FILE_NOT_FOUND => return Ok(None),
+            // `size` is what the value needs now. Grow at least twofold,
+            // so this ends even if the value changes between calls.
+            ERROR_MORE_DATA => {
+                let needed = (size as usize).div_ceil(2);
+                buffer.resize(needed.max(buffer.len() * 2), 0);
+            }
+            _ => {
+                return Err(windows::core::Error::from(status))
+                    .or_platform("read the autostart entry");
+            }
+        }
+    }
 }
 
 /// Sets the Mosaico value to `value`, replacing what was there.
@@ -84,15 +118,6 @@ fn delete_value(key: HKEY) -> Result<()> {
         return Ok(());
     }
     status.ok().or_platform("remove the autostart entry")
-}
-
-/// Checks if the Mosaico value exists under the opened key.
-fn query_value_exists(key: HKEY) -> bool {
-    let wide_name = to_wide(VALUE_NAME);
-    // SAFETY: RegQueryValueExW with null data buffer just checks existence.
-    let status =
-        unsafe { RegQueryValueExW(key, PCWSTR(wide_name.as_ptr()), None, None, None, None) };
-    status.is_ok()
 }
 
 /// Closes an open registry key handle.

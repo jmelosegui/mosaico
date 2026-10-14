@@ -32,10 +32,13 @@ pub fn disable(cx: &mut Context) -> Exit {
 }
 
 pub fn status(cx: &mut Context) -> Exit {
-    if cx.autostart.is_enabled() {
-        say!(cx, "Autostart is currently enabled.");
-    } else {
-        say!(cx, "Autostart is currently disabled.");
+    match cx.autostart.registered_command() {
+        Ok(Some(_)) => say!(cx, "Autostart is currently enabled."),
+        Ok(None) => say!(cx, "Autostart is currently disabled."),
+        Err(e) => {
+            complain!(cx, "Error: {e}");
+            return Exit::Failure;
+        }
     }
     Exit::Success
 }

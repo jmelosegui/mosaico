@@ -54,14 +54,23 @@ impl fmt::Display for LaunchCommand {
 ///   an entry another copy of mosaico made, and `disable` removes it.
 /// - `enable` registers exactly the command it is given: at login the
 ///   platform runs its `program` with its `args`, in order, and nothing
-///   else.
+///   else. Once it succeeds, `registered_command` returns an equal
+///   command.
+/// - `registered_command` reports what runs at login as it was
+///   registered, without resolving or checking the program. Nothing
+///   follows the executable: after it moves or is deleted, the old path
+///   is reported until `enable` runs again.
+/// - `registered_command` returns `None` only when nothing is
+///   registered. A registration that cannot be read, or that names no
+///   program, is an error.
 /// - `disable` succeeds when nothing was registered.
 /// - A platform without a way to start at login returns
 ///   [`Error::Unsupported`](crate::Error::Unsupported) from `enable`,
-///   and `is_enabled` returns false.
+///   `None` from `registered_command`, and succeeds in `disable`.
 pub trait Autostart {
-    /// Whether mosaico is registered to start at login.
-    fn is_enabled(&self) -> bool;
+    /// What runs when the user logs in, or `None` when nothing is
+    /// registered.
+    fn registered_command(&self) -> Result<Option<LaunchCommand>>;
 
     /// Registers `command` to run when the user logs in.
     fn enable(&self, command: &LaunchCommand) -> Result<()>;

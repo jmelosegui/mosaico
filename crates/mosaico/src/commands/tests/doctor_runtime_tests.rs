@@ -118,3 +118,25 @@ fn monitors_that_cannot_be_listed_are_reported_with_the_reason() {
         format!("  {FAIL} Could not enumerate monitors: could not list monitors: access denied\n")
     );
 }
+
+/// What doctor's autostart check prints.
+fn autostart_check(h: &mut Harness) -> String {
+    h.run(|cx| {
+        check_autostart(cx);
+        Exit::Success
+    });
+    h.out()
+}
+
+#[test]
+fn an_autostart_entry_that_cannot_be_read_fails() {
+    // Arrange
+    let mut h = Harness::new("doctor-autostart-unreadable");
+    *h.world.autostart_error.borrow_mut() = Some("access denied".into());
+
+    // Act
+    let out = autostart_check(&mut h);
+
+    // Assert
+    assert_eq!(out, format!("  {FAIL} Autostart: access denied\n"));
+}

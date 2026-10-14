@@ -10,16 +10,22 @@ mod command_line;
 #[path = "autostart_registry.rs"]
 mod registry;
 
-use mosaico_core::Result;
 use mosaico_core::system::{Autostart, LaunchCommand};
+use mosaico_core::{Error, Result};
 
 /// [`Autostart`] through the per-user Run registry key.
 pub struct RegistryAutostart;
 
 impl Autostart for RegistryAutostart {
-    /// Checks whether the Mosaico value exists in the Run key.
-    fn is_enabled(&self) -> bool {
-        registry::exists()
+    /// Reads the Mosaico value and splits it into the program and its
+    /// arguments, see [`command_line::split`].
+    fn registered_command(&self) -> Result<Option<LaunchCommand>> {
+        let Some(line) = registry::read()? else {
+            return Ok(None);
+        };
+        command_line::split(&line).map(Some).ok_or_else(|| {
+            Error::platform("read the autostart entry", "the entry names no program")
+        })
     }
 
     /// Writes the command line that runs `command` to the Mosaico value,
