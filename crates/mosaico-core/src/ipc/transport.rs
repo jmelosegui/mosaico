@@ -97,6 +97,22 @@ pub trait IpcConnection: Read + Write {
         let _ = timeout;
         Ok(())
     }
+
+    /// Limits how long writing the reply and [`finish`](Self::finish)
+    /// may take, counted from now.
+    ///
+    /// Once `timeout` has passed, a write or `finish` still waiting for
+    /// the client to read fails with
+    /// [`io::ErrorKind::TimedOut`](std::io::ErrorKind::TimedOut) and the
+    /// connection is dropped. [`serve`] sets it before every reply, so a
+    /// client that never reads cannot hold up the clients after it. A
+    /// transport whose writes or `finish` can wait for the client must
+    /// implement it; the default, which does nothing, only suits
+    /// connections that never wait.
+    fn set_write_timeout(&mut self, timeout: Duration) -> Result<(), IpcError> {
+        let _ = timeout;
+        Ok(())
+    }
 }
 
 /// Why [`serve`] returned.
@@ -124,12 +140,14 @@ pub fn serve<S: IpcServer>(
     serve_with_timeout(server, REQUEST_TIMEOUT, handle)
 }
 
-/// How long a client gets to send its request once connected. A real
-/// CLI sends it straight after connecting, so this only ever runs out
-/// for a client that is stuck or not a mosaico client at all.
+/// How long a client gets to send its request once connected, and again
+/// to read the reply. A real CLI sends straight after connecting and
+/// reads straight after sending, so this only ever runs out for a client
+/// that is stuck or not a mosaico client at all.
 pub const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
 
-/// [`serve`], with how long a client gets to send its request.
+/// [`serve`], with how long a client gets to send its request and to
+/// read the reply.
 pub fn serve_with_timeout<S: IpcServer>(
     server: &mut S,
     timeout: Duration,
@@ -184,6 +202,11 @@ pub fn serve_with_timeout<S: IpcServer>(
             Err(None) => continue,
         };
 
+        // A client that sends its request and then never reads the reply
+        // would otherwise hold up every client after it.
+        if let Err(e) = connection.set_write_timeout(timeout) {
+            crate::log_warn!("IPC: could not limit how long a reply may take: {e}");
+        }
         let replied = write_message(&mut connection, &response).and_then(|()| connection.finish());
         if let Err(e) = replied {
             crate::log_warn!("IPC: could not reply: {e}");

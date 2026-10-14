@@ -331,6 +331,13 @@ enum ThreadedConnection {
         input: Cursor<Vec<u8>>,
         output: Arc<Mutex<Vec<u8>>>,
     },
+    /// A client that sends `input` and never reads the reply, so
+    /// `finish` waits for the write timeout set on it, or for an hour if
+    /// none is set.
+    NeverReads {
+        input: Cursor<Vec<u8>>,
+        write_timeout: Option<Duration>,
+    },
 }
 
 impl Read for ThreadedConnection {
@@ -344,7 +351,7 @@ impl Read for ThreadedConnection {
                 std::thread::sleep(Duration::from_secs(3600));
                 Ok(0)
             }
-            Self::Talking { input, .. } => input.read(buf),
+            Self::Talking { input, .. } | Self::NeverReads { input, .. } => input.read(buf),
         }
     }
 }
@@ -352,7 +359,7 @@ impl Read for ThreadedConnection {
 impl Write for ThreadedConnection {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         match self {
-            Self::Silent { .. } => Ok(buf.len()),
+            Self::Silent { .. } | Self::NeverReads { .. } => Ok(buf.len()),
             Self::Talking { output, .. } => output.lock().unwrap().write(buf),
         }
     }
@@ -364,12 +371,35 @@ impl Write for ThreadedConnection {
 
 impl IpcConnection for ThreadedConnection {
     fn finish(self) -> Result<(), IpcError> {
-        Ok(())
+        match self {
+            Self::NeverReads {
+                write_timeout: Some(t),
+                ..
+            } => {
+                std::thread::sleep(t);
+                Err(IpcError::Io(io::ErrorKind::TimedOut.into()))
+            }
+            Self::NeverReads {
+                write_timeout: None,
+                ..
+            } => {
+                std::thread::sleep(Duration::from_secs(3600));
+                Ok(())
+            }
+            _ => Ok(()),
+        }
     }
 
     fn set_read_timeout(&mut self, timeout: Duration) -> Result<(), IpcError> {
         if let Self::Silent { timeout: slot } = self {
             *slot = Some(timeout);
+        }
+        Ok(())
+    }
+
+    fn set_write_timeout(&mut self, timeout: Duration) -> Result<(), IpcError> {
+        if let Self::NeverReads { write_timeout, .. } = self {
+            *write_timeout = Some(timeout);
         }
         Ok(())
     }
@@ -427,6 +457,44 @@ fn a_client_that_never_sends_does_not_block_the_next_one() {
     let served = done_rx
         .recv_timeout(Duration::from_secs(2))
         .expect("the next client was never answered: serve is still waiting on the silent client");
+    assert!(matches!(served, Served::Stopped), "{served:?}");
+    let reply: Response = read_message(&mut BufReader::new(Cursor::new(
+        status_reply.lock().unwrap().clone(),
+    )))
+    .unwrap();
+    assert_eq!(reply, Response::ok_with_message("Status"));
+}
+
+#[test]
+fn a_client_that_never_reads_its_reply_does_not_block_the_next_one() {
+    // #85
+    // Arrange -- the first client sends its request and never reads the
+    // reply; the next one asks for the daemon's status.
+    let mut wire = Vec::new();
+    write_message(&mut wire, &Request::new(Command::Inspect)).unwrap();
+    let never_reads = ThreadedConnection::NeverReads {
+        input: Cursor::new(wire),
+        write_timeout: None,
+    };
+    let (status, status_reply) = talking(Command::Status);
+    let (stop, _) = talking(Command::Stop);
+    let mut server = ThreadedServer {
+        pending: VecDeque::from([never_reads, status, stop]),
+    };
+    let (done_tx, done_rx) = std::sync::mpsc::channel();
+
+    // Act
+    std::thread::spawn(move || {
+        let served = serve_with_timeout(&mut server, Duration::from_millis(50), |command| {
+            Some(Response::ok_with_message(format!("{command:?}")))
+        });
+        let _ = done_tx.send(served);
+    });
+
+    // Assert
+    let served = done_rx.recv_timeout(Duration::from_secs(2)).expect(
+        "the next client was never answered: serve is still waiting for the first one to read",
+    );
     assert!(matches!(served, Served::Stopped), "{served:?}");
     let reply: Response = read_message(&mut BufReader::new(Cursor::new(
         status_reply.lock().unwrap().clone(),

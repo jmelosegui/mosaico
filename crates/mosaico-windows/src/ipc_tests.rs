@@ -195,3 +195,47 @@ fn a_client_that_never_sends_does_not_block_the_next_one() {
     client.send(&Command::Stop).unwrap();
     server.join().unwrap();
 }
+
+#[test]
+fn a_client_that_never_reads_its_reply_does_not_block_the_next_one() {
+    // #85
+    // Arrange -- a server that gives each step 200 ms, and a client that
+    // sends a request and never reads the reply.
+    let name = test_pipe("unread");
+    let server_name = name.clone();
+    let server = thread::spawn(move || {
+        let mut server = PipeServer::new(&server_name);
+        serve_with_timeout(&mut server, Duration::from_millis(200), |command| {
+            Some(Response::ok_with_message(format!("{command:?}")))
+        })
+    });
+    let client = PipeClient::new(&name);
+    for _ in 0..100 {
+        if client.is_daemon_running() {
+            break;
+        }
+        thread::sleep(Duration::from_millis(10));
+    }
+    let mut unread = client.connect().expect("the first client connects");
+    write_message(&mut unread, &Request::new(Command::Inspect)).unwrap();
+
+    // Act -- the next client asks for the status while the first one
+    // still has not read its reply.
+    let (reply_tx, reply_rx) = mpsc::channel();
+    let next_name = name.clone();
+    thread::spawn(move || {
+        let _ = reply_tx.send(PipeClient::new(&next_name).send(&Command::Status));
+    });
+
+    // Assert
+    let reply = reply_rx
+        .recv_timeout(Duration::from_secs(3))
+        .expect("the next client was never answered while the first one did not read its reply")
+        .expect("the next client gets a reply");
+    assert_eq!(reply.message.as_deref(), Some("Status"));
+
+    // Cleanup
+    drop(unread);
+    client.send(&Command::Stop).unwrap();
+    server.join().unwrap();
+}

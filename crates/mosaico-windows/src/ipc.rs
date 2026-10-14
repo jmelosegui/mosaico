@@ -23,7 +23,7 @@ use windows::Win32::System::Pipes::{
 };
 use windows::core::HSTRING;
 
-use watchdog::Watchdog;
+use watchdog::with_deadline;
 
 #[path = "ipc_watchdog.rs"]
 mod watchdog;
@@ -198,7 +198,8 @@ impl IpcServer for PipeServer {
         }
         Ok(PipeConnection {
             file,
-            deadline: None,
+            read_deadline: None,
+            write_deadline: None,
         })
     }
 }
@@ -206,8 +207,10 @@ impl IpcServer for PipeServer {
 /// One client connection on the daemon side.
 pub struct PipeConnection {
     file: File,
-    /// When reads stop waiting for the client, if a timeout was set.
-    deadline: Option<Instant>,
+    /// When reads stop waiting for the client's request, if set.
+    read_deadline: Option<Instant>,
+    /// When writing the reply and waiting for it to be read stop, if set.
+    write_deadline: Option<Instant>,
 }
 
 impl Read for PipeConnection {
@@ -216,29 +219,18 @@ impl Read for PipeConnection {
     /// whole request, so a client sending a byte at a time cannot keep
     /// the connection alive past it.
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        let Some(deadline) = self.deadline else {
-            return self.file.read(buf);
-        };
-        let remaining = deadline.saturating_duration_since(Instant::now());
-        if remaining.is_zero() {
-            return Err(io::ErrorKind::TimedOut.into());
-        }
-        let watchdog = Watchdog::arm(remaining)?;
-        let result = self.file.read(buf);
-        let timed_out = watchdog.disarm();
-        match result {
-            Err(_) if timed_out => Err(io::Error::new(
-                io::ErrorKind::TimedOut,
-                "the client did not send its request in time",
-            )),
-            other => other,
-        }
+        let file = &mut self.file;
+        with_deadline(self.read_deadline, || file.read(buf))
     }
 }
 
 impl Write for PipeConnection {
+    /// Writes to the client. A reply larger than the pipe's buffer waits
+    /// for the client to read, so it fails with `TimedOut` once the
+    /// deadline set by `set_write_timeout` has passed.
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.file.write(buf)
+        let file = &mut self.file;
+        with_deadline(self.write_deadline, || file.write(buf))
     }
 
     fn flush(&mut self) -> io::Result<()> {
@@ -248,22 +240,36 @@ impl Write for PipeConnection {
 
 impl IpcConnection for PipeConnection {
     fn set_read_timeout(&mut self, timeout: Duration) -> Result<(), IpcError> {
-        self.deadline = Some(Instant::now() + timeout);
+        self.read_deadline = Some(Instant::now() + timeout);
+        Ok(())
+    }
+
+    fn set_write_timeout(&mut self, timeout: Duration) -> Result<(), IpcError> {
+        self.write_deadline = Some(Instant::now() + timeout);
         Ok(())
     }
 
     fn finish(mut self) -> Result<(), IpcError> {
         self.file.flush()?;
         let handle = HANDLE(self.file.as_raw_handle());
-        // SAFETY: FlushFileBuffers blocks until the client has read all
-        // data from the pipe. Without this, DisconnectNamedPipe would
-        // discard the unread reply and the client would get error 233.
-        unsafe {
-            let _ = FlushFileBuffers(handle);
-        }
+        // FlushFileBuffers waits until the client has read the whole
+        // reply. Without it, DisconnectNamedPipe would discard the unread
+        // reply and the client would get error 233. A client that never
+        // reads would keep it waiting, so it is bounded by the write
+        // deadline; past it the connection is dropped, reply and all.
+        let flushed = with_deadline(self.write_deadline, || {
+            // SAFETY: FlushFileBuffers only waits on this pipe handle,
+            // which stays open until the File is dropped.
+            unsafe { FlushFileBuffers(handle) }.map_err(io::Error::from)
+        });
         // SAFETY: DisconnectNamedPipe ends this instance's connection; the
         // handle itself is closed when the File is dropped.
-        unsafe { DisconnectNamedPipe(handle) }.map_err(|e| IpcError::Io(io::Error::from(e)))
+        let disconnected =
+            unsafe { DisconnectNamedPipe(handle) }.map_err(|e| IpcError::Io(io::Error::from(e)));
+        match flushed {
+            Err(e) if e.kind() == io::ErrorKind::TimedOut => Err(IpcError::Io(e)),
+            _ => disconnected,
+        }
     }
 }
 
