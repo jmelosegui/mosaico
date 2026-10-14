@@ -10,13 +10,32 @@
 use std::iter::repeat_n;
 use std::path::PathBuf;
 
-use mosaico_core::Result;
 use mosaico_core::system::LaunchCommand;
+use mosaico_core::{Error, Result};
 
 /// The command line that runs `command`: the program in quotes, then
 /// each argument.
+///
+/// Fails with [`Error::Unsupported`] for a command the value cannot hold
+/// so that it reads back the same: an empty program, a program path that
+/// is not valid Unicode or has a quote, which would end the quoted
+/// program early, or a NUL character, which would end the value.
 pub fn join(command: &LaunchCommand) -> Result<String> {
-    let mut line = format!("\"{}\"", command.program.display());
+    let program = command.program.to_str().ok_or(Error::Unsupported(
+        "an autostart program path that is not valid Unicode",
+    ))?;
+    if program.is_empty() {
+        return Err(Error::Unsupported("an empty autostart program path"));
+    }
+    if program.contains('"') {
+        return Err(Error::Unsupported("an autostart program path with a quote"));
+    }
+    if program.contains('\0') || command.args.iter().any(|arg| arg.contains('\0')) {
+        return Err(Error::Unsupported(
+            "an autostart command with a NUL character",
+        ));
+    }
+    let mut line = format!("\"{program}\"");
     for arg in &command.args {
         line.push(' ');
         push_arg(&mut line, arg);

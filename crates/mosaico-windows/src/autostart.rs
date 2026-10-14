@@ -29,7 +29,8 @@ impl Autostart for RegistryAutostart {
     }
 
     /// Writes the command line that runs `command` to the Mosaico value,
-    /// replacing what was there.
+    /// replacing what was there. A command the value cannot hold exactly
+    /// is refused before anything is written.
     fn enable(&self, command: &LaunchCommand) -> Result<()> {
         registry::write(&command_line::join(command)?)
     }

@@ -56,7 +56,10 @@ impl fmt::Display for LaunchCommand {
 /// - `enable` registers exactly the command it is given: at login the
 ///   platform runs its `program` with its `args`, in order, and nothing
 ///   else. Once it succeeds, `registered_command` returns an equal
-///   command.
+///   command. A command the platform cannot store so that it reads back
+///   the same is refused with
+///   [`Error::Unsupported`](crate::Error::Unsupported), and the
+///   registration is left as it was.
 /// - `registered_command` reports what runs at login as it was
 ///   registered, without resolving or checking the program. Nothing
 ///   follows the executable: after it moves or is deleted, the old path
@@ -65,6 +68,8 @@ impl fmt::Display for LaunchCommand {
 ///   registered. A registration that cannot be read, or that names no
 ///   program, is an error.
 /// - `disable` succeeds when nothing was registered.
+/// - A registration, removal or read that fails in the system is an
+///   [`Error::Platform`](crate::Error::Platform).
 /// - A platform without a way to start at login returns
 ///   [`Error::Unsupported`](crate::Error::Unsupported) from `enable`,
 ///   `None` from `registered_command`, and succeeds in `disable`.
