@@ -225,3 +225,20 @@ fn typed_data_round_trips() {
     assert_eq!(response.data::<DaemonStatus>(), Some(status));
     assert_eq!(Response::ok().data::<DaemonStatus>(), None);
 }
+
+#[test]
+fn a_command_that_could_not_be_carried_out_is_answered_failed() {
+    // Arrange
+    let error = crate::Error::platform("read the monitors", "no display");
+
+    // Act
+    let response = Response::failed(&error);
+
+    // Assert
+    assert_eq!(response.status, ResponseStatus::Error);
+    assert_eq!(response.code, Some(ErrorCode::Failed));
+    assert_eq!(
+        response.message.as_deref(),
+        Some("could not read the monitors: no display")
+    );
+}

@@ -38,14 +38,48 @@ fn reports_a_refusal_with_the_daemon_message() {
     let mut h = Harness::new("request-refused");
     h.world.daemon_up(1);
     h.world
-        .reply(Ok(Response::error(ErrorCode::Failed, "nothing to focus")));
+        .reply(Ok(Response::error(ErrorCode::Failed, "disk on fire")));
 
     // Act
     let exit = h.run(|cx| run(cx, &Command::Inspect));
 
     // Assert
     assert_eq!(exit, Exit::Failure);
-    assert_eq!(h.err(), "Error: nothing to focus\n");
+    assert_eq!(h.err(), "Error: disk on fire\n");
+}
+
+#[test]
+fn a_failed_reply_exits_1_with_its_reason() {
+    // Arrange -- the reply the daemon sends when an action fails.
+    let mut h = Harness::new("request-failed");
+    h.world.daemon_up(1);
+    let error = mosaico_core::Error::platform("read the monitors", "no display");
+    h.world.reply(Ok(Response::failed(&error)));
+
+    // Act
+    let exit = h.run(|cx| crate::commands::action::execute(cx, Action::Retile));
+
+    // Assert
+    assert_eq!(exit, Exit::Failure);
+    assert_eq!(h.err(), "Error: could not read the monitors: no display\n");
+}
+
+#[test]
+fn an_ok_reply_prints_nothing() {
+    // Arrange -- the reply to an action, including one with nothing to
+    // act on.
+    let mut h = Harness::new("request-no-op");
+    h.world.daemon_up(1);
+    h.world.reply(Ok(Response::ok()));
+
+    // Act
+    let action = Action::Focus(Direction::Left);
+    let exit = h.run(|cx| crate::commands::action::execute(cx, action));
+
+    // Assert
+    assert_eq!(exit, Exit::Success);
+    assert_eq!(h.out(), "");
+    assert_eq!(h.err(), "");
 }
 
 #[test]

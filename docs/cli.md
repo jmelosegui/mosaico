@@ -195,6 +195,12 @@ mosaico action goto-workspace 3
 mosaico action send-to-workspace 5
 ```
 
+It exits with status 0 when the daemon carried the action out, and also when
+there was nothing to act on (focusing left at the left edge, closing with
+nothing focused), so scripts can send actions without checking the desktop
+first. It exits with status 1 and prints why when the daemon could not carry
+the action out, such as a `retile` that could not read the monitors.
+
 ### `mosaico update [--force]`
 
 Checks GitHub for a newer release. If one is available, stops the running daemon

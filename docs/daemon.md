@@ -153,11 +153,15 @@ its decisions are unit tested with a fake one.
 
 Tasks are dispatched like this:
 
-- `DaemonMsg::Action(action)` -- forwarded to `TilingManager::handle_action()`,
-  then bar is updated
+- `DaemonMsg::Action(action)` -- carried out by `carry_out()` in
+  `daemon_loop_commands.rs`: `toggle-pause` pauses or resumes the hotkeys,
+  `retile` re-reads the work areas before retiling, and every other action
+  goes to `TilingManager::handle_action()`. Then the bar is updated, and a
+  failure is logged
 - `DaemonMsg::Command(cmd, reply)` -- handles `Stop` (breaks loop),
-  `Status` (replies with window count), `Action` (forwards to tiling manager
-  and updates bar), `Inspect` (replies with the state as text and as a
+  `Status` (replies with window count), `Action` (carried out the same way,
+  `toggle-pause` included; replies `failed` with the reason when the action
+  failed, `ok` otherwise), `Inspect` (replies with the state as text and as a
   `DesktopSnapshot`, see [ipc.md](ipc.md))
 - `DaemonMsg::Reload(ConfigReload::Config(cfg))` -- resolves the new theme,
   calls `TilingManager::reload_config()`, re-resolves bar colors, updates bar

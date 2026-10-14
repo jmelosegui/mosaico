@@ -22,7 +22,9 @@ pub(super) fn handle_event(
             mosaico_core::log_info!("Work area changed (taskbar shown/hidden)");
             let bar_height = bar_mgr.bar_height();
             let indices = bar_mgr.bar_monitor_indices().to_vec();
-            manager.reset_and_adjust_work_areas(bar_height, &indices);
+            if let Err(e) = manager.reset_and_adjust_work_areas(bar_height, &indices) {
+                mosaico_core::log_warn!("Work area changed, but {e}");
+            }
             true
         }
         mosaico_core::WindowEvent::DisplayChanged => match WindowsEnumerator.monitors() {
@@ -78,7 +80,9 @@ pub(super) fn handle_reload(
             let new_height = bar_mgr.reload(*bar_cfg);
             bar_mgr.resolve_colors(*current_theme);
             let indices = bar_mgr.bar_monitor_indices().to_vec();
-            manager.reset_and_adjust_work_areas(new_height, &indices);
+            if let Err(e) = manager.reset_and_adjust_work_areas(new_height, &indices) {
+                mosaico_core::log_warn!("Bar reloaded, but {e}");
+            }
             bar_mgr.update(&manager.bar_states(&get_update(), hotkeys_paused));
         }
     }

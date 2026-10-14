@@ -161,12 +161,24 @@ impl TilingManager {
     }
 
     /// Re-reads the OS work areas, then re-reserves the bar and retiles.
-    pub fn reset_and_adjust_work_areas(&mut self, bar_height: i32, bar_monitors: &[usize]) {
-        let monitors = WindowsEnumerator.monitors().unwrap_or_default();
+    ///
+    /// When the monitors cannot be read, it still re-reserves the bar and
+    /// retiles with the work areas it last saw, and returns why.
+    pub fn reset_and_adjust_work_areas(
+        &mut self,
+        bar_height: i32,
+        bar_monitors: &[usize],
+    ) -> Result<()> {
+        // No monitors leaves every work area as it was.
+        let (monitors, read) = match WindowsEnumerator.monitors() {
+            Ok(monitors) => (monitors, Ok(())),
+            Err(e) => (Vec::new(), Err(e)),
+        };
         self.step(Input::WorkAreas {
             monitors,
             bar: bar(bar_height, bar_monitors),
         });
+        read
     }
 
     /// Returns the total number of managed windows.

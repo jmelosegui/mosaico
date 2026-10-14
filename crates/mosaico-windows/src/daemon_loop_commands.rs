@@ -8,6 +8,8 @@ use crate::tiling::TilingManager;
 
 use super::daemon_inputs::Inputs;
 
+/// Carries out an action from a hotkey. Nobody waits for an answer, and
+/// [`carry_out`] has already logged a failure.
 pub(super) fn handle_action(
     action: mosaico_core::Action,
     manager: &mut TilingManager,
@@ -16,37 +18,67 @@ pub(super) fn handle_action(
     hotkeys_paused: &mut bool,
     get_update: &dyn Fn() -> String,
 ) {
-    if action == mosaico_core::Action::TogglePause {
-        if *hotkeys_paused {
-            inputs.unpause_hotkeys();
-            *hotkeys_paused = false;
-            mosaico_core::log_info!("Hotkeys unpaused");
-        } else {
-            inputs.pause_hotkeys();
-            *hotkeys_paused = true;
-            mosaico_core::log_info!("Hotkeys paused");
-        }
-        bar_mgr.update(&manager.bar_states(&get_update(), *hotkeys_paused));
-        return;
+    let _ = carry_out(action, manager, bar_mgr, inputs, hotkeys_paused, get_update);
+}
+
+/// Carries out an action from a hotkey or the CLI, then refreshes the bar.
+///
+/// Fails only when something the action needed reported an error, which
+/// is logged here, whoever sent the action. An action with nothing to act
+/// on, such as focusing left at the left edge, does nothing and succeeds.
+fn carry_out(
+    action: mosaico_core::Action,
+    manager: &mut TilingManager,
+    bar_mgr: &mut BarManager,
+    inputs: &Inputs,
+    hotkeys_paused: &mut bool,
+    get_update: &dyn Fn() -> String,
+) -> mosaico_core::Result<()> {
+    let done = if action == mosaico_core::Action::TogglePause {
+        toggle_pause(inputs, hotkeys_paused);
+        Ok(())
+    } else {
+        run_action(&action, manager, bar_mgr)
+    };
+    if let Err(e) = &done {
+        mosaico_core::log_warn!("{action}: {e}");
     }
-    run_action(&action, manager, bar_mgr);
     bar_mgr.update(&manager.bar_states(&get_update(), *hotkeys_paused));
+    done
+}
+
+fn toggle_pause(inputs: &Inputs, hotkeys_paused: &mut bool) {
+    if *hotkeys_paused {
+        inputs.unpause_hotkeys();
+        *hotkeys_paused = false;
+        mosaico_core::log_info!("Hotkeys unpaused");
+    } else {
+        inputs.pause_hotkeys();
+        *hotkeys_paused = true;
+        mosaico_core::log_info!("Hotkeys paused");
+    }
 }
 
 /// Runs an action on the tiling manager.
 ///
 /// Retile re-reads the OS work areas and re-reserves the bar before
 /// laying windows out again, so it repairs a tiling area that went stale
-/// (e.g. after a monitor reconnect) instead of re-applying it.
-fn run_action(action: &mosaico_core::Action, manager: &mut TilingManager, bar_mgr: &BarManager) {
+/// (e.g. after a monitor reconnect) instead of re-applying it. When the
+/// monitors cannot be read it still retiles, and reports why.
+fn run_action(
+    action: &mosaico_core::Action,
+    manager: &mut TilingManager,
+    bar_mgr: &BarManager,
+) -> mosaico_core::Result<()> {
     if *action == mosaico_core::Action::Retile {
         mosaico_core::log_info!("Retile: re-reading work areas");
         let indices = bar_mgr.bar_monitor_indices().to_vec();
-        manager.reset_and_adjust_work_areas(bar_mgr.bar_height(), &indices);
+        let reread = manager.reset_and_adjust_work_areas(bar_mgr.bar_height(), &indices);
         manager.refresh_visible_windows();
-        return;
+        return reread;
     }
     manager.handle_action(action);
+    Ok(())
 }
 
 pub(super) fn handle_command(
@@ -73,9 +105,18 @@ pub(super) fn handle_command(
             Some(Response::ok_with_message(msg).with_data(&status))
         }
         Command::Action { action } => {
-            run_action(action, manager, bar_mgr);
-            bar_mgr.update(&manager.bar_states(&get_update(), *hotkeys_paused));
-            Some(Response::ok())
+            let done = carry_out(
+                *action,
+                manager,
+                bar_mgr,
+                inputs,
+                hotkeys_paused,
+                get_update,
+            );
+            Some(match done {
+                Ok(()) => Response::ok(),
+                Err(e) => Response::failed(&e),
+            })
         }
         Command::Inspect => {
             // The text for people, the same state as data for programs.

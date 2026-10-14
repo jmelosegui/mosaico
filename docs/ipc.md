@@ -93,6 +93,14 @@ other.
 
 `code` and `data` are optional, so replies from older daemons still parse.
 
+A command the daemon understood but could not carry out is answered
+`failed`, built with `Response::failed()` from the error, so `message` says
+what went wrong. Today that is a `retile` whose monitors could not be read. A
+command with nothing to act on, such as focusing left at the left edge, is not
+a failure: it does nothing and answers `ok`. Window moves and focus changes go
+through the applier, which may hold them back past the reply, so their
+failures are logged rather than reported.
+
 ## Transport Contract
 
 `IpcClient` (CLI side):
