@@ -21,7 +21,9 @@ Unfocused borders can be turned off entirely (see
 | `crates/mosaico-core/src/config/color.rs` | `Color` struct and its hex parser |
 | `crates/mosaico-core/src/config/mod.rs` | `BorderConfig` for color and width settings |
 | `crates/mosaico-windows/src/decorations.rs` | `Win32Decorations`, the Win32 implementation |
-| `crates/mosaico-windows/src/border.rs` | `Border` struct, rendering logic |
+| `crates/mosaico-windows/src/border.rs` | `Border` struct: creating, placing and hiding the overlay |
+| `crates/mosaico-windows/src/border/render.rs` | Painting the border bitmap |
+| `crates/mosaico-windows/src/border/class.rs` | The `MosaicoBorder` window class and its window procedure |
 
 ### Key Types
 
