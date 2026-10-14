@@ -113,12 +113,15 @@ fn the_work_areas_stay_when_the_monitors_cannot_be_read_again() {
     let before = manager.tiler().monitors()[0].work_area();
     platform.fail_monitors();
 
-    // Act
-    let read = manager.reset_and_adjust_work_areas(0, &[]);
+    // Act -- with a bar 30 high.
+    let read = manager.reset_and_adjust_work_areas(30, &[]);
 
-    // Assert -- the windows are laid out on the areas last read.
+    // Assert -- the bar is reserved again on the area last read, and the
+    // windows are laid out below it.
     assert!(read.is_err());
-    assert_eq!(manager.tiler().monitors()[0].work_area(), before);
+    let below_bar = Rect::new(before.x, before.y + 30, before.width, before.height - 30);
+    assert_eq!(manager.tiler().monitors()[0].work_area(), below_bar);
+    assert!(platform.window(1).rect.y >= below_bar.y);
 }
 
 #[test]
