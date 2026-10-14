@@ -14,6 +14,8 @@ pub mod error;
 pub mod event;
 /// The ways a platform can hide windows, and what each one reports.
 pub mod hiding;
+/// Keys and key combinations for hotkeys.
+pub mod hotkey;
 /// Opaque window and monitor ids.
 pub mod id;
 /// Which daemon instance a process belongs to.
