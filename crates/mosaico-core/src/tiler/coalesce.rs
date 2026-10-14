@@ -18,7 +18,7 @@ pub struct Coalescer {
     /// Coalesced placements, latest per window, in arrival order.
     places: Vec<(WindowId, Rect)>,
     /// Effects that must wait for a held placement of their window:
-    /// its border, and the cursor moving onto it.
+    /// its border, the latest one only, and the cursor moving onto it.
     after: Vec<Effect>,
     /// The latest focus change.
     focus: Option<Effect>,
@@ -67,12 +67,30 @@ impl Coalescer {
             }
             _ => match waits_for(&effect) {
                 Some(window) if self.places.iter().any(|&(w, _)| w == window) => {
-                    self.after.push(effect);
+                    self.hold_until_placed(effect);
                     None
                 }
                 _ => Some(effect),
             },
         }
+    }
+
+    /// Holds an effect until its window's placement is applied.
+    ///
+    /// A border takes the place of the one already held for its window:
+    /// the window lands at its latest slot only, so an earlier border
+    /// would be drawn around a slot it never reaches.
+    fn hold_until_placed(&mut self, effect: Effect) {
+        if let Effect::Border { window, .. } = effect
+            && let Some(held) = self
+                .after
+                .iter_mut()
+                .find(|e| matches!(e, Effect::Border { window: w, .. } if *w == window))
+        {
+            *held = effect;
+            return;
+        }
+        self.after.push(effect);
     }
 
     /// Drops the held placement of `window` and everything waiting for
@@ -137,3 +155,7 @@ mod forget_tests;
 #[cfg(test)]
 #[path = "tests/coalesce_hold_tests.rs"]
 mod hold_tests;
+
+#[cfg(test)]
+#[path = "tests/coalesce_border_tests.rs"]
+mod border_tests;
