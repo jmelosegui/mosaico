@@ -48,6 +48,7 @@ pub trait Decorations {
     fn show_border(&mut self, window: WindowId, style: &BorderStyle) -> Result<()>;
     fn hide_border(&mut self, window: WindowId) -> Result<()>;
     fn drop_border(&mut self, window: WindowId) -> Result<()>;
+    fn forget_drawn(&mut self);
     fn set_corners(&mut self, window: WindowId, corners: CornerStyle) -> Result<()>;
     fn reset_corners(&mut self, window: WindowId) -> Result<()>;
 }
@@ -63,14 +64,17 @@ The contract, in the trait's docs, spells out what the tiler relies on:
 - Hiding or dropping the border of a window that has none does nothing.
 - Drawing a border fails only when the border cannot be created. A window
   that closed in the meantime is not an error.
+- A platform may keep what it drew of a border, and only move it when
+  the border is drawn again the same way. After `forget_drawn`, the next
+  drawing of each border starts from scratch.
 - A platform that cannot draw borders, or cannot change the corners of
   windows, returns `Error::Unsupported`.
 
 `tiler::apply_decoration_effect` carries out the `Border`, `DropBorder`,
-`Decorate` and `Undecorate` effects through it. A border that cannot be
-created is logged as a warning, unless the platform has no borders at all;
-other failures, such as a window that closed in the meantime, are logged
-for debugging.
+`RedrawBorders`, `Decorate` and `Undecorate` effects through it. A border
+that cannot be created is logged as a warning, unless the platform has no
+borders at all; other failures, such as a window that closed in the
+meantime, are logged for debugging.
 
 ## Border Window
 
@@ -123,6 +127,8 @@ in the z-order or to another slot, and a hidden one is shown again by
 that. A layered window keeps the bitmap `UpdateLayeredWindow` gave it when
 it is moved or hidden. Rendering takes tens of milliseconds for a large
 tile, about 30 ms for half a 4K screen in a release build.
+`forget_drawn` starts a new `LastDrawn` for every overlay, so each one
+renders its bitmap the next time it is drawn.
 
 ## Color
 
@@ -171,6 +177,14 @@ once, in the place of its first border after the last `Place` or
 border lands right after its own window, never before the
 placement it was decided for, and a hide or drop wins over an earlier
 draw.
+
+Laying out every window again draws every border from scratch. A retile,
+a display change, a change of the work areas or the bar, and a config
+reload start with `RedrawBorders`, which has the platform forget how it
+drew each border: what it kept may be lost by then, as when the display
+changes, and a retile is how the user sets a stale desktop right. Other
+steps, such as a focus change, draw from scratch only the borders that
+look different.
 
 While a burst of moves is held until input goes quiet, each window's
 border is held with its move: only the latest style, drawn around the slot
@@ -277,6 +291,11 @@ checks that a focus change or a border refresh before a held move lands
 still draws each border around its window's new slot, in the right color.
 
 `tiler/tests/last_drawn_tests.rs` checks when a border needs drawing
-again. In `mosaico-windows`, `border/show_tests.rs` checks that restacking
-a hidden border, as drawing it again the same way does, shows it again,
-with overlays of its own off screen.
+again. `tiler/tests/border_redraw_tests.rs` runs the tiling manager on a
+platform that keeps what it drew, and checks that a retile, reading the
+work areas again and a display change draw every border from scratch,
+while a focus change draws only the borders that change. In
+`mosaico-windows`, `border/show_tests.rs` checks that restacking a hidden
+border, as drawing it again the same way does, shows it again, with
+overlays of its own off screen, and `decorations_tests.rs` that
+forgetting how the borders were drawn renders every one again.

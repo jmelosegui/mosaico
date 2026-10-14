@@ -230,7 +230,9 @@ process, which can be left at a stale offset after the window moves across
 displays with different DPI, such as the emulated display a KVM leaves
 behind. Input still lands in the right place but the picture is drawn
 shifted, and Chromium only resizes that child afterwards, never moves it,
-so the child is moved back to the client origin.
+so the child is moved back to the client origin. The retile also draws
+every border from scratch, rather than moving the bitmap it kept, as
+[Window Border Overlays](focus-border.md) describes.
 
 Display changes are applied once the configuration settles. The daemon
 loop does not rebuild on each `DisplayChanged` event: its scheduler

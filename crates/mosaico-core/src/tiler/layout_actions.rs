@@ -35,7 +35,15 @@ impl Tiler {
         self.apply_layout_on(plan, mon_idx);
     }
 
+    /// Lays out every monitor again, and has every border drawn from
+    /// scratch rather than only moved.
+    ///
+    /// A retile is how the user sets a stale desktop right, and a display
+    /// change ends in one, which is when what a platform kept of a border
+    /// may be lost. Changes to the work areas, the bar or the config
+    /// retile too, and are rare enough to draw every border again.
     pub(super) fn retile_all(&mut self, plan: &mut Plan) {
+        plan.emit(Effect::RedrawBorders);
         for i in 0..self.monitors.len() {
             self.apply_layout_on(plan, i);
         }

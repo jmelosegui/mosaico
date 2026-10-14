@@ -143,3 +143,27 @@ fn a_border_drawn_after_it_was_dropped_is_kept() {
     // Assert
     assert_eq!(kept, [drop_border(1), draw(1, 0)]);
 }
+
+#[test]
+fn a_border_decided_after_a_redraw_is_drawn_after_it() {
+    // Arrange -- so it is drawn from scratch.
+    let effects = vec![draw(1, 0), Effect::RedrawBorders, draw(1, 0)];
+
+    // Act
+    let kept = keep_last_borders(effects);
+
+    // Assert
+    assert_eq!(kept, [Effect::RedrawBorders, draw(1, 0)]);
+}
+
+#[test]
+fn a_redraw_leaves_a_border_decided_before_it_where_it_was() {
+    // Arrange
+    let effects = vec![place(1, 0), draw(1, 0), Effect::RedrawBorders];
+
+    // Act
+    let kept = keep_last_borders(effects);
+
+    // Assert
+    assert_eq!(kept, [place(1, 0), draw(1, 0), Effect::RedrawBorders]);
+}

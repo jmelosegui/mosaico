@@ -10,7 +10,9 @@ use super::BorderStyle;
 /// skipped, and only putting the border back behind its window, at its
 /// rect, is left to do. That holds only while the border still shows
 /// what was drawn: a platform whose border may have lost it starts a new
-/// `LastDrawn` for it.
+/// `LastDrawn` for it, as it does for every border when the tiler has
+/// them all drawn from scratch, see
+/// [`Decorations::forget_drawn`](crate::Decorations::forget_drawn).
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct LastDrawn(Option<BorderStyle>);
 

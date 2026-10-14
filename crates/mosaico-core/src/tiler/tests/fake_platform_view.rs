@@ -62,4 +62,12 @@ impl FakePlatform {
     pub(crate) fn take_calls(&self) -> Vec<Call> {
         std::mem::take(&mut *self.shared.calls.borrow_mut())
     }
+
+    /// The windows whose border was drawn from scratch since the last
+    /// call, in order, forgetting them. A border drawn again the same
+    /// way, or only moved, keeps what was drawn.
+    pub(crate) fn take_renders(&self) -> Vec<u64> {
+        let renders = std::mem::take(&mut *self.shared.renders.borrow_mut());
+        renders.into_iter().map(|w| w.raw()).collect()
+    }
 }

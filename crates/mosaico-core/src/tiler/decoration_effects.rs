@@ -13,7 +13,8 @@ use super::Effect;
 use super::window_effects::report;
 
 /// Carries out `effect` through `decorations` if it draws, hides or
-/// drops a border, or changes the corners of a window.
+/// drops a border, has every border drawn from scratch, or changes the
+/// corners of a window.
 ///
 /// Failures are logged rather than returned, as in
 /// [`apply_window_effect`](super::apply_window_effect). A border that
@@ -41,6 +42,7 @@ pub fn apply_decoration_effect(effect: &Effect, decorations: &mut dyn Decoration
             window,
             decorations.drop_border(window),
         ),
+        Effect::RedrawBorders => decorations.forget_drawn(),
         Effect::Decorate { window, corners } => {
             report("decorate", window, decorations.set_corners(window, corners))
         }

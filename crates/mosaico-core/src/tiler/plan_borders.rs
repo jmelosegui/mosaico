@@ -20,7 +20,8 @@ use super::Effect;
 /// - It goes right where the step first drew the border after placing
 ///   the window, so each border still lands with its own window, not
 ///   after every window the step moves. A border is never drawn before
-///   the placement it was decided for.
+///   the placement it was decided for, nor before an
+///   [`Effect::RedrawBorders`] that came before its last decision.
 /// - A window whose border a [`Effect::DropBorder`] follows has none:
 ///   the overlay is destroyed after it.
 pub(super) fn keep_last_borders(effects: Vec<Effect>) -> Vec<Effect> {
@@ -65,9 +66,10 @@ fn targets(effects: &[Effect]) -> HashMap<WindowId, (usize, usize)> {
         }
         let start = effects[..from]
             .iter()
-            .rposition(|e| {
-                matches!(*e, Effect::Place { window: w, .. } | Effect::DropBorder { window: w }
-                    if w == window)
+            .rposition(|e| match *e {
+                Effect::Place { window: w, .. } | Effect::DropBorder { window: w } => w == window,
+                Effect::RedrawBorders => true,
+                _ => false,
             })
             .map_or(0, |anchor| anchor + 1);
         let at = effects[start..]

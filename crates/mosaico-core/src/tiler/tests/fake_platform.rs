@@ -3,12 +3,14 @@
 //! [`FakePlatform`] answers the manager's questions from a
 //! [`FakeDesktop`] and makes the changes it asks for on it, the way a
 //! platform changes real windows: placing a window moves it, hiding it
-//! cloaks, hides or minimizes it, and a border shows up as an overlay.
-//! It records every change it is asked to make. Clones share the
+//! cloaks, hides or minimizes it, and a border shows up as an overlay,
+//! drawn from scratch only when it would look different. It records
+//! every change it is asked to make. Clones share the
 //! desktop, so a test keeps one to look at the desktop, or to start
 //! another manager on it the way the next daemon would.
 
 use std::cell::{Cell, RefCell};
+use std::collections::HashMap;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
@@ -16,7 +18,7 @@ use crate::config::{CornerStyle, HidingBehaviour};
 use crate::id::wid;
 use crate::{Error, HidingSupport, Rect, Result, WindowId};
 
-use super::super::{BorderStyle, Display, Effect};
+use super::super::{BorderStyle, Display, Effect, LastDrawn};
 use super::{FakeDesktop, FakeWindow, displays};
 
 #[path = "fake_platform_control.rs"]
@@ -58,6 +60,10 @@ struct Shared {
     monitors_fail: Cell<bool>,
     /// Whether a move that does not wait lands at once.
     pre_places_land: Cell<bool>,
+    /// How each border was last drawn.
+    drawn: RefCell<HashMap<WindowId, LastDrawn>>,
+    /// The windows whose border was drawn from scratch, in order.
+    renders: RefCell<Vec<WindowId>>,
 }
 
 /// A platform on a fake desktop that records what it is asked to do.
@@ -84,6 +90,8 @@ impl FakePlatform {
                 hiding: Cell::new(HidingSupport::default()),
                 monitors_fail: Cell::new(false),
                 pre_places_land: Cell::new(false),
+                drawn: RefCell::new(HashMap::new()),
+                renders: RefCell::new(Vec::new()),
             }),
         }
     }

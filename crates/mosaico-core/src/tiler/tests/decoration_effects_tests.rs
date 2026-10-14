@@ -14,6 +14,7 @@ enum Call {
     ShowBorder(WindowId, BorderStyle),
     HideBorder(WindowId),
     DropBorder(WindowId),
+    ForgetDrawn,
     SetCorners(WindowId, CornerStyle),
     ResetCorners(WindowId),
 }
@@ -42,6 +43,10 @@ impl Decorations for Painter {
 
     fn drop_border(&mut self, window: WindowId) -> crate::Result<()> {
         self.record(Call::DropBorder(window))
+    }
+
+    fn forget_drawn(&mut self) {
+        self.calls.push(Call::ForgetDrawn);
     }
 
     fn set_corners(&mut self, window: WindowId, corners: CornerStyle) -> crate::Result<()> {
@@ -112,6 +117,33 @@ fn a_border_is_drawn_hidden_and_dropped_through_the_platform() {
             Call::ShowBorder(window, style()),
             Call::HideBorder(window),
             Call::DropBorder(window),
+        ]
+    );
+}
+
+#[test]
+fn redrawing_every_border_has_the_platform_forget_how_it_drew_them() {
+    // Arrange
+    let mut decorations = Painter::default();
+    let window = wid(1);
+    let border = Effect::Border {
+        window,
+        style: Some(style()),
+    };
+
+    // Act
+    let calls = apply(
+        &[border.clone(), Effect::RedrawBorders, border],
+        &mut decorations,
+    );
+
+    // Assert -- so the border drawn after it is drawn from scratch.
+    assert_eq!(
+        calls,
+        [
+            Call::ShowBorder(window, style()),
+            Call::ForgetDrawn,
+            Call::ShowBorder(window, style()),
         ]
     );
 }

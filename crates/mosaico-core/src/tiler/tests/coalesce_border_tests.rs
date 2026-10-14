@@ -108,3 +108,19 @@ fn each_window_keeps_its_own_held_border_and_cursor_move() {
         ]
     );
 }
+
+#[test]
+fn a_redraw_of_every_border_is_not_held_behind_a_move() {
+    // Arrange
+    let t0 = Instant::now();
+    let mut c = Coalescer::default();
+    c.admit(move_to(1, 0), t0);
+    c.admit(border_at(1, 0), t0);
+
+    // Act
+    let admitted = c.admit(Effect::RedrawBorders, t0);
+
+    // Assert -- so the border held behind the move is drawn after it.
+    assert_eq!(admitted, Some(Effect::RedrawBorders));
+    assert_eq!(c.take(), [placed(1, 0), border_at(1, 0)]);
+}

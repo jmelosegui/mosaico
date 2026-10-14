@@ -50,7 +50,8 @@ pub fn apply_window_effect(effect: &Effect, desktop: &dyn Desktop, windows: &dyn
         Effect::Decorate { .. }
         | Effect::Undecorate { .. }
         | Effect::Border { .. }
-        | Effect::DropBorder { .. } => {}
+        | Effect::DropBorder { .. }
+        | Effect::RedrawBorders => {}
     }
 }
 

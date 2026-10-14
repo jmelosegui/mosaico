@@ -25,7 +25,8 @@ use crate::window::Window;
 /// in a [`LastDrawn`]. A border drawn again the same way, or only moved,
 /// is put back behind its window at its rect, keeping its bitmap: a
 /// layered window keeps the bitmap `UpdateLayeredWindow` gave it when
-/// it is moved or hidden.
+/// it is moved or hidden. When the tiler asks for every border to be
+/// drawn from scratch, each overlay renders its bitmap the next time.
 #[derive(Default)]
 pub(crate) struct Win32Decorations {
     /// One overlay per bordered window.
@@ -82,6 +83,14 @@ impl Decorations for Win32Decorations {
         Ok(())
     }
 
+    /// Each overlay keeps its bitmap on screen, and renders it again the
+    /// next time its border is drawn.
+    fn forget_drawn(&mut self) {
+        for overlay in self.borders.values_mut() {
+            overlay.drawn = LastDrawn::default();
+        }
+    }
+
     fn set_corners(&mut self, window: WindowId, corners: CornerStyle) -> Result<()> {
         frame::set_corner_preference(Window::from_id(window).hwnd(), corners)
     }
@@ -90,3 +99,7 @@ impl Decorations for Win32Decorations {
         frame::reset_corner_preference(Window::from_id(window).hwnd())
     }
 }
+
+#[cfg(test)]
+#[path = "decorations_tests.rs"]
+mod tests;

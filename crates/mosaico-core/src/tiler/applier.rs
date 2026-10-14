@@ -136,7 +136,8 @@ impl Applier {
             Effect::Decorate { .. }
             | Effect::Undecorate { .. }
             | Effect::Border { .. }
-            | Effect::DropBorder { .. } => apply_decoration_effect(effect, platform.decorations()),
+            | Effect::DropBorder { .. }
+            | Effect::RedrawBorders => apply_decoration_effect(effect, platform.decorations()),
         }
         self.expectations.applied(effect, now);
         if self
