@@ -355,6 +355,25 @@ workspace**, not the OS-determined monitor. When moving a window to an
 adjacent monitor, `insert(0, window)` is used when entering from the right
 (leftmost BSP slot) and `add(window)` when entering from the left.
 
+#### Where a new window first appears
+
+Most applications create a window hidden and show it afterwards. Such a
+window is moved into its slot before it is shown, so its first frame is
+already in place.
+
+A window that an application creates already visible (`WS_VISIBLE`) is on
+screen before Windows reports it, and mosaico can move it only once the
+application has finished creating it. It may appear briefly where Windows
+placed it: usually for a few milliseconds, and longer if it is activated as
+it opens.
+
+Hiding it across the move does not help. Explorer can cloak a window only
+once it has registered it, and it registers a new window a few milliseconds
+after it is shown, no earlier than the move lands. The other ways to hide
+another process's window wait for that application too, and only a hook
+injected into every process could act before the first frame. The
+measurements are in #28.
+
 ### Workspace Switching
 
 `goto_workspace(n)` and `send_to_workspace(n)` (in

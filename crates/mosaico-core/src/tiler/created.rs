@@ -32,8 +32,9 @@ impl Tiler {
         }
         // Already visible when created, so there is no moment to place
         // it before it shows; adopt it straight away. Hiding it across
-        // the move was measured at roughly 160ms invisible, a worse
-        // artifact than the brief glimpse it removes. See #28.
+        // the move does not help: the system can hide a window only
+        // once it has registered it, which happens after the window is
+        // already on screen and no earlier than the move lands. See #28.
         if !self.is_tileable(plan, window) {
             return;
         }
