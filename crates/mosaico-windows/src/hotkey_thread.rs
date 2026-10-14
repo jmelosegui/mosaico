@@ -1,9 +1,9 @@
-//! The thread that owns the global hotkeys.
+//! The hotkey source: a thread that owns the global hotkeys.
 
 use std::sync::mpsc::Sender;
 
 use mosaico_core::config::Keybinding;
-use mosaico_core::hotkey::{Hotkeys, Rejected};
+use mosaico_core::hotkey::{HotkeyControl, HotkeySource, HotkeyWatch, Hotkeys, Rejected};
 use mosaico_core::{Action, Result};
 use windows::Win32::UI::WindowsAndMessaging::{
     DispatchMessageW, GetMessageW, MSG, PM_REMOVE, PeekMessageW, TranslateMessage, WM_APP,
@@ -17,42 +17,43 @@ use crate::message_thread::MessageThread;
 /// wParam: 0 = unpause, 1 = pause.
 const WM_HOTKEY_PAUSE: u32 = WM_APP + 2;
 
-/// The global hotkeys, on a thread of their own.
+/// The global hotkeys of Windows, each start on a thread of its own.
 ///
 /// `RegisterHotKey` without a window posts `WM_HOTKEY` to the thread
 /// that registered the key, so the hotkeys are registered, dispatched,
-/// paused and unregistered on this thread, and the daemon reaches it
-/// with thread messages. Nothing else is queued there, so a flood of
-/// window events cannot hold a shortcut back.
-pub(crate) struct HotkeyThread(MessageThread);
+/// paused and unregistered on that thread, and the watch reaches it with
+/// thread messages. Nothing else is queued there, so a flood of window
+/// events cannot hold a shortcut back.
+pub(crate) struct WindowsHotkeySource;
 
-impl HotkeyThread {
-    /// Registers `keybindings` on a new thread, which sends the action of
-    /// each hotkey pressed to `actions`. A binding that cannot be
-    /// registered is logged and skipped.
-    pub(crate) fn start(actions: Sender<Action>, keybindings: Vec<Keybinding>) -> Result<Self> {
+impl HotkeySource for WindowsHotkeySource {
+    fn start(&self, bindings: Vec<Keybinding>, actions: Sender<Action>) -> Result<HotkeyWatch> {
         let (thread, ()) = MessageThread::spawn("hotkeys", move |ready| {
-            let (mut hotkeys, rejected) = Hotkeys::register(Win32Hotkeys::new(), &keybindings);
+            let (mut hotkeys, rejected) = Hotkeys::register(Win32Hotkeys::new(), &bindings);
             log_rejected(NOT_WORKING, &rejected);
             ready.report(Ok(()));
             run_message_pump(&mut hotkeys, &actions);
             // Dropping the hotkeys unregisters every one still registered.
         })?;
-        Ok(Self(thread))
+        Ok(HotkeyWatch::new(HotkeyThread(thread)))
+    }
+}
+
+/// The thread a [`WindowsHotkeySource`] started.
+struct HotkeyThread(MessageThread);
+
+impl HotkeyControl for HotkeyThread {
+    fn pause(&self) -> Result<()> {
+        self.0.post(WM_HOTKEY_PAUSE, 1)
     }
 
-    /// Unregisters every hotkey except toggle-pause.
-    pub(crate) fn pause(&self) {
-        let _ = self.0.post(WM_HOTKEY_PAUSE, 1);
+    fn unpause(&self) -> Result<()> {
+        self.0.post(WM_HOTKEY_PAUSE, 0)
     }
 
-    /// Registers the hotkeys that `pause` unregistered.
-    pub(crate) fn unpause(&self) {
-        let _ = self.0.post(WM_HOTKEY_PAUSE, 0);
-    }
-
-    /// Unregisters the hotkeys and waits for the thread to end.
-    pub(crate) fn stop(self) {
+    /// Posts `WM_QUIT` after the requests already queued, and waits until
+    /// the thread has unregistered the hotkeys and ended.
+    fn stop(self: Box<Self>) {
         self.0.stop();
     }
 }
@@ -126,18 +127,22 @@ fn log_rejected(what: &str, rejected: &[Rejected]) {
 mod tests {
     use std::sync::mpsc::{self, TryRecvError};
 
-    use super::HotkeyThread;
+    use mosaico_core::hotkey::HotkeySource;
+
+    use super::WindowsHotkeySource;
 
     #[test]
-    fn stopping_the_thread_lets_go_of_the_action_sender() {
+    fn stopping_the_watch_lets_go_of_the_action_sender() {
         // Arrange -- no bindings, so nothing is registered system-wide.
         let (actions, received) = mpsc::channel();
-        let hotkeys = HotkeyThread::start(actions, Vec::new()).expect("the thread starts");
-        hotkeys.pause();
-        hotkeys.unpause();
+        let watch = WindowsHotkeySource
+            .start(Vec::new(), actions)
+            .expect("the thread starts");
+        watch.pause().expect("the thread gets the pause");
+        watch.unpause().expect("the thread gets the unpause");
 
         // Act
-        hotkeys.stop();
+        watch.stop();
 
         // Assert -- the thread ended, so a loop over the actions ends too.
         assert_eq!(received.try_recv(), Err(TryRecvError::Disconnected));
