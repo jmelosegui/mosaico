@@ -41,7 +41,7 @@ pub mod rect;
 /// Spatial direction helpers.
 pub mod spatial;
 /// OS services mosaico uses: process setup, processes, the single instance
-/// lock and start at login.
+/// lock, Ctrl+C and start at login.
 pub mod system;
 /// The tiling state machine.
 pub mod tiler;

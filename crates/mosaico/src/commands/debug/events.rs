@@ -1,10 +1,12 @@
 use std::sync::mpsc;
 
 use mosaico_core::event::EventSource;
+use mosaico_core::system::Interrupts;
 use mosaico_windows::Window as WinWindow;
 
-/// Watches window events in real time. Press Ctrl+C to stop.
-pub fn execute(source: &dyn EventSource) {
+/// Watches window events in real time. Press Ctrl+C to stop, which
+/// `interrupts` reports instead of ending the process.
+pub fn execute(source: &dyn EventSource, interrupts: &dyn Interrupts) {
     println!("Watching window events (press Ctrl+C to stop)...\n");
 
     let (tx, rx) = mpsc::channel();
@@ -22,7 +24,7 @@ pub fn execute(source: &dyn EventSource) {
 
     // Set up Ctrl+C handler to stop the event loop cleanly.
     let (stop_tx, stop_rx) = mpsc::channel();
-    if let Err(e) = mosaico_windows::ctrl_c::set_handler(stop_tx) {
+    if let Err(e) = interrupts.on_interrupt(stop_tx) {
         eprintln!("warning: {e}");
     }
 

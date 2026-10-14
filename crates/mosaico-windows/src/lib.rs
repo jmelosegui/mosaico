@@ -19,7 +19,7 @@ pub mod border;
 /// Config file watcher for hot-reloading.
 pub mod config_watcher;
 
-/// Ctrl+C signal handler using SetConsoleCtrlHandler.
+/// Ctrl+C in the console, through SetConsoleCtrlHandler.
 pub mod ctrl_c;
 
 /// Daemon main loop.

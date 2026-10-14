@@ -68,7 +68,8 @@ Streams real-time window events to stdout.
    (no hotkeys and no focus-follows-mouse). If the hidden window that
    receives display and work area changes cannot be created, it prints a
    warning saying why and goes on without those events
-3. Registers a Ctrl+C handler that gracefully stops the event source
+3. Asks to hear about Ctrl+C (`Interrupts`), so it can stop the event source
+   gracefully; if that fails it prints a warning, and Ctrl+C ends it at once
 4. Prints each received event: event name, HWND (hex), and window title
 
 ### Output Format
@@ -86,10 +87,12 @@ This command is useful for:
 
 ### Graceful Shutdown
 
-A console control handler, installed with `SetConsoleCtrlHandler` in
-`ctrl_c.rs`, reports Ctrl+C to the command. The command then stops its
-`EventWatch`, which posts `WM_QUIT` to the window event thread. The thread
-removes its hooks and hidden window before the command exits.
+The command takes the platform's `Interrupts` from `platform::interrupts()`:
+on Windows `ConsoleInterrupts`, a console control handler installed with
+`SetConsoleCtrlHandler` in `ctrl_c.rs`, which reports Ctrl+C on a channel
+instead of ending the process. The command then stops its `EventWatch`,
+which posts `WM_QUIT` to the window event thread. The thread removes its
+hooks and hidden window before the command exits.
 
 ## `mosaico debug move --window <id> --x <x> --y <y> --w <width> --h <height>`
 

@@ -62,9 +62,9 @@ desktop, GitHub, the release installer and clock, and
 without a daemon, a desktop or a network. `daemon` is tested with a fake lock
 and loop.
 
-Still calling the platform crate directly: `debug events`' Ctrl+C handler
-and window titles. `debug events` gets its event source from
-`platform::event_source()`.
+Still calling the platform crate directly: `debug events`' window titles.
+`debug events` gets its event source from `platform::event_source()` and
+hears about Ctrl+C through `platform::interrupts()`.
 
 ### Key Types
 

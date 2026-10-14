@@ -4,20 +4,37 @@
 
 use std::sync::mpsc::Sender;
 
+use mosaico_core::system::Interrupts;
 use mosaico_core::{Error, Result};
 use windows::Win32::System::Console::{CTRL_C_EVENT, SetConsoleCtrlHandler};
 
 use crate::error::OrPlatform;
 
+/// [`Interrupts`] on Windows: a console control handler.
+///
+/// The handler claims every console control event, so Ctrl+Break does
+/// not end the process either, but it only sends for Ctrl+C. Closing the
+/// console still ends the process once the handler returns, as Windows
+/// does for that event. A second call fails with "one is already set" and
+/// Ctrl+C keeps going to the first channel.
+pub struct ConsoleInterrupts;
+
+impl Interrupts for ConsoleInterrupts {
+    fn on_interrupt(&self, tx: Sender<()>) -> Result<()> {
+        set_handler(tx)
+    }
+}
+
 /// Registers a Ctrl+C handler that sends `()` on the given channel.
 ///
-/// The handler fires once; subsequent Ctrl+C signals are ignored.
+/// Every Ctrl+C sends; once the receiver is gone, the send fails and the
+/// Ctrl+C is ignored.
 ///
 /// # Errors
 ///
 /// Returns an error if the Win32 console handler could not be installed
 /// or if `set_handler` has already been called.
-pub fn set_handler(tx: Sender<()>) -> Result<()> {
+fn set_handler(tx: Sender<()>) -> Result<()> {
     // SAFETY: SetConsoleCtrlHandler installs a process-wide console
     // control handler. The callback pointer is valid for the process
     // lifetime (static function).

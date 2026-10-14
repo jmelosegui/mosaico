@@ -8,7 +8,7 @@ use mosaico_core::Instance;
 use mosaico_core::event::EventSource;
 use mosaico_core::lifecycle::Startup;
 use mosaico_core::pid::PidFile;
-use mosaico_core::system::ProcessSetup;
+use mosaico_core::system::{Interrupts, ProcessSetup};
 
 use crate::commands::banner;
 use crate::commands::context::{Context, Exit, SystemClock};
@@ -76,4 +76,10 @@ pub fn daemon_startup() -> Startup<'static> {
 #[cfg(target_os = "windows")]
 pub fn event_source() -> impl EventSource {
     mosaico_windows::event_source::WindowsEventSource
+}
+
+/// How this process hears about Ctrl+C, for `debug events`.
+#[cfg(target_os = "windows")]
+pub fn interrupts() -> impl Interrupts {
+    mosaico_windows::ctrl_c::ConsoleInterrupts
 }
