@@ -97,3 +97,56 @@ fn a_daemon_busy_with_one_client_still_answers_the_next() {
     client.send(&Command::Stop).unwrap();
     server.join().unwrap();
 }
+
+#[test]
+fn a_client_that_leaves_before_it_is_served_does_not_stop_the_server() {
+    // #72
+    // Arrange -- the server is busy with a first request when a second
+    // client connects and closes its end before the server gets to it,
+    // as a CLI killed right after it connected would.
+    let name = test_pipe("dropout");
+    let (entered_tx, entered_rx) = mpsc::channel();
+    let (release_tx, release_rx) = mpsc::channel::<()>();
+    let server_name = name.clone();
+    let server = thread::spawn(move || {
+        let mut server = PipeServer::new(&server_name);
+        let mut first = true;
+        serve(&mut server, |command| {
+            if first {
+                first = false;
+                let _ = entered_tx.send(());
+                let _ = release_rx.recv_timeout(Duration::from_secs(10));
+            }
+            Some(Response::ok_with_message(format!("{command:?}")))
+        })
+    });
+    let client = PipeClient::new(&name);
+    for _ in 0..100 {
+        if client.is_daemon_running() {
+            break;
+        }
+        thread::sleep(Duration::from_millis(10));
+    }
+    let first_name = name.clone();
+    let first = thread::spawn(move || PipeClient::new(&first_name).send(&Command::Status));
+    entered_rx
+        .recv_timeout(Duration::from_secs(5))
+        .expect("the server never received the first request");
+    drop(client.connect().expect("the second client connects"));
+    release_tx.send(()).unwrap();
+    first
+        .join()
+        .unwrap()
+        .expect("the first client gets its reply");
+
+    // Act -- the next client after the one that left.
+    let reply = client.send(&Command::Inspect);
+
+    // Assert -- the server is still listening and answers it.
+    let reply = reply.expect("the server must keep listening after a failed connection");
+    assert_eq!(reply.message.as_deref(), Some("Inspect"));
+
+    // Cleanup
+    client.send(&Command::Stop).unwrap();
+    server.join().unwrap();
+}
