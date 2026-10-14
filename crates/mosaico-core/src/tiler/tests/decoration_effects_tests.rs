@@ -2,6 +2,8 @@
 //! records what it is asked to draw.
 
 use crate::config::{Color, CornerStyle};
+use crate::log::Level;
+use crate::tiler::decoration_effects::border_failure_level;
 use crate::{Decorations, Error};
 
 use super::*;
@@ -20,16 +22,11 @@ enum Call {
 #[derive(Default)]
 struct Painter {
     calls: Vec<Call>,
-    /// Whether the platform has no borders or corner styles at all.
-    unsupported: bool,
 }
 
 impl Painter {
     fn record(&mut self, call: Call) -> crate::Result<()> {
         self.calls.push(call);
-        if self.unsupported {
-            return Err(Error::Unsupported("decorating windows"));
-        }
         Ok(())
     }
 }
@@ -148,40 +145,6 @@ fn corners_are_set_and_given_back_through_the_platform() {
 }
 
 #[test]
-fn a_platform_without_decorations_is_still_asked_for_each_one() {
-    // Arrange -- every call fails as unsupported, which is logged.
-    let mut decorations = Painter {
-        unsupported: true,
-        ..Painter::default()
-    };
-    let window = wid(1);
-
-    // Act
-    let calls = apply(
-        &[
-            Effect::Decorate {
-                window,
-                corners: CornerStyle::Small,
-            },
-            Effect::Border {
-                window,
-                style: Some(style()),
-            },
-        ],
-        &mut decorations,
-    );
-
-    // Assert
-    assert_eq!(
-        calls,
-        [
-            Call::SetCorners(window, CornerStyle::Small),
-            Call::ShowBorder(window, style()),
-        ]
-    );
-}
-
-#[test]
 fn window_changes_are_left_to_apply_window_effect() {
     // Arrange
     let mut decorations = Painter::default();
@@ -214,4 +177,28 @@ fn window_changes_are_left_to_apply_window_effect() {
 
     // Assert
     assert!(calls.is_empty(), "{calls:?}");
+}
+
+#[test]
+fn a_border_that_cannot_be_created_is_a_warning() {
+    // Arrange
+    let error = Error::platform("create a border window", "out of memory");
+
+    // Act
+    let level = border_failure_level(&error);
+
+    // Assert
+    assert_eq!(level, Level::Warn);
+}
+
+#[test]
+fn a_platform_without_borders_is_only_logged_for_debugging() {
+    // Arrange -- it says so on every redraw.
+    let error = Error::Unsupported("drawing focus borders");
+
+    // Act
+    let level = border_failure_level(&error);
+
+    // Assert
+    assert_eq!(level, Level::Debug);
 }

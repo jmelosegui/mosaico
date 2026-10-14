@@ -6,6 +6,7 @@
 //! [`apply_decoration_effect`] does both, the same way for every
 //! platform, and leaves the drawing to [`Decorations`].
 
+use crate::log::Level;
 use crate::{Decorations, Error, WindowId};
 
 use super::Effect;
@@ -61,10 +62,20 @@ pub fn apply_decoration_effect(effect: &Effect, decorations: &mut dyn Decoration
 
 /// Logs a border the platform could not draw.
 fn report_border(window: WindowId, result: crate::Result<()>) {
-    match result {
-        Ok(()) => {}
-        // A platform without borders says so on every redraw.
-        Err(e @ Error::Unsupported(_)) => crate::log_debug!("border {} failed: {}", window, e),
-        Err(e) => crate::log_warn!("border {} failed: {}", window, e),
+    if let Err(e) = result {
+        crate::log::write(
+            border_failure_level(&e),
+            format_args!("border {} failed: {}", window, e),
+        );
+    }
+}
+
+/// How loudly a border the platform could not draw is logged: a
+/// warning, unless the platform does not draw borders at all, which it
+/// says on every redraw.
+pub(super) fn border_failure_level(error: &Error) -> Level {
+    match error {
+        Error::Unsupported(_) => Level::Debug,
+        _ => Level::Warn,
     }
 }
