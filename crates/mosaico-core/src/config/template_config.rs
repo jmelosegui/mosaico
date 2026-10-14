@@ -21,9 +21,9 @@ gap = 8
 # Ratio of space given to the first window in each split (0.0 to 1.0).
 ratio = 0.5
 # How windows are hidden during workspace switches.
-# "cloak" (recommended): invisible via DWM, keeps taskbar icon.
-# "hide": SW_HIDE, removes taskbar icon.
-# "minimize": SW_MINIMIZE, keeps taskbar icon but shows as minimized.
+# "cloak" (recommended): invisible, keeps its taskbar icon.
+# "hide": fully hidden, removes its taskbar icon.
+# "minimize": minimized, keeps its taskbar icon.
 hiding = "cloak"
 # Default layout algorithm: "bsp", "vertical-stack", or "three-column".
 default = "bsp"

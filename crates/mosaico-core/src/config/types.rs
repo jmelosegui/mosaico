@@ -88,17 +88,20 @@ where
 
 /// Corner style for borders and tiled windows.
 ///
-/// Controls both the border overlay shape (pixel-exact rounding) and
-/// the DWM corner preference applied to managed windows on Windows 11.
+/// Sets how round the borders drawn around windows are, and how round
+/// the corners of managed windows are on platforms that let windows
+/// choose.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum CornerStyle {
-    /// Sharp rectangular corners (DWM: `DONOTROUND`).
+    /// Sharp, square corners.
     Square,
-    /// Subtle rounding (border: 8 px, DWM: `ROUNDSMALL` ~4 px).
+    /// Slightly rounded corners: an 8 px border radius, and the
+    /// platform's small rounding on windows.
     #[default]
     Small,
-    /// Standard rounding (border: 16 px, DWM: `ROUND` ~8 px).
+    /// More rounded corners: a 16 px border radius, and the platform's
+    /// standard rounding on windows.
     Round,
 }
 

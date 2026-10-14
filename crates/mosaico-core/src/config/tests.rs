@@ -99,6 +99,24 @@ fn partial_toml_uses_defaults_for_missing_sections() {
 }
 
 #[test]
+fn hiding_values_already_in_config_files_still_parse() {
+    // Arrange
+    let values = [
+        ("cloak", HidingBehaviour::Cloak),
+        ("hide", HidingBehaviour::Hide),
+        ("minimize", HidingBehaviour::Minimize),
+    ];
+
+    for (value, expected) in values {
+        // Act
+        let config: Config = toml::from_str(&format!("[layout]\nhiding = \"{value}\"\n")).unwrap();
+
+        // Assert
+        assert_eq!(config.layout.hiding, expected, "hiding = \"{value}\"");
+    }
+}
+
+#[test]
 fn workspaces_layouts_parses_string_keys_as_u8() {
     // Arrange
     let toml_str = r#"
