@@ -86,6 +86,7 @@ pub enum Effect {
         corners: CornerStyle,
     },
     /// Undo [`Effect::Decorate`] on a window that is no longer managed.
+    /// Only ever asked for a window that was decorated.
     Undecorate {
         /// The window.
         window: WindowId,

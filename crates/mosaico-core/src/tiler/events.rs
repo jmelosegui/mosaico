@@ -57,7 +57,7 @@ impl Tiler {
             WindowEvent::Destroyed { window } => {
                 self.adopt_rejected.remove(&window);
                 self.reconnect.forget(window);
-                plan.emit(Effect::Undecorate { window });
+                self.undecorate(plan, window);
                 self.remove_from_tiling(plan, window, "del", false);
             }
             WindowEvent::Hidden { window } => {
@@ -68,7 +68,7 @@ impl Tiler {
                     crate::log_debug!("hide-ignored {} (still visible)", window);
                     return;
                 }
-                plan.emit(Effect::Undecorate { window });
+                self.undecorate(plan, window);
                 self.remove_from_tiling(plan, window, "hide", false);
             }
             WindowEvent::Minimized { window } => self.remove_from_tiling(plan, window, "min", true),

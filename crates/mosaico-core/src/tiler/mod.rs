@@ -97,6 +97,10 @@ pub struct Tiler {
     /// Windows that currently have a border, so the ones that leave the
     /// screen can have theirs destroyed.
     bordered: HashSet<WindowId>,
+    /// Windows given the configured corners, so that only those get the
+    /// system's corners back. A minimized window leaves the layout but
+    /// stays here.
+    decorated: HashSet<WindowId>,
     mouse_follows_focus: bool,
     focused_monitor: usize,
     focused_window: Option<WindowId>,
@@ -156,6 +160,7 @@ impl Tiler {
             rules: settings.rules,
             border_config: settings.borders,
             bordered: HashSet::new(),
+            decorated: HashSet::new(),
             mouse_follows_focus: settings.mouse_follows_focus,
             focused_monitor: 0,
             focused_window: None,
