@@ -40,8 +40,17 @@ impl Coalescer {
             Effect::Place { window, .. } => {
                 // A placement made now supersedes a held one, along with
                 // whatever was waiting for it.
-                self.places.retain(|&(w, _)| w != window);
-                self.after.retain(|e| waits_for(e) != Some(window));
+                self.forget(window);
+                Some(effect)
+            }
+            // The window is leaving the screen. What was held for it
+            // would move a window that is gone, or draw a border around
+            // it that nothing removes afterwards (#71).
+            Effect::Hide { window, .. }
+            | Effect::Minimize { window }
+            | Effect::Close { window }
+            | Effect::DropBorder { window } => {
+                self.forget(window);
                 Some(effect)
             }
             Effect::Focus { .. } => {
@@ -56,6 +65,13 @@ impl Coalescer {
                 _ => Some(effect),
             },
         }
+    }
+
+    /// Drops the held placement of `window` and everything waiting for
+    /// it. The platform calls this when the window is destroyed.
+    pub fn forget(&mut self, window: WindowId) {
+        self.places.retain(|&(w, _)| w != window);
+        self.after.retain(|e| waits_for(e) != Some(window));
     }
 
     /// Whether anything is held.
@@ -91,3 +107,7 @@ fn waits_for(effect: &Effect) -> Option<WindowId> {
 #[cfg(test)]
 #[path = "tests/coalesce_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "tests/coalesce_forget_tests.rs"]
+mod forget_tests;

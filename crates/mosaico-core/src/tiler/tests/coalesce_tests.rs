@@ -106,3 +106,71 @@ fn an_immediate_placement_supersedes_a_held_one() {
     assert_eq!(now, Some(place(1, 50, Timing::Now)));
     assert!(c.take().is_empty());
 }
+
+/// Holds a move of window 1 with its border and cursor, and a move of
+/// window 2, as a move across a workspace leaves them.
+fn holding_two_moves() -> Coalescer {
+    let mut c = Coalescer::default();
+    c.admit(place(1, 0, Timing::Coalesced));
+    c.admit(border(1));
+    c.admit(Effect::CenterCursor { window: wid(1) });
+    c.admit(place(2, 100, Timing::Coalesced));
+    c
+}
+
+/// Asserts that `leaving` passes straight through and that nothing held
+/// for window 1 is released afterwards, while window 2's move still is.
+fn assert_leaving_drops_what_was_held(leaving: Effect) {
+    // Arrange
+    let mut c = holding_two_moves();
+
+    // Act
+    let passed = c.admit(leaving.clone());
+
+    // Assert
+    assert_eq!(passed, Some(leaving));
+    assert_eq!(c.take(), vec![place(2, 100, Timing::Now)]);
+}
+
+#[test]
+fn hiding_a_window_drops_its_held_move_and_border() {
+    // #71
+    assert_leaving_drops_what_was_held(Effect::Hide {
+        window: wid(1),
+        how: crate::config::HidingBehaviour::Cloak,
+    });
+}
+
+#[test]
+fn minimizing_a_window_drops_its_held_move_and_border() {
+    // #71
+    assert_leaving_drops_what_was_held(Effect::Minimize { window: wid(1) });
+}
+
+#[test]
+fn closing_a_window_drops_its_held_move_and_border() {
+    // #71
+    assert_leaving_drops_what_was_held(Effect::Close { window: wid(1) });
+}
+
+#[test]
+fn dropping_a_border_drops_the_held_move_and_border_too() {
+    // #71 -- the overlay is gone, so drawing the held border would make
+    // a new one that nothing removes.
+    assert_leaving_drops_what_was_held(Effect::DropBorder { window: wid(1) });
+}
+
+#[test]
+fn a_window_leaving_does_not_drop_another_windows_held_border() {
+    // Arrange -- the near miss: only window 1 leaves.
+    let mut c = Coalescer::default();
+    c.admit(place(1, 0, Timing::Coalesced));
+    c.admit(place(2, 100, Timing::Coalesced));
+    c.admit(border(2));
+
+    // Act
+    c.admit(Effect::DropBorder { window: wid(1) });
+
+    // Assert
+    assert_eq!(c.take(), vec![place(2, 100, Timing::Now), border(2)]);
+}

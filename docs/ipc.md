@@ -153,9 +153,11 @@ stop it.
   `PipeConnection` enforces both deadlines with a watchdog thread
   (`ipc_watchdog.rs`) that calls `CancelSynchronousIo` on the serving thread
   if a `ReadFile`, `WriteFile` or `FlushFileBuffers` is still pending when the
-  deadline passes. A reply bigger than the 4096 byte pipe buffer blocks in
-  `WriteFile` until the client reads; a smaller one blocks in
-  `FlushFileBuffers`.
+  deadline passes. A cancel only reaches I/O that has already started, so
+  once the deadline has passed the watchdog repeats it every 10 ms until the
+  call returns and the watchdog is disarmed. A reply bigger than the 4096
+  byte pipe buffer blocks in `WriteFile` until the client reads; a smaller
+  one blocks in `FlushFileBuffers`.
 - `PipeConnection::finish` calls `FlushFileBuffers` before
   `DisconnectNamedPipe`. Disconnecting first throws away the unread reply and
   the client gets error 233.

@@ -6,6 +6,7 @@
 
 mod applier;
 mod desktop;
+mod hidden_file;
 mod inspect;
 
 use std::time::Instant;
@@ -21,6 +22,7 @@ use crate::window::Window;
 
 use applier::Applier;
 use desktop::Win32Desktop;
+use hidden_file::HiddenFile;
 
 /// Manages tiled windows across all connected monitors.
 pub struct TilingManager {
@@ -38,6 +40,11 @@ impl TilingManager {
         border_config: BorderConfig,
         mouse_follows_focus: bool,
     ) -> WindowResult<Self> {
+        // Show what a killed or crashed daemon left hidden before looking
+        // at the windows, so they are found and adopted like any other.
+        let mut applier = Applier::with_hidden_file(HiddenFile::current());
+        applier.restore_previous(Instant::now());
+
         let displays = displays(monitor::enumerate_monitors()?);
         let windows: Vec<WindowId> = enumerate::enumerate_windows()?
             .iter()
@@ -55,7 +62,7 @@ impl TilingManager {
         let (tiler, effects) = Tiler::new(settings, &displays, &windows, &desktop, now);
         let mut manager = Self {
             tiler,
-            applier: Applier::default(),
+            applier,
             desktop,
         };
         manager.applier.apply(effects, now);
@@ -75,6 +82,9 @@ impl TilingManager {
 
     /// Handles a window event, unless it is an echo of our own changes.
     pub fn handle_event(&mut self, event: &WindowEvent) {
+        if let WindowEvent::Destroyed { window } = *event {
+            self.applier.forget(window);
+        }
         if let Some(reason) = self.applier.echo(event, Instant::now()) {
             mosaico_core::log_debug!("{} suppressed ({})", event, reason);
             return;
