@@ -22,15 +22,21 @@ mod daemon_types;
 /// Starts background threads for the Win32 event loop (which also
 /// handles global hotkeys) and the IPC listener. The main thread
 /// manages the tiling workspace.
+///
+/// The daemon has no console, so it reports through the log. An error
+/// that ends it is logged here as well as returned.
 pub fn run() -> Result<()> {
     dpi::enable_dpi_awareness();
     clean_old_binary();
     let instance = Instance::current()?;
     let _guard = InstanceGuard::acquire(instance)?;
     pid::write_pid_file()?;
-    eprintln!("Mosaico daemon started.");
+    mosaico_core::log_info!("Daemon started (PID: {})", std::process::id());
 
     let result = daemon_loop::daemon_loop(&crate::ipc::pipe_name(instance));
+    if let Err(e) = &result {
+        mosaico_core::log_error!("Daemon stopped: {e}");
+    }
 
     let _ = pid::remove_pid_file();
 

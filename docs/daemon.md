@@ -47,14 +47,19 @@ from separate `mpsc` channels into the unified `DaemonMsg` channel.
 subcommand:
 
 1. Enable per-monitor DPI awareness
-2. Write PID file to `%LOCALAPPDATA%\mosaico\mosaico.pid`
-3. Call `daemon_loop()` for the main logic
-4. On exit, remove PID file
+2. Take the single instance lock; a second daemon of the same instance stops
+   here with `Error::AlreadyRunning` ("Mosaico daemon is already running.")
+3. Write PID file to `%LOCALAPPDATA%\mosaico\mosaico.pid`
+4. Log that it started
+5. Call `daemon_loop()` for the main logic
+6. Log the error that ended it, if any, since the daemon has no console
+7. On exit, remove PID file
 
 `daemon_loop()` performs:
 
 1. Load configuration (`config.toml`, `keybindings.toml`, `rules.toml`)
-2. Initialize the logger
+2. Initialize the logger, which then writes what was logged before it,
+   such as problems found in the config (see [logging.md](logging.md))
 3. Resolve the current theme from `config.theme`
 4. Load `bar.toml` and create `BarManager` with monitor rects and theme
 5. Create `TilingManager` with layout, rules, and border config

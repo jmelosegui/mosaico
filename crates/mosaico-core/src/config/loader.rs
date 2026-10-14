@@ -7,6 +7,7 @@ use crate::{Error, Result};
 
 use super::bar::BarConfig;
 use super::keybinding;
+use super::report;
 use super::rules::{KeybindingsFile, RulesFile, UserRulesFile};
 use super::{Config, Keybinding, WindowRule, default_rules};
 
@@ -129,11 +130,11 @@ fn migrate_config_if_needed(path: &Path, content: &str) -> Result<Option<String>
         )
     })?;
 
-    eprintln!(
-        "Info: migrated config keys ({}). Backup saved at {}",
+    report::info(format_args!(
+        "migrated config keys ({}). Backup saved at {}",
         applied.join(", "),
         backup.display()
-    );
+    ));
 
     Ok(Some(new_content))
 }
@@ -262,6 +263,7 @@ mode = "per-monitor"
 /// No-op when the file does not exist (a brand-new install will get the
 /// full section from `mosaico init`'s template). Errors are logged and
 /// swallowed -- failure here must not prevent the daemon from starting.
+/// Only the daemon calls this, so it reports to the log alone.
 pub fn merge_missing_config_sections() {
     let path = match config_path() {
         Some(p) if p.exists() => p,
@@ -269,21 +271,21 @@ pub fn merge_missing_config_sections() {
     };
 
     match append_missing_workspaces_section(&path) {
-        Ok(true) => eprintln!(
-            "Info: appended [workspaces] section to {} (new in this version)",
+        Ok(true) => crate::log_info!(
+            "Appended [workspaces] section to {} (new in this version)",
             path.display()
         ),
         Ok(false) => {}
-        Err(e) => eprintln!("Warning: {e}"),
+        Err(e) => crate::log_warn!("Could not add the [workspaces] section: {e}"),
     }
 
     match append_missing_unfocused_border_hint(&path) {
-        Ok(true) => eprintln!(
-            "Info: appended unfocused border hint to {} (new in this version)",
+        Ok(true) => crate::log_info!(
+            "Appended unfocused border hint to {} (new in this version)",
             path.display()
         ),
         Ok(false) => {}
-        Err(e) => eprintln!("Warning: {e}"),
+        Err(e) => crate::log_warn!("Could not add the unfocused border hint: {e}"),
     }
 }
 
@@ -458,6 +460,7 @@ pub fn load_keybindings() -> Vec<Keybinding> {
 /// automatically, without overwriting anything the user has configured.
 ///
 /// Falls back to `load_keybindings()` if the file cannot be read or written.
+/// Only the daemon calls this, so it reports to the log alone.
 pub fn merge_missing_keybindings() -> Vec<Keybinding> {
     let path = match keybindings_path() {
         Some(p) if p.exists() => p,
@@ -467,7 +470,7 @@ pub fn merge_missing_keybindings() -> Vec<Keybinding> {
     let user = match try_load_keybindings() {
         Ok(kb) => kb,
         Err(e) => {
-            eprintln!("Warning: {e}");
+            crate::log_warn!("Using the default keybindings: {e}");
             return keybinding::defaults();
         }
     };
@@ -493,18 +496,18 @@ pub fn merge_missing_keybindings() -> Vec<Keybinding> {
         Ok(mut f) => {
             use std::io::Write;
             if let Err(e) = f.write_all(addition.as_bytes()) {
-                eprintln!("Warning: could not append missing keybindings: {e}");
+                crate::log_warn!("Could not append missing keybindings: {e}");
                 return user;
             }
         }
         Err(e) => {
-            eprintln!("Warning: could not open keybindings file for appending: {e}");
+            crate::log_warn!("Could not open keybindings file for appending: {e}");
             return user;
         }
     }
 
-    eprintln!(
-        "Info: appended {} missing default keybinding(s) to keybindings.toml",
+    crate::log_info!(
+        "Appended {} missing default keybinding(s) to keybindings.toml",
         missing.len()
     );
 
@@ -545,6 +548,7 @@ fn keybinding_toml_entry(kb: &Keybinding) -> String {
 /// are picked up automatically, without overwriting anything the user has set.
 ///
 /// Falls back to `load_bar()` if the file cannot be read or written.
+/// Only the daemon calls this, so it reports to the log alone.
 pub fn merge_missing_bar_widgets() -> super::bar::BarConfig {
     use super::bar::{BarConfig, WidgetConfig};
     use serde::Serialize;
@@ -557,7 +561,7 @@ pub fn merge_missing_bar_widgets() -> super::bar::BarConfig {
     let mut user = match try_load_bar() {
         Ok(cfg) => cfg,
         Err(e) => {
-            eprintln!("Warning: {e}");
+            crate::log_warn!("Using the default bar: {e}");
             return BarConfig::default();
         }
     };
@@ -612,7 +616,7 @@ pub fn merge_missing_bar_widgets() -> super::bar::BarConfig {
             format!("\n# Added automatically — new defaults from this version of mosaico\n{s}")
         }
         Err(e) => {
-            eprintln!("Warning: could not serialize missing bar widgets: {e}");
+            crate::log_warn!("Could not serialize missing bar widgets: {e}");
             return user;
         }
     };
@@ -621,18 +625,18 @@ pub fn merge_missing_bar_widgets() -> super::bar::BarConfig {
         Ok(mut f) => {
             use std::io::Write;
             if let Err(e) = f.write_all(toml_addition.as_bytes()) {
-                eprintln!("Warning: could not append missing bar widgets: {e}");
+                crate::log_warn!("Could not append missing bar widgets: {e}");
                 return user;
             }
         }
         Err(e) => {
-            eprintln!("Warning: could not open bar.toml for appending: {e}");
+            crate::log_warn!("Could not open bar.toml for appending: {e}");
             return user;
         }
     }
 
     let total = missing_left.len() + missing_right.len();
-    eprintln!("Info: appended {total} missing default bar widget(s) to bar.toml");
+    crate::log_info!("Appended {total} missing default bar widget(s) to bar.toml");
 
     // Return merged config.
     user.left.extend(missing_left.into_iter().cloned());
@@ -721,7 +725,8 @@ pub fn load_bar() -> BarConfig {
 
 /// Loads a config value from disk, falling back to defaults.
 ///
-/// Non-existent files silently return defaults; other IO errors are logged.
+/// Non-existent files silently return defaults; other errors are
+/// reported as warnings, on standard error and in the log.
 fn load_or_default<T>(
     path: Option<PathBuf>,
     try_load: impl FnOnce() -> Result<T>,
@@ -733,7 +738,7 @@ fn load_or_default<T>(
         _ => match try_load() {
             Ok(val) => val,
             Err(e) => {
-                eprintln!("Warning: {e}");
+                report::warning(format_args!("{e}"));
                 default()
             }
         },

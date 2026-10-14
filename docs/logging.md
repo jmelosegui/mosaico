@@ -107,12 +107,28 @@ Four convenience macros are provided:
 These are used throughout `tiling.rs` for window add/remove/event logging
 and in `daemon.rs` for startup/shutdown information.
 
+## Where Errors Go
+
+The daemon runs without a console, so everything it reports goes through
+these macros: hotkeys that cannot be registered, a missing event sink window,
+a bar that cannot be created, and the error that ends it, which
+`daemon::run()` logs before returning it.
+
+The CLI and the daemon load the config the same way, so the problems found
+while loading it go to both places: to standard error, where commands such as
+`mosaico doctor` and `mosaico debug list` have always shown them as
+`Warning: ...` and `Info: ...` lines, and to the log. That covers a file that
+cannot be read or parsed and falls back to defaults, a `[workspaces.layouts]`
+key that is not a workspace number, and a migrated legacy section. The
+`merge_missing_*` helpers, which only the daemon calls, log alone. CLI
+commands keep printing their own messages to the terminal.
+
 ## Design Decisions
 
 - **Custom implementation** over external crates (`log`, `tracing`, etc.)
   keeps the dependency count minimal for a system-level tool.
-- **Global `OnceLock<Mutex<Logger>>`** provides thread-safe access from any
-  thread (event loop, IPC, main) without passing references.
+- **Global `OnceLock<Option<Mutex<Logger>>>`** provides thread-safe access
+  from any thread (event loop, IPC, main) without passing references.
 - **Disabled by default** avoids unexpected disk writes for users who just
   want a tiling manager.
 - **Single backup rotation** is simple and sufficient for diagnostics without

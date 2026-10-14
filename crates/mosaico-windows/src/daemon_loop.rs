@@ -38,13 +38,14 @@ pub(super) fn daemon_loop(pipe_name: &str) -> Result<()> {
     // user's config.toml visibly tracks the latest schema.
     config::merge_missing_config_sections();
 
+    // Whatever was logged so far, including problems with the config,
+    // waits for the logger, which needs the config to start.
     let config = config::load();
     mosaico_core::log::init(&config.logging);
 
     let keybindings = config::merge_missing_keybindings();
     let rules = config::load_merged_rules();
 
-    mosaico_core::log_info!("Daemon started (PID: {})", std::process::id());
     mosaico_core::log_info!(
         "Config: layout(gap={}, ratio={}), borders(width={}), log_level={}",
         config.layout.gap,

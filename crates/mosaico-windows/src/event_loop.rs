@@ -107,9 +107,15 @@ pub fn start(
         hotkeys.register_from_config(&keybindings);
 
         // Create a hidden window that receives display/work-area changes
-        // and (optionally) focus-follows-mouse timer ticks.
-        let event_sink =
-            event_loop_event_sink::create_event_sink(focus_follows_mouse).unwrap_or_default();
+        // and (optionally) focus-follows-mouse timer ticks. Without it the
+        // loop still runs, it just misses those.
+        let event_sink = event_loop_event_sink::create_event_sink(focus_follows_mouse)
+            .unwrap_or_else(|e| {
+                mosaico_core::log_error!(
+                    "Display changes and focus follows mouse will not work: {e}"
+                );
+                HWND::default()
+            });
 
         let _ = ready_tx.send(Ok((thread_id, event_sink.0 as usize)));
 
