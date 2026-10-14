@@ -49,6 +49,14 @@ mod mode_reload_settings_tests;
 mod mode_reload_tests;
 #[path = "tests/monitor_return_tests.rs"]
 mod monitor_return_tests;
+#[path = "tests/monocle_display_tests.rs"]
+mod monocle_display_tests;
+#[path = "tests/monocle_out_of_view_tests.rs"]
+mod monocle_out_of_view_tests;
+#[path = "tests/monocle_return_tests.rs"]
+mod monocle_return_tests;
+#[path = "tests/monocle_stale_tests.rs"]
+mod monocle_stale_tests;
 #[path = "tests/move_tests.rs"]
 mod move_tests;
 #[path = "tests/pipeline_tests.rs"]
@@ -198,9 +206,12 @@ impl FakeDesktop {
         match *effect {
             Effect::Place { window, rect, .. } => {
                 // As `WindowControl::place` promises: no longer maximized,
-                // but a minimized window stays minimized.
+                // but a minimized window stays minimized, and comes back
+                // where it was before, as the contract allows.
                 if let Some(w) = self.windows.get_mut(&window) {
-                    w.rect = rect;
+                    if !w.minimized {
+                        w.rect = rect;
+                    }
                     w.maximized = false;
                 }
             }
