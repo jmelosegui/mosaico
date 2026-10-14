@@ -44,9 +44,10 @@ pub trait Window {
 ///
 /// The tiler never changes the desktop itself: it returns the changes
 /// it wants as effects, and the ones that move, show, hide, focus or
-/// close a window reach the platform through this trait. `debug move`
-/// places windows through it too. Reading the desktop is the job of
-/// [`Desktop`](crate::tiler::Desktop).
+/// close a window reach the platform through this trait, by way of
+/// [`apply_window_effect`](crate::tiler::apply_window_effect). `debug
+/// move` places windows through it too. Reading the desktop is the job
+/// of [`Desktop`](crate::tiler::Desktop).
 ///
 /// # Contract for platform implementations
 ///

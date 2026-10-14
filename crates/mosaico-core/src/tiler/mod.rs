@@ -29,6 +29,7 @@ mod navigation_helpers;
 mod plan;
 mod reconnect;
 mod state;
+mod window_effects;
 mod work_area;
 mod workspace;
 
@@ -46,6 +47,7 @@ pub use effect::{BorderStyle, Effect, Timing};
 pub use hidden::{HiddenWindows, WindowIdentity};
 pub use input::{BarReservation, Input};
 pub use state::MonitorState;
+pub use window_effects::apply_window_effect;
 
 use plan::Plan;
 use state::SpatialTarget;

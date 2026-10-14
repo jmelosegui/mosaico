@@ -33,6 +33,10 @@ mod pipeline_tests;
 mod pre_place_tests;
 #[path = "tests/session_tests.rs"]
 mod session_tests;
+#[path = "tests/window_effects_tests.rs"]
+mod window_effects_tests;
+#[path = "tests/window_recorder.rs"]
+mod window_recorder;
 #[path = "tests/work_area_tests.rs"]
 mod work_area_tests;
 #[path = "tests/workspace_tests.rs"]
