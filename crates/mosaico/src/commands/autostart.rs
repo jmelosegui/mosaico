@@ -1,7 +1,9 @@
 //! Starting mosaico when the user logs in.
 
+use std::path::PathBuf;
+
 use mosaico_core::Error;
-use mosaico_core::system::LaunchCommand;
+use mosaico_core::system::{AutostartStatus, LaunchCommand};
 
 use super::context::{Context, Exit, complain, say};
 
@@ -32,9 +34,18 @@ pub fn disable(cx: &mut Context) -> Exit {
 }
 
 pub fn status(cx: &mut Context) -> Exit {
-    match cx.autostart.registered_command() {
-        Ok(Some(_)) => say!(cx, "Autostart is currently enabled."),
-        Ok(None) => say!(cx, "Autostart is currently disabled."),
+    match check(cx) {
+        Ok(AutostartStatus::Enabled) => say!(cx, "Autostart is currently enabled."),
+        Ok(AutostartStatus::Disabled) => say!(cx, "Autostart is currently disabled."),
+        Ok(AutostartStatus::Other(command)) => say!(
+            cx,
+            "Autostart is currently enabled, but starts {command} instead of this mosaico."
+        ),
+        Ok(AutostartStatus::Missing(command)) => say!(
+            cx,
+            "Autostart is currently enabled, but \"{}\" does not exist.",
+            command.program.display()
+        ),
         Err(e) => {
             complain!(cx, "Error: {e}");
             return Exit::Failure;
@@ -46,8 +57,20 @@ pub fn status(cx: &mut Context) -> Exit {
 /// Registers the mosaico executable this command runs from to start at
 /// login, replacing any earlier registration.
 pub fn register(cx: &Context) -> mosaico_core::Result<()> {
-    let exe = (cx.current_exe)().map_err(|e| Error::platform("find the mosaico executable", e))?;
+    let exe = running_exe(cx)?;
     cx.autostart.enable(&LaunchCommand::autostart(exe))
+}
+
+/// How the registration compares with what [`register`] would register.
+pub fn check(cx: &Context) -> mosaico_core::Result<AutostartStatus> {
+    let exe = running_exe(cx)?;
+    let registered = cx.autostart.registered_command()?;
+    Ok(AutostartStatus::of(registered, &exe))
+}
+
+/// The mosaico executable this command runs from.
+fn running_exe(cx: &Context) -> mosaico_core::Result<PathBuf> {
+    (cx.current_exe)().map_err(|e| Error::platform("find the mosaico executable", e))
 }
 
 #[cfg(test)]

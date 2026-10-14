@@ -1,7 +1,9 @@
+use mosaico_core::system::LaunchCommand;
+
 use super::*;
 use crate::commands::context::Exit;
 use crate::commands::fake_desktop::monitor;
-use crate::commands::test_support::{Harness, Lifetime};
+use crate::commands::test_support::{EXE, Harness, Lifetime, MOVED_AWAY};
 
 #[test]
 fn a_running_daemon_is_reported_with_its_pid() {
@@ -139,4 +141,71 @@ fn an_autostart_entry_that_cannot_be_read_fails() {
 
     // Assert
     assert_eq!(out, format!("  {FAIL} Autostart: access denied\n"));
+}
+
+#[test]
+fn an_autostart_entry_for_this_mosaico_is_ok() {
+    // Arrange
+    let mut h = Harness::new("doctor-autostart-ok");
+    *h.world.autostart.borrow_mut() = Some(LaunchCommand::autostart(EXE));
+
+    // Act
+    let out = autostart_check(&mut h);
+
+    // Assert
+    assert_eq!(out, format!("  {OK} Autostart is enabled\n"));
+}
+
+#[test]
+fn no_autostart_entry_is_a_warning() {
+    // Arrange
+    let mut h = Harness::new("doctor-autostart-none");
+
+    // Act
+    let out = autostart_check(&mut h);
+
+    // Assert
+    assert_eq!(
+        out,
+        format!("  {WARN} Autostart is disabled (run `mosaico autostart enable` to set up)\n")
+    );
+}
+
+#[test]
+fn an_autostart_entry_with_other_arguments_is_a_warning() {
+    // Arrange
+    let mut h = Harness::new("doctor-autostart-other");
+    *h.world.autostart.borrow_mut() = Some(LaunchCommand {
+        program: EXE.into(),
+        args: vec!["daemon".into()],
+    });
+
+    // Act
+    let out = autostart_check(&mut h);
+
+    // Assert
+    assert_eq!(
+        out,
+        format!(
+            "  {WARN} Autostart starts \"{EXE}\" daemon instead of this mosaico (run `mosaico autostart enable` to switch)\n"
+        )
+    );
+}
+
+#[test]
+fn an_autostart_entry_for_a_program_that_does_not_exist_fails() {
+    // Arrange
+    let mut h = Harness::new("doctor-autostart-missing");
+    *h.world.autostart.borrow_mut() = Some(LaunchCommand::autostart(MOVED_AWAY));
+
+    // Act
+    let out = autostart_check(&mut h);
+
+    // Assert
+    assert_eq!(
+        out,
+        format!(
+            "  {FAIL} Autostart starts \"{MOVED_AWAY}\", which does not exist (run `mosaico autostart enable` to fix)\n"
+        )
+    );
 }

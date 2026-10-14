@@ -5,7 +5,7 @@ mod autostart;
 
 use crate::Result;
 
-pub use autostart::{Autostart, LaunchCommand};
+pub use autostart::{Autostart, AutostartStatus, LaunchCommand};
 
 /// Starting and stopping daemon processes.
 ///

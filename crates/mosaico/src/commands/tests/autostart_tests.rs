@@ -1,7 +1,7 @@
 use mosaico_core::system::LaunchCommand;
 
 use super::*;
-use crate::commands::test_support::{EXE, Harness};
+use crate::commands::test_support::{EXE, Harness, MOVED_AWAY};
 
 #[test]
 fn enabling_registers_and_says_so() {
@@ -62,4 +62,60 @@ fn a_registration_that_cannot_be_read_fails_the_status() {
     assert_eq!(exit, Exit::Failure);
     assert_eq!(h.err(), "Error: access denied\n");
     assert_eq!(h.out(), "", "not reported as disabled");
+}
+
+#[test]
+fn enabling_replaces_an_entry_for_another_mosaico() {
+    // Arrange
+    let mut h = Harness::new("autostart-enable-replaces");
+    *h.world.autostart.borrow_mut() = Some(LaunchCommand::autostart(r"C:\old\mosaico.exe"));
+
+    // Act
+    let exit = h.run(enable);
+
+    // Assert
+    assert_eq!(exit, Exit::Success);
+    assert_eq!(
+        *h.world.autostart.borrow(),
+        Some(LaunchCommand::autostart(EXE))
+    );
+}
+
+#[test]
+fn status_names_the_command_of_another_registration() {
+    // Arrange
+    let mut h = Harness::new("autostart-status-other");
+    *h.world.autostart.borrow_mut() = Some(LaunchCommand {
+        program: EXE.into(),
+        args: vec!["daemon".into()],
+    });
+
+    // Act
+    let exit = h.run(status);
+
+    // Assert
+    assert_eq!(exit, Exit::Success);
+    assert_eq!(
+        h.out(),
+        format!(
+            "Autostart is currently enabled, but starts \"{EXE}\" daemon instead of this mosaico.\n"
+        )
+    );
+}
+
+#[test]
+fn status_says_when_the_registered_program_does_not_exist() {
+    // Arrange
+    let mut h = Harness::new("autostart-status-missing");
+    *h.world.autostart.borrow_mut() = Some(LaunchCommand::autostart(MOVED_AWAY));
+
+    // Act
+    let exit = h.run(status);
+
+    // Assert
+    assert_eq!(exit, Exit::Success);
+    assert_eq!(
+        h.out(),
+        format!("Autostart is currently enabled, but \"{MOVED_AWAY}\" does not exist.\n")
+    );
 }

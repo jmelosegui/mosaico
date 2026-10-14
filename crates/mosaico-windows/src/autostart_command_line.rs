@@ -59,8 +59,9 @@ fn push_arg(line: &mut String, arg: &str) {
 /// space or tab. Logon is more forgiving with an unquoted path that has
 /// spaces, such as `C:\Program Files\mosaico\mosaico.exe start` typed in
 /// by hand: it may still find and run the program, but this splits it at
-/// the first space, so such an entry reads as another command.
-/// `autostart enable` writes it back in quotes.
+/// the first space, so such an entry reads as another command, or one
+/// whose program does not exist, and doctor flags it. `autostart enable`
+/// writes it back in quotes.
 pub fn split(line: &str) -> Option<LaunchCommand> {
     let line = line.trim_start_matches([' ', '\t']);
     let (program, rest) = match line.strip_prefix('"') {

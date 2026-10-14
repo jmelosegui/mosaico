@@ -25,6 +25,9 @@ use super::fake_desktop::FakeDesktop;
 /// The mosaico executable commands run from in the fake world.
 pub const EXE: &str = r"C:\apps\mosaico\mosaico.exe";
 
+/// A mosaico executable that is no longer there, as after it moved.
+pub const MOVED_AWAY: &str = r"C:\moved-away\mosaico.exe";
+
 /// How long a fake process stays alive.
 #[derive(Debug, Clone, Copy)]
 pub enum Lifetime {

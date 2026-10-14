@@ -52,8 +52,8 @@ The unit tests build one from `commands/test_support.rs`, a fake `World`
 standing in for the daemon, processes, registry, desktop and clock, and
 `commands/fake_desktop.rs`, a fake list of windows and monitors, so `start`,
 `stop`, `status`, `autostart`, `action`, `pause`, `debug move`, `debug list`
-and `doctor`'s daemon and monitor checks are tested without a daemon or a
-desktop.
+and `doctor`'s autostart, daemon and monitor checks are tested without a
+daemon or a desktop.
 
 Still calling the platform crate directly: `daemon` (it is the daemon),
 `debug events`' Ctrl+C handler and window titles, and `update`'s version
@@ -140,9 +140,16 @@ Checks performed:
    total count and any unknown key names
 5. **rules.toml** -- validates syntax via `try_load_rules()`
 6. **bar.toml** -- validates syntax via `try_load_bar()`
-7. **Daemon** -- checks IPC pipe, PID file, and process liveness; cleans up
+7. **Autostart** -- compares what is registered to start at login with what
+   `mosaico autostart enable` would register from the running executable
+   (`AutostartStatus::of` in `mosaico_core::system`): `[ok]` when they match,
+   `[warn]` when nothing is registered or another command is (another copy
+   of mosaico, or other arguments), `[fail]` when the registered program
+   does not exist (the binary moved or was deleted) or the registration
+   cannot be read. Doctor only reports; it never changes the registration
+8. **Daemon** -- checks IPC pipe, PID file, and process liveness; cleans up
    stale PID files
-8. **Monitors** -- enumerates monitors and reports count with per-monitor
+9. **Monitors** -- enumerates monitors and reports count with per-monitor
    dimensions and positions
 
 ### `mosaico action <verb> [direction]`

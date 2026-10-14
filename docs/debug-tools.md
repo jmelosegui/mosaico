@@ -142,9 +142,14 @@ colored status tags:
    total count of valid bindings or lists any unknown key names
 5. **rules.toml** -- validates syntax via `try_load_rules()`
 6. **bar.toml** -- validates syntax via `try_load_bar()`
-7. **Daemon status** -- checks IPC pipe connectivity, PID file, and process
+7. **Autostart** -- checks that what starts at login is the running mosaico
+   executable with `start`: `[warn]` when nothing or another command is
+   registered, `[fail]` when the registered program does not exist or the
+   registration cannot be read. It never re-registers;
+   `mosaico autostart enable` does
+8. **Daemon status** -- checks IPC pipe connectivity, PID file, and process
    liveness; auto-removes stale PID files (`[fixed]`)
-8. **Monitors** -- lists all connected monitors left to right via the
+9. **Monitors** -- lists all connected monitors left to right via the
    context's `Enumerator::monitors()` and prints per-monitor dimensions and
    positions
 
