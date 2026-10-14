@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use crate::WindowId;
 use crate::config::HidingBehaviour;
 use crate::tiler::{Effect, WindowIdentity};
@@ -27,6 +29,18 @@ fn one_hidden() -> HiddenWindows {
         },
     );
     record
+}
+
+#[test]
+fn the_record_of_an_instance_is_in_its_data_directory() {
+    // Arrange
+    let instance = Instance::new(Some("work"), "config", "data").unwrap();
+
+    // Act
+    let file = HiddenFile::for_instance(&instance);
+
+    // Assert
+    assert_eq!(file.path, Path::new("data").join(FILE_NAME));
 }
 
 #[test]

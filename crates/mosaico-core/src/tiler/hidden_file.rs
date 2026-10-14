@@ -25,10 +25,9 @@ impl HiddenFile {
         Self { path: path.into() }
     }
 
-    /// The record of this process's instance, once the instance is
-    /// resolved.
-    pub fn current() -> Option<Self> {
-        Instance::current().map(|instance| Self::new(instance.data_dir().join(FILE_NAME)))
+    /// The record of `instance`, in its data directory.
+    pub fn for_instance(instance: &Instance) -> Self {
+        Self::new(instance.data_dir().join(FILE_NAME))
     }
 
     /// Reads the record a previous daemon left. A missing file is an

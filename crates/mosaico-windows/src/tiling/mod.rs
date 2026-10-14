@@ -16,7 +16,7 @@ use mosaico_core::snapshot::DesktopSnapshot;
 use mosaico_core::tiler::{
     BarReservation, Display, Enumerator, HiddenFile, Input, Settings, Tiler,
 };
-use mosaico_core::{Action, HidingSupport, Result, WindowControl, WindowEvent};
+use mosaico_core::{Action, HidingSupport, Instance, Result, WindowControl, WindowEvent};
 
 use crate::enumerate::WindowsEnumerator;
 use crate::window_control::Win32WindowControl;
@@ -46,7 +46,8 @@ impl TilingManager {
         let desktop = Win32Desktop::new();
         let control = Win32WindowControl;
         let hiding = HidingSupport::new(|how| control.hiding_events(how));
-        let mut applier = Applier::new(HiddenFile::current(), hiding);
+        let hidden = Instance::current().map(HiddenFile::for_instance);
+        let mut applier = Applier::new(hidden, hiding);
         applier.restore_previous(&desktop, &control, Instant::now());
 
         let displays = WindowsEnumerator.monitors()?;
