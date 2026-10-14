@@ -43,6 +43,9 @@ pub enum Launch {
 pub struct World {
     /// Whether a daemon answers.
     pub daemon_running: Cell<bool>,
+    /// Whether the liveness check misses a running daemon, as it can
+    /// while the daemon is busy with another client.
+    pub looks_missing: Cell<bool>,
     /// Replies the daemon gives, in order. Without one it replies ok.
     pub replies: RefCell<VecDeque<Result<Response, IpcError>>>,
     /// Commands the daemon received.
@@ -65,6 +68,7 @@ impl Default for World {
     fn default() -> Self {
         Self {
             daemon_running: Cell::new(false),
+            looks_missing: Cell::new(false),
             replies: RefCell::default(),
             sent: RefCell::default(),
             processes: RefCell::default(),
@@ -92,7 +96,7 @@ impl World {
 
 impl Daemon for World {
     fn is_running(&self) -> bool {
-        self.daemon_running.get()
+        self.daemon_running.get() && !self.looks_missing.get()
     }
 
     fn send(&self, command: &Command) -> Result<Response, IpcError> {

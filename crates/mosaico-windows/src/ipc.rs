@@ -190,24 +190,5 @@ impl IpcConnection for PipeConnection {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn the_default_instance_keeps_the_usual_pipe() {
-        // Arrange
-        let instance = Instance::new(None, "cfg", "data").unwrap();
-
-        // Act / Assert
-        assert_eq!(pipe_name(&instance), r"\\.\pipe\mosaico");
-    }
-
-    #[test]
-    fn a_named_instance_gets_its_own_pipe() {
-        // Arrange
-        let instance = Instance::new(Some("test-7"), "cfg", "data").unwrap();
-
-        // Act / Assert
-        assert_eq!(pipe_name(&instance), r"\\.\pipe\mosaico-test-7");
-    }
-}
+#[path = "ipc_tests.rs"]
+mod tests;
