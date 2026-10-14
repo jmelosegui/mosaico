@@ -20,6 +20,8 @@ use windows::Win32::Networking::WinHttp::{
 };
 use windows::core::PCWSTR;
 
+use crate::error::OrPlatform;
+
 /// [`HttpClient`] through WinHTTP.
 ///
 /// It holds no state, so it is `Send` and `Sync`. The daemon relies on
@@ -32,6 +34,11 @@ impl HttpClient for WinHttpClient {
     /// Sends the request on port 443 and checks the status before
     /// reading the body. `timeout` becomes WinHTTP's resolve, connect,
     /// send and receive timeouts, each of which bounds one step.
+    ///
+    /// Opening the session, the connection and the request handles, and
+    /// reading the status, involve no network, so their failures are
+    /// platform errors. Sending the request and receiving the answer are
+    /// the network steps.
     fn get_bytes(&self, host: &str, path: &str, timeout: Duration) -> Result<Vec<u8>> {
         let url = http::url(host, path);
         let agent = to_wide(concat!("mosaico/", env!("CARGO_PKG_VERSION")));
@@ -52,10 +59,10 @@ impl HttpClient for WinHttpClient {
                 None,
                 0,
             ))
-            .map_err(failed(&url, "open a session"))?;
+            .or_platform("open an HTTP session")?;
 
             WinHttpSetTimeouts(session.ptr(), timeout, timeout, timeout, timeout)
-                .map_err(failed(&url, "set the timeouts"))?;
+                .or_platform("set the HTTP timeouts")?;
 
             let connect = Handle::new(WinHttpConnect(
                 session.ptr(),
@@ -63,7 +70,7 @@ impl HttpClient for WinHttpClient {
                 443,
                 0,
             ))
-            .map_err(failed(&url, "connect"))?;
+            .or_platform("set up the HTTP connection")?;
 
             let request = Handle::new(WinHttpOpenRequest(
                 connect.ptr(),
@@ -74,15 +81,14 @@ impl HttpClient for WinHttpClient {
                 std::ptr::null(),
                 WINHTTP_FLAG_SECURE,
             ))
-            .map_err(failed(&url, "open the request"))?;
+            .or_platform("set up the HTTP request")?;
 
             WinHttpSendRequest(request.ptr(), None, None, 0, 0, 0)
                 .map_err(failed(&url, "send the request"))?;
             WinHttpReceiveResponse(request.ptr(), std::ptr::null_mut())
                 .map_err(failed(&url, "receive the answer"))?;
 
-            let status =
-                response::status(request.ptr()).map_err(failed(&url, "read the status"))?;
+            let status = response::status(request.ptr()).or_platform("read the HTTP status")?;
             check_status(&url, status)?;
             response::read_body(request.ptr()).map_err(failed(&url, "read the answer"))
         }

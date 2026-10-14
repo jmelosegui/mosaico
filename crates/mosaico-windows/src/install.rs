@@ -14,6 +14,8 @@ use std::path::{Path, PathBuf};
 use mosaico_core::update::Installer;
 use mosaico_core::{Error, Result};
 
+use crate::error::OrPlatform;
+
 /// [`Installer`] that renames the running executable aside.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct RenameInstaller;
@@ -40,10 +42,8 @@ impl Installer for RenameInstaller {
     /// Deletes the `.exe.old` beside `exe`, if there is one.
     fn remove_leftovers(&self, exe: &Path) -> Result<()> {
         match fs::remove_file(backup_of(exe)) {
-            Err(e) if e.kind() != io::ErrorKind::NotFound => {
-                Err(Error::platform("delete the old executable", e))
-            }
-            _ => Ok(()),
+            Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(()),
+            removed => removed.or_platform("delete the old executable"),
         }
     }
 }
@@ -83,7 +83,7 @@ fn replace(files: &impl Files, exe: &Path, binary: &[u8]) -> Result<()> {
     // Rename the running binary out of the way.
     files
         .rename(exe, &backup)
-        .map_err(|e| Error::platform("rename the running executable aside", e))?;
+        .or_platform("rename the running executable aside")?;
 
     // Write the new binary.
     if let Err(e) = files.write(exe, binary) {
@@ -99,7 +99,7 @@ fn replace(files: &impl Files, exe: &Path, binary: &[u8]) -> Result<()> {
             );
             return Err(Error::platform("put the old executable back", where_it_is));
         }
-        return Err(Error::platform("write the new executable", e));
+        return Err(e).or_platform("write the new executable");
     }
 
     // Try to delete the backup (fails while it is still locked).

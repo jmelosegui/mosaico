@@ -28,6 +28,8 @@ use crate::{Error, Result};
 ///   [`Error::http_request`], naming the step that failed.
 /// - Both name the request by its [`url`], so failures read the same on
 ///   every platform.
+/// - A failure on this machine that is not about the network, such as
+///   setting up the request, is an [`Error::Platform`].
 /// - Each request tells the server it comes from mosaico, and which
 ///   version, since some servers refuse anonymous requests.
 /// - A platform without a way to make HTTPS requests returns
