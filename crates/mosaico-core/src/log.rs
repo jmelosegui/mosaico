@@ -4,19 +4,29 @@
 //! `~/.config/mosaico/logs/mosaico.log` for the default instance. When
 //! the file exceeds the configured max size, it is rotated to
 //! `mosaico.log.1` (one backup kept).
+//!
+//! Lines logged before [`init`](crate::log::init) are kept and written
+//! when it runs, if logging is enabled. The daemon reads its config, and
+//! reports what is wrong with it, before it knows whether to log at all.
 
 use std::fmt;
-use std::fs::{self, File, OpenOptions};
-use std::io::Write;
-use std::path::PathBuf;
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Mutex, OnceLock, PoisonError};
 
 use serde::{Deserialize, Serialize};
 
-static LOGGER: OnceLock<Mutex<Logger>> = OnceLock::new();
+#[path = "log_backlog.rs"]
+mod backlog;
+#[path = "log_file.rs"]
+mod file;
 
-const LOG_FILE_NAME: &str = "mosaico.log";
-const BACKUP_SUFFIX: &str = ".1";
+use backlog::Backlog;
+use file::Logger;
+
+/// The logger once [`init`] has run, `None` when logging is off.
+static LOGGER: OnceLock<Option<Mutex<Logger>>> = OnceLock::new();
+
+/// Lines logged before [`init`] ran.
+static BACKLOG: Mutex<Backlog> = Mutex::new(Backlog::new());
 
 /// Logging configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -73,43 +83,26 @@ impl Level {
     }
 }
 
-struct Logger {
-    file: File,
-    path: PathBuf,
-    min_level: Level,
-    max_bytes: u64,
-    written: u64,
-}
-
 /// Initialises the global logger. Call once at daemon startup.
 ///
-/// Does nothing if `config.enabled` is `false`.
+/// Does nothing if `config.enabled` is `false`, other than drop the
+/// lines logged so far. Otherwise the lines logged so far follow its
+/// own first line, filtered by the configured level.
 pub fn init(config: &LogConfig) {
-    if !config.enabled {
-        return;
-    }
-    let Ok(instance) = crate::Instance::current() else {
-        return;
+    let min_level = Level::parse(&config.level);
+    let logger = if config.enabled {
+        Logger::open(config, min_level)
+    } else {
+        None
     };
-    let log_dir = instance.log_dir();
-    let _ = fs::create_dir_all(&log_dir);
-    let path = log_dir.join(LOG_FILE_NAME);
-
-    let file = match OpenOptions::new().create(true).append(true).open(&path) {
-        Ok(f) => f,
-        Err(_) => return,
-    };
-    let written = file.metadata().map(|m| m.len()).unwrap_or(0);
-
-    let logger = Logger {
-        file,
-        path,
-        min_level: Level::parse(&config.level),
-        max_bytes: config.max_file_mb * 1024 * 1024,
-        written,
+    let early = {
+        let mut backlog = BACKLOG.lock().unwrap_or_else(PoisonError::into_inner);
+        if LOGGER.set(logger.map(Mutex::new)).is_err() {
+            return;
+        }
+        backlog.take(min_level)
     };
 
-    let _ = LOGGER.set(Mutex::new(logger));
     write(
         Level::Info,
         format_args!(
@@ -117,60 +110,41 @@ pub fn init(config: &LogConfig) {
             config.level, config.max_file_mb
         ),
     );
+    if let Some(Some(logger)) = LOGGER.get()
+        && let Ok(mut logger) = logger.lock()
+    {
+        for line in early {
+            logger.append(&line);
+        }
+    }
 }
 
 /// Writes a log line if the level is at or above the configured minimum.
+///
+/// Until [`init`] has run, the line is kept for it instead.
 pub fn write(level: Level, args: fmt::Arguments<'_>) {
-    let Some(mutex) = LOGGER.get() else {
-        return;
-    };
-    let Ok(mut logger) = mutex.lock() else {
-        return;
-    };
-    if level < logger.min_level {
-        return;
-    }
-    let now = timestamp();
-    let line = format!("{now} [{lvl}] {args}\n", lvl = level.as_str());
-    let bytes = line.len() as u64;
-
-    let _ = logger.file.write_all(line.as_bytes());
-    let _ = logger.file.flush();
-    logger.written += bytes;
-
-    if logger.max_bytes > 0 && logger.written >= logger.max_bytes {
-        logger.rotate();
-    }
-}
-
-impl Logger {
-    fn rotate(&mut self) {
-        let backup = self.path.with_extension(format!(
-            "{}{}",
-            LOG_FILE_NAME.rsplit('.').next().unwrap_or("log"),
-            BACKUP_SUFFIX
-        ));
-        // Close current file by replacing it with a throwaway.
-        let _ = fs::rename(&self.path, &backup);
-        if let Ok(f) = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&self.path)
-        {
-            self.file = f;
+    match LOGGER.get() {
+        Some(Some(logger)) => {
+            if let Ok(mut logger) = logger.lock() {
+                logger.write(level, args);
+            }
         }
-        self.written = 0;
+        Some(None) => {}
+        None => keep(level, args),
     }
 }
 
-fn timestamp() -> String {
-    // Use std::time for a simple UTC timestamp. No chrono dependency.
-    let dur = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default();
-    let secs = dur.as_secs();
-    let (h, m, s) = (secs / 3600 % 24, secs / 60 % 60, secs % 60);
-    format!("{h:02}:{m:02}:{s:02}")
+/// Keeps a line logged before [`init`].
+fn keep(level: Level, args: fmt::Arguments<'_>) {
+    let mut backlog = BACKLOG.lock().unwrap_or_else(PoisonError::into_inner);
+    // `init` sets the logger while it holds the backlog, so a logger set
+    // since `write` looked shows up here.
+    if LOGGER.get().is_some() {
+        drop(backlog);
+        write(level, args);
+        return;
+    }
+    backlog.keep(level, || file::line(level, args));
 }
 
 /// Logs at DEBUG level.

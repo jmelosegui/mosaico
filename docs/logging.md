@@ -9,7 +9,9 @@ no external logging crate dependencies, keeping the dependency tree minimal.
 
 | File | Purpose |
 |------|---------|
-| `crates/mosaico-core/src/log.rs` | `LogConfig`, `Level`, `Logger`, `init()`, `write()`, macros |
+| `crates/mosaico-core/src/log.rs` | `LogConfig`, `Level`, `init()`, `write()`, macros |
+| `crates/mosaico-core/src/log_file.rs` | `Logger`: the log file, its line format and rotation |
+| `crates/mosaico-core/src/log_backlog.rs` | `Backlog`: lines logged before `init()` |
 
 ### Key Types
 
@@ -19,6 +21,8 @@ no external logging crate dependencies, keeping the dependency tree minimal.
   filtering)
 - `Logger` (struct) -- holds the file handle, path, minimum level, max size,
   and bytes written
+- `Backlog` (struct) -- up to 100 lines, with their level, logged before
+  `init()`
 
 ## Configuration
 
@@ -42,12 +46,14 @@ directory is created automatically if it does not exist.
 
 `init(config)`:
 
-1. Checks if logging is enabled; returns early if not
-2. Creates the log directory
-3. Opens or creates the log file
-4. Parses the configured level string
-5. Stores the `Logger` in a global `OnceLock<Mutex<Logger>>`
-6. Writes an initialization log message with the configured level and max size
+1. Parses the configured level string
+2. If logging is enabled, creates the log directory and opens or creates the
+   log file
+3. Stores the `Logger` in a global `OnceLock<Option<Mutex<Logger>>>`, `None`
+   when logging is disabled or the file cannot be opened
+4. Writes an initialization log message with the configured level and max size
+5. Writes the backlog: the lines logged before `init()`, at or above the
+   configured level, in the order they were logged
 
 Initialization is called once in `daemon_loop()` after loading configuration.
 The `OnceLock` ensures thread-safe single initialization.
@@ -56,12 +62,22 @@ The `OnceLock` ensures thread-safe single initialization.
 
 `write(level, args)`:
 
-1. Checks if the logger is initialized (no-op if not)
-2. Acquires the mutex lock
-3. Checks if `level >= min_level`; skips if below threshold
-4. Formats the log line: `[TIMESTAMP] LEVEL message\n`
-5. Writes to the file and flushes
-6. Tracks bytes written; triggers rotation if `max_bytes` is exceeded
+1. Before `init()`: keeps the line in the backlog (see below) and returns
+2. If logging is disabled: returns
+3. Acquires the mutex lock
+4. Checks if `level >= min_level`; skips if below threshold
+5. Formats the log line: `[TIMESTAMP] LEVEL message\n`
+6. Writes to the file and flushes
+7. Tracks bytes written; triggers rotation if `max_bytes` is exceeded
+
+### Backlog
+
+The daemon has to read `config.toml` before it knows whether to log, so
+anything it logs while starting up comes before `init()`. Those lines are kept
+in a backlog of at most 100 lines, already formatted with the time they were
+logged, and `init()` writes them after its own line. When logging is disabled
+they are dropped. A process that never calls `init()`, such as the CLI, keeps
+at most those 100 lines and does not even format the ones after them.
 
 ### Timestamp
 
