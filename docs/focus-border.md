@@ -181,7 +181,8 @@ tiled windows themselves.
 | `"round"` | Standard rounding (16 px) | `ROUND` (~8 px) |
 
 Windows 10 does not have the DWM attribute, so there only the border
-overlay is affected; the failed call is logged at debug level.
+overlay is affected: changing corners is reported as unsupported, and
+logged at debug level.
 
 The tiler gives the configured corners to every window it manages, and
 gives the system's corners back only to those windows: when they hide or

@@ -1,8 +1,8 @@
 use std::mem;
 
-use mosaico_core::Result;
 use mosaico_core::config::CornerStyle;
-use windows::Win32::Foundation::{HWND, RECT};
+use mosaico_core::{Error, Result};
+use windows::Win32::Foundation::{E_INVALIDARG, HWND, RECT};
 use windows::Win32::Graphics::Dwm::{
     DWMWA_EXTENDED_FRAME_BOUNDS, DWMWINDOWATTRIBUTE, DwmGetWindowAttribute, DwmSetWindowAttribute,
 };
@@ -82,21 +82,39 @@ const DWMWCP_ROUNDSMALL: u32 = 3;
 /// - `Small` = small rounding (~4 px, `ROUNDSMALL`)
 /// - `Round` = standard rounding (~8 px, `ROUND`)
 ///
-/// Fails on Windows 10, where the attribute does not exist.
+/// Returns [`Error::Unsupported`] on Windows 10, where the attribute
+/// does not exist.
 pub(crate) fn set_corner_preference(hwnd: HWND, style: CornerStyle) -> Result<()> {
     let pref = match style {
         CornerStyle::Square => DWMWCP_DONOTROUND,
         CornerStyle::Small => DWMWCP_ROUNDSMALL,
         CornerStyle::Round => DWMWCP_ROUND,
     };
-    set_corner_attribute(hwnd, pref).or_platform("set the window corners")
+    corner_result(set_corner_attribute(hwnd, pref), "set the window corners")
 }
 
 /// Resets a window's corner preference to the system default.
 ///
 /// Called when a window is removed from management.
 pub(crate) fn reset_corner_preference(hwnd: HWND) -> Result<()> {
-    set_corner_attribute(hwnd, DWMWCP_DEFAULT).or_platform("reset the window corners")
+    corner_result(
+        set_corner_attribute(hwnd, DWMWCP_DEFAULT),
+        "reset the window corners",
+    )
+}
+
+/// The core result of setting the corner attribute while doing
+/// `operation`.
+///
+/// DWM answers `E_INVALIDARG` for an attribute it does not know, which
+/// on Windows 10 is this one, so that is [`Error::Unsupported`]. Any
+/// other failure, such as `E_HANDLE` for a window that no longer
+/// exists, is a platform error.
+fn corner_result(result: windows::core::Result<()>, operation: &'static str) -> Result<()> {
+    match result {
+        Err(e) if e.code() == E_INVALIDARG => Err(Error::Unsupported("changing window corners")),
+        other => other.or_platform(operation),
+    }
 }
 
 /// Sets `DWMWA_WINDOW_CORNER_PREFERENCE` on a window to `pref`.
@@ -112,3 +130,7 @@ fn set_corner_attribute(hwnd: HWND, pref: u32) -> windows::core::Result<()> {
         )
     }
 }
+
+#[cfg(test)]
+#[path = "frame_tests.rs"]
+mod tests;

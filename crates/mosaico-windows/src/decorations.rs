@@ -18,7 +18,7 @@ use crate::window::Window;
 /// The overlays belong to this process, whose events the event hook
 /// skips, so drawing them is never reported as a window event. Corners
 /// are the window's DWM corner preference, which Windows 10 does not
-/// have.
+/// have: there, changing corners is reported as unsupported.
 #[derive(Default)]
 pub(crate) struct Win32Decorations {
     /// One overlay per bordered window.
