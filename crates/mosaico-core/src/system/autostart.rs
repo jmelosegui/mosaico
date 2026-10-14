@@ -59,10 +59,13 @@ impl fmt::Display for LaunchCommand {
 ///   the same is refused with
 ///   [`Error::Unsupported`](crate::Error::Unsupported), and the
 ///   registration is left as it was.
-/// - `registered_command` reports what runs at login as it was
-///   registered, without resolving or checking the program. Nothing
-///   follows the executable: after it moves or is deleted, the old path
-///   is reported until `enable` runs again.
+/// - `registered_command` reports the program and arguments that run at
+///   login as they were registered: it does not resolve links, and it
+///   keeps an entry whose program is gone. Where a registration is a
+///   plain command line, the program in it is found the way the system
+///   finds it at login, without waiting on the network. Nothing follows
+///   the executable: after it moves or is deleted, the old path is
+///   reported until `enable` runs again.
 /// - `registered_command` returns `None` only when nothing is
 ///   registered. A registration that cannot be read, or that names no
 ///   program, is an error.

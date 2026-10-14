@@ -100,64 +100,9 @@ fn a_written_command_splits_back_into_the_same_command() {
 
     for command in commands {
         // Act
-        let read_back = split(&join(&command).unwrap());
+        let read_back = split(&join(&command).unwrap(), |_| false);
 
         // Assert
         assert_eq!(read_back, Some(command));
-    }
-}
-
-#[test]
-fn a_quoted_program_ends_at_its_closing_quote() {
-    // Act
-    let parsed = split(r#"  "C:\Program Files\mosaico\mosaico.exe"   start"#);
-
-    // Assert
-    assert_eq!(
-        parsed,
-        Some(LaunchCommand::autostart(
-            r"C:\Program Files\mosaico\mosaico.exe"
-        ))
-    );
-}
-
-#[test]
-fn an_unquoted_program_ends_at_the_first_space() {
-    // Act
-    let parsed = split(r"C:\Program Files\mosaico\mosaico.exe start");
-
-    // Assert
-    assert_eq!(
-        parsed,
-        Some(command(
-            r"C:\Program",
-            &[r"Files\mosaico\mosaico.exe", "start"]
-        ))
-    );
-}
-
-#[test]
-fn arguments_split_as_windows_programs_read_them() {
-    // Act
-    let parsed = split(r#""C:\mosaico.exe" C:\a\b "C:\c d\\" a\\\"b "x""y" ab"c d"e"#);
-
-    // Assert
-    assert_eq!(
-        parsed,
-        Some(command(
-            r"C:\mosaico.exe",
-            &[r"C:\a\b", r"C:\c d\", r#"a\"b"#, r#"x"y"#, "abc de"]
-        ))
-    );
-}
-
-#[test]
-fn a_line_without_a_program_names_nothing() {
-    for line in ["", " \t ", r#""""#, r#""" start"#] {
-        // Act
-        let parsed = split(line);
-
-        // Assert
-        assert_eq!(parsed, None, "{line:?}");
     }
 }

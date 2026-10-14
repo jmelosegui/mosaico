@@ -1,14 +1,14 @@
 //! Command lines as the Run key holds them.
 //!
-//! A Run value is one string. Windows starts the program named at its
-//! front and passes the rest on, and the program splits that into
-//! arguments with the rules every Windows program follows (those of
-//! `CommandLineToArgvW`). So the program goes in quotes, an argument is
-//! quoted and escaped for those rules when it needs to be, and a value is
-//! read back with the same rules.
+//! A Run value is one string. At logon Windows starts the program named
+//! at its front, finding an unquoted one the way `CreateProcess` does,
+//! and passes the rest to it as its arguments. So the program goes in
+//! quotes, and the arguments follow the rules in `autostart_args.rs`.
 
-use std::iter::repeat_n;
-use std::path::PathBuf;
+#[path = "autostart_args.rs"]
+mod args;
+
+use std::path::{Path, PathBuf};
 
 use mosaico_core::system::LaunchCommand;
 use mosaico_core::{Error, Result};
@@ -38,110 +38,77 @@ pub fn join(command: &LaunchCommand) -> Result<String> {
     let mut line = format!("\"{program}\"");
     for arg in &command.args {
         line.push(' ');
-        push_arg(&mut line, arg);
+        args::push(&mut line, arg);
     }
     Ok(line)
-}
-
-/// Appends `arg` as it is, or in quotes when it is empty or has spaces,
-/// tabs or quotes, escaping its quotes and the backslashes before them
-/// so the program reads it back unchanged.
-fn push_arg(line: &mut String, arg: &str) {
-    if !arg.is_empty() && !arg.contains([' ', '\t', '"']) {
-        line.push_str(arg);
-        return;
-    }
-    line.push('"');
-    let mut backslashes = 0;
-    for c in arg.chars() {
-        if c == '\\' {
-            backslashes += 1;
-            continue;
-        }
-        let escapes = if c == '"' {
-            backslashes * 2 + 1
-        } else {
-            backslashes
-        };
-        line.extend(repeat_n('\\', escapes));
-        line.push(c);
-        backslashes = 0;
-    }
-    // Backslashes before the closing quote would escape it.
-    line.extend(repeat_n('\\', backslashes * 2));
-    line.push('"');
 }
 
 /// Splits a command line into the program and its arguments, or `None`
 /// when it names no program.
 ///
-/// A program in quotes ends at the closing quote, any other at the first
-/// space or tab. Logon is more forgiving with an unquoted path that has
-/// spaces, such as `C:\Program Files\mosaico\mosaico.exe start` typed in
-/// by hand: it may still find and run the program, but this splits it at
-/// the first space, so such an entry reads as another command, or one
-/// whose program does not exist, and doctor flags it. `autostart enable`
-/// writes it back in quotes.
-pub fn split(line: &str) -> Option<LaunchCommand> {
+/// A program in quotes ends at the closing quote. An unquoted one is
+/// found the way logon finds it, see `find_unquoted`. `is_file` says
+/// whether a file is at a path, and must answer without waiting.
+pub fn split(line: &str, is_file: impl Fn(&Path) -> bool) -> Option<LaunchCommand> {
     let line = line.trim_start_matches([' ', '\t']);
     let (program, rest) = match line.strip_prefix('"') {
-        Some(quoted) => quoted.split_once('"').unwrap_or((quoted, "")),
-        None => line.split_once([' ', '\t']).unwrap_or((line, "")),
+        Some(quoted) => {
+            let (program, rest) = quoted.split_once('"').unwrap_or((quoted, ""));
+            (PathBuf::from(program), rest)
+        }
+        None => find_unquoted(line, &is_file),
     };
-    if program.is_empty() {
+    if program.as_os_str().is_empty() {
         return None;
     }
     Some(LaunchCommand {
-        program: PathBuf::from(program),
-        args: split_args(rest),
+        program,
+        args: args::split(rest),
     })
 }
 
-/// Splits what follows the program into arguments. Spaces and tabs
-/// outside quotes separate them and quotes group them. Backslashes are
-/// literal unless a quote follows: then each pair is one backslash and
-/// an odd one makes the quote literal. `""` inside quotes is a quote.
-fn split_args(rest: &str) -> Vec<String> {
-    let mut args = Vec::new();
-    let mut chars = rest.chars().peekable();
-    loop {
-        while chars.next_if(|c| matches!(c, ' ' | '\t')).is_some() {}
-        if chars.peek().is_none() {
-            return args;
+/// The program at the front of an unquoted command line, and the rest.
+///
+/// Logon, like `CreateProcess`, tries ever longer runs of words, adding
+/// `.exe` to a name without an extension, and runs the first that names
+/// a file. For `C:\Program Files\Logi\Bolt.exe --startup` that is
+/// `C:\Program.exe`, then `C:\Program Files\Logi\Bolt.exe`. When none
+/// does, the program is the first word, which logon cannot start either.
+/// A relative name is not looked up, since the file it names depends on
+/// where it is run from.
+fn find_unquoted<'a>(line: &'a str, is_file: &dyn Fn(&Path) -> bool) -> (PathBuf, &'a str) {
+    let end_of_line = line.trim_end_matches([' ', '\t']).len();
+    let word_ends = line[..end_of_line]
+        .match_indices([' ', '\t'])
+        .map(|(at, _)| at)
+        .filter(|&at| !line[..at].ends_with([' ', '\t']))
+        .chain([end_of_line]);
+    for end in word_ends {
+        if let Some(program) = runnable(&line[..end], is_file) {
+            return (program, &line[end..]);
         }
-        let mut arg = String::new();
-        let mut quoted = false;
-        while let Some(c) = chars.next_if(|&c| quoted || !matches!(c, ' ' | '\t')) {
-            match c {
-                '\\' => {
-                    let mut backslashes = 1;
-                    while chars.next_if_eq(&'\\').is_some() {
-                        backslashes += 1;
-                    }
-                    if chars.peek() == Some(&'"') {
-                        arg.extend(repeat_n('\\', backslashes / 2));
-                        if backslashes % 2 == 1 {
-                            chars.next();
-                            arg.push('"');
-                        }
-                    } else {
-                        arg.extend(repeat_n('\\', backslashes));
-                    }
-                }
-                '"' => {
-                    if quoted && chars.next_if_eq(&'"').is_some() {
-                        arg.push('"');
-                    } else {
-                        quoted = !quoted;
-                    }
-                }
-                c => arg.push(c),
-            }
-        }
-        args.push(arg);
     }
+    let first_end = line.find([' ', '\t']).unwrap_or(line.len());
+    (PathBuf::from(&line[..first_end]), &line[first_end..])
 }
 
+/// The file logon runs for `name`, if there is one: `name` itself, or
+/// `name` with `.exe` added when it has no extension.
+fn runnable(name: &str, is_file: &dyn Fn(&Path) -> bool) -> Option<PathBuf> {
+    let path = Path::new(name);
+    if !path.is_absolute() {
+        return None;
+    }
+    let path = match path.extension() {
+        Some(_) => path.to_path_buf(),
+        None => PathBuf::from(format!("{name}.exe")),
+    };
+    is_file(&path).then_some(path)
+}
+
+#[cfg(test)]
+#[path = "autostart_split_tests.rs"]
+mod split_tests;
 #[cfg(test)]
 #[path = "autostart_command_line_tests.rs"]
 mod tests;
