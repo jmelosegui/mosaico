@@ -167,3 +167,27 @@ fn a_redraw_leaves_a_border_decided_before_it_where_it_was() {
     // Assert
     assert_eq!(kept, [place(1, 0), draw(1, 0), Effect::RedrawBorders]);
 }
+
+#[test]
+fn a_border_stays_right_after_its_window_past_a_window_put_behind_it() {
+    // Arrange -- the monocle layout puts a waiting window behind the
+    // monocle window and places it, then the borders are brought in line.
+    let behind = Effect::PutBehind {
+        window: wid(2),
+        other: wid(1),
+    };
+    let effects = vec![
+        place(1, 0),
+        draw(1, 0),
+        behind.clone(),
+        place(2, 0),
+        draw(1, 0),
+    ];
+
+    // Act
+    let kept = keep_last_borders(effects);
+
+    // Assert -- putting a window behind is passed over like the other
+    // window effects.
+    assert_eq!(kept, [place(1, 0), draw(1, 0), behind, place(2, 0)]);
+}
