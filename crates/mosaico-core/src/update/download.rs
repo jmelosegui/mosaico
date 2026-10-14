@@ -53,9 +53,19 @@ fn extract(archive: &[u8], binary: &str) -> Result<Vec<u8>> {
 
         let name = file.name().to_lowercase();
         if name == wanted || name.ends_with(&format!("/{wanted}")) {
-            let mut buf = Vec::with_capacity(file.size() as usize);
+            // The size is what the archive says, which a corrupt one can
+            // get wrong by any amount, so it only checks what was read.
+            let declared = file.size();
+            let mut buf = Vec::new();
             file.read_to_end(&mut buf)
                 .map_err(|e| invalid(format!("cannot extract {binary}: {e}")))?;
+            if buf.len() as u64 != declared {
+                return Err(invalid(format!(
+                    "invalid zip archive: {binary} is said to be {declared} bytes but holds {}",
+                    buf.len()
+                ))
+                .into());
+            }
             return Ok(buf);
         }
     }
