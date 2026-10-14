@@ -23,9 +23,12 @@ use mosaico_core::tiler::{
     Coalescer, Desktop, Effect, Expectations, HiddenFile, HiddenWindows, apply_decoration_effect,
     apply_window_effect,
 };
-use mosaico_core::{HidingSupport, WindowControl, WindowId};
+use mosaico_core::{HidingSupport, WindowControl};
 
 use crate::decorations::Win32Decorations;
+
+#[path = "applier_hidden.rs"]
+mod hidden;
 
 /// Executes effects and remembers what the OS should report back.
 #[derive(Default)]
@@ -50,40 +53,6 @@ impl Applier {
             expectations: Expectations::new(hiding),
             hidden_file: file,
             ..Self::default()
-        }
-    }
-
-    /// Shows again the windows a previous daemon hid and never showed,
-    /// because it was killed or crashed, then clears its record.
-    ///
-    /// Run before the first windows are enumerated, so they are adopted
-    /// like any other window.
-    pub(super) fn restore_previous(
-        &mut self,
-        desktop: &dyn Desktop,
-        control: &dyn WindowControl,
-        now: Instant,
-    ) {
-        let Some(file) = &self.hidden_file else {
-            return;
-        };
-        let effects = file.load().restore(|w| desktop.identity(w));
-        if !effects.is_empty() {
-            mosaico_core::log_info!(
-                "showing {} window(s) a previous daemon left hidden",
-                effects.len()
-            );
-        }
-        for effect in &effects {
-            self.run(effect, desktop, control, now);
-        }
-        self.save_hidden();
-    }
-
-    /// Forgets a window that was destroyed.
-    pub(super) fn forget(&mut self, window: WindowId) {
-        if self.hidden.forget(window) {
-            self.save_hidden();
         }
     }
 
