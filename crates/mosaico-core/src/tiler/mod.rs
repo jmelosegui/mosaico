@@ -102,7 +102,8 @@ pub struct Tiler {
     bordered: HashSet<WindowId>,
     /// Windows given the configured corners, so that only those get the
     /// system's corners back. A minimized window leaves the layout but
-    /// stays here.
+    /// stays here; one dropped from it for no longer being shown does
+    /// not.
     decorated: HashSet<WindowId>,
     mouse_follows_focus: bool,
     focused_monitor: usize,
