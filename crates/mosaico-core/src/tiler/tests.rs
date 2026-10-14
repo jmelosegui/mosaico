@@ -27,8 +27,12 @@ mod focus_tests;
 mod layout_tests;
 #[path = "tests/move_tests.rs"]
 mod move_tests;
+#[path = "tests/pipeline_tests.rs"]
+mod pipeline_tests;
 #[path = "tests/pre_place_tests.rs"]
 mod pre_place_tests;
+#[path = "tests/session_tests.rs"]
+mod session_tests;
 #[path = "tests/work_area_tests.rs"]
 mod work_area_tests;
 #[path = "tests/workspace_tests.rs"]
@@ -50,6 +54,7 @@ pub(super) struct FakeWindow {
     pub(super) owner: Option<WindowId>,
     pub(super) monitor: usize,
     pub(super) facts: Option<WindowFacts>,
+    pub(super) process: u32,
 }
 
 impl FakeWindow {
@@ -69,6 +74,7 @@ impl FakeWindow {
                 path: "/apps/app".into(),
                 has_caption: true,
             }),
+            process: 1000,
         }
     }
 }
@@ -79,6 +85,10 @@ pub(super) struct FakeDesktop {
     pub(super) windows: HashMap<WindowId, FakeWindow>,
     pub(super) cursor: Option<(i32, i32)>,
     pub(super) focused: Option<WindowId>,
+    /// Border overlays, as the platform keeps them: one per window,
+    /// created when first drawn and destroyed by `DropBorder`. The value
+    /// is whether the overlay is showing.
+    pub(super) borders: HashMap<WindowId, bool>,
 }
 
 impl Desktop for FakeDesktop {
@@ -119,6 +129,18 @@ impl Desktop for FakeDesktop {
 }
 
 impl FakeDesktop {
+    /// What the platform would check to recognise a window again.
+    pub(super) fn identity(&self, window: WindowId) -> Option<WindowIdentity> {
+        self.windows.get(&window).map(|w| WindowIdentity {
+            process: w.process,
+            class: w
+                .facts
+                .as_ref()
+                .map(|f| f.class.clone())
+                .unwrap_or_default(),
+        })
+    }
+
     /// Applies an effect the way a platform would.
     fn apply(&mut self, effect: &Effect) {
         match *effect {
@@ -151,9 +173,41 @@ impl FakeDesktop {
                 }
             }
             Effect::Focus { window, .. } => self.focused = Some(window),
+            Effect::Border {
+                window,
+                style: Some(_),
+            } => {
+                self.borders.insert(window, true);
+            }
+            Effect::Border {
+                window,
+                style: None,
+            } => {
+                if let Some(showing) = self.borders.get_mut(&window) {
+                    *showing = false;
+                }
+            }
+            Effect::DropBorder { window } => {
+                self.borders.remove(&window);
+            }
             _ => {}
         }
     }
+}
+
+/// The platform side of the effect pipeline: what the applier does
+/// between the tiler and the desktop.
+#[derive(Debug, Default)]
+pub(super) struct Pipeline {
+    pub(super) coalescer: Coalescer,
+    pub(super) expectations: Expectations,
+}
+
+/// Applies one effect to the desktop and records it in the hidden-window
+/// record, as the platform applier does for every effect it runs.
+fn deliver(desktop: &mut FakeDesktop, hidden: &mut HiddenWindows, effect: &Effect) {
+    desktop.apply(effect);
+    hidden.applied(effect, |w| desktop.identity(w));
 }
 
 /// `count` monitors side by side, the first one primary, with ids
@@ -184,6 +238,14 @@ pub(super) struct Harness {
     pub(super) now: Instant,
     /// Effects of the latest step.
     pub(super) effects: Vec<Effect>,
+    /// What the platform records of windows hidden by switching.
+    pub(super) hidden: HiddenWindows,
+    settings: Settings,
+    monitors: usize,
+    /// When set, effects go through the coalescer and the echo filter
+    /// the way the platform applier sends them, instead of straight to
+    /// the desktop. See [`Harness::through_platform`].
+    pub(super) pipeline: Option<Pipeline>,
 }
 
 impl Harness {
@@ -204,22 +266,63 @@ impl Harness {
         }
         let ids: Vec<WindowId> = windows.iter().map(|&(id, _)| wid(id)).collect();
         let now = Instant::now();
-        let (tiler, effects) = Tiler::new(settings, &displays(monitors), &ids, &desktop, now);
+        let (tiler, effects) =
+            Tiler::new(settings.clone(), &displays(monitors), &ids, &desktop, now);
         let mut harness = Self {
             tiler,
             desktop,
             now,
             effects: Vec::new(),
+            hidden: HiddenWindows::default(),
+            settings,
+            monitors,
+            pipeline: None,
         };
         harness.apply(effects);
         harness
     }
 
+    /// From here on, sends effects through a [`Coalescer`] and records
+    /// them in [`Expectations`], as the platform applier does: held
+    /// effects reach the desktop only on [`Harness::flush`], and events
+    /// that echo our own effects are dropped before the tiler sees them.
+    pub(super) fn through_platform(mut self) -> Self {
+        self.pipeline = Some(Pipeline::default());
+        self
+    }
+
     fn apply(&mut self, effects: Vec<Effect>) {
-        for effect in &effects {
-            self.desktop.apply(effect);
+        match self.pipeline.as_mut() {
+            None => {
+                for effect in &effects {
+                    deliver(&mut self.desktop, &mut self.hidden, effect);
+                }
+            }
+            Some(pipeline) => {
+                for effect in effects.iter().cloned() {
+                    if matches!(effect, Effect::Focus { .. }) {
+                        pipeline.expectations.held(&effect);
+                    }
+                    if let Some(effect) = pipeline.coalescer.admit(effect) {
+                        deliver(&mut self.desktop, &mut self.hidden, &effect);
+                        pipeline.expectations.applied(&effect, self.now);
+                    }
+                }
+            }
         }
         self.effects = effects;
+    }
+
+    /// Applies everything the coalescer held, as the platform does once
+    /// input goes quiet. Does nothing without [`Harness::through_platform`].
+    pub(super) fn flush(&mut self) {
+        let Some(pipeline) = self.pipeline.as_mut() else {
+            return;
+        };
+        for effect in pipeline.coalescer.take() {
+            deliver(&mut self.desktop, &mut self.hidden, &effect);
+            pipeline.expectations.applied(&effect, self.now);
+        }
     }
 
     /// Runs one input and applies its effects.
@@ -233,7 +336,16 @@ impl Harness {
         self.step(Input::Action(action))
     }
 
+    /// Reports a window event. Through the platform, an echo of our own
+    /// effects is dropped before the tiler sees it.
     pub(super) fn event(&mut self, event: WindowEvent) -> &[Effect] {
+        let now = self.now;
+        if let Some(pipeline) = self.pipeline.as_mut()
+            && pipeline.expectations.echo(&event, now).is_some()
+        {
+            self.effects.clear();
+            return &self.effects;
+        }
         self.step(Input::Event(event))
     }
 
@@ -243,6 +355,38 @@ impl Harness {
             .windows
             .insert(wid(id), FakeWindow::app(monitor));
         self.event(WindowEvent::Created { window: wid(id) })
+    }
+
+    /// Kills the daemon without a clean shutdown and starts a new one on
+    /// the same desktop, the way the platform does: it shows what the
+    /// record says the old daemon hid, then tiles whatever exists.
+    pub(super) fn kill_and_restart(&mut self) -> &[Effect] {
+        let record = std::mem::take(&mut self.hidden);
+        // Held effects and expectations die with the old daemon.
+        if self.pipeline.is_some() {
+            self.pipeline = Some(Pipeline::default());
+        }
+        let desktop = &self.desktop;
+        let mut effects = record.restore(|w| desktop.identity(w));
+        for effect in &effects {
+            self.desktop.apply(effect);
+        }
+        let mut ids: Vec<WindowId> = self.desktop.windows.keys().copied().collect();
+        ids.sort();
+        let (tiler, started) = Tiler::new(
+            self.settings.clone(),
+            &displays(self.monitors),
+            &ids,
+            &self.desktop,
+            self.now,
+        );
+        self.tiler = tiler;
+        for effect in &started {
+            deliver(&mut self.desktop, &mut self.hidden, effect);
+        }
+        effects.extend(started);
+        self.effects = effects;
+        &self.effects
     }
 
     pub(super) fn advance(&mut self, by: Duration) {
