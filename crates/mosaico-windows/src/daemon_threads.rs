@@ -62,9 +62,13 @@ pub(super) fn spawn_action_bridge(
     })
 }
 
-/// Spawns the IPC listener thread.
-pub(super) fn spawn_ipc_listener(tx: mpsc::Sender<DaemonMsg>) -> thread::JoinHandle<()> {
-    thread::spawn(move || daemon_ipc::ipc_loop(tx))
+/// Spawns the IPC listener thread on `pipe_name`.
+pub(super) fn spawn_ipc_listener(
+    tx: mpsc::Sender<DaemonMsg>,
+    pipe_name: &str,
+) -> thread::JoinHandle<()> {
+    let pipe_name = pipe_name.to_string();
+    thread::spawn(move || daemon_ipc::ipc_loop(tx, pipe_name))
 }
 
 /// Spawns the config watcher thread and a bridge into the daemon channel.

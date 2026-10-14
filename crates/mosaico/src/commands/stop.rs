@@ -1,6 +1,6 @@
 use std::time::{Duration, Instant};
 
-use mosaico_core::ipc::ResponseStatus;
+use mosaico_core::ipc::{IpcClient, ResponseStatus};
 
 /// How long to wait for the daemon process to actually exit.
 ///
@@ -20,9 +20,9 @@ pub fn execute() {
     let pid = mosaico_core::pid::read_pid_file().ok().flatten();
 
     // Try graceful shutdown via IPC first.
-    if mosaico_windows::ipc::is_daemon_running() {
+    if crate::platform::ipc().is_daemon_running() {
         let command = mosaico_core::Command::Stop;
-        match mosaico_windows::ipc::send_command(&command) {
+        match crate::platform::ipc().send(&command) {
             Ok(response) if response.status == ResponseStatus::Ok => {
                 let message = response.message.unwrap_or_default();
 
@@ -56,10 +56,7 @@ pub fn execute() {
                 return;
             }
             Ok(response) => {
-                eprintln!(
-                    "Error: {}",
-                    response.message.unwrap_or("unknown error".into())
-                );
+                eprintln!("Error: {}", super::request::describe_refusal(&response));
                 return;
             }
             Err(e) => eprintln!("IPC failed: {e}"),

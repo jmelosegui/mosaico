@@ -1,0 +1,143 @@
+//! The channel between the CLI and the daemon.
+//!
+//! A platform provides the byte streams; everything above them, the
+//! framing, the one-request-one-reply exchange and the daemon's accept
+//! loop, lives here so every platform behaves the same.
+
+use std::io::{BufReader, Read, Write};
+
+use serde_json::Value;
+
+use super::framing::{read_message, write_message};
+use super::{Command, ErrorCode, IpcError, Request, Response, decode_request};
+
+/// How the CLI reaches the daemon.
+///
+/// # Contract for platform implementations
+///
+/// - A client is built for one daemon instance (an endpoint the platform
+///   names, such as a pipe or socket path) and only ever reaches that one.
+/// - `connect` fails with [`IpcError::NotRunning`] when no daemon is
+///   listening, without waiting. When the daemon is listening but busy
+///   with another client, it waits a short, bounded time for it to
+///   become free before giving up.
+/// - Once connected, reads block until the daemon replies or goes away.
+///   A daemon that exits mid-request must end the stream, so the client
+///   sees [`IpcError::Closed`] rather than hanging.
+/// - `is_daemon_running` must not consume the daemon's attention: it
+///   checks for a listener without connecting to it.
+pub trait IpcClient {
+    /// A connection to the daemon.
+    type Stream: Read + Write;
+
+    /// Whether a daemon is listening.
+    fn is_daemon_running(&self) -> bool;
+
+    /// Opens a connection to the daemon.
+    fn connect(&self) -> Result<Self::Stream, IpcError>;
+
+    /// Sends one command and waits for its reply.
+    fn send(&self, command: &Command) -> Result<Response, IpcError> {
+        let mut stream = self.connect()?;
+        write_message(&mut stream, &Request::new(command.clone()))?;
+        read_message(&mut BufReader::new(stream))
+    }
+}
+
+/// How the daemon listens for the CLI.
+///
+/// # Contract for platform implementations
+///
+/// - `accept` blocks until a client connects. Each connection carries
+///   exactly one command and one reply.
+/// - An error from `accept` means the daemon can no longer listen at
+///   all; [`serve`] stops on it.
+/// - Only clients of the same user may connect.
+pub trait IpcServer {
+    /// One accepted connection.
+    type Connection: IpcConnection;
+
+    /// Waits for the next client.
+    fn accept(&mut self) -> Result<Self::Connection, IpcError>;
+}
+
+/// The daemon's end of one connection.
+pub trait IpcConnection: Read + Write {
+    /// Ends the connection once the reply is written.
+    ///
+    /// Must not return until the client can read the whole reply: on
+    /// some transports, closing early throws away data the client has
+    /// not read yet.
+    fn finish(self) -> Result<(), IpcError>
+    where
+        Self: Sized;
+}
+
+/// Why [`serve`] returned.
+#[derive(Debug)]
+pub enum Served {
+    /// The daemon was told to stop, and the client got its reply.
+    Stopped,
+    /// `handle` returned `None`: there is nobody left to answer.
+    Abandoned,
+    /// The server can no longer accept connections. The daemon has lost
+    /// its only control channel and should shut down.
+    Failed(IpcError),
+}
+
+/// Runs the daemon's side of the channel until it is told to stop.
+///
+/// For each connection, reads one request and answers it. Requests that
+/// cannot be carried out (malformed, too large, unknown, from another
+/// protocol version) get an error reply without reaching `handle`, so a
+/// client is never left waiting. Everything else goes to `handle`.
+pub fn serve<S: IpcServer>(
+    server: &mut S,
+    mut handle: impl FnMut(Command) -> Option<Response>,
+) -> Served {
+    loop {
+        let mut connection = match server.accept() {
+            Ok(connection) => connection,
+            Err(e) => return Served::Failed(e),
+        };
+
+        let request = read_message::<Value>(&mut BufReader::new(&mut connection))
+            .map_err(|e| match e {
+                IpcError::TooLarge => Some(Response::error(
+                    ErrorCode::TooLarge,
+                    "the request is too large",
+                )),
+                IpcError::Malformed(e) => Some(Response::error(
+                    ErrorCode::Malformed,
+                    format!("malformed request: {e}"),
+                )),
+                // The client is gone; there is nobody to answer.
+                _ => None,
+            })
+            .and_then(|value| decode_request(value).map_err(Some));
+
+        let (response, is_stop) = match request {
+            Ok(command) => {
+                let is_stop = command == Command::Stop;
+                match handle(command) {
+                    Some(response) => (response, is_stop),
+                    None => return Served::Abandoned,
+                }
+            }
+            Err(Some(refusal)) => (refusal, false),
+            Err(None) => continue,
+        };
+
+        let replied = write_message(&mut connection, &response).and_then(|()| connection.finish());
+        if let Err(e) = replied {
+            crate::log_warn!("IPC: could not reply: {e}");
+        }
+        if is_stop {
+            return Served::Stopped;
+        }
+    }
+}
+
+#[cfg(test)]
+#[path = "tests/transport_tests.rs"]
+mod tests;

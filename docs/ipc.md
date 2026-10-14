@@ -1,140 +1,134 @@
 # Inter-Process Communication (IPC)
 
-The daemon and CLI communicate via a Windows Named Pipe. The CLI connects as a
-client, sends a JSON-serialized command, and reads back a JSON-serialized
-response. Each connection handles one request-response cycle.
+The CLI and the daemon talk over a local channel: the CLI connects, sends one
+request, reads one reply and disconnects. On Windows the channel is a named
+pipe.
 
 ## Architecture
 
-The IPC system spans two crates:
+The protocol lives in core and the platform only supplies byte streams:
 
-- **mosaico-core** defines platform-agnostic message types (`Command`,
-  `Response`)
-- **mosaico-windows** implements the Win32 named pipe server and client
+- **mosaico-core** (`crates/mosaico-core/src/ipc/`) defines the messages, the
+  framing, the protocol version, the transport traits and the daemon's accept
+  loop.
+- **mosaico-windows** (`crates/mosaico-windows/src/ipc.rs`) implements the
+  traits with named pipes.
+- **mosaico** (the CLI) picks the implementation in one place,
+  `crates/mosaico/src/platform.rs`, and every command goes through the
+  `IpcClient` trait.
 
 ### Key Files
 
 | File | Purpose |
 |------|---------|
-| `crates/mosaico-core/src/ipc.rs` | `Command`, `Response`, `ResponseStatus`, `PIPE_NAME` |
-| `crates/mosaico-windows/src/ipc.rs` | `PipeServer`, `send_command()`, `is_daemon_running()` |
+| `crates/mosaico-core/src/ipc/mod.rs` | `Command`, `PROTOCOL_VERSION`, `DAEMON_VERSION` |
+| `crates/mosaico-core/src/ipc/request.rs` | `Request` envelope and `decode_request()` |
+| `crates/mosaico-core/src/ipc/response.rs` | `Response`, `ErrorCode`, `DaemonStatus` |
+| `crates/mosaico-core/src/ipc/framing.rs` | `read_message()`, `write_message()`, `MAX_MESSAGE_BYTES` |
+| `crates/mosaico-core/src/ipc/transport.rs` | `IpcClient`, `IpcServer`, `IpcConnection`, `serve()` |
+| `crates/mosaico-windows/src/ipc.rs` | `PipeClient`, `PipeServer`, `PipeConnection`, `DEFAULT_PIPE_NAME` |
+| `crates/mosaico-windows/src/daemon_ipc.rs` | Runs `serve()` on the daemon's IPC thread |
 
-### Key Types
+## Framing
 
-- `PIPE_NAME` -- constant `r"\\.\pipe\mosaico"`
-- `Command` (enum, tagged JSON via `#[serde(tag = "command")]`):
-  - `Stop` -- request daemon shutdown
-  - `Status` -- health check
-  - `Action { action: Action }` -- forward a tiling action
-- `Response` -- fields: `status: ResponseStatus`, `message: Option<String>`
-  - Factory methods: `ok()`, `ok_with_message(msg)`, `error(msg)`
-- `ResponseStatus` (enum) -- `Ok`, `Error`
-- `PipeServer` (struct) -- server-side pipe wrapper with RAII cleanup
-- `HandleGuard` (struct) -- RAII wrapper that closes a HANDLE on drop
+Every message is one compact JSON value followed by `\n`. Compact JSON never
+contains a raw newline, so the newline always ends the message. A message
+larger than `MAX_MESSAGE_BYTES` (1 MiB) is rejected rather than buffered.
 
-## Protocol
+If the other side goes away before a whole message arrives, the reader gets
+`IpcError::Closed`. That is what the CLI sees when the daemon exits
+mid-request, instead of hanging.
 
-Messages are JSON objects terminated by a newline character (`\n`):
+## Requests
 
-### Request Format
-
-```json
-{"command":"action","action":"focus-next"}
-```
+A request is the command plus the protocol version of the client:
 
 ```json
-{"command":"stop"}
-```
-
-### Response Format
-
-```json
-{"status":"ok"}
+{"version":1,"command":"Stop"}
 ```
 
 ```json
-{"status":"ok","message":"Daemon is running"}
+{"version":1,"command":"Action","action":"focus-left"}
+```
+
+The version sits next to the command's own fields, so a daemon built before
+versioning still reads the command and ignores the version.
+
+The daemon checks every request before running it, and always answers:
+
+| Request | Reply |
+|---------|-------|
+| not JSON, or not an object | `malformed` |
+| larger than the limit | `too-large` |
+| from another `PROTOCOL_VERSION`, or with no version | `version-mismatch`, with the daemon's `DaemonStatus` in `data` |
+| `Stop` from any version | carried out, so a mismatched daemon can always be stopped |
+| an unknown command | `unknown-command` |
+| a known command with bad fields | `malformed` |
+
+Bump `PROTOCOL_VERSION` whenever a change would make one side misread the
+other.
+
+## Responses
+
+```json
+{"status":"ok","message":"Daemon is running, managing 3 windows","data":{"version":"0.9.1","protocol":1,"windows":3}}
 ```
 
 ```json
-{"status":"error","message":"Unknown command"}
+{"status":"error","message":"...","code":"version-mismatch","data":{"version":"0.9.1","protocol":1,"windows":0}}
 ```
 
-## Server Side
+- `status` -- `ok` or `error`
+- `message` -- text for people, optional
+- `code` -- an `ErrorCode` for programs, on errors. Codes a build does not
+  know read as `Other`.
+- `data` -- a typed result, read with `Response::data::<T>()`. `Status`
+  returns a `DaemonStatus`.
 
-The daemon's `ipc_loop()` runs on a dedicated thread:
+`code` and `data` are optional, so replies from older daemons still parse.
 
-1. Creates a `PipeServer` via `CreateNamedPipeW` with:
-   - `PIPE_ACCESS_DUPLEX` -- bidirectional communication
-   - `PIPE_TYPE_BYTE | PIPE_READMODE_BYTE` -- byte-stream mode
-   - `PIPE_UNLIMITED_INSTANCES` -- allows multiple pipe instances
-2. Blocks on `ConnectNamedPipe` waiting for a client
-3. Reads the command JSON line via `accept_command()`
-4. Deserializes the `Command`
-5. Sends `DaemonMsg::Command(cmd, reply_tx)` to the main daemon thread
-6. Waits for the reply on the oneshot `reply_rx` channel
-7. Serializes and sends the `Response` via `send_response()`
-8. Calls `FlushFileBuffers` then `DisconnectNamedPipe`
-9. Loops back to wait for the next client
+## Transport Contract
 
-### Handle Management
+`IpcClient` (CLI side):
 
-`PipeServer` uses `DuplicateHandle` to create independent `std::fs::File`
-wrappers from the pipe HANDLE. This avoids double-close bugs -- the `File`
-owns a duplicate handle, so dropping the `File` does not close the original
-pipe handle.
+- built for one daemon instance; on Windows that is a pipe name
+- `connect` fails with `IpcError::NotRunning` straight away when nothing is
+  listening, and waits a short, bounded time when the daemon is busy with
+  another client
+- `is_daemon_running` checks for a listener without taking a connection
+- `send` (provided by core) writes the request and reads the reply
 
-`Drop` implementation on `PipeServer` calls `CloseHandle` on the original
-pipe handle.
+`IpcServer` / `IpcConnection` (daemon side):
 
-## Client Side
+- `accept` blocks until a client connects; one request and one reply per
+  connection
+- `finish` must not return until the client can read the whole reply
 
-`send_command(command)`:
+`serve()` runs the loop: accept, read, refuse or hand the command to the
+daemon, reply, repeat. It returns `Served::Stopped` after answering `Stop`,
+`Served::Abandoned` if the daemon thread is gone, or `Served::Failed` if the
+listener can no longer accept connections. In that last case the daemon shuts
+down cleanly and restores every window, rather than keep tiling with no way to
+stop it.
 
-1. Opens the pipe with `CreateFileW` using `GENERIC_READ | GENERIC_WRITE`
-2. Wraps the handle as a `File` via `duplicate_handle_as_file()`
-3. Writes the JSON-serialized `Command` followed by `\n`
-4. Reads the response line
-5. Deserializes and returns the `Response`
-6. Handle is automatically closed when `HandleGuard` drops
+## Windows Implementation
 
-## Daemon Detection
+- `PipeServer::accept` creates a fresh pipe instance with `CreateNamedPipeW`
+  (`PIPE_ACCESS_DUPLEX`, byte mode, unlimited instances) and waits in
+  `ConnectNamedPipe`. A client that connects between the two is reported as
+  `ERROR_PIPE_CONNECTED`, which counts as connected.
+- `PipeConnection::finish` calls `FlushFileBuffers` before
+  `DisconnectNamedPipe`. Disconnecting first throws away the unread reply and
+  the client gets error 233.
+- `PipeClient::connect` opens the pipe with `CreateFileW`. `ERROR_FILE_NOT_FOUND`
+  means no daemon. On `ERROR_PIPE_BUSY` it waits up to 2 seconds with
+  `WaitNamedPipeW` and tries once more.
+- `PipeClient::is_daemon_running` uses `WaitNamedPipeW` with a 1 ms timeout.
+- The pipe name is a parameter. The daemon and the CLI use
+  `DEFAULT_PIPE_NAME` (`\\.\pipe\mosaico`).
 
-`is_daemon_running()`:
+## Testing
 
-- Uses `WaitNamedPipeW` with a 1ms timeout to check if the pipe exists
-- Returns `true` if the pipe is reachable, `false` otherwise
-- Does not consume a connection -- safe for status checks
-- Used by `start`, `stop`, `status`, and `action` CLI commands
-
-## Integration
-
-The IPC system connects the CLI commands to the daemon:
-
-```
-CLI (mosaico action focus-next)
-  -> send_command(Command::Action { action: FocusNext })
-  -> Named pipe \\.\pipe\mosaico
-  -> ipc_loop() receives command
-  -> DaemonMsg::Command forwarded to main thread
-  -> TilingManager processes action
-  -> Response sent back through pipe
-  -> CLI displays result
-```
-
-## Design Decisions
-
-- **JSON-over-pipe with newline delimiters** keeps the protocol simple and
-  debuggable. Each message is one line.
-- **Tagged union serialization** (`#[serde(tag = "command")]`) produces
-  clean JSON: `{"command":"stop"}` rather than `{"Stop":{}}`.
-- **`FlushFileBuffers` before `DisconnectNamedPipe`** prevents error 233
-  (client reads before server data arrives in the pipe buffer).
-- **`DuplicateHandle`** for `File` creation avoids double-close bugs that
-  would occur if both `File::drop()` and `PipeServer::drop()` closed the
-  same handle.
-- **`PIPE_UNLIMITED_INSTANCES`** allows the pipe name to be reused across
-  disconnect/reconnect cycles, though only one `ipc_loop` thread runs at a
-  time.
-- **1ms `WaitNamedPipe` timeout** for daemon detection is fast enough for
-  CLI responsiveness without blocking.
+Framing, request decoding, error replies and the accept loop are tested in
+core against in-memory streams (`crates/mosaico-core/src/ipc/tests/`), so none
+of it needs a daemon or a pipe.

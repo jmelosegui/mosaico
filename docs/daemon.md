@@ -118,14 +118,17 @@ since Win32 callbacks cannot capture Rust closures.
 
 ## IPC Thread
 
-`daemon::ipc_loop()` runs on a dedicated thread:
+`daemon_ipc::ipc_loop()` runs `mosaico_core::ipc::serve()` on a dedicated
+thread, with a `PipeServer` on `DEFAULT_PIPE_NAME` (`\\.\pipe\mosaico`):
 
-1. Creates a `PipeServer` (named pipe `\\.\pipe\mosaico`)
-2. Blocks on `accept_command()`
-3. Wraps the command as `DaemonMsg::Command(cmd, reply_tx)`
-4. Sends to the main thread's unified channel
-5. Waits for the reply on `reply_rx`
-6. Sends the response back through the pipe
+1. Waits for a CLI connection and reads its request
+2. Answers malformed, unknown or mismatched requests itself
+3. Wraps any other command as `DaemonMsg::Command(cmd, reply_tx)` and sends it
+   to the main thread
+4. Waits for the reply on `reply_rx` and sends it back through the pipe
+
+If the pipe can no longer accept connections, the thread sends
+`DaemonMsg::IpcFailed` and the daemon shuts down cleanly. See [ipc.md](ipc.md).
 
 ## Config File Watcher
 

@@ -55,7 +55,7 @@ Pass dependencies in instead of reaching for them.
 | Time | a `now: Instant` parameter or a clock trait | `Instant::now()` inside the logic |
 | File system | a directory or path (config store, daemon instance) | `config_dir()` / `pid_path()` called internally |
 | Network | an HTTP client trait | `http::get` called directly |
-| Daemon / IPC | a client trait | `ipc::send_command` called directly |
+| Daemon / IPC | `mosaico_core::ipc::IpcClient` / `IpcServer` | a concrete pipe or socket type |
 | Exit code and output | a returned outcome and a writer | `std::process::exit` or `println!` in the logic |
 
 Keep the side-effecting shell thin and the logic pure, shaped like `(state, input, now) -> (state, effects)`.
@@ -68,6 +68,8 @@ Examples to copy:
   so its tests never start a process.
 - `DisplaySettle` in `crates/mosaico-windows/src/daemon_settle.rs` takes `now`, so settle timing is tested
   without sleeping.
+- `serve` in `crates/mosaico-core/src/ipc/transport.rs` is tested against in-memory connections, so the
+  daemon's request handling needs no pipe.
 
 Red flags:
 

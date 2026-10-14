@@ -29,7 +29,7 @@ pub fn run() -> WindowResult<()> {
     pid::write_pid_file()?;
     eprintln!("Mosaico daemon started.");
 
-    let result = daemon_loop::daemon_loop();
+    let result = daemon_loop::daemon_loop(crate::ipc::DEFAULT_PIPE_NAME);
 
     let _ = pid::remove_pid_file();
 
