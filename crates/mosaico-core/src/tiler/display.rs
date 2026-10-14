@@ -1,7 +1,7 @@
 //! Monitors connecting and disconnecting.
 
 use crate::Monitor;
-use crate::config::WorkspaceMode;
+use crate::config::{HidingBehaviour, WorkspaceMode};
 
 use crate::WindowId;
 
@@ -88,7 +88,9 @@ impl Tiler {
 
         // Windows that landed on an inactive workspace are hidden before
         // the retile; the ones on an active workspace are shown after it,
-        // so they appear in their final place.
+        // so they appear in their final place. One the tiler minimized,
+        // and that is still minimized, is restored before it instead, as
+        // a workspace switch does: its slot cannot be set while minimized.
         let (shown, hidden): (Vec<WindowId>, Vec<WindowId>) = rebuilt
             .moved
             .into_iter()
@@ -96,6 +98,12 @@ impl Tiler {
         let how = self.layout.hiding;
         for &window in &hidden {
             self.hidden_how.hide(plan, window, how);
+        }
+        let (restored, shown): (Vec<WindowId>, Vec<WindowId>) = shown.into_iter().partition(|&w| {
+            self.hidden_how.still_hidden(plan, w) == Some(HidingBehaviour::Minimize)
+        });
+        for &window in &restored {
+            self.hidden_how.show(plan, window, how);
         }
 
         self.reserve_bar(plan, bar);

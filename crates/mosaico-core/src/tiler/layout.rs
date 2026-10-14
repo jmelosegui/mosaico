@@ -3,6 +3,7 @@
 use crate::{BspLayout, LayoutKind, Rect, ThreeColumnLayout, VerticalStackLayout};
 
 use crate::WindowId;
+use crate::config::HidingBehaviour;
 
 use super::{Effect, Plan, Tiler, Timing};
 
@@ -149,6 +150,12 @@ impl Tiler {
     /// so a later window given its id does not get the system's corners
     /// back for it. A minimized one keeps the tiler's corners until it
     /// hides or closes.
+    ///
+    /// A window the tiler hid with "hide" is kept while it still exists
+    /// and is still hidden: it is out of view by the tiler's doing, and
+    /// the display change that brings it into view shows it after this
+    /// retile (#119). A display change that lines up global workspaces
+    /// brings windows into view without showing them; that is #124.
     fn prune_stale_handles(&mut self, plan: &Plan, monitor_idx: usize) {
         let Some(state) = self.monitors.get_mut(monitor_idx) else {
             return;
@@ -158,6 +165,7 @@ impl Tiler {
             .windows()
             .iter()
             .copied()
+            .filter(|&w| self.hidden_how.still_hidden(plan, w) != Some(HidingBehaviour::Hide))
             .filter(|&w| !plan.is_visible(w) || plan.is_minimized(w))
             .collect();
         for window in stale {

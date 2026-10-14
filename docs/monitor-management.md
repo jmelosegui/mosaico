@@ -173,14 +173,18 @@ recognised on return. `Destroyed` events call `ReconnectMemory::forget()`
 so a reused window id is never sent anywhere.
 
 `rebuild_monitors()` returns the windows that moved. Those that landed on
-an inactive workspace are hidden before the retile and those on an active
-workspace are shown after it. Both go through `HiddenHow`
-(`crates/mosaico-core/src/tiler/hidden_how.rs`): a window shown is shown the
-way the tiler hid it, and a window that is already hidden stays hidden the
-way it was rather than being hidden again with the configured strategy (see
+an inactive workspace are hidden before the retile. Those on an active
+workspace are shown after it, so they appear in their final place; the
+retile keeps a window the tiler hid with `hide` while it is still hidden.
+A window the tiler minimized, and that is still minimized, is restored
+before the retile instead, as a workspace switch does, because its slot
+cannot be set until it is restored. All of them go through `HiddenHow`
+(`crates/mosaico-core/src/tiler/hidden_how.rs`): a window is shown the way
+the tiler hid it, and one that is already hidden stays hidden the way it
+was rather than being hidden again with the configured strategy (see
 [workspaces.md](workspaces.md#hiding-behaviour)). Focus stays on the same
-physical monitor if it is still connected, otherwise it moves to the primary
-monitor.
+physical monitor if it is still connected, otherwise it moves to the
+primary monitor.
 
 After the retile, `refresh_visible_windows()` calls `invalidate()` on every
 window of an active workspace, including those the layout skipped because
