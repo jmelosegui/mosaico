@@ -1,5 +1,7 @@
-use mosaico_core::Rect;
-use mosaico_core::config::Color;
+//! When a border needs drawing again.
+
+use crate::Rect;
+use crate::config::Color;
 
 use super::*;
 
@@ -17,7 +19,7 @@ fn style() -> BorderStyle {
 }
 
 #[test]
-fn a_border_never_drawn_needs_a_bitmap() {
+fn a_border_never_drawn_needs_drawing() {
     // Arrange
     let drawn = LastDrawn::default();
 
@@ -26,8 +28,8 @@ fn a_border_never_drawn_needs_a_bitmap() {
 }
 
 #[test]
-fn a_border_drawn_again_the_same_way_needs_no_bitmap() {
-    // Arrange -- hiding the overlay in between changes nothing here.
+fn a_border_drawn_again_the_same_way_needs_no_drawing() {
+    // Arrange -- hiding the border in between changes nothing here.
     let mut drawn = LastDrawn::default();
     drawn.rendered(&style(), true);
 
@@ -36,7 +38,7 @@ fn a_border_drawn_again_the_same_way_needs_no_bitmap() {
 }
 
 #[test]
-fn a_border_drawn_any_other_way_needs_a_bitmap() {
+fn a_border_drawn_any_other_way_needs_drawing() {
     // Arrange
     let mut drawn = LastDrawn::default();
     drawn.rendered(&style(), true);
@@ -56,7 +58,7 @@ fn a_border_drawn_any_other_way_needs_a_bitmap() {
 }
 
 #[test]
-fn a_bitmap_that_did_not_reach_the_overlay_is_rendered_again() {
+fn a_drawing_that_failed_is_done_again() {
     // Arrange
     let mut drawn = LastDrawn::default();
     drawn.rendered(&style(), false);

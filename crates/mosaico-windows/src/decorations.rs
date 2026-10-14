@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 
 use mosaico_core::config::CornerStyle;
-use mosaico_core::tiler::BorderStyle;
+use mosaico_core::tiler::{BorderStyle, LastDrawn};
 use mosaico_core::{Decorations, Result, WindowId};
 
 use crate::border::Border;
@@ -22,8 +22,8 @@ use crate::window::Window;
 ///
 /// Rendering a border's bitmap takes tens of milliseconds for a large
 /// tile, so each overlay remembers the style it was last rendered with,
-/// and a border drawn again the same way is only put back behind its
-/// window.
+/// in a [`LastDrawn`], and a border drawn again the same way is only put
+/// back behind its window.
 #[derive(Default)]
 pub(crate) struct Win32Decorations {
     /// One overlay per bordered window.
@@ -84,26 +84,3 @@ impl Decorations for Win32Decorations {
         frame::reset_corner_preference(Window::from_id(window).hwnd())
     }
 }
-
-/// The style an overlay's bitmap was last rendered with, if any.
-#[derive(Debug, Default)]
-struct LastDrawn(Option<BorderStyle>);
-
-impl LastDrawn {
-    /// Whether drawing `style` needs a new bitmap: it is not the one the
-    /// overlay has.
-    fn needs_render(&self, style: &BorderStyle) -> bool {
-        self.0.as_ref() != Some(style)
-    }
-
-    /// Records how rendering `style` went. A bitmap that did not reach
-    /// the overlay leaves it showing something else, so the next draw
-    /// renders again.
-    fn rendered(&mut self, style: &BorderStyle, reached: bool) {
-        self.0 = reached.then(|| style.clone());
-    }
-}
-
-#[cfg(test)]
-#[path = "decorations_tests.rs"]
-mod tests;

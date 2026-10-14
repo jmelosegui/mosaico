@@ -18,6 +18,7 @@ Unfocused borders can be turned off entirely (see
 |------|---------|
 | `crates/mosaico-core/src/decoration.rs` | `Decorations`, the contract for borders and window corners |
 | `crates/mosaico-core/src/tiler/decoration_effects.rs` | `apply_decoration_effect`, which carries out border and corner effects |
+| `crates/mosaico-core/src/tiler/last_drawn.rs` | `LastDrawn`, the style a border was last drawn with |
 | `crates/mosaico-core/src/config/color.rs` | `Color` struct and its hex parser |
 | `crates/mosaico-core/src/config/mod.rs` | `BorderConfig` for color and width settings |
 | `crates/mosaico-windows/src/decorations.rs` | `Win32Decorations`, the Win32 implementation |
@@ -29,7 +30,10 @@ Unfocused borders can be turned off entirely (see
 ### Key Types
 
 - `Decorations` -- the core trait the tiler's border and corner effects go through
-- `Win32Decorations` -- one `Border` per bordered window, plus the DWM corner preference
+- `Win32Decorations` -- one overlay per bordered window, a `Border` and the
+  `LastDrawn` style its bitmap shows, plus the DWM corner preference
+- `LastDrawn` -- in `mosaico-core`, decides whether a border needs drawing
+  again or only putting back in place
 - `Border` -- wraps a layered `HWND` overlay window
 - `Color` -- `r`, `g`, `b` fields with `from_hex()` parser, in `mosaico-core`
 
@@ -108,8 +112,9 @@ a stale bitmap from the previous size would briefly appear at the new position.
   behind its window and shows it, with the bitmap it already has
 - `Border::hide()` -- hides the overlay window via `ShowWindow(SW_HIDE)`
 
-`Win32Decorations` remembers the style each overlay was last rendered with.
-A border shown again with the same rect, color, width and radius is only
+`Win32Decorations` remembers the style each overlay was last rendered with,
+in a `LastDrawn` from `mosaico-core`, which makes the decision: a border
+shown again with the same rect, color, width and radius is only
 restacked, because its window may have moved in the z-order, and a hidden
 one is shown again by that. Rendering takes tens of milliseconds for a
 large tile, about 30 ms for half a 4K screen in a release build.
@@ -141,9 +146,9 @@ does not know or `"none"` on `focused` or `monocle`, is drawn in
 The tiler decides every border and emits it as an effect; in
 `mosaico-windows`, the `Win32Decorations` that `Win32Platform` hands the
 tiling manager keeps a
-`HashMap<WindowId, Border>` keyed by window id, with one entry per
-visible tiled window. The lifecycle is unified through a single entry
-point:
+`HashMap<WindowId, Overlay>` keyed by window id, with one entry per
+visible tiled window: its `Border` and the `LastDrawn` style its bitmap
+shows. The lifecycle is unified through a single entry point:
 
 - `update_border()` -- called after every layout, focus, workspace, or
   display event. It snapshots the active workspace on every monitor,
@@ -265,6 +270,7 @@ step and while a burst of moves is held. `tiler/tests/held_border_tests.rs`
 checks that a focus change or a border refresh before a held move lands
 still draws each border around its window's new slot, in the right color.
 
-In `mosaico-windows`, `decorations_tests.rs` checks when a border needs a
-new bitmap, and `border/show_tests.rs` that a hidden border put back with
-its bitmap is shown again, with overlays of its own drawn off screen.
+`tiler/tests/last_drawn_tests.rs` checks when a border needs drawing
+again. In `mosaico-windows`, `border/show_tests.rs` checks that a hidden
+border put back with its bitmap is shown again, with overlays of its own
+drawn off screen.
