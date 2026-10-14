@@ -174,19 +174,31 @@ so a reused window id is never sent anywhere.
 
 `rebuild_monitors()` returns the windows that moved. A window parked off a
 monitor that left and sent back home to one that returned in the same
-change is listed twice, but is hidden or shown once. Those that landed on
-an inactive workspace are hidden before the retile. Those on an active
-workspace are shown after it, so they appear in their final place; the
-retile keeps a window the tiler hid with `hide` while it is still hidden.
-A window the tiler minimized, and that is still minimized, is restored
-before the retile instead, as a workspace switch does, because its slot
-cannot be set until it is restored. All of them go through `HiddenHow`
+change is listed twice, but is hidden or shown once. Focus settles first,
+as described below. Those that landed on an inactive workspace are hidden
+before the retile. Those on an active workspace are shown after it, so
+they appear in their final place; the retile keeps a window the tiler hid
+with `hide` while it is still hidden. A window the tiler minimized, and
+that is still minimized, is restored before the retile instead, as a
+workspace switch does, because its slot cannot be set until it is
+restored. All of them go through `HiddenHow`
 (`crates/mosaico-core/src/tiler/hidden_how.rs`): a window is shown the way
 the tiler hid it, and one that is already hidden stays hidden the way it
 was rather than being hidden again with the configured strategy (see
-[workspaces.md](workspaces.md#hiding-behaviour)). Focus stays on the same
-physical monitor if it is still connected, otherwise it moves to the
-primary monitor.
+[workspaces.md](workspaces.md#hiding-behaviour)).
+
+A focused window that is still in view keeps focus, wherever it moved.
+Otherwise focus stays on the same physical monitor if it is still
+connected, followed through its pairing, so a monitor that reports a
+different key keeps focus. When that monitor is gone, focus moves to the
+primary monitor, which took in its windows. If the focused window ends up
+out of view, the focused monitor's window takes focus as in a workspace
+switch: its monocle window, then the one it remembers, then its first.
+With nothing there, focus is parked on that monitor until something takes
+it. Either way the system's own pick once the window is hidden is not
+followed: the echo filter drops it while the focus change is held, and the
+parked claim while focus is parked. When the pointer follows focus, it
+moves onto the window that takes focus.
 
 In global mode the monitors are always in step: every switch moves all of
 them, and a reload that turns global mode on lines them up. A display

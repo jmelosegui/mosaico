@@ -4,6 +4,7 @@ use crate::config::WorkspaceMode;
 
 use crate::WindowId;
 
+use super::focus::focus_target;
 use super::{Plan, Tiler};
 
 impl Tiler {
@@ -66,19 +67,7 @@ impl Tiler {
         self.apply_layout_on(plan, mon_idx);
 
         if refocus {
-            // Prefer the monocle window, then the remembered one, then
-            // the first window.
-            let ws = self.monitors[mon_idx].active_ws();
-            let present = |w: &WindowId| ws.contains(*w);
-            let remembered = ws.last_focused().filter(present);
-            let target = if ws.monocle() {
-                ws.monocle_window().filter(present).or(remembered)
-            } else {
-                remembered
-            }
-            .or_else(|| ws.windows().first().copied());
-
-            if let Some(window) = target {
+            if let Some(window) = focus_target(self.monitors[mon_idx].active_ws()) {
                 self.focus_window(plan, window, false);
             } else {
                 self.focused_window = None;
