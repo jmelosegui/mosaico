@@ -50,7 +50,12 @@ pub fn monitor_id_for_window(window: WindowId) -> MonitorId {
     let hwnd = crate::window::Window::from_id(window).hwnd();
     // SAFETY: MonitorFromWindow is a read-only query on a window handle.
     let hmonitor = unsafe { MonitorFromWindow(hwnd, MONITOR_DEFAULTTOPRIMARY) };
-    MonitorId::from_raw(hmonitor.0 as usize as u64)
+    monitor_id(hmonitor)
+}
+
+/// The core id of a monitor, which is its `HMONITOR` value.
+fn monitor_id(monitor: HMONITOR) -> MonitorId {
+    MonitorId::from_raw(monitor.0 as usize as u64)
 }
 
 /// A monitor as seen by `EnumDisplayMonitors`, before its key is known.
@@ -152,7 +157,7 @@ fn query_monitor(monitor: HMONITOR) -> Result<RawMonitor> {
         .unwrap_or(info.szDevice.len());
 
     Ok(RawMonitor {
-        id: MonitorId::from_raw(monitor.0 as usize as u64),
+        id: monitor_id(monitor),
         work_area: rect_from_win32(&info.monitorInfo.rcWork),
         primary: info.monitorInfo.dwFlags & MONITORINFOF_PRIMARY != 0,
         gdi_name: String::from_utf16_lossy(&info.szDevice[..name_len]),
