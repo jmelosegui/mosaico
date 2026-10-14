@@ -40,6 +40,10 @@ pub fn draw_left(ctx: &mut DrawCtx, config: &BarConfig, items: &[BarItem]) -> i3
 
 /// Draws the right items from the right edge. Returns the final
 /// right-edge X.
+///
+/// The right side only holds pills and separators (see
+/// [`BarContent::right`](mosaico_core::bar::BarContent::right)), so the
+/// workspace container and the window icon are not drawn here.
 pub fn draw_right(ctx: &mut DrawCtx, config: &BarConfig, items: &[BarItem]) -> i32 {
     let mut rx = ctx.w - config.padding;
     for item in items {
@@ -59,7 +63,7 @@ pub fn draw_right(ctx: &mut DrawCtx, config: &BarConfig, items: &[BarItem]) -> i
                 draw_text(ctx, x, text, &config.colors.separator);
                 x - config.item_gap
             }
-            // Core draws these as pills on the right.
+            // Never on the right: core makes those widgets pills there.
             BarItem::Workspaces { .. } | BarItem::WindowIcon(_) => rx,
         };
     }

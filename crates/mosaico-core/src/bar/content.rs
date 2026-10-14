@@ -15,6 +15,10 @@ pub struct BarContent {
     /// Drawn from the left edge, left to right.
     pub left: Vec<BarItem>,
     /// Drawn from the right edge, right to left.
+    ///
+    /// Only holds pills and separators. The workspaces and active window
+    /// widgets are drawn as such only on the left, and as plain pills
+    /// showing their icon on the right.
     pub right: Vec<BarItem>,
 }
 
@@ -22,15 +26,16 @@ pub struct BarContent {
 #[derive(Debug, Clone, PartialEq)]
 pub enum BarItem {
     /// The workspace numbers in one container, with the one on screen
-    /// highlighted.
+    /// highlighted. Only on the left side.
     Workspaces {
         /// The label of each workspace, in order.
         labels: Vec<String>,
         /// Index of the workspace on screen.
         active: usize,
     },
-    /// The icon of the focused window's application. Takes no space when
-    /// no window is focused on this monitor, or its icon cannot be found.
+    /// The icon of the focused window's application. Only on the left
+    /// side. Takes no space when no window is focused on this monitor, or
+    /// its icon cannot be found.
     WindowIcon(Option<WindowId>),
     /// A widget's text in a pill.
     Pill {

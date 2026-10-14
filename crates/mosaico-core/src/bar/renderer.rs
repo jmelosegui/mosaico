@@ -35,7 +35,8 @@ pub trait BarRenderer {
 ///   run from the left edge to the right and right items from the right
 ///   edge to the left, both `padding` in from the edge, in the fonts,
 ///   sizes, gaps and colors of `config`. The widget lists are already
-///   reflected in `content`, so the renderer does not read them.
+///   reflected in `content`, so the renderer does not read them. The
+///   right side only holds pills and separators.
 /// - [`hide`](Self::hide) takes the bar off screen. The next `draw` shows
 ///   it again.
 /// - A failed `draw` or `hide` is reported, and the next call tries
