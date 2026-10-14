@@ -18,7 +18,9 @@ pub use error::IpcError;
 pub use framing::{MAX_MESSAGE_BYTES, read_message, write_message};
 pub use request::{Request, decode_request};
 pub use response::{DaemonStatus, ErrorCode, Response, ResponseStatus};
-pub use transport::{IpcClient, IpcConnection, IpcServer, Served, serve};
+pub use transport::{
+    IpcClient, IpcConnection, IpcServer, REQUEST_TIMEOUT, Served, serve, serve_with_timeout,
+};
 
 /// Version of the request and reply format.
 ///

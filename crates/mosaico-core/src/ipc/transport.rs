@@ -5,6 +5,7 @@
 //! loop, lives here so every platform behaves the same.
 
 use std::io::{BufReader, Read, Write};
+use std::time::Duration;
 
 use serde_json::Value;
 
@@ -82,6 +83,16 @@ pub trait IpcConnection: Read + Write {
     fn finish(self) -> Result<(), IpcError>
     where
         Self: Sized;
+
+    /// Limits how long reading the request may take, counted from now.
+    ///
+    /// Once `timeout` has passed, reads fail with
+    /// [`io::ErrorKind::TimedOut`](std::io::ErrorKind::TimedOut). The
+    /// default does nothing.
+    fn set_read_timeout(&mut self, timeout: Duration) -> Result<(), IpcError> {
+        let _ = timeout;
+        Ok(())
+    }
 }
 
 /// Why [`serve`] returned.
@@ -104,8 +115,23 @@ pub enum Served {
 /// client is never left waiting. Everything else goes to `handle`.
 pub fn serve<S: IpcServer>(
     server: &mut S,
+    handle: impl FnMut(Command) -> Option<Response>,
+) -> Served {
+    serve_with_timeout(server, REQUEST_TIMEOUT, handle)
+}
+
+/// How long a client gets to send its request once connected. A real
+/// CLI sends it straight after connecting, so this only ever runs out
+/// for a client that is stuck or not a mosaico client at all.
+pub const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// [`serve`], with how long a client gets to send its request.
+pub fn serve_with_timeout<S: IpcServer>(
+    server: &mut S,
+    timeout: Duration,
     mut handle: impl FnMut(Command) -> Option<Response>,
 ) -> Served {
+    let _ = timeout;
     loop {
         let mut connection = match server.accept() {
             Ok(connection) => connection,
