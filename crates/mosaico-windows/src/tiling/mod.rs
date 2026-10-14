@@ -42,8 +42,9 @@ impl TilingManager {
     ) -> Result<Self> {
         // Show what a killed or crashed daemon left hidden before looking
         // at the windows, so they are found and adopted like any other.
+        let desktop = Win32Desktop::new();
         let mut applier = Applier::with_hidden_file(HiddenFile::current());
-        applier.restore_previous(Instant::now());
+        applier.restore_previous(&desktop, Instant::now());
 
         let displays = displays(monitor::enumerate_monitors()?);
         let windows: Vec<WindowId> = enumerate::enumerate_windows()?
@@ -57,7 +58,6 @@ impl TilingManager {
             rules,
             mouse_follows_focus,
         };
-        let desktop = Win32Desktop::new();
         let now = Instant::now();
         let (tiler, effects) = Tiler::new(settings, &displays, &windows, &desktop, now);
         let mut manager = Self {
@@ -65,14 +65,14 @@ impl TilingManager {
             applier,
             desktop,
         };
-        manager.applier.apply(effects, now);
+        manager.applier.apply(effects, &manager.desktop, now);
         Ok(manager)
     }
 
     fn step(&mut self, input: Input) {
         let now = Instant::now();
         let effects = self.tiler.step(input, &self.desktop, now);
-        self.applier.apply(effects, now);
+        self.applier.apply(effects, &self.desktop, now);
     }
 
     /// Executes a user-triggered action.
@@ -101,7 +101,7 @@ impl TilingManager {
     /// Applies everything held back. The daemon calls this once input
     /// has been quiet for a moment.
     pub fn flush_pending(&mut self) {
-        self.applier.flush(Instant::now());
+        self.applier.flush(&self.desktop, Instant::now());
     }
 
     /// Redraws every border to match the current window positions.

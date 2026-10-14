@@ -7,11 +7,8 @@
 use std::fs;
 use std::path::PathBuf;
 
-use mosaico_core::tiler::{HiddenWindows, WindowIdentity};
-use mosaico_core::window::Window as _;
-use mosaico_core::{Instance, WindowId};
-
-use crate::window::Window;
+use mosaico_core::Instance;
+use mosaico_core::tiler::HiddenWindows;
 
 /// File name of the record inside the instance's data directory.
 const FILE_NAME: &str = "hidden-windows.json";
@@ -73,19 +70,11 @@ impl HiddenFile {
     }
 }
 
-/// Who owns a window now: its process and class, or `None` when the
-/// window no longer exists.
-pub(super) fn identity(window: WindowId) -> Option<WindowIdentity> {
-    let win = Window::from_id(window);
-    let process = win.process_id()?;
-    let class = win.class().ok()?;
-    Some(WindowIdentity { process, class })
-}
-
 #[cfg(test)]
 mod tests {
+    use mosaico_core::WindowId;
     use mosaico_core::config::HidingBehaviour;
-    use mosaico_core::tiler::Effect;
+    use mosaico_core::tiler::{Effect, WindowIdentity};
 
     use super::*;
 

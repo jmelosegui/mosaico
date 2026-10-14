@@ -17,7 +17,7 @@ use std::collections::HashMap;
 use std::time::Instant;
 
 use mosaico_core::config::{BorderColors, HidingBehaviour};
-use mosaico_core::tiler::{BorderStyle, Coalescer, Effect, Expectations, HiddenWindows};
+use mosaico_core::tiler::{BorderStyle, Coalescer, Desktop, Effect, Expectations, HiddenWindows};
 use mosaico_core::window::Window as _;
 use mosaico_core::{Rect, WindowId};
 use windows::Win32::Foundation::{LPARAM, WPARAM};
@@ -27,7 +27,7 @@ use crate::border::{Border, Color};
 use crate::frame;
 use crate::window::Window;
 
-use super::hidden_file::{self, HiddenFile};
+use super::hidden_file::HiddenFile;
 
 /// Border color used when a configured value does not parse. Matches
 /// the historical default focused color.
@@ -66,11 +66,11 @@ impl Applier {
     ///
     /// Run before the first windows are enumerated, so they are adopted
     /// like any other window.
-    pub(super) fn restore_previous(&mut self, now: Instant) {
+    pub(super) fn restore_previous(&mut self, desktop: &dyn Desktop, now: Instant) {
         let Some(file) = &self.hidden_file else {
             return;
         };
-        let effects = file.load().restore(hidden_file::identity);
+        let effects = file.load().restore(|w| desktop.identity(w));
         if !effects.is_empty() {
             mosaico_core::log_info!(
                 "showing {} window(s) a previous daemon left hidden",
@@ -78,7 +78,7 @@ impl Applier {
             );
         }
         for effect in &effects {
-            self.run(effect, now);
+            self.run(effect, desktop, now);
         }
         self.save_hidden();
     }
@@ -97,13 +97,13 @@ impl Applier {
     }
 
     /// Applies effects in order, holding back the ones that may wait.
-    pub(super) fn apply(&mut self, effects: Vec<Effect>, now: Instant) {
+    pub(super) fn apply(&mut self, effects: Vec<Effect>, desktop: &dyn Desktop, now: Instant) {
         for effect in effects {
             if matches!(effect, Effect::Focus { .. }) {
                 self.expectations.held(&effect);
             }
             if let Some(effect) = self.held.admit(effect) {
-                self.run(&effect, now);
+                self.run(&effect, desktop, now);
             }
         }
     }
@@ -114,9 +114,9 @@ impl Applier {
     }
 
     /// Applies everything held back.
-    pub(super) fn flush(&mut self, now: Instant) {
+    pub(super) fn flush(&mut self, desktop: &dyn Desktop, now: Instant) {
         for effect in self.held.take() {
-            self.run(&effect, now);
+            self.run(&effect, desktop, now);
         }
     }
 
@@ -133,7 +133,7 @@ impl Applier {
         self.expectations.echo(event, now)
     }
 
-    fn run(&mut self, effect: &Effect, now: Instant) {
+    fn run(&mut self, effect: &Effect, desktop: &dyn Desktop, now: Instant) {
         match effect {
             Effect::Place { window, rect, .. } => place(*window, rect),
             Effect::PrePlace { window, rect } => pre_place(*window, rect),
@@ -183,7 +183,7 @@ impl Applier {
             }
         }
         self.expectations.applied(effect, now);
-        if self.hidden.applied(effect, hidden_file::identity) {
+        if self.hidden.applied(effect, |w| desktop.identity(w)) {
             self.save_hidden();
         }
     }
