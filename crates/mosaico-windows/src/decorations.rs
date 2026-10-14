@@ -27,7 +27,9 @@ pub(crate) struct Win32Decorations {
 
 impl Decorations for Win32Decorations {
     /// Fails only when the overlay cannot be created. Drawing it puts it
-    /// just behind the window, in the window's topmost band.
+    /// just behind the window, in the window's topmost band. Placing it
+    /// behind a window that is gone fails without a trace, and the
+    /// overlay stays where it was drawn until the tiler drops it.
     fn show_border(&mut self, window: WindowId, style: &BorderStyle) -> Result<()> {
         let border = match self.borders.entry(window) {
             Entry::Occupied(entry) => entry.into_mut(),

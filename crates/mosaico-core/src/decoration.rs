@@ -35,14 +35,19 @@ use crate::{Result, WindowId};
 /// - Corner styles change only how a window's own corners are drawn.
 ///   The window is not moved, resized, raised or focused.
 /// - Report a failure the platform can detect, such as a window that no
-///   longer exists, as an error. Never panic: callers log the error and
-///   carry on. A platform that cannot draw borders, or cannot change the
-///   corners of windows, returns
+///   longer exists, as an error, unless the method says otherwise. Never
+///   panic: callers log the error and carry on. A platform that cannot
+///   draw borders, or cannot change the corners of windows, returns
 ///   [`Error::Unsupported`](crate::Error::Unsupported) from the methods
 ///   that would.
 pub trait Decorations {
     /// Draws the border around `window` the way `style` says, creating
     /// it the first time.
+    ///
+    /// Fails only when the border cannot be created. A window that
+    /// closed since the tiler decided to draw its border is not an
+    /// error: the tiler drops the border once it learns the window is
+    /// gone.
     fn show_border(&mut self, window: WindowId, style: &BorderStyle) -> Result<()>;
 
     /// Hides the border around `window`, keeping it to draw again. Does

@@ -55,12 +55,14 @@ The contract, in the trait's docs, spells out what the tiler relies on:
   window switcher, and never causes a window event.
 - Each time it is drawn, a border goes directly behind its window.
 - Hiding or dropping the border of a window that has none does nothing.
+- Drawing a border fails only when the border cannot be created. A window
+  that closed in the meantime is not an error.
 - A platform that cannot draw borders, or cannot change the corners of
   windows, returns `Error::Unsupported`.
 
 `tiler::apply_decoration_effect` carries out the `Border`, `DropBorder`,
 `Decorate` and `Undecorate` effects through it. A border that cannot be
-drawn is logged as a warning, unless the platform has no borders at all;
+created is logged as a warning, unless the platform has no borders at all;
 other failures, such as a window that closed in the meantime, are logged
 for debugging.
 
