@@ -54,10 +54,10 @@ and `doctor`'s daemon and monitor checks are tested without a daemon or a
 desktop.
 
 Still calling the platform crate directly: `daemon` (it is the daemon),
-`debug events`' Ctrl+C handler and window titles, `doctor`'s keybinding check
-and `update`'s version lookup and download, which wait for the signal (#48),
-key name (#50) and HTTP (#54) contracts. `debug events` gets its event source
-from `platform::event_source()`.
+`debug events`' Ctrl+C handler and window titles, and `update`'s version
+lookup and download, which wait for the signal (#48) and HTTP (#54)
+contracts. `debug events` gets its event source from
+`platform::event_source()`.
 
 ### Key Types
 
@@ -133,9 +133,9 @@ Checks performed:
    if missing
 2. **config.toml** -- validates TOML syntax via `try_load()`
 3. **keybindings.toml** -- validates syntax via `try_load_keybindings()`
-4. **Keybinding keys** -- verifies each key name resolves to a valid Win32
-   virtual key code via `vk_from_name()`; reports the total count and any
-   unresolvable key names
+4. **Keybinding keys** -- verifies each key name is one mosaico knows, with
+   the check the daemon uses (`Keybinding::combo()` in core); reports the
+   total count and any unknown key names
 5. **rules.toml** -- validates syntax via `try_load_rules()`
 6. **bar.toml** -- validates syntax via `try_load_bar()`
 7. **Daemon** -- checks IPC pipe, PID file, and process liveness; cleans up

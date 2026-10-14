@@ -103,11 +103,13 @@ fn check_keybindings_file() {
     });
 }
 
+/// Flags the bindings whose key name the daemon would skip. The names
+/// are checked in core, so this agrees with the daemon on every platform.
 fn check_keybinding_keys() {
     let bindings = config::load_keybindings();
     let mut bad: Vec<String> = Vec::new();
     for kb in &bindings {
-        if mosaico_windows::keys::vk_from_name(&kb.key).is_none() {
+        if kb.combo().is_err() {
             bad.push(kb.key.clone());
         }
     }
