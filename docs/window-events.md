@@ -27,8 +27,8 @@ WinEvent hooks and a hidden window that receives broadcasts.
 | Variant | Reported when |
 |---------|---------------|
 | `Created { window }` | A window is created (before it is first shown, where the platform can tell) or shown |
-| `Destroyed { window }` | A window was closed and no longer exists |
-| `Hidden { window }` | A window was hidden, but not necessarily closed: it stopped being shown without being minimized, including a window that closes while shown (just before `Destroyed`). May be reported for a window that stays on screen |
+| `Destroyed { window }` | A window is closed and no longer exists |
+| `Hidden { window }` | A window is hidden, but not necessarily closed: it stops being shown without being minimized, including a window that closes while shown (just before `Destroyed`). May be reported for a window that stays on screen |
 | `Focused { window }` | A window becomes the active one, including when the tiler focused it |
 | `MouseHover { window }` | The pointer came to rest on a window (focus-follows-mouse only) |
 | `Moved { window }` | The user finishes dragging a window to a new place or size |
