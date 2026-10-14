@@ -4,15 +4,14 @@ use windows::Win32::Foundation::{
     ERROR_FILE_NOT_FOUND, ERROR_MORE_DATA, ERROR_SUCCESS, WIN32_ERROR,
 };
 use windows::Win32::System::Registry::{
-    HKEY, HKEY_CURRENT_USER, KEY_SET_VALUE, REG_SAM_FLAGS, REG_SZ, RRF_RT_REG_SZ, RegCloseKey,
-    RegDeleteValueW, RegGetValueW, RegOpenKeyExW, RegSetValueExW,
+    HKEY, HKEY_CURRENT_USER, KEY_SET_VALUE, REG_OPTION_NON_VOLATILE, REG_SZ, RRF_RT_REG_SZ,
+    RegCloseKey, RegCreateKeyExW, RegDeleteKeyValueW, RegGetValueW, RegSetValueExW,
 };
 use windows::core::PCWSTR;
 
 use mosaico_core::Result;
 
 use crate::error::OrPlatform;
-
 use crate::monitor_edid::wide_to_string;
 
 const RUN_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
@@ -60,54 +59,59 @@ pub fn read() -> Result<Option<String>> {
     }
 }
 
-/// Sets the Mosaico value to `value`, replacing what was there.
+/// Sets the Mosaico value to `value`, replacing what was there. Creates
+/// the Run key when the profile has none.
 pub fn write(value: &str) -> Result<()> {
-    let key = open_run_key(KEY_SET_VALUE)?;
+    let key = create_run_key()?;
     let result = set_string_value(key, value);
     close_key(key);
     result
 }
 
-/// Deletes the Mosaico value. Succeeds if it did not exist.
+/// Deletes the Mosaico value. Succeeds when it, or the Run key, is not
+/// there.
 pub fn delete() -> Result<()> {
     let wide_key = to_wide(RUN_KEY);
-    let mut key = HKEY::default();
-    // SAFETY: RegOpenKeyExW is a standard Win32 registry API. We pass valid
-    // pointers and close the key after use.
+    let wide_name = to_wide(VALUE_NAME);
+    // SAFETY: RegDeleteKeyValueW is a standard Win32 registry API. Both
+    // names are null-terminated.
     let status = unsafe {
-        RegOpenKeyExW(
+        RegDeleteKeyValueW(
             HKEY_CURRENT_USER,
             PCWSTR(wide_key.as_ptr()),
-            None,
-            KEY_SET_VALUE,
-            &mut key,
+            PCWSTR(wide_name.as_ptr()),
         )
     };
-    deleted(status, "open the Run registry key")?;
-    let result = delete_value(key);
-    close_key(key);
-    result
+    deleted(status, "remove the autostart entry")
 }
 
-/// What the status of opening the Run key to delete the value means:
-/// every failure fails the delete, also a key that is not there.
+/// What the status of deleting a value means: a value, or key, that is
+/// not there is as good as deleted.
 fn deleted(status: WIN32_ERROR, operation: &'static str) -> Result<()> {
+    if status == ERROR_FILE_NOT_FOUND {
+        return Ok(());
+    }
     status.ok().or_platform(operation)
 }
 
-/// Opens the HKCU Run key with the given access rights.
-fn open_run_key(access: REG_SAM_FLAGS) -> Result<HKEY> {
+/// Opens the HKCU Run key for writing, creating it if it is missing.
+fn create_run_key() -> Result<HKEY> {
     let wide_key = to_wide(RUN_KEY);
     let mut key = HKEY::default();
-    // SAFETY: RegOpenKeyExW is a standard Win32 registry API. We pass valid
-    // pointers and close the key after use.
+    // SAFETY: RegCreateKeyExW is a standard Win32 registry API. We pass a
+    // null-terminated name and valid pointers, and close the key after
+    // use.
     let status = unsafe {
-        RegOpenKeyExW(
+        RegCreateKeyExW(
             HKEY_CURRENT_USER,
             PCWSTR(wide_key.as_ptr()),
             None,
-            access,
+            PCWSTR::null(),
+            REG_OPTION_NON_VOLATILE,
+            KEY_SET_VALUE,
+            None,
             &mut key,
+            None,
         )
     };
     status.ok().or_platform("open the Run registry key")?;
@@ -127,18 +131,6 @@ fn set_string_value(key: HKEY, value: &str) -> Result<()> {
     let status =
         unsafe { RegSetValueExW(key, PCWSTR(wide_name.as_ptr()), None, REG_SZ, Some(bytes)) };
     status.ok().or_platform("write the autostart entry")
-}
-
-/// Deletes the Mosaico value from the opened key.
-fn delete_value(key: HKEY) -> Result<()> {
-    let wide_name = to_wide(VALUE_NAME);
-    // SAFETY: RegDeleteValueW is a standard Win32 registry API.
-    let status = unsafe { RegDeleteValueW(key, PCWSTR(wide_name.as_ptr())) };
-    // A value that does not exist is as good as deleted.
-    if status == ERROR_FILE_NOT_FOUND {
-        return Ok(());
-    }
-    status.ok().or_platform("remove the autostart entry")
 }
 
 /// Closes an open registry key handle.
