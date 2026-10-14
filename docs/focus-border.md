@@ -18,6 +18,7 @@ Unfocused borders can be turned off entirely (see
 |------|---------|
 | `crates/mosaico-core/src/decoration.rs` | `Decorations`, the contract for borders and window corners |
 | `crates/mosaico-core/src/tiler/decoration_effects.rs` | `apply_decoration_effect`, which carries out border and corner effects |
+| `crates/mosaico-core/src/tiler/plan_borders.rs` | Keeping one border per window in a step, and where it goes |
 | `crates/mosaico-core/src/tiler/last_drawn.rs` | `LastDrawn`, the style a border was last drawn with |
 | `crates/mosaico-core/src/config/color.rs` | `Color` struct and its hex parser |
 | `crates/mosaico-core/src/config/mod.rs` | `BorderConfig` for color and width settings |
@@ -107,7 +108,9 @@ a stale bitmap from the previous size would briefly appear at the new position.
 
 - `Border::new()` -- creates the overlay window (initially hidden)
 - `Border::show(rect, color, width)` -- renders the border bitmap and
-  positions the overlay window over the target rectangle
+  positions the overlay window over the target rectangle; it fails when
+  the bitmap does not reach the overlay, which keeps the one it had and
+  is still put in place
 - `Border::restack(rect, width, target)` -- puts the overlay back just
   behind its window and shows it, with the bitmap it already has
 - `Border::hide()` -- hides the overlay window via `ShowWindow(SW_HIDE)`
@@ -163,8 +166,9 @@ shows. The lifecycle is unified through a single entry point:
 One step often decides a window's border more than once: when the layout
 places the window, when `update_border()` runs after the layout, and again
 after focus moves. The step draws only the last decision for each window,
-once, in the place of its first border after the window's last placement.
-So each border lands right after its own window, never before the
+once, in the place of its first border after the last `Place` or
+`DropBorder` of that window that comes before that decision. So each
+border lands right after its own window, never before the
 placement it was decided for, and a hide or drop wins over an earlier
 draw.
 
