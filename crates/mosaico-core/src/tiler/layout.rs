@@ -58,9 +58,9 @@ impl Tiler {
     /// Emits a placement for every window on the monitor's active
     /// workspace, each followed by its border so both land together.
     ///
-    /// Every window gets a placement, even one already in place: the
-    /// platform skips those when it applies them, against the window's
-    /// real position at that moment. Deciding here instead would go
+    /// Every window gets a placement, even one already in place: those
+    /// are skipped when they are applied, against the window's real
+    /// position at that moment. Deciding here instead would go
     /// wrong for a window with a coalesced placement still pending.
     pub(super) fn apply_layout_positions(
         &mut self,

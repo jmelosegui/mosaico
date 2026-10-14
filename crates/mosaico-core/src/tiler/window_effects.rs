@@ -1,6 +1,6 @@
 //! Carries out the effects that change windows.
 //!
-//! The platform applies every effect the tiler returns, but most of
+//! The tiling manager applies every effect the tiler returns, but most of
 //! them only change a window or move the pointer, and the decisions
 //! they still need at that point (leaving a window that is already in
 //! place alone, finding where to put the pointer) do not depend on the

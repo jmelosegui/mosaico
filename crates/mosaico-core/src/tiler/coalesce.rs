@@ -1,4 +1,4 @@
-//! Holds back the effects a platform may apply late.
+//! Holds back the effects the tiling manager may apply late.
 //!
 //! While the user is still pressing keys, only the latest focus change
 //! and the latest coalesced position of each window matter. Applying
@@ -76,7 +76,7 @@ impl Coalescer {
     }
 
     /// Drops the held placement of `window` and everything waiting for
-    /// it. The platform calls this when the window is destroyed.
+    /// it. The tiling manager calls this when the window is destroyed.
     pub fn forget(&mut self, window: WindowId) {
         self.places.retain(|&(w, _)| w != window);
         self.after.retain(|e| waits_for(e) != Some(window));

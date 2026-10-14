@@ -4,9 +4,11 @@
 //! where they go, which workspace is on screen and what has focus. It
 //! never touches the OS. Each [`Tiler::step`] reads the desktop through
 //! [`Desktop`], updates the tiler's state and returns the [`Effect`]s
-//! that bring the desktop in line with it. The platform applies them,
-//! and records them in an [`Expectations`] so that the events they
-//! cause are recognized as ours.
+//! that bring the desktop in line with it.
+//! [`TilingManager`](crate::tiler::TilingManager) runs a tiler on a
+//! [`Platform`](crate::tiler::Platform): it applies the effects, and
+//! records them in an [`Expectations`] so that the events they cause are
+//! recognized as ours.
 
 mod actions;
 mod adopt;

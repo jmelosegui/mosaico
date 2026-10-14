@@ -4,10 +4,11 @@ use crate::{Rect, WindowId};
 /// A change the tiler wants made to the desktop.
 ///
 /// [`Tiler::step`](super::Tiler::step) returns these in the order they
-/// must be applied. The platform applies them and records what it
-/// expects the OS to report back in an
-/// [`Expectations`](super::Expectations), so that the window events our
-/// own changes cause are not mistaken for user actions.
+/// must be applied. The [`TilingManager`](super::TilingManager) applies
+/// them through the platform and records what it expects the OS to
+/// report back in an [`Expectations`](super::Expectations), so that the
+/// window events our own changes cause are not mistaken for user
+/// actions.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Effect {
     /// Move and resize a window, then repaint it.
@@ -16,7 +17,7 @@ pub enum Effect {
         window: WindowId,
         /// Where its visible bounds go.
         rect: Rect,
-        /// Whether the platform may hold the move back. See [`Timing`].
+        /// Whether the move may be held back. See [`Timing`].
         timing: Timing,
     },
     /// Move a window that exists but has not been shown yet, without
@@ -49,9 +50,9 @@ pub enum Effect {
     },
     /// Give a window keyboard focus.
     ///
-    /// The platform may hold focus changes back while the user is still
-    /// navigating, and only apply the last one. The tiler has already
-    /// updated its own idea of focus, borders and the bar.
+    /// The tiling manager holds focus changes back while the user is
+    /// still navigating, and only applies the last one. The tiler has
+    /// already updated its own idea of focus, borders and the bar.
     Focus {
         /// The window.
         window: WindowId,
@@ -118,9 +119,9 @@ pub enum Effect {
 pub enum Timing {
     /// Apply it right away.
     Now,
-    /// The platform may keep only the latest position per window and
-    /// apply it once input goes quiet. Used for moves the user tends to
-    /// repeat quickly, so a burst of key presses repaints once.
+    /// The tiling manager keeps only the latest position per window and
+    /// applies it once input goes quiet. Used for moves the user tends
+    /// to repeat quickly, so a burst of key presses repaints once.
     ///
     /// Effects that follow for the same window ([`Effect::Border`],
     /// [`Effect::CenterCursor`]) must wait for the move.

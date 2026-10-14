@@ -12,9 +12,10 @@ unifying interface between hotkeys and CLI commands -- both paths produce an
 |------|---------|
 | `crates/mosaico-core/src/action.rs` | `Action` enum, `Direction` enum |
 | `crates/mosaico-core/src/spatial.rs` | Pure spatial navigation functions (`find_neighbor`, `find_entry`) |
-| `crates/mosaico-windows/src/tiling/mod.rs` | `TilingManager::handle_action()` -- executes actions |
-| `crates/mosaico-windows/src/tiling/navigation.rs` | `focus_direction()`, `move_direction()` |
-| `crates/mosaico-windows/src/tiling/workspace.rs` | `goto_workspace()`, `send_to_workspace()` |
+| `crates/mosaico-core/src/tiler/manager.rs` | `TilingManager::handle_action()` -- executes actions |
+| `crates/mosaico-core/src/tiler/actions.rs` | The tiler's dispatch of each action |
+| `crates/mosaico-core/src/tiler/navigation.rs` | `focus_direction()`, `move_direction()` |
+| `crates/mosaico-core/src/tiler/workspace.rs` | `goto_workspace()`, `send_to_workspace()` |
 | `crates/mosaico/src/main.rs` | CLI `ActionCommands` / `DirectionCommands` mapping |
 | `crates/mosaico/src/commands/action.rs` | Sends actions to the daemon over IPC |
 
@@ -98,16 +99,18 @@ does nothing and succeeds.
 
 ## Execution
 
-`TilingManager::handle_action()` matches each variant:
+`TilingManager::handle_action()` hands the action to the tiler, and
+`Tiler::handle_action()` (in `crates/mosaico-core/src/tiler/actions.rs`)
+matches each variant:
 
 | Action | Method |
 |--------|--------|
 | `Focus(dir)` | `focus_direction(dir)` (in `navigation.rs`) |
 | `Move(dir)` | `move_direction(dir)` (in `navigation.rs`) |
-| `Retile` | `retile_all()` (in `layout.rs`) |
-| `ToggleMonocle` | `toggle_monocle()` (in `layout.rs`) |
-| `CycleLayout` | `cycle_layout()` (in `mod.rs`) |
-| `CloseFocused` | `close_focused()` |
+| `Retile` | `retile_all()` (in `layout_actions.rs`) |
+| `ToggleMonocle` | `toggle_monocle()` (in `layout_actions.rs`) |
+| `CycleLayout` | `cycle_layout()` (in `layout_actions.rs`) |
+| `CloseFocused` | asks the platform to close the focused window |
 | `GoToWorkspace(n)` | `goto_workspace(n)` (in `workspace.rs`) |
 | `SendToWorkspace(n)` | `send_to_workspace(n)` (in `workspace.rs`) |
 

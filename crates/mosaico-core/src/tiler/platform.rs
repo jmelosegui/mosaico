@@ -10,10 +10,10 @@ use super::{Desktop, Enumerator};
 /// implementation of each contract the tiler is driven through, and the
 /// time.
 ///
-/// The tiling manager runs a [`Tiler`](super::Tiler) on the desktop. It
-/// reads windows and the pointer through [`desktop`](Self::desktop)
-/// while the tiler decides, carries out the effects the tiler returns
-/// through [`control`](Self::control) and
+/// [`TilingManager`](super::TilingManager) runs a [`Tiler`](super::Tiler)
+/// on the desktop. It reads windows and the pointer through
+/// [`desktop`](Self::desktop) while the tiler decides, carries out the
+/// effects the tiler returns through [`control`](Self::control) and
 /// [`decorations`](Self::decorations), and lists windows and monitors
 /// through [`enumerator`](Self::enumerator). A platform implements each
 /// of those contracts and hands them over here.

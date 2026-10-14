@@ -25,7 +25,7 @@ and monitors using vim-style H/J/K/L motions.
 | `crates/mosaico-core/src/tiler/display_monocle.rs` | `join_monocle()`, `clear_stale_monocle()`: monocle workspaces across a display change, and the windows that wait behind their monocle window |
 | `crates/mosaico-core/src/tiler/state.rs` | `MonitorState`, `SpatialTarget` |
 | `crates/mosaico-core/src/tiler/navigation.rs`, `navigation_helpers.rs` | Multi-monitor focus/move logic, spatial target resolution |
-| `crates/mosaico-windows/src/tiling/mod.rs` | `TilingManager`, which feeds the core tiler the monitor lists |
+| `crates/mosaico-core/src/tiler/manager_inputs.rs` | `TilingManager`, which feeds the tiler the monitor lists |
 
 ### Key Types
 

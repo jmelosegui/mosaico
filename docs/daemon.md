@@ -103,7 +103,8 @@ order, it:
 3. Resolve the current theme from `config.theme`
 4. Load `bar.toml` and create `BarManager` with `Win32BarRenderer`,
    `Win32SystemInfo`, the monitor rects and the theme
-5. Create `TilingManager` with layout, rules, and border config
+5. Create the core `TilingManager` on `Win32Platform`, with the config, the
+   rules and the instance's hidden-window record
 6. Adjust work areas for bar height on monitors that display a bar
 7. Perform initial bar render with `bar_mgr.update(&manager.bar_states())`
 8. Create `mpsc` channels for events, actions, and the unified daemon channel
@@ -327,9 +328,10 @@ Shutdown is triggered by:
 
 A daemon that is killed or crashes never reaches `restore_all_windows()`, so
 the windows it hid with a workspace switch stay hidden, and the next daemon
-would skip them as cloaked or invisible. To recover them, the applier keeps a
-record of every window hidden by switching (`mosaico_core::tiler::HiddenWindows`)
-in `hidden-windows.json` in the instance's data directory, updated as hide and
+would skip them as cloaked or invisible. To recover them, the tiling manager
+keeps a record of every window hidden by switching
+(`mosaico_core::tiler::HiddenWindows`), which `HiddenFile` writes to
+`hidden-windows.json` in the instance's data directory, updated as hide and
 show effects are applied and deleted once nothing is hidden. On startup,
 before enumerating windows, `TilingManager::new` shows each recorded window
 the way it was hidden, then clears the record. Window handles can be reused,

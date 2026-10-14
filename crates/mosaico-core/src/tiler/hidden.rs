@@ -5,9 +5,11 @@
 //! and the next one cannot tell them apart from windows the system
 //! keeps out of view for its own reasons, so it never adopts them.
 //!
-//! [`HiddenWindows`] is the record a platform keeps of those windows
-//! while it applies effects, and persists, so that the next daemon can
-//! show them again before it starts tiling. Window ids may be reused
+//! [`HiddenWindows`] is the record the
+//! [`TilingManager`](super::TilingManager) keeps of those windows while
+//! it applies effects, and persists in a
+//! [`HiddenFile`](super::HiddenFile), so that the next daemon can show
+//! them again before it starts tiling. Window ids may be reused
 //! once a window is gone, so each entry also remembers who owned the
 //! window, and a window that is no longer the same one is left alone.
 
@@ -41,7 +43,7 @@ pub struct HiddenWindows {
 }
 
 impl HiddenWindows {
-    /// Updates the record for an effect the platform just applied.
+    /// Updates the record for an effect the tiling manager just applied.
     ///
     /// A hide adds the window, a show or a reveal removes it. `identity`
     /// looks up the window the effect is about, and is only called for a
