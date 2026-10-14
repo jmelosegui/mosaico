@@ -34,6 +34,8 @@ mod empty_focus_tests;
 mod event_tests;
 #[path = "tests/fake_desktop.rs"]
 mod fake_desktop;
+#[path = "tests/fake_platform.rs"]
+mod fake_platform;
 #[path = "tests/fallback_tests.rs"]
 mod fallback_tests;
 #[path = "tests/focus_tests.rs"]
@@ -46,6 +48,16 @@ mod hidden_how_tests;
 mod hiding_change_tests;
 #[path = "tests/layout_tests.rs"]
 mod layout_tests;
+#[path = "tests/manager_config_tests.rs"]
+mod manager_config_tests;
+#[path = "tests/manager_focus_tests.rs"]
+mod manager_focus_tests;
+#[path = "tests/manager_record_tests.rs"]
+mod manager_record_tests;
+#[path = "tests/manager_support.rs"]
+mod manager_support;
+#[path = "tests/manager_tests.rs"]
+mod manager_tests;
 #[path = "tests/mode_reload_settings_tests.rs"]
 mod mode_reload_settings_tests;
 #[path = "tests/mode_reload_tests.rs"]
