@@ -10,6 +10,7 @@
 
 mod actions;
 mod adopt;
+mod applier;
 mod bar_states;
 mod borders;
 mod coalesce;
@@ -37,6 +38,7 @@ mod layout;
 mod layout_actions;
 mod lifecycle;
 mod lookup;
+mod manager;
 mod navigation;
 mod navigation_helpers;
 mod plan;
@@ -68,6 +70,7 @@ pub use enumerator::{Enumerator, Insets, WindowDetails};
 pub use hidden::{HiddenWindows, WindowIdentity};
 pub use hidden_file::HiddenFile;
 pub use input::{BarReservation, Input};
+pub use manager::TilingManager;
 pub use platform::Platform;
 pub use release::{MAX_HOLD, QUIET, release_at};
 pub use startup::Settings;

@@ -3,12 +3,12 @@
 
 use std::time::Instant;
 
-use mosaico_core::bar::BarState;
-use mosaico_core::config::{Config, WindowRule};
-use mosaico_core::tiler::{HiddenFile, Input, Platform, Settings, Tiler};
-use mosaico_core::{Action, HidingSupport, Result, WindowEvent};
+use crate::bar::BarState;
+use crate::config::{Config, WindowRule};
+use crate::{Action, HidingSupport, Result, WindowEvent};
 
 use super::applier::Applier;
+use super::{HiddenFile, Input, Platform, Settings, Tiler};
 
 #[path = "manager_inputs.rs"]
 mod inputs;
@@ -85,7 +85,7 @@ impl<P: Platform> TilingManager<P> {
             self.applier.forget(window);
         }
         if let Some(reason) = self.applier.echo(event, self.platform.now()) {
-            mosaico_core::log_debug!("{} suppressed ({})", event, reason);
+            crate::log_debug!("{} suppressed ({})", event, reason);
             return;
         }
         self.step(Input::Event(event.clone()));

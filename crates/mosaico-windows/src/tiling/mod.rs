@@ -1,13 +1,12 @@
-//! Drives the core tiler against the Windows desktop.
+//! The Windows desktop the core tiling manager runs on.
 //!
-//! [`mosaico_core::tiler::Tiler`] makes every decision. This module
-//! feeds it actions and events, applies the effects it returns through
-//! [`applier::Applier`], and drops the events those effects cause.
+//! [`mosaico_core::tiler::TilingManager`] drives the tiler and applies
+//! the effects it returns. This module hands it the Win32
+//! implementation of each contract it needs, in [`Win32Platform`], and
+//! builds the `debug state` snapshot from it, in `TilingViews`.
 
-mod applier;
 mod desktop;
 mod inspect;
-mod manager;
 mod platform;
 mod views;
 
@@ -15,4 +14,4 @@ pub use platform::Win32Platform;
 pub(crate) use views::TilingViews;
 
 /// The tiling manager on the Win32 desktop.
-pub type TilingManager = manager::TilingManager<Win32Platform>;
+pub type TilingManager = mosaico_core::tiler::TilingManager<Win32Platform>;

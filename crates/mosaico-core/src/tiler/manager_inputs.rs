@@ -1,10 +1,10 @@
 //! The input the daemon sends the tiler besides actions and window
 //! events: borders, repaints, shutdown, reloads and monitor changes.
 
-use mosaico_core::Result;
-use mosaico_core::config::{Config, WindowRule};
-use mosaico_core::tiler::{BarReservation, Display, Input, Platform};
+use crate::Result;
+use crate::config::{Config, WindowRule};
 
+use super::super::{BarReservation, Display, Input, Platform};
 use super::TilingManager;
 
 impl<P: Platform> TilingManager<P> {
@@ -38,7 +38,7 @@ impl<P: Platform> TilingManager<P> {
     /// Rebuilds the monitor state after a display configuration change.
     ///
     /// `new_monitors` are left to right, as
-    /// [`Enumerator::monitors`](mosaico_core::tiler::Enumerator::monitors)
+    /// [`Enumerator::monitors`](crate::tiler::Enumerator::monitors)
     /// lists them.
     pub fn handle_display_change(
         &mut self,

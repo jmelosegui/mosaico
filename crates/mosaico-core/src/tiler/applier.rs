@@ -18,8 +18,9 @@
 
 use std::time::Instant;
 
-use mosaico_core::HidingSupport;
-use mosaico_core::tiler::{
+use crate::HidingSupport;
+
+use super::{
     Coalescer, Effect, Expectations, HiddenFile, HiddenWindows, Platform, apply_decoration_effect,
     apply_window_effect,
 };
@@ -89,11 +90,11 @@ impl Applier {
     /// Why an event is an echo of our own effects, if it is one.
     pub(super) fn echo(
         &mut self,
-        event: &mosaico_core::WindowEvent,
+        event: &crate::WindowEvent,
         now: Instant,
     ) -> Option<&'static str> {
         // Nothing held for a window that no longer exists may be applied.
-        if let mosaico_core::WindowEvent::Destroyed { window } = *event {
+        if let crate::WindowEvent::Destroyed { window } = *event {
             self.held.forget(window);
         }
         self.expectations.echo(event, now)

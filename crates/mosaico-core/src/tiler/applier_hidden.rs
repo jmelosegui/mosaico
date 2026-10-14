@@ -3,9 +3,9 @@
 
 use std::time::Instant;
 
-use mosaico_core::WindowId;
-use mosaico_core::tiler::Platform;
+use crate::WindowId;
 
+use super::super::Platform;
 use super::Applier;
 
 impl Applier {
@@ -20,7 +20,7 @@ impl Applier {
         };
         let effects = file.load().restore(|w| platform.desktop().identity(w));
         if !effects.is_empty() {
-            mosaico_core::log_info!(
+            crate::log_info!(
                 "showing {} window(s) a previous daemon left hidden",
                 effects.len()
             );
