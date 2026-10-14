@@ -273,7 +273,11 @@ When a window that is already on screen is taken in (`add_and_focus`,
 `try_adopt`, or a window dropped onto a monitor), `move_before_layout` first
 posts it a move to its slot with `PrePlace`, which does not wait for its
 application. The layout pass then runs as usual, placing the windows in the
-layout's order, and usually finds the new window in place.
+layout's order. The new window's own placement there is made in full even
+when the posted move has already landed, so the window still gets the
+placement and the repaint the layout pass would have given it. A window
+pre-placed while it was hidden keeps the usual check, and is left alone if
+it is in place.
 
 A layout never sets off another one: `WindowEvent::Moved` is only reported
 when the user finishes dragging a window, never for the tiler's own

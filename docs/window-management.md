@@ -83,9 +83,9 @@ The contract, in the trait's docs, spells out what callers rely on:
   before it places it.
 - Pre-placement never waits for the application, even one that never handles
   its messages. It moves windows that exist but are not shown yet, and a window
-  that is already shown when it is taken in, ahead of the layout. The move
-  lands when the application next handles its messages, or not at all, and a
-  maximized window may stay maximized.
+  that is already shown when it is taken in, ahead of the layout. The move may
+  land at once, later, or not at all, and moves made this way to one window
+  land in the order they were made. A maximized window may stay maximized.
 - `put_behind(window, other)` puts `window` behind `other` in the stacking
   order, within its own always-on-top layer, without activating, moving or
   resizing either. Neither window's layer changes: `window` goes directly

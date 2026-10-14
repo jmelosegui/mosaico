@@ -55,8 +55,8 @@ pub trait WindowControl {
     /// one that is already shown and has just been taken in.
     ///
     /// - Returns at once, even when the application never handles the
-    ///   request. The move lands when the application next handles its
-    ///   messages, or not at all.
+    ///   request. The move may land at once, later, or not at all. Moves
+    ///   made this way to one window land in the order they were made.
     /// - The window is not shown, raised or focused, and nothing is
     ///   repainted beyond what the move itself causes.
     /// - The move must not be reported as the user moving the window

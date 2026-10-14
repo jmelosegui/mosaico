@@ -23,7 +23,8 @@ pub enum Effect {
     /// Move a window without waiting for its application: one that
     /// exists but has not been shown yet, or one just taken in while it
     /// is on screen, ahead of the layout pass. Must never block. The move
-    /// may land later or not at all, so nothing in the step counts on it.
+    /// may land at once, later or not at all, so nothing in the step
+    /// counts on it.
     PrePlace {
         /// The window.
         window: WindowId,
