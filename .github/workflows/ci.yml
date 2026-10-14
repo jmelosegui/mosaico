@@ -37,6 +37,9 @@ jobs:
       - name: Unit tests
         run: cargo test --lib
 
+      - name: CLI command unit tests
+        run: cargo test -p mosaico --bins
+
       - name: Doc tests
         run: cargo test --doc
 

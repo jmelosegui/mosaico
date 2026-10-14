@@ -21,12 +21,17 @@ These match CI and never touch the desktop:
 cargo fmt --all -- --check
 cargo clippy --all-targets -- -D warnings
 cargo test --lib
+cargo test -p mosaico --bins
 cargo test --doc
 cargo test -p mosaico --test cli -- help_exits_successfully version_exits_successfully debug_list_subcommand_runs \
   an_invalid_instance_name_is_refused a_test_instance_does_not_see_other_daemons --exact
 ```
 
-Run a single unit test by name with `cargo test --lib <name>`.
+`mosaico` is a binary crate, so `--lib` skips it. Its command unit tests (in `src/main.rs` and `commands/`) only
+run with `--bins`.
+
+Run a single unit test by name with `cargo test --lib <name>`, or `cargo test -p mosaico --bins <name>` for a
+CLI command test.
 
 ## Not safe without asking
 

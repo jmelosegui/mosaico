@@ -18,6 +18,7 @@ matching skill before you start:
 
 | Skill | Use it when |
 | --- | --- |
+| [fixing-a-bug](.agents/skills/fixing-a-bug/SKILL.md) | fixing any reported bug, review finding or regression (reproduce it in a failing test first) |
 | [platform-boundary](.agents/skills/platform-boundary/SKILL.md) | adding or changing anything that talks to the OS, reviewing a diff for core/platform leaks, or auditing the crates |
 | [rust-conventions](.agents/skills/rust-conventions/SKILL.md) | writing any Rust: naming, file size, errors, `unsafe`, docs, imports |
 | [testing](.agents/skills/testing/SKILL.md) | designing a component so it can be tested in isolation, writing or running tests, which suites are safe to run locally |
@@ -34,6 +35,8 @@ Ground rules:
   platform uses it today.
 - Every component must be testable in isolation: pass in the OS, clock, file system, network and IPC instead of
   reaching for them. See [testing](.agents/skills/testing/SKILL.md).
+- Every bug fix starts with a test that reproduces the reported behaviour and fails on `main`. The fix then makes it
+  pass without editing the test. See [fixing-a-bug](.agents/skills/fixing-a-bug/SKILL.md).
 - Keep warnings at zero: `cargo fmt --all -- --check` and `cargo clippy --all-targets -- -D warnings` must pass.
 - Never run `cargo test` or `cargo test --workspace` unfiltered. Some suites start a real daemon that tiles the
   live desktop. See [testing](.agents/skills/testing/SKILL.md) for the safe set.

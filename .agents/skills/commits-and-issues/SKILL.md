@@ -14,6 +14,8 @@ description: Commit, plan and issue conventions for mosaico. Use when committing
 - All commits are GPG-signed. Never use `--no-gpg-sign`.
 - Before committing, run the safe suite from the [testing](../testing/SKILL.md) skill.
 - Update plan checkboxes in `.plans/` in the same commit that completes the work.
+- A bug fix is two commits: the reproducing test first, then the fix. See
+  [fixing-a-bug](../fixing-a-bug/SKILL.md).
 
 ## Issues
 
