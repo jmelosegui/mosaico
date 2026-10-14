@@ -230,7 +230,9 @@ its side is added back on the next start; to hide a widget, set
 - `update(states)` -- reads the system once, then builds each bar's content
   from its monitor's state and draws it; does nothing while no monitor has
   a bar
-- `bar_height()` -- returns bar height if enabled, 0 otherwise
+- `bar_height()` -- returns the bar height while at least one monitor has a
+  bar, 0 otherwise, so a bar that no monitor gets reserves no space (the
+  tiler reads an empty monitor list as every monitor)
 - `bar_monitor_indices()` -- returns which monitor indices have bars
 - `resolve_colors(theme)` -- re-resolves the `[colors]` table on theme
   change (widget colors keep their shade, see below)

@@ -64,16 +64,23 @@ impl BarManager {
         manager
     }
 
-    /// Returns the bar height if the bar is enabled, 0 otherwise.
+    /// Returns the space the bars take at the top of their monitors: the
+    /// bar height while at least one monitor has a bar, 0 otherwise.
+    ///
+    /// The tiler reads an empty
+    /// [`bar_monitor_indices`](Self::bar_monitor_indices) as every
+    /// monitor, so without bars the height has to be 0 for nothing to be
+    /// reserved.
     pub fn bar_height(&self) -> i32 {
-        if self.config.enabled {
-            self.config.height
-        } else {
+        if self.bars.is_empty() {
             0
+        } else {
+            self.config.height
         }
     }
 
-    /// Returns which monitor indices have a bar displayed.
+    /// Returns which monitor indices have a bar displayed. Empty when no
+    /// monitor has one, and then [`bar_height`](Self::bar_height) is 0.
     pub fn bar_monitor_indices(&self) -> &[usize] {
         &self.bar_monitor_indices
     }
