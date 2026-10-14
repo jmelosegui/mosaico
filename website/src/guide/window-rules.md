@@ -120,8 +120,14 @@ the rule upstream instead of keeping it in `user-rules.toml`.
 ## Hot-Reload
 
 Changes to `user-rules.toml` are automatically detected and applied while
-the daemon is running. When the file changes, both rule sets are re-merged
-and existing windows are re-evaluated against the new rules.
+the daemon is running. When the file changes, both rule sets are re-merged,
+your rules first. New rules apply to new windows. Managed windows the new
+rules no longer manage are released at once, and their monitor is retiled.
+A window the new rules would manage is picked up the next time it gets
+focus.
+
+A `user-rules.toml` that does not parse counts as no user rules, so the
+community rules apply alone until it is fixed.
 
 Community rules (`rules.toml`) are only updated on daemon startup.
 

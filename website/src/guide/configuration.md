@@ -141,19 +141,27 @@ than rejected:
 ## Hot-Reload
 
 Changes to `config.toml`, `user-rules.toml`, and `bar.toml` are
-automatically detected and applied while the daemon is running (polled
-every 2 seconds).
+automatically detected and applied while the daemon is running. The daemon
+waits for the system to report a change in the config directory, then
+reloads each of these files whose modification time changed.
 
 - **config.toml** -- layout gap/ratio, hiding behaviour, border settings,
   and theme are reloaded. Windows are retiled immediately. Hiding changes
   take effect on the next workspace switch.
-- **user-rules.toml** -- both rule sets are re-merged and existing windows
-  are re-evaluated against the new rules.
+- **user-rules.toml** -- both rule sets are re-merged, your rules first.
+  New rules apply to new windows. Managed windows the new rules no longer
+  manage are released at once, and their monitor is retiled. A window the
+  new rules would manage is picked up the next time it gets focus.
 - **bar.toml** -- the status bar is recreated with updated settings and
   colors.
-- **rules.toml** -- community rules, updated only on daemon startup.
+- **rules.toml** -- community rules, not watched: updated only on daemon
+  startup.
 - **keybindings.toml** -- **not** hot-reloaded. Changes require a daemon
   restart (`mosaico stop && mosaico start`).
 
-Only valid configurations are applied. If a file change introduces a parse
-error, the current configuration is kept and a warning is logged.
+Only valid configurations are applied. If a change to `config.toml` or
+`bar.toml` introduces a parse error, it is logged
+(`config.toml invalid, skipping: ...`) and the current configuration is kept
+until the file changes again. A `user-rules.toml` that does not parse counts
+as no user rules, as it does at startup, so the community rules apply alone
+until it is fixed.
