@@ -61,6 +61,8 @@ pub fn execute(cx: &mut Context) -> Exit {
             return Exit::Failure;
         }
         Err(IpcError::NotRunning) => {}
+        // A daemon that does not answer is ended below, from its PID file.
+        Err(IpcError::TimedOut) => complain!(cx, "The daemon is not responding; ending it."),
         Err(e) => complain!(cx, "IPC failed: {e}"),
     }
 

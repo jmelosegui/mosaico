@@ -6,6 +6,10 @@ use mosaico_core::ipc::{
 
 use super::context::{Context, Exit, complain, say};
 
+/// What to tell the user when the daemon is listening but does not reply.
+pub const NOT_RESPONDING: &str = "Mosaico is running but not responding. Run `mosaico stop` to end it, \
+     then `mosaico start`.";
+
 /// Sends `command` to the running daemon and returns its successful
 /// reply. Otherwise writes why to the error stream and returns the
 /// failure to exit with.
@@ -21,6 +25,10 @@ pub fn send(cx: &mut Context, command: &Command) -> Result<Response, Exit> {
         }
         Err(IpcError::NotRunning) => {
             complain!(cx, "Mosaico is not running.");
+            Err(Exit::Failure)
+        }
+        Err(IpcError::TimedOut) => {
+            complain!(cx, "{NOT_RESPONDING}");
             Err(Exit::Failure)
         }
         Err(e) => {

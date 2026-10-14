@@ -12,6 +12,10 @@ pub fn execute(cx: &mut Context) -> Exit {
             return Exit::Success;
         }
         Err(IpcError::NotRunning) => {}
+        Err(IpcError::TimedOut) => {
+            say!(cx, "{}", request::NOT_RESPONDING);
+            return Exit::Success;
+        }
         Err(e) => {
             say!(cx, "Mosaico is running, but did not answer: {e}");
             return Exit::Success;
@@ -182,6 +186,21 @@ mod tests {
 "
         );
         assert_eq!(h.pid_file.read().unwrap(), Some(99), "kept for `stop`");
+    }
+
+    #[test]
+    fn a_daemon_that_does_not_reply_is_reported_as_not_responding() {
+        // Arrange -- the daemon took the request but never answered.
+        let mut h = Harness::new("status-no-reply");
+        h.world.daemon_up(5);
+        h.world.reply(Err(IpcError::TimedOut));
+
+        // Act
+        let exit = h.run(execute);
+
+        // Assert
+        assert_eq!(exit, Exit::Success);
+        assert_eq!(h.out(), format!("{}\n", request::NOT_RESPONDING));
     }
 
     #[test]

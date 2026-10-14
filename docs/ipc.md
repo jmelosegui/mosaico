@@ -100,7 +100,14 @@ other.
 - callers about to send do not check `is_daemon_running` first: `send`
   reports `IpcError::NotRunning` itself, and a separate check could see a
   busy daemon as missing
-- `send` (provided by core) writes the request and reads the reply
+- `send` (provided by core) writes the request and reads the reply, waiting at
+  most `REPLY_TIMEOUT` (10 seconds); `send_with_timeout` takes another limit.
+  A daemon that is alive but does not reply is reported as
+  `IpcError::TimedOut` instead of hanging the CLI. The CLI says the daemon is
+  not responding, and `mosaico stop` then ends it from its PID file
+- `IpcStream::set_read_timeout` makes the client's reads fail with `TimedOut`
+  once the limit has passed. A transport whose reads can block must implement
+  it
 
 `IpcServer` / `IpcConnection` (daemon side):
 
@@ -156,10 +163,15 @@ stop it.
   the client gets error 233.
 - `PipeClient::connect` opens the pipe with `CreateFileW`. `ERROR_FILE_NOT_FOUND`
   means no daemon. On `ERROR_PIPE_BUSY` it waits up to 2 seconds with
-  `WaitNamedPipeW` and tries once more.
+  `WaitNamedPipeW` and tries once more. A pipe still busy after that is a
+  daemon that is not answering, reported as `IpcError::TimedOut`. A pipe that
+  goes away during the wait (`ERROR_FILE_NOT_FOUND`) is a daemon that exited,
+  reported as `IpcError::NotRunning`.
 - `PipeClient::is_daemon_running` uses `WaitNamedPipeW` with a 1 ms timeout.
   Only `ERROR_FILE_NOT_FOUND` means no daemon; a timeout means every instance
   is busy and the daemon is running.
+- `PipeClient::connect` returns a `PipeStream`, whose reads use the same
+  watchdog as the server to enforce the reply timeout.
 - The pipe name comes from the instance (`pipe_name`): `\\.\pipe\mosaico` for
   the default instance, `\\.\pipe\mosaico-<name>` for a named one.
 

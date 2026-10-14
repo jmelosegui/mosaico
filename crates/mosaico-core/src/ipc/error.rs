@@ -14,6 +14,8 @@ pub enum IpcError {
     Malformed(serde_json::Error),
     /// The transport failed.
     Io(io::Error),
+    /// The daemon is listening but did not reply in time.
+    TimedOut,
 }
 
 impl fmt::Display for IpcError {
@@ -24,6 +26,7 @@ impl fmt::Display for IpcError {
             Self::TooLarge => f.write_str("message too large"),
             Self::Malformed(e) => write!(f, "malformed message: {e}"),
             Self::Io(e) => write!(f, "{e}"),
+            Self::TimedOut => f.write_str("the daemon did not reply in time"),
         }
     }
 }

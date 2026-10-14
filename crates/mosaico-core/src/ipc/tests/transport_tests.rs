@@ -267,6 +267,8 @@ impl Write for FakeStream {
     }
 }
 
+impl IpcStream for FakeStream {}
+
 impl IpcClient for FakeClient {
     type Stream = FakeStream;
 
@@ -501,4 +503,79 @@ fn a_client_that_never_reads_its_reply_does_not_block_the_next_one() {
     )))
     .unwrap();
     assert_eq!(reply, Response::ok_with_message("Status"));
+}
+
+// -- a daemon that never replies --
+
+/// A client whose daemon takes the request and never replies.
+struct UnresponsiveDaemon;
+
+/// The stream to an unresponsive daemon. Reads wait for the read
+/// timeout set on it, or for an hour if none is set.
+struct UnresponsiveStream {
+    timeout: Option<Duration>,
+}
+
+impl Read for UnresponsiveStream {
+    fn read(&mut self, _buf: &mut [u8]) -> io::Result<usize> {
+        match self.timeout {
+            Some(t) => {
+                std::thread::sleep(t);
+                Err(io::ErrorKind::TimedOut.into())
+            }
+            None => {
+                std::thread::sleep(Duration::from_secs(3600));
+                Ok(0)
+            }
+        }
+    }
+}
+
+impl Write for UnresponsiveStream {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+impl IpcStream for UnresponsiveStream {
+    fn set_read_timeout(&mut self, timeout: Duration) -> Result<(), IpcError> {
+        self.timeout = Some(timeout);
+        Ok(())
+    }
+}
+
+impl IpcClient for UnresponsiveDaemon {
+    type Stream = UnresponsiveStream;
+
+    fn is_daemon_running(&self) -> bool {
+        true
+    }
+
+    fn connect(&self) -> Result<UnresponsiveStream, IpcError> {
+        Ok(UnresponsiveStream { timeout: None })
+    }
+}
+
+#[test]
+fn a_daemon_that_never_replies_is_reported_instead_of_waited_on() {
+    // #86
+    // Arrange
+    let (done_tx, done_rx) = std::sync::mpsc::channel();
+
+    // Act
+    std::thread::spawn(move || {
+        let reply =
+            UnresponsiveDaemon.send_with_timeout(&Command::Status, Duration::from_millis(50));
+        let _ = done_tx.send(reply);
+    });
+
+    // Assert
+    let reply = done_rx
+        .recv_timeout(Duration::from_secs(2))
+        .expect("send is still waiting for a daemon that never replies");
+    assert!(matches!(reply, Err(IpcError::TimedOut)), "{reply:?}");
 }

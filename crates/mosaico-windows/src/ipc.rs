@@ -9,10 +9,10 @@ use std::os::windows::io::{AsRawHandle, FromRawHandle};
 use std::time::{Duration, Instant};
 
 use mosaico_core::Instance;
-use mosaico_core::ipc::{IpcClient, IpcConnection, IpcError, IpcServer};
+use mosaico_core::ipc::{IpcClient, IpcConnection, IpcError, IpcServer, IpcStream};
 use windows::Win32::Foundation::{
     ERROR_FILE_NOT_FOUND, ERROR_PIPE_BUSY, ERROR_PIPE_CONNECTED, GetLastError, HANDLE,
-    INVALID_HANDLE_VALUE,
+    INVALID_HANDLE_VALUE, WIN32_ERROR,
 };
 use windows::Win32::Storage::FileSystem::{
     CreateFileW, FILE_SHARE_NONE, FlushFileBuffers, OPEN_EXISTING, PIPE_ACCESS_DUPLEX,
@@ -71,7 +71,7 @@ impl PipeClient {
 }
 
 impl IpcClient for PipeClient {
-    type Stream = File;
+    type Stream = PipeStream;
 
     /// Checks whether the pipe exists, without connecting to it.
     ///
@@ -90,18 +90,21 @@ impl IpcClient for PipeClient {
         error != ERROR_FILE_NOT_FOUND
     }
 
-    fn connect(&self) -> Result<File, IpcError> {
+    fn connect(&self) -> Result<PipeStream, IpcError> {
         let handle = match self.open() {
             Ok(handle) => handle,
             Err(e) if e.code() == ERROR_FILE_NOT_FOUND.to_hresult() => {
                 return Err(IpcError::NotRunning);
             }
             // The only instance is serving another client. Wait for it
-            // to free up, then try once more.
+            // to free up, then try once more. A daemon that keeps every
+            // instance busy that long is not answering anyone.
             Err(e) if e.code() == ERROR_PIPE_BUSY.to_hresult() => {
                 // SAFETY: WaitNamedPipeW blocks for at most BUSY_WAIT_MS.
                 if !unsafe { WaitNamedPipeW(&self.name, BUSY_WAIT_MS) }.as_bool() {
-                    return Err(IpcError::Io(io::Error::from(e)));
+                    // SAFETY: GetLastError reads the error of the call just above.
+                    let error = unsafe { GetLastError() };
+                    return Err(busy_wait_failure(error));
                 }
                 self.open().map_err(|e| IpcError::Io(io::Error::from(e)))?
             }
@@ -109,7 +112,44 @@ impl IpcClient for PipeClient {
         };
         // SAFETY: the handle was just opened and nothing else owns it, so
         // the File takes sole ownership and closes it when dropped.
-        Ok(unsafe { File::from_raw_handle(handle.0) })
+        let file = unsafe { File::from_raw_handle(handle.0) };
+        Ok(PipeStream {
+            file,
+            read_deadline: None,
+        })
+    }
+}
+
+/// The CLI's end of one connection to the daemon.
+pub struct PipeStream {
+    file: File,
+    /// When reading the reply stops waiting for the daemon, if set.
+    read_deadline: Option<Instant>,
+}
+
+impl Read for PipeStream {
+    /// Reads the daemon's reply, failing with `TimedOut` once the
+    /// deadline set by `set_read_timeout` has passed.
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let file = &mut self.file;
+        with_deadline(self.read_deadline, || file.read(buf))
+    }
+}
+
+impl Write for PipeStream {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.file.write(buf)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.file.flush()
+    }
+}
+
+impl IpcStream for PipeStream {
+    fn set_read_timeout(&mut self, timeout: Duration) -> Result<(), IpcError> {
+        self.read_deadline = Some(Instant::now() + timeout);
+        Ok(())
     }
 }
 
@@ -273,6 +313,21 @@ impl IpcConnection for PipeConnection {
     }
 }
 
+/// What a failed wait for a busy pipe means for the client.
+///
+/// The pipe going away during the wait means the daemon exited, not
+/// that it stopped answering.
+fn busy_wait_failure(error: WIN32_ERROR) -> IpcError {
+    if error == ERROR_FILE_NOT_FOUND {
+        IpcError::NotRunning
+    } else {
+        IpcError::TimedOut
+    }
+}
+
+#[cfg(test)]
+#[path = "ipc_busy_tests.rs"]
+mod busy_tests;
 #[cfg(test)]
 #[path = "ipc_tests.rs"]
 mod tests;
