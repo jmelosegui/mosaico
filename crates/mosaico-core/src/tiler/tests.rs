@@ -5,7 +5,6 @@
 //! would, so a test can drive several steps and assert on both the
 //! effects and the resulting state.
 
-use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
 use crate::action::MAX_WORKSPACES;
@@ -14,6 +13,8 @@ use crate::id::wid;
 use crate::{Action, MonitorId, MonitorKey, Rect, WindowEvent, WindowId, Workspace};
 
 use super::*;
+
+use fake_desktop::{FakeDesktop, FakeWindow};
 
 #[path = "tests/border_tests.rs"]
 mod border_tests;
@@ -31,6 +32,8 @@ mod display_tests;
 mod empty_focus_tests;
 #[path = "tests/event_tests.rs"]
 mod event_tests;
+#[path = "tests/fake_desktop.rs"]
+mod fake_desktop;
 #[path = "tests/fallback_tests.rs"]
 mod fallback_tests;
 #[path = "tests/focus_tests.rs"]
@@ -86,192 +89,6 @@ mod workspace_tests;
 pub(super) const MON_W: i32 = 1920;
 /// Height of every fake monitor.
 pub(super) const MON_H: i32 = 1080;
-
-/// A window on the fake desktop.
-#[derive(Debug, Clone)]
-pub(super) struct FakeWindow {
-    pub(super) visible: bool,
-    pub(super) minimized: bool,
-    pub(super) maximized: bool,
-    pub(super) cloaked: bool,
-    pub(super) rect: Rect,
-    pub(super) owner: Option<WindowId>,
-    pub(super) monitor: usize,
-    pub(super) facts: Option<WindowFacts>,
-    pub(super) process: u32,
-}
-
-impl FakeWindow {
-    /// A visible, captioned application window on monitor `monitor`.
-    pub(super) fn app(monitor: usize) -> Self {
-        Self {
-            visible: true,
-            minimized: false,
-            maximized: false,
-            cloaked: false,
-            rect: Rect::new(monitor as i32 * MON_W + 100, 100, 640, 480),
-            owner: None,
-            monitor,
-            facts: Some(WindowFacts {
-                class: "App".into(),
-                title: "app".into(),
-                path: "/apps/app".into(),
-                has_caption: true,
-            }),
-            process: 1000,
-        }
-    }
-}
-
-/// An in-memory desktop.
-#[derive(Debug, Default)]
-pub(super) struct FakeDesktop {
-    pub(super) windows: HashMap<WindowId, FakeWindow>,
-    pub(super) cursor: Option<(i32, i32)>,
-    pub(super) focused: Option<WindowId>,
-    /// Border overlays, as the platform keeps them: one per window,
-    /// created when first drawn and destroyed by `DropBorder`. The value
-    /// is whether the overlay is showing.
-    pub(super) borders: HashMap<WindowId, bool>,
-    /// The stacking order, front first. A window comes to the front when
-    /// it opens and when it gets focus.
-    pub(super) stack: Vec<WindowId>,
-}
-
-impl Desktop for FakeDesktop {
-    fn is_visible(&self, window: WindowId) -> bool {
-        self.windows.get(&window).is_some_and(|w| w.visible)
-    }
-
-    fn is_minimized(&self, window: WindowId) -> bool {
-        self.windows.get(&window).is_some_and(|w| w.minimized)
-    }
-
-    fn is_maximized(&self, window: WindowId) -> bool {
-        self.windows.get(&window).is_some_and(|w| w.maximized)
-    }
-
-    fn rect(&self, window: WindowId) -> Option<Rect> {
-        self.windows.get(&window).map(|w| w.rect)
-    }
-
-    fn owner(&self, window: WindowId) -> Option<WindowId> {
-        self.windows.get(&window).and_then(|w| w.owner)
-    }
-
-    fn identity(&self, window: WindowId) -> Option<WindowIdentity> {
-        self.windows.get(&window).map(|w| WindowIdentity {
-            process: w.process,
-            class: w
-                .facts
-                .as_ref()
-                .map(|f| f.class.clone())
-                .unwrap_or_default(),
-        })
-    }
-
-    fn monitor_of(&self, window: WindowId) -> MonitorId {
-        MonitorId::from_raw(self.windows.get(&window).map_or(0, |w| w.monitor as u64))
-    }
-
-    fn cursor(&self) -> Option<(i32, i32)> {
-        self.cursor
-    }
-
-    fn candidate(&self, window: WindowId) -> Option<WindowFacts> {
-        self.windows
-            .get(&window)
-            .filter(|w| !w.cloaked)
-            .and_then(|w| w.facts.clone())
-    }
-
-    fn facts(&self, window: WindowId) -> Option<WindowFacts> {
-        self.windows.get(&window).and_then(|w| w.facts.clone())
-    }
-}
-
-impl FakeDesktop {
-    /// Brings a window to the front of the stacking order.
-    pub(super) fn raise(&mut self, window: WindowId) {
-        self.stack.retain(|&w| w != window);
-        self.stack.insert(0, window);
-    }
-
-    /// Whether `front` is in front of `back` in the stacking order.
-    pub(super) fn in_front(&self, front: WindowId, back: WindowId) -> bool {
-        let at = |window: WindowId| self.stack.iter().position(|&w| w == window);
-        matches!((at(front), at(back)), (Some(f), Some(b)) if f < b)
-    }
-
-    /// Applies an effect the way a platform would.
-    fn apply(&mut self, effect: &Effect) {
-        match *effect {
-            Effect::Place { window, rect, .. } => {
-                // As `WindowControl::place` promises: no longer maximized,
-                // but a minimized window stays minimized, and comes back
-                // where it was before, as the contract allows.
-                if let Some(w) = self.windows.get_mut(&window) {
-                    if !w.minimized {
-                        w.rect = rect;
-                    }
-                    w.maximized = false;
-                }
-            }
-            Effect::Hide { window, how } => {
-                if let Some(w) = self.windows.get_mut(&window) {
-                    match how {
-                        HidingBehaviour::Cloak => w.cloaked = true,
-                        HidingBehaviour::Hide => w.visible = false,
-                        HidingBehaviour::Minimize => w.minimized = true,
-                    }
-                }
-            }
-            Effect::Show { window, .. } | Effect::Reveal { window } => {
-                if let Some(w) = self.windows.get_mut(&window) {
-                    w.cloaked = false;
-                    w.visible = true;
-                    w.minimized = false;
-                }
-            }
-            Effect::Minimize { window } => {
-                if let Some(w) = self.windows.get_mut(&window) {
-                    w.minimized = true;
-                }
-            }
-            Effect::Focus { window, .. } => {
-                self.focused = Some(window);
-                self.raise(window);
-            }
-            Effect::PutBehind { window, other } => {
-                // As `WindowControl::put_behind`: nothing changes when
-                // either window is gone.
-                if window != other && self.stack.contains(&window) && self.stack.contains(&other) {
-                    self.stack.retain(|&w| w != window);
-                    let at = self.stack.iter().position(|&w| w == other);
-                    self.stack.insert(at.map_or(0, |at| at + 1), window);
-                }
-            }
-            Effect::Border {
-                window,
-                style: Some(_),
-            } => {
-                self.borders.insert(window, true);
-            }
-            Effect::Border {
-                window,
-                style: None,
-            } => {
-                if let Some(showing) = self.borders.get_mut(&window) {
-                    *showing = false;
-                }
-            }
-            Effect::DropBorder { window } => {
-                self.borders.remove(&window);
-            }
-            _ => {}
-        }
-    }
-}
 
 /// The platform side of the effect pipeline: what the applier does
 /// between the tiler and the desktop.
