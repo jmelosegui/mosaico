@@ -23,7 +23,7 @@ pub fn execute(cx: &mut Context) -> Exit {
     check_bar_file();
     doctor_runtime::check_autostart(cx);
     doctor_runtime::check_daemon(cx);
-    doctor_runtime::check_monitors();
+    doctor_runtime::check_monitors(cx);
     println!();
     Exit::Success
 }

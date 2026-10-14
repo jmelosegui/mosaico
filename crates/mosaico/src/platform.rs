@@ -31,6 +31,7 @@ pub fn run(command: impl FnOnce(&mut Context) -> Exit) -> Exit {
         processes: &mosaico_windows::process::WindowsProcesses,
         autostart: &mosaico_windows::autostart::RegistryAutostart,
         windows: &mosaico_windows::window_control::Win32WindowControl,
+        desktop: &mosaico_windows::enumerate::WindowsEnumerator,
         pid_file: PidFile::new(instance.pid_path()),
         config_dir: instance.config_dir().to_path_buf(),
         clock: &SystemClock,
@@ -42,13 +43,14 @@ pub fn run(command: impl FnOnce(&mut Context) -> Exit) -> Exit {
     command(&mut cx)
 }
 
-/// Runs `command` like [`run`], for commands that move windows, after
-/// making this process see the desktop in the physical pixels the
-/// daemon uses.
+/// Runs `command` like [`run`], for commands that move windows or show
+/// where windows and monitors are, after making this process see the
+/// desktop in the physical pixels the daemon uses.
 ///
 /// Without per-monitor DPI awareness Windows scales the coordinates of
 /// this process on high-DPI monitors, so a window would not land where
-/// the daemon would put it.
+/// the daemon would put it, and positions shown would not be the ones
+/// the daemon works with.
 #[cfg(target_os = "windows")]
 pub fn run_on_desktop(command: impl FnOnce(&mut Context) -> Exit) -> Exit {
     mosaico_windows::dpi::enable_dpi_awareness();

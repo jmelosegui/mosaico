@@ -15,16 +15,17 @@ troubleshooting.
 | `crates/mosaico/src/commands/debug/events.rs` | `mosaico debug events` handler |
 | `crates/mosaico/src/commands/debug/move_window.rs` | `mosaico debug move` handler |
 | `crates/mosaico/src/commands/doctor.rs` | `mosaico doctor` handler |
+| `crates/mosaico-core/src/tiler/enumerator.rs` | `Enumerator`, which `debug list` and `doctor` list windows and monitors through |
 
 ## `mosaico debug list`
 
-Displays a formatted table of all visible windows on the desktop.
+Lists the windows on the desktop, one block per window, then the monitors.
 
 ### Output Columns
 
 | Column | Description |
 |--------|-------------|
-| HWND | Window handle in hex format |
+| Id | Window id in hex format (the `HWND` on Windows) |
 | Managed | Whether the window would be tiled (`yes`/`no`) |
 | Monitor | Monitor number (1-based) |
 | Title | Window title text |
@@ -36,14 +37,20 @@ Displays a formatted table of all visible windows on the desktop.
 
 ### Behavior
 
-1. Enables DPI awareness for accurate coordinates
+1. Runs through `platform::run_on_desktop`, which enables DPI awareness for
+   accurate coordinates
 2. Loads window rules from configuration
-3. Enumerates all visible windows via `EnumWindows`
-4. For each window: queries title, class, executable path, rect, border
-   offset, monitor, and evaluates rules. Windows without a caption are
-   listed too, and show as managed only when a rule opts them in
-5. Formats the results in a table using `comfy-table`
-6. Prints a footer: `"Found N windows"` and monitor count
+3. Lists the windows through the context's `Enumerator`
+   (`mosaico_core::tiler::Enumerator`): the top-level application windows
+   that are shown and not minimized, front to back. On Windows,
+   `WindowsEnumerator` walks them with `EnumWindows`
+4. For each window: asks `Enumerator::details` for its title, class,
+   executable path, title bar, rect, state, monitor and border offset, and
+   evaluates rules. Windows without a caption are listed too, and show as
+   managed only when a rule opts them in
+5. Prints a block per window, then `"N windows found"` and the monitors left
+   to right (`Enumerator::monitors`) with their keys
+6. If the windows cannot be listed, prints the error and exits with status 1
 
 This command is useful for:
 - Verifying which windows Mosaico would manage
@@ -135,14 +142,15 @@ colored status tags:
 6. **bar.toml** -- validates syntax via `try_load_bar()`
 7. **Daemon status** -- checks IPC pipe connectivity, PID file, and process
    liveness; auto-removes stale PID files (`[fixed]`)
-8. **Monitors** -- enumerates all connected monitors via
-   `enumerate_monitors()` and prints per-monitor dimensions and positions
+8. **Monitors** -- lists all connected monitors left to right via the
+   context's `Enumerator::monitors()` and prints per-monitor dimensions and
+   positions
 
 ## Design Decisions
 
-- All debug commands enable DPI awareness independently since they run
-  outside the daemon process. Without this, coordinates would be virtualized
-  on high-DPI displays.
+- `debug list` and `debug move` enable DPI awareness, through
+  `platform::run_on_desktop`, since they run outside the daemon process.
+  Without this, coordinates would be virtualized on high-DPI displays.
 - `debug list` evaluates the same rules as the daemon to show accurate
   "Managed" status.
 - `debug events` runs without hotkeys to avoid interfering with the running

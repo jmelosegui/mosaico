@@ -72,89 +72,31 @@ pub fn check_daemon(cx: &mut Context) {
     }
 }
 
-pub fn check_monitors() {
-    match mosaico_windows::monitor::enumerate_monitors() {
+pub fn check_monitors(cx: &mut Context) {
+    match cx.desktop.monitors() {
         Ok(monitors) if monitors.is_empty() => {
-            println!("  {FAIL} No monitors detected");
+            say!(cx, "  {FAIL} No monitors detected");
         }
         Ok(monitors) => {
-            println!("  {OK} {} monitor(s) detected", monitors.len());
+            say!(cx, "  {OK} {} monitor(s) detected", monitors.len());
             for (i, m) in monitors.iter().enumerate() {
                 let wa = &m.work_area;
-                println!(
+                say!(
+                    cx,
                     "       Monitor {i}: {}x{} at ({}, {})",
-                    wa.width, wa.height, wa.x, wa.y
+                    wa.width,
+                    wa.height,
+                    wa.x,
+                    wa.y
                 );
             }
         }
         Err(e) => {
-            println!("  {FAIL} Could not enumerate monitors: {e}");
+            say!(cx, "  {FAIL} Could not enumerate monitors: {e}");
         }
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::commands::context::Exit;
-    use crate::commands::test_support::{Harness, Lifetime};
-
-    #[test]
-    fn a_running_daemon_is_reported_with_its_pid() {
-        // Arrange
-        let mut h = Harness::new("doctor-running");
-        h.world.daemon_up(42);
-        h.pid_file.write(42).unwrap();
-
-        // Act
-        h.run(|cx| {
-            check_daemon(cx);
-            Exit::Success
-        });
-
-        // Assert
-        assert!(
-            h.out().contains("Daemon is running (PID: 42)"),
-            "{}",
-            h.out()
-        );
-    }
-
-    #[test]
-    fn a_stale_pid_file_is_removed() {
-        // Arrange
-        let mut h = Harness::new("doctor-stale");
-        h.pid_file.write(42).unwrap();
-
-        // Act
-        h.run(|cx| {
-            check_daemon(cx);
-            Exit::Success
-        });
-
-        // Assert
-        assert!(
-            h.out().contains("Removed stale PID file (PID: 42)"),
-            "{}",
-            h.out()
-        );
-        assert_eq!(h.pid_file.read().unwrap(), None);
-    }
-
-    #[test]
-    fn a_hung_daemon_is_flagged() {
-        // Arrange
-        let mut h = Harness::new("doctor-hung");
-        h.world.processes.borrow_mut().insert(42, Lifetime::Forever);
-        h.pid_file.write(42).unwrap();
-
-        // Act
-        h.run(|cx| {
-            check_daemon(cx);
-            Exit::Success
-        });
-
-        // Assert
-        assert!(h.out().contains("not responding"), "{}", h.out());
-    }
-}
+#[path = "tests/doctor_runtime_tests.rs"]
+mod tests;

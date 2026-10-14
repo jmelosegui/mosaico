@@ -15,4 +15,6 @@ pub mod stop;
 pub mod update;
 
 #[cfg(test)]
+mod fake_desktop;
+#[cfg(test)]
 mod test_support;

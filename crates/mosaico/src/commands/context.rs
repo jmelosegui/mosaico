@@ -14,6 +14,7 @@ use mosaico_core::WindowControl;
 use mosaico_core::ipc::{Command, IpcClient, IpcError, Response};
 use mosaico_core::pid::PidFile;
 use mosaico_core::system::{Autostart, ProcessControl};
+use mosaico_core::tiler::Enumerator;
 
 /// How a command ended.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -93,6 +94,8 @@ pub struct Context<'a> {
     /// which makes the process DPI aware first. Without it, a window
     /// placed on a scaled monitor lands in the wrong place.
     pub windows: &'a dyn WindowControl,
+    /// The windows and monitors on the desktop.
+    pub desktop: &'a dyn Enumerator,
     /// Where the daemon records its process id.
     pub pid_file: PidFile,
     /// The instance's config directory, for telling the user.

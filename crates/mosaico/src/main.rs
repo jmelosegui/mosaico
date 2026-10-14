@@ -159,10 +159,7 @@ fn main() {
         Commands::Daemon => commands::daemon::execute(),
         Commands::Debug {
             command: DebugCommands::List,
-        } => {
-            commands::debug::list::execute();
-            Exit::Success
-        }
+        } => platform::run_on_desktop(commands::debug::list::execute),
         Commands::Debug {
             command: DebugCommands::Events,
         } => {
@@ -210,7 +207,8 @@ fn run(cx: &mut Context, command: Commands) -> Exit {
         Commands::Debug {
             command: DebugCommands::State,
         } => commands::debug::state::execute(cx),
-        // Handled in `main` without a context.
+        // Handled in `main`, without a context or with one set up for
+        // the desktop.
         Commands::Daemon | Commands::Debug { .. } => Exit::Success,
     }
 }

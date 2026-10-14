@@ -37,23 +37,25 @@ Commands do not reach for the OS themselves. They take a
 `mosaico_core::ipc::IpcClient`), process control
 (`mosaico_core::system::ProcessControl`), start at login
 (`mosaico_core::system::Autostart`), window control
-(`mosaico_core::WindowControl`), the instance's `PidFile`, a clock, the
+(`mosaico_core::WindowControl`), the windows and monitors on the desktop
+(`mosaico_core::tiler::Enumerator`), the instance's `PidFile`, a clock, the
 update check, the logo, and the output and error streams. They return an
 `Exit` (`Success` or `Failure`), and only `main` calls `std::process::exit`.
 
 `crates/mosaico/src/platform.rs` builds the real context; it is the one place
 in the CLI that picks a platform implementation. Commands that move windows
-run through `platform::run_on_desktop`, which first makes the process
-DPI aware so coordinates match the daemon's. The unit tests build one from
-`commands/test_support.rs`, a fake `World` standing in for the daemon,
-processes, registry, desktop and clock, so `start`, `stop`, `status`,
-`autostart`, `action`, `pause`, `debug move` and `doctor`'s daemon check are
-tested without a daemon or a desktop.
+or show where windows and monitors are run through `platform::run_on_desktop`,
+which first makes the process DPI aware so coordinates match the daemon's.
+The unit tests build one from `commands/test_support.rs`, a fake `World`
+standing in for the daemon, processes, registry, desktop and clock, and
+`commands/fake_desktop.rs`, a fake list of windows and monitors, so `start`,
+`stop`, `status`, `autostart`, `action`, `pause`, `debug move`, `debug list`
+and `doctor`'s daemon and monitor checks are tested without a daemon or a
+desktop.
 
 Still calling the platform crate directly: `daemon` (it is the daemon),
-`debug list`, `debug events`, `doctor`'s monitor check and `update`'s
-download, which wait for the enumeration (#46), event source (#44) and HTTP
-(#54) contracts.
+`debug events` and `update`'s download, which wait for the event source (#44)
+and HTTP (#54) contracts.
 
 ### Key Types
 
@@ -203,9 +205,10 @@ re-spawns the binary with this subcommand as a detached process.
 
 ### `mosaico debug list`
 
-Displays a formatted table of all visible windows showing: HWND (hex),
-managed status, monitor number, title, class, position, dimensions, and border
-offset. Uses `comfy-table` for formatting.
+Lists every window the platform's `Enumerator` reports, showing: window id
+(hex), title, class, executable path, managed status, monitor number, state,
+position, dimensions, and border offset. Then lists the monitors left to right
+with their keys. Exits with status 1 when the windows cannot be listed.
 
 ### `mosaico debug events`
 
