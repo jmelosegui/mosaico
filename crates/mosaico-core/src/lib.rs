@@ -51,6 +51,8 @@ pub mod update;
 pub mod user_dirs;
 /// Build-time version information.
 pub mod version;
+/// Waiting for the files in a directory to change.
+pub mod watch;
 /// The contract for changing windows through the platform.
 pub mod window;
 /// Workspace state and operations.
