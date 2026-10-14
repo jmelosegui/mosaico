@@ -18,7 +18,9 @@ pub struct Startup<'a> {
     /// The instance this process runs the daemon of. It must be the one
     /// the process resolved at startup, the one [`Instance::current`]
     /// returns, since the loop finds the config and the logs through
-    /// [`Instance::current`] rather than through this.
+    /// [`Instance::current`] rather than through this. The platform's
+    /// loop checks it with [`Instance::require_current`] before it
+    /// starts.
     pub instance: &'a Instance,
     /// Keeps a second daemon of the instance from starting.
     pub lock: &'a dyn SingleInstance,

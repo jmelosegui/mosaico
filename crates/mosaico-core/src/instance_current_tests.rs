@@ -79,3 +79,18 @@ fn a_test_process_has_no_instance() {
     assert_eq!(Instance::current(), None);
     assert_eq!(crate::config::config_dir(), None);
 }
+
+#[test]
+fn only_the_instance_resolved_is_current() {
+    // Arrange
+    let slot = Slot::new();
+    let other = Instance::new(Some("other"), "cfg", "data").unwrap();
+    let before = slot.require(&other);
+    let resolved = slot.init_from(env(&[]), &Temp).unwrap().clone();
+
+    // Act / Assert -- the daemon refuses to run on an instance whose
+    // config and logs it would not find.
+    assert_eq!(before, Err(InstanceError::NotCurrent));
+    assert_eq!(slot.require(&resolved), Ok(()));
+    assert_eq!(slot.require(&other), Err(InstanceError::NotCurrent));
+}

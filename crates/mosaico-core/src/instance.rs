@@ -28,7 +28,8 @@ pub struct Instance {
     data_dir: PathBuf,
 }
 
-/// Why an instance could not be resolved.
+/// Why an instance could not be resolved, or could not be used where the
+/// instance of this process is needed.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InstanceError {
     /// The name is empty, too long, or has characters other than ASCII
@@ -36,6 +37,9 @@ pub enum InstanceError {
     InvalidName(String),
     /// A directory was not given and has no default on this system.
     NoDirectory(&'static str),
+    /// The instance given is not the one this process resolved at
+    /// startup, or the process has not resolved one.
+    NotCurrent,
 }
 
 impl fmt::Display for InstanceError {
@@ -46,6 +50,9 @@ impl fmt::Display for InstanceError {
                 "invalid {INSTANCE_VAR} {name:?}: use 1-{MAX_NAME_LEN} ASCII letters, digits, '-' or '_'"
             ),
             Self::NoDirectory(what) => write!(f, "could not determine the {what} directory"),
+            Self::NotCurrent => {
+                f.write_str("the instance given is not the one this process resolved at startup")
+            }
         }
     }
 }

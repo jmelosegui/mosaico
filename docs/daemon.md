@@ -72,7 +72,10 @@ order, it:
 3. Writes the instance's PID file (`%LOCALAPPDATA%\mosaico\mosaico.pid` for
    the default instance)
 4. Logs that it started
-5. Calls `serve()`, which runs `daemon_loop()` for the main logic
+5. Calls `serve()`, which checks that the instance is the one the process
+   resolved (`Instance::require_current`), since the loop still finds the
+   config, the logs and the record of hidden windows through
+   `Instance::current()`, and then runs `daemon_loop()` for the main logic
 6. Logs the error the loop returned, if any, since the daemon has no
    console. Errors from the steps before it come before the logger is set up
    and are only printed by the `daemon` subcommand

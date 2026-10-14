@@ -17,6 +17,15 @@ mod daemon_types;
 
 /// Runs the daemon loop of `instance` until the daemon is told to stop.
 ///
+/// `instance` must be the instance this process resolved at startup, the
+/// one [`Instance::current`] returns. The pipe comes from `instance`, as
+/// do the lock and the PID file [`mosaico_core::lifecycle::run`] holds,
+/// but the loop finds the config, the logs, the record of hidden windows,
+/// the config watcher and the community rules through
+/// [`Instance::current`]. A loop run on another instance would mix the
+/// files of both, so it fails with `InstanceError::NotCurrent` before it
+/// starts.
+///
 /// This is the Windows part of the daemon, which
 /// [`mosaico_core::lifecycle::run`] runs while it holds the instance's
 /// lock and PID file. It starts background threads for the Win32 event
@@ -26,6 +35,7 @@ mod daemon_types;
 /// The process must have been set up first, as `main` does for every
 /// command, so the daemon sees the desktop in physical pixels.
 pub fn serve(instance: &Instance) -> Result<()> {
+    instance.require_current()?;
     daemon_loop::daemon_loop(&crate::ipc::pipe_name(instance))
 }
 

@@ -26,6 +26,15 @@ impl Instance {
     pub fn current() -> Option<&'static Instance> {
         CURRENT.get()
     }
+
+    /// Fails with [`InstanceError::NotCurrent`] unless this is the
+    /// instance of this process, the one [`Instance::current`] returns.
+    ///
+    /// For code that is given an instance but still finds some of its
+    /// files through [`Instance::current`], such as the daemon.
+    pub fn require_current(&self) -> Result<(), InstanceError> {
+        CURRENT.require(self)
+    }
 }
 
 /// Holds the instance of a process once it is resolved: [`CURRENT`] for
@@ -56,6 +65,15 @@ impl Slot {
     /// The instance the slot holds, if any.
     fn get(&self) -> Option<&Instance> {
         self.0.get()
+    }
+
+    /// Fails unless the slot holds `instance`.
+    fn require(&self, instance: &Instance) -> Result<(), InstanceError> {
+        if self.get() == Some(instance) {
+            Ok(())
+        } else {
+            Err(InstanceError::NotCurrent)
+        }
     }
 }
 
