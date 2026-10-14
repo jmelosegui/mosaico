@@ -46,9 +46,30 @@ fn an_unreachable_host_is_a_network_error() {
 }
 
 #[test]
+fn a_rate_limited_lookup_is_a_network_error() {
+    // Arrange -- GitHub answers 403 once the rate limit is used up.
+    let http = FakeHttp::default().status(
+        "api.github.com",
+        "/repos/jmelosegui/mosaico/releases/latest",
+        403,
+    );
+
+    // Act
+    let error = latest_tag(&http).unwrap_err();
+
+    // Assert
+    assert!(matches!(error, Error::Network(_)), "{error:?}");
+    assert!(
+        error.to_string().ends_with("answered with HTTP status 403"),
+        "{error}"
+    );
+}
+
+#[test]
 fn an_answer_without_a_tag_is_a_network_error() {
-    // Arrange -- what GitHub answers once the rate limit is used up.
-    let http = github(r#"{"message":"API rate limit exceeded"}"#);
+    // Arrange -- a successful answer that is not a release, as a proxy
+    // that answers with a page of its own gives.
+    let http = github(r#"{"message":"Not a release"}"#);
 
     // Act
     let error = latest_tag(&http).unwrap_err();
