@@ -7,6 +7,7 @@ use std::fs::File;
 use std::io::{self, Read, Write};
 use std::os::windows::io::{AsRawHandle, FromRawHandle};
 
+use mosaico_core::Instance;
 use mosaico_core::ipc::{IpcClient, IpcConnection, IpcError, IpcServer};
 use windows::Win32::Foundation::{
     ERROR_FILE_NOT_FOUND, ERROR_PIPE_BUSY, ERROR_PIPE_CONNECTED, HANDLE, INVALID_HANDLE_VALUE,
@@ -20,8 +21,11 @@ use windows::Win32::System::Pipes::{
 };
 use windows::core::HSTRING;
 
-/// The pipe the daemon listens on unless told otherwise.
-pub const DEFAULT_PIPE_NAME: &str = r"\\.\pipe\mosaico";
+/// The pipe an instance's daemon listens on: `\\.\pipe\mosaico` for the
+/// default instance, `\\.\pipe\mosaico-<name>` for a named one.
+pub fn pipe_name(instance: &Instance) -> String {
+    format!(r"\\.\pipe\{}", instance.endpoint_name())
+}
 
 /// How long a client waits for a daemon that is busy with another
 /// client, in milliseconds.
@@ -35,8 +39,8 @@ pub struct PipeClient {
 }
 
 impl PipeClient {
-    /// A client for the daemon listening on `name`, such as
-    /// [`DEFAULT_PIPE_NAME`].
+    /// A client for the daemon listening on `name`, usually from
+    /// [`pipe_name`].
     pub fn new(name: &str) -> Self {
         Self {
             name: HSTRING::from(name),
@@ -101,7 +105,7 @@ pub struct PipeServer {
 }
 
 impl PipeServer {
-    /// A server listening on `name`, such as [`DEFAULT_PIPE_NAME`].
+    /// A server listening on `name`, usually from [`pipe_name`].
     pub fn new(name: &str) -> Self {
         Self {
             name: HSTRING::from(name),
@@ -182,5 +186,28 @@ impl IpcConnection for PipeConnection {
         // SAFETY: DisconnectNamedPipe ends this instance's connection; the
         // handle itself is closed when the File is dropped.
         unsafe { DisconnectNamedPipe(handle) }.map_err(|e| IpcError::Io(io::Error::from(e)))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_default_instance_keeps_the_usual_pipe() {
+        // Arrange
+        let instance = Instance::new(None, "cfg", "data").unwrap();
+
+        // Act / Assert
+        assert_eq!(pipe_name(&instance), r"\\.\pipe\mosaico");
+    }
+
+    #[test]
+    fn a_named_instance_gets_its_own_pipe() {
+        // Arrange
+        let instance = Instance::new(Some("test-7"), "cfg", "data").unwrap();
+
+        // Act / Assert
+        assert_eq!(pipe_name(&instance), r"\\.\pipe\mosaico-test-7");
     }
 }

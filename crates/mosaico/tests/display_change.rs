@@ -8,6 +8,16 @@ use std::sync::{Mutex, MutexGuard};
 use std::thread;
 use std::time::Duration;
 
+mod common;
+
+use common::{TestInstance, require_no_user_daemon};
+
+/// The daemon instance these tests run, separate from the user's own.
+fn instance() -> &'static TestInstance {
+    static INSTANCE: std::sync::OnceLock<TestInstance> = std::sync::OnceLock::new();
+    INSTANCE.get_or_init(|| TestInstance::new("display-change"))
+}
+
 #[allow(non_snake_case, clippy::upper_case_acronyms)]
 mod win32 {
     use std::ffi::c_void;
@@ -29,8 +39,8 @@ mod win32 {
 type Placement = Vec<(String, u32, Vec<String>)>;
 
 fn mosaico(args: &[&str]) -> String {
-    let output = Command::new(env!("CARGO_BIN_EXE_mosaico"))
-        .args(args)
+    let output = instance()
+        .command(args)
         .output()
         .expect("failed to run mosaico");
     String::from_utf8_lossy(&output.stdout).into_owned()
@@ -54,10 +64,11 @@ impl Drop for Daemon<'_> {
 
 fn start_daemon() -> Daemon<'static> {
     let lock = DAEMON.lock().unwrap_or_else(|e| e.into_inner());
+    require_no_user_daemon();
     mosaico(&["stop"]);
     thread::sleep(Duration::from_secs(1));
-    let status = Command::new(env!("CARGO_BIN_EXE_mosaico"))
-        .arg("start")
+    let status = instance()
+        .command(&["start"])
         .spawn()
         .expect("failed to spawn mosaico")
         .wait()

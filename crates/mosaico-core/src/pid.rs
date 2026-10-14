@@ -1,25 +1,16 @@
 use std::fs;
 use std::path::PathBuf;
 
-use crate::WindowResult;
+use crate::{Instance, WindowResult};
 
-/// Returns the path to the Mosaico data directory.
+/// Returns the path to the PID file of this process's [`Instance`],
+/// creating its data directory if needed.
 ///
-/// Uses the platform's local data directory (e.g.
-/// `%LOCALAPPDATA%\mosaico` on Windows, `~/.local/share/mosaico`
-/// on Linux). Creates the directory if it doesn't exist.
-fn data_dir() -> WindowResult<PathBuf> {
-    let base = std::env::var_os("LOCALAPPDATA")
-        .map(PathBuf::from)
-        .ok_or("could not determine local data directory")?;
-    let dir = base.join("mosaico");
-    fs::create_dir_all(&dir)?;
-    Ok(dir)
-}
-
-/// Returns the path to the PID file.
+/// For the default instance that is `%LOCALAPPDATA%\mosaico\mosaico.pid`.
 pub fn pid_path() -> WindowResult<PathBuf> {
-    Ok(data_dir()?.join("mosaico.pid"))
+    let instance = Instance::current()?;
+    fs::create_dir_all(instance.data_dir())?;
+    Ok(instance.pid_path())
 }
 
 /// Writes the current process's PID to the PID file.

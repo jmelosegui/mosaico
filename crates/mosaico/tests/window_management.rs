@@ -9,7 +9,15 @@ use std::sync::{Mutex, OnceLock};
 use std::thread;
 use std::time::Duration;
 
-use mosaico_core::config;
+mod common;
+
+use common::{RunningDaemon, TestInstance, require_no_user_daemon};
+
+/// The daemon instance these tests run, separate from the user's own.
+fn instance() -> &'static TestInstance {
+    static INSTANCE: OnceLock<TestInstance> = OnceLock::new();
+    INSTANCE.get_or_init(|| TestInstance::new("window-management"))
+}
 
 // ---------------------------------------------------------------------------
 // Win32 FFI
@@ -103,8 +111,8 @@ mod win32 {
 /// Runs the mosaico CLI binary with the given arguments, using spawn()+wait()
 /// to avoid pipe-inheritance hangs on Windows.
 fn mosaico(args: &[&str]) -> std::process::ExitStatus {
-    let mut child = Command::new(env!("CARGO_BIN_EXE_mosaico"))
-        .args(args)
+    let mut child = instance()
+        .command(args)
         .spawn()
         .expect("failed to spawn mosaico");
     child.wait().expect("failed to wait for mosaico")
@@ -126,7 +134,7 @@ impl Drop for ConfigGuard {
 }
 
 fn set_config_toml(contents: &str) -> ConfigGuard {
-    let dir = config::config_dir().expect("config dir missing");
+    let dir = instance().config_dir();
     let path = dir.join("config.toml");
     std::fs::create_dir_all(&dir).expect("failed to create config dir");
     let previous = std::fs::read_to_string(&path).ok();
@@ -138,11 +146,11 @@ fn set_config_toml(contents: &str) -> ConfigGuard {
 ///
 /// Also closes any leftover Notepad windows from previous tests
 /// to prevent Win11 session restore from creating extra windows.
-fn start_daemon() {
-    // Make sure no daemon is already running.
-    let _ = Command::new(env!("CARGO_BIN_EXE_mosaico"))
-        .arg("stop")
-        .output();
+fn start_daemon() -> RunningDaemon<'static> {
+    // Never run beside the user's own daemon, and make sure this
+    // instance's daemon from an earlier test is gone.
+    require_no_user_daemon();
+    let _ = instance().command(&["stop"]).output();
     thread::sleep(Duration::from_secs(1));
 
     // Close leftover notepads gracefully so session restore
@@ -153,6 +161,7 @@ fn start_daemon() {
     assert!(status.success(), "daemon failed to start");
     // Give the daemon time to set up the event loop and IPC pipe.
     thread::sleep(Duration::from_secs(3));
+    RunningDaemon::new(instance())
 }
 
 fn test_guard() -> std::sync::MutexGuard<'static, ()> {
@@ -421,7 +430,7 @@ follows_focus = true
 focus_follows_mouse = false
 "##,
     );
-    start_daemon();
+    let _daemon = start_daemon();
     isolate_workspace();
 
     let (child1, hwnd1) = launch_notepad();
@@ -465,7 +474,7 @@ follows_focus = false
 focus_follows_mouse = true
 "##,
     );
-    start_daemon();
+    let _daemon = start_daemon();
     isolate_workspace();
 
     let (child1, hwnd1) = launch_notepad();
@@ -515,7 +524,7 @@ follows_focus = true
 focus_follows_mouse = true
 "##,
     );
-    start_daemon();
+    let _daemon = start_daemon();
     isolate_workspace();
 
     let (child1, hwnd1) = launch_notepad();
@@ -579,7 +588,7 @@ focus_follows_mouse = true
 #[test]
 fn minimize_and_restore_updates_border() {
     let _guard = test_guard();
-    start_daemon();
+    let _daemon = start_daemon();
     isolate_workspace();
     let (child, hwnd) = launch_notepad();
 
@@ -631,7 +640,7 @@ fn minimize_and_restore_updates_border() {
 #[test]
 fn minimize_focused_hides_border_with_two_windows() {
     let _guard = test_guard();
-    start_daemon();
+    let _daemon = start_daemon();
     isolate_workspace();
     let (child1, hwnd1) = launch_notepad();
     let (child2, hwnd2) = launch_notepad();
@@ -688,7 +697,7 @@ fn minimize_focused_hides_border_with_two_windows() {
 #[test]
 fn monocle_new_window_gets_monocle_size() {
     let _guard = test_guard();
-    start_daemon();
+    let _daemon = start_daemon();
     isolate_workspace();
     let (child1, hwnd1) = launch_notepad();
 
@@ -739,7 +748,7 @@ fn monocle_new_window_gets_monocle_size() {
 #[test]
 fn monocle_persists_after_workspace_switch() {
     let _guard = test_guard();
-    start_daemon();
+    let _daemon = start_daemon();
     isolate_workspace();
 
     let (child1, hwnd1) = launch_notepad();
@@ -795,7 +804,7 @@ fn monocle_persists_after_workspace_switch() {
 #[test]
 fn maximize_hides_border_and_preserves_maximize() {
     let _guard = test_guard();
-    start_daemon();
+    let _daemon = start_daemon();
     isolate_workspace();
     let (child, hwnd) = launch_notepad();
 
@@ -829,7 +838,7 @@ fn maximize_hides_border_and_preserves_maximize() {
 #[test]
 fn restore_from_maximize_shows_border() {
     let _guard = test_guard();
-    start_daemon();
+    let _daemon = start_daemon();
     isolate_workspace();
     let (child, hwnd) = launch_notepad();
 
@@ -974,7 +983,7 @@ fn border_surrounds_target(target: win32::HWND) -> bool {
 #[test]
 fn owned_dialog_is_not_tiled() {
     let _guard = test_guard();
-    start_daemon();
+    let _daemon = start_daemon();
     isolate_workspace();
     let (child, hwnd) = launch_notepad();
 
@@ -1021,7 +1030,7 @@ fn owned_dialog_is_not_tiled() {
 #[test]
 fn focus_dialog_moves_border_to_owner() {
     let _guard = test_guard();
-    start_daemon();
+    let _daemon = start_daemon();
     isolate_workspace();
     let (child1, hwnd1) = launch_notepad();
     let (child2, hwnd2) = launch_notepad();

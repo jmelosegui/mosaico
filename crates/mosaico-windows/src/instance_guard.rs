@@ -7,10 +7,20 @@ use windows::Win32::Foundation::{CloseHandle, ERROR_ALREADY_EXISTS, GetLastError
 use windows::Win32::System::Threading::CreateMutexW;
 use windows::core::HSTRING;
 
-use mosaico_core::WindowResult;
+use mosaico_core::{Instance, WindowResult};
 
 /// Namespace-qualified mutex name visible across all sessions.
-const MUTEX_NAME: &str = "Global\\MosaicoDaemon";
+const MUTEX_PREFIX: &str = "Global\\MosaicoDaemon";
+
+/// The mutex that marks an instance's daemon as running:
+/// `Global\MosaicoDaemon` for the default instance, with `-<name>`
+/// appended for a named one.
+pub fn mutex_name(instance: &Instance) -> String {
+    match instance.name() {
+        Some(name) => format!("{MUTEX_PREFIX}-{name}"),
+        None => MUTEX_PREFIX.to_string(),
+    }
+}
 
 /// RAII guard that holds a named kernel mutex for the process lifetime.
 ///
@@ -21,12 +31,13 @@ pub struct InstanceGuard {
 }
 
 impl InstanceGuard {
-    /// Attempts to acquire the single-instance mutex.
+    /// Attempts to acquire the single-instance mutex of `instance`.
     ///
-    /// Returns `Ok(guard)` if this is the first instance, or an error
-    /// if another daemon already holds the mutex.
-    pub fn acquire() -> WindowResult<Self> {
-        Self::acquire_named(MUTEX_NAME)
+    /// Returns `Ok(guard)` if no daemon of this instance runs yet, or an
+    /// error if one already holds the mutex. Daemons of other instances
+    /// do not get in the way.
+    pub fn acquire(instance: &Instance) -> WindowResult<Self> {
+        Self::acquire_named(&mutex_name(instance))
     }
 
     /// Acquires a mutex with the given name.
@@ -83,6 +94,17 @@ mod tests {
 
         // Assert
         assert!(second.is_err());
+    }
+
+    #[test]
+    fn the_default_instance_keeps_the_usual_mutex() {
+        // Arrange
+        let default = Instance::new(None, "cfg", "data").unwrap();
+        let named = Instance::new(Some("ci"), "cfg", "data").unwrap();
+
+        // Act / Assert
+        assert_eq!(mutex_name(&default), "Global\\MosaicoDaemon");
+        assert_eq!(mutex_name(&named), "Global\\MosaicoDaemon-ci");
     }
 
     #[test]

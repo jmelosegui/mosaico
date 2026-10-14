@@ -22,7 +22,8 @@ cargo fmt --all -- --check
 cargo clippy --all-targets -- -D warnings
 cargo test --lib
 cargo test --doc
-cargo test -p mosaico --test cli -- help_exits_successfully version_exits_successfully debug_list_subcommand_runs --exact
+cargo test -p mosaico --test cli -- help_exits_successfully version_exits_successfully debug_list_subcommand_runs \
+  an_invalid_instance_name_is_refused a_test_instance_does_not_see_other_daemons --exact
 ```
 
 Run a single unit test by name with `cargo test --lib <name>`.
@@ -31,11 +32,15 @@ Run a single unit test by name with `cargo test --lib <name>`.
 
 - `cargo test` and `cargo test --workspace` unfiltered.
 - `cargo test -p mosaico --test cli` unfiltered. `start_and_stop_lifecycle` and `second_daemon_is_rejected`
-  start real daemons that fight over the single-instance mutex; the second can block forever and leave an
-  orphan daemon tiling the user's windows.
+  start real daemons that tile the live desktop.
 - `cargo test -p mosaico --test window_management`, `--test bar_reservation` and `--test display_change`. They
   start the daemon, launch notepad and tile the live desktop. CI runs them on a dedicated runner.
-  `window_management` also overwrites the real `~/.config/mosaico/config.toml` while it runs (#61).
+
+Every integration test runs its own daemon instance (`tests/common/mod.rs`): its own pipe, lock, PID file,
+config and logs in a temporary directory, so none of them talks to the user's daemon or touches
+`~/.config/mosaico`. A test that starts a daemon still puts a second window manager on the desktop, so it
+refuses to run while the user's own daemon is running; ask the user to stop it first. New integration tests
+must use `TestInstance` and never run `mosaico` without it.
 - `cargo test -p mosaico --test display_change -- --ignored` additionally disconnects and reconnects the real
   monitors with `DisplaySwitch`. Only run it with the user's go-ahead, on a machine in extend mode with two or more
   monitors.

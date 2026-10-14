@@ -146,6 +146,13 @@ fn direction(d: DirectionCommands) -> Direction {
 fn main() {
     let cli = Cli::parse();
 
+    // Refuse to run on a mistyped instance rather than fall back to the
+    // user's own daemon and config.
+    if let Err(e) = mosaico_core::Instance::current() {
+        eprintln!("Error: {e}");
+        std::process::exit(2);
+    }
+
     match cli.command {
         Commands::Init => commands::init::execute(),
         Commands::Start => commands::start::execute(),
