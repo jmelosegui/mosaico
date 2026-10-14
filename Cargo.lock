@@ -252,6 +252,7 @@ dependencies = [
  "serde_json",
  "toml",
  "toml_edit",
+ "zip",
 ]
 
 [[package]]
@@ -261,7 +262,6 @@ dependencies = [
  "mosaico-core",
  "serde_json",
  "windows",
- "zip",
 ]
 
 [[package]]
