@@ -44,13 +44,17 @@ thread_local! {
 /// Registers window event hooks and global hotkeys from the provided
 /// keybinding configuration. Events and actions are sent through the
 /// provided channels.
+///
+/// Fails when the hooks cannot be installed. The loop runs without the
+/// window that reports display and work area changes if that cannot be
+/// created; [`EventLoopHandle::sink_error`] says why.
 pub fn start(
     event_tx: Sender<WindowEvent>,
     action_tx: Sender<Action>,
     keybindings: Vec<Keybinding>,
     focus_follows_mouse: bool,
 ) -> Result<EventLoopHandle> {
-    let (ready_tx, ready_rx) = std::sync::mpsc::channel::<Result<(u32, usize)>>();
+    let (ready_tx, ready_rx) = std::sync::mpsc::channel::<Result<(u32, usize, Option<Error>)>>();
 
     let handle = thread::spawn(move || {
         EVENT_SENDER.with(|cell| {
@@ -108,16 +112,15 @@ pub fn start(
 
         // Create a hidden window that receives display/work-area changes
         // and (optionally) focus-follows-mouse timer ticks. Without it the
-        // loop still runs, it just misses those.
-        let event_sink = event_loop_event_sink::create_event_sink(focus_follows_mouse)
-            .unwrap_or_else(|e| {
-                mosaico_core::log_error!(
-                    "Display changes and focus follows mouse will not work: {e}"
-                );
-                HWND::default()
-            });
+        // loop still runs, it just misses those, so the caller is told
+        // why instead of the start failing.
+        let (event_sink, sink_error) =
+            match event_loop_event_sink::create_event_sink(focus_follows_mouse) {
+                Ok(sink) => (sink, None),
+                Err(e) => (HWND::default(), Some(e)),
+            };
 
-        let _ = ready_tx.send(Ok((thread_id, event_sink.0 as usize)));
+        let _ = ready_tx.send(Ok((thread_id, event_sink.0 as usize, sink_error)));
 
         // Run the message pump with hotkey dispatching.
         event_loop_message_pump::run_message_pump(&mut hotkeys);
@@ -139,11 +142,12 @@ pub fn start(
     let ready = ready_rx
         .recv()
         .map_err(|_| Error::platform("start the event loop", "its thread exited unexpectedly"))?;
-    let (thread_id, event_sink) = ready?;
+    let (thread_id, event_sink, sink_error) = ready?;
 
     Ok(EventLoopHandle {
         thread_id,
         event_sink,
+        sink_error,
         handle,
     })
 }
@@ -152,10 +156,18 @@ pub fn start(
 pub struct EventLoopHandle {
     thread_id: u32,
     event_sink: usize,
+    sink_error: Option<Error>,
     handle: thread::JoinHandle<()>,
 }
 
 impl EventLoopHandle {
+    /// Why the hidden window that reports display and work area changes,
+    /// and drives focus follows mouse, could not be created. The loop
+    /// runs without it, so those changes never arrive.
+    pub fn sink_error(&self) -> Option<&Error> {
+        self.sink_error.as_ref()
+    }
+
     /// Pauses all hotkeys (unregisters all except toggle-pause).
     pub fn pause_hotkeys(&self) {
         // SAFETY: PostThreadMessageW sends a thread message that is picked up
@@ -219,3 +231,7 @@ impl EventLoopHandle {
         let _ = self.handle.join();
     }
 }
+
+#[cfg(test)]
+#[path = "event_loop_tests.rs"]
+mod tests;

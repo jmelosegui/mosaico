@@ -18,6 +18,9 @@ pub fn execute() {
             return;
         }
     };
+    if let Some(e) = event_loop.sink_error() {
+        eprintln!("warning: display and work area changes will not be shown: {e}");
+    }
 
     // Set up Ctrl+C handler to stop the event loop cleanly.
     let (stop_tx, stop_rx) = mpsc::channel();

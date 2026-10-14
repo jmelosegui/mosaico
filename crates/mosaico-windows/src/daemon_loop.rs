@@ -100,6 +100,16 @@ pub(super) fn daemon_loop(pipe_name: &str) -> Result<()> {
         keybindings,
         config.mouse.focus_follows_mouse,
     )?;
+    if let Some(e) = event_loop.sink_error() {
+        let and_mouse = if config.mouse.focus_follows_mouse {
+            " and focus follows mouse will not work"
+        } else {
+            ""
+        };
+        mosaico_core::log_error!(
+            "Display and work area changes will not be noticed{and_mouse}: {e}"
+        );
+    }
 
     // Bridge: forward window events into the unified channel.
     let event_bridge = daemon_threads::spawn_event_bridge(event_channel_rx, event_tx);
