@@ -5,7 +5,12 @@
 //! and caches it at `~/.config/mosaico/rules.toml`. If the download
 //! fails or the content is invalid, the existing cached file is kept.
 
+use std::time::Duration;
+
 use mosaico_core::config::{self, WindowRule};
+use mosaico_core::http::HttpClient;
+
+use crate::http::WinHttpClient;
 
 /// GitHub raw content host (no API rate limit for public repos).
 const RULES_HOST: &str = "raw.githubusercontent.com";
@@ -13,8 +18,8 @@ const RULES_HOST: &str = "raw.githubusercontent.com";
 /// Path to the Windows community rules file.
 const RULES_PATH: &str = "/jmelosegui/mosaico-rules/main/windows/rules.toml";
 
-/// Download timeout in milliseconds.
-const TIMEOUT_MS: i32 = 5000;
+/// Download timeout.
+const TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Downloads community rules, validates and caches them.
 ///
@@ -23,7 +28,7 @@ const TIMEOUT_MS: i32 = 5000;
 /// failure (network, parse, IO) — the caller should continue with
 /// whatever rules are already cached.
 pub fn download() -> Option<Vec<WindowRule>> {
-    let body = match crate::http::get(RULES_HOST, RULES_PATH, TIMEOUT_MS) {
+    let body = match WinHttpClient.get_text(RULES_HOST, RULES_PATH, TIMEOUT) {
         Ok(b) => b,
         Err(e) => {
             mosaico_core::log_info!("Community rules download failed: {e}");

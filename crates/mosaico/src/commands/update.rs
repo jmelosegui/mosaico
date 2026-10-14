@@ -5,11 +5,14 @@
 //! and restarts the daemon if it was running before the update.
 
 use std::io::Read;
+use std::time::Duration;
+
+use mosaico_core::http::HttpClient;
 
 use super::context::{Context, Exit};
 
 const GITHUB_HOST: &str = "github.com";
-const DOWNLOAD_TIMEOUT_MS: i32 = 60_000;
+const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(60);
 
 /// Runs the full update cycle.
 pub fn execute(cx: &mut Context, force: bool) -> Exit {
@@ -104,7 +107,9 @@ pub fn execute(cx: &mut Context, force: bool) -> Exit {
 /// Downloads the release zip from GitHub.
 fn download_release(tag: &str) -> Result<Vec<u8>, String> {
     let path = format!("/jmelosegui/mosaico/releases/download/{tag}/mosaico-windows-amd64.zip");
-    mosaico_windows::http::get_bytes(GITHUB_HOST, &path, DOWNLOAD_TIMEOUT_MS)
+    mosaico_windows::http::WinHttpClient
+        .get_bytes(GITHUB_HOST, &path, DOWNLOAD_TIMEOUT)
+        .map_err(|e| e.to_string())
 }
 
 /// Extracts `mosaico.exe` from a zip archive.

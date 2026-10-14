@@ -46,7 +46,7 @@ pub mod files;
 /// Window frame and border offset helpers.
 mod frame;
 
-/// Minimal HTTPS GET client using WinHTTP.
+/// The HTTP client, through WinHTTP.
 pub mod http;
 
 /// Global hotkeys registered with `RegisterHotKey`.

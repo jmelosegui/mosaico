@@ -16,6 +16,8 @@ pub mod event;
 pub mod hiding;
 /// Hotkeys: key names, and the contract for claiming them.
 pub mod hotkey;
+/// Fetching files from web servers.
+pub mod http;
 /// Opaque window and monitor ids.
 pub mod id;
 /// Which daemon instance a process belongs to.

@@ -1,26 +1,104 @@
-//! Minimal HTTPS GET client using WinHTTP.
+//! [`HttpClient`] through WinHTTP.
 //!
-//! Provides `get()` for text responses and `get_bytes()` for binary
-//! downloads. Both perform synchronous HTTPS GET requests via WinHTTP.
+//! Each request opens its own synchronous WinHTTP session. WinHTTP
+//! follows redirects by itself (by default from HTTPS only to HTTPS),
+//! which GitHub release downloads rely on: they redirect to
+//! `objects.githubusercontent.com`.
+
+#[path = "http_response.rs"]
+mod response;
 
 use std::ffi::c_void;
+use std::time::Duration;
 
+use mosaico_core::http::HttpClient;
+use mosaico_core::{Error, Result};
 use windows::Win32::Networking::WinHttp::{
     WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY, WINHTTP_FLAG_SECURE, WinHttpCloseHandle, WinHttpConnect,
-    WinHttpOpen, WinHttpOpenRequest, WinHttpQueryDataAvailable, WinHttpReadData,
-    WinHttpReceiveResponse, WinHttpSendRequest, WinHttpSetTimeouts,
+    WinHttpOpen, WinHttpOpenRequest, WinHttpReceiveResponse, WinHttpSendRequest,
+    WinHttpSetTimeouts,
 };
 use windows::core::PCWSTR;
+
+/// [`HttpClient`] through WinHTTP.
+///
+/// It holds no state, so it is `Send` and `Sync`. The daemon relies on
+/// that: it moves the client into the background threads that look up
+/// the latest release and download the community rules.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct WinHttpClient;
+
+impl HttpClient for WinHttpClient {
+    /// Sends the request on port 443 and checks the status before
+    /// reading the body. `timeout` becomes WinHTTP's resolve, connect,
+    /// send and receive timeouts, each of which bounds one step.
+    fn get_bytes(&self, host: &str, path: &str, timeout: Duration) -> Result<Vec<u8>> {
+        let url = format!("https://{host}{path}");
+        let agent = to_wide(concat!("mosaico/", env!("CARGO_PKG_VERSION")));
+        let host_w = to_wide(host);
+        let path_w = to_wide(path);
+        let verb = to_wide("GET");
+        let timeout = timeout_ms(timeout);
+
+        // SAFETY: the session, connection and request handles are opened
+        // in sequence and wrapped in `Handle`, which closes them on drop,
+        // request first. Every wide string outlives the calls that read
+        // it.
+        unsafe {
+            let session = Handle::new(WinHttpOpen(
+                PCWSTR(agent.as_ptr()),
+                WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY,
+                None,
+                None,
+                0,
+            ))
+            .map_err(failed(&url, "open a session"))?;
+
+            WinHttpSetTimeouts(session.ptr(), timeout, timeout, timeout, timeout)
+                .map_err(failed(&url, "set the timeouts"))?;
+
+            let connect = Handle::new(WinHttpConnect(
+                session.ptr(),
+                PCWSTR(host_w.as_ptr()),
+                443,
+                0,
+            ))
+            .map_err(failed(&url, "connect"))?;
+
+            let request = Handle::new(WinHttpOpenRequest(
+                connect.ptr(),
+                PCWSTR(verb.as_ptr()),
+                PCWSTR(path_w.as_ptr()),
+                None,
+                None,
+                std::ptr::null(),
+                WINHTTP_FLAG_SECURE,
+            ))
+            .map_err(failed(&url, "open the request"))?;
+
+            WinHttpSendRequest(request.ptr(), None, None, 0, 0, 0)
+                .map_err(failed(&url, "send the request"))?;
+            WinHttpReceiveResponse(request.ptr(), std::ptr::null_mut())
+                .map_err(failed(&url, "receive the answer"))?;
+
+            let status =
+                response::status(request.ptr()).map_err(failed(&url, "read the status"))?;
+            check_status(&url, status)?;
+            response::read_body(request.ptr()).map_err(failed(&url, "read the answer"))
+        }
+    }
+}
 
 /// RAII wrapper for WinHTTP handles. Calls `WinHttpCloseHandle` on drop.
 struct Handle(*mut c_void);
 
 impl Handle {
-    fn new(h: *mut c_void) -> Result<Self, String> {
-        if h.is_null() {
-            Err("WinHTTP returned null handle".into())
+    /// Takes `handle`, or the error of the call that returned it null.
+    fn new(handle: *mut c_void) -> windows::core::Result<Self> {
+        if handle.is_null() {
+            Err(windows::core::Error::from_win32())
         } else {
-            Ok(Self(h))
+            Ok(Self(handle))
         }
     }
 
@@ -31,127 +109,42 @@ impl Handle {
 
 impl Drop for Handle {
     fn drop(&mut self) {
-        if !self.0.is_null() {
-            // SAFETY: WinHttpCloseHandle closes a WinHTTP handle. The
-            // pointer is non-null (checked above) and exclusively owned.
-            unsafe {
-                let _ = WinHttpCloseHandle(self.0);
-            }
-        }
-    }
-}
-
-/// Performs a synchronous HTTPS GET and returns the response body as text.
-///
-/// `timeout_ms` applies independently to each WinHTTP phase (resolve,
-/// connect, send, receive).  Returns `Err` on any network or protocol
-/// failure; callers should treat errors as non-fatal.
-///
-/// # Errors
-///
-/// Returns `Err` on connection failure, HTTP error, timeout, or if the
-/// response body is not valid UTF-8.
-pub fn get(host: &str, path: &str, timeout_ms: i32) -> Result<String, String> {
-    let bytes = get_bytes(host, path, timeout_ms)?;
-    String::from_utf8(bytes).map_err(|e| e.to_string())
-}
-
-/// Performs a synchronous HTTPS GET and returns the raw response body.
-///
-/// Unlike [`get()`], this returns raw bytes without UTF-8 conversion,
-/// suitable for downloading binary files (zip archives, etc.).
-/// WinHTTP follows redirects automatically, so GitHub release asset
-/// downloads (which redirect to `objects.githubusercontent.com`) work
-/// transparently.
-///
-/// # Errors
-///
-/// Returns `Err` on connection failure, HTTP error, or timeout.
-pub fn get_bytes(host: &str, path: &str, timeout_ms: i32) -> Result<Vec<u8>, String> {
-    let agent = to_wide(concat!("mosaico/", env!("CARGO_PKG_VERSION")));
-    let host_w = to_wide(host);
-    let path_w = to_wide(path);
-
-    // SAFETY: WinHTTP session/connect/request handles are opened in
-    // sequence and wrapped in RAII Handle structs that call
-    // WinHttpCloseHandle on drop. All wide-string pointers are valid
-    // for the duration of each call.
-    unsafe {
-        let session = Handle::new(WinHttpOpen(
-            PCWSTR(agent.as_ptr()),
-            WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY,
-            None,
-            None,
-            0,
-        ))?;
-
-        WinHttpSetTimeouts(
-            session.ptr(),
-            timeout_ms,
-            timeout_ms,
-            timeout_ms,
-            timeout_ms,
-        )
-        .map_err(|e| e.message().to_string())?;
-
-        let connect = Handle::new(WinHttpConnect(
-            session.ptr(),
-            PCWSTR(host_w.as_ptr()),
-            443,
-            0,
-        ))?;
-
-        let request = Handle::new(WinHttpOpenRequest(
-            connect.ptr(),
-            PCWSTR(to_wide("GET").as_ptr()),
-            PCWSTR(path_w.as_ptr()),
-            None,
-            None,
-            std::ptr::null(),
-            WINHTTP_FLAG_SECURE,
-        ))?;
-
-        WinHttpSendRequest(request.ptr(), None, None, 0, 0, 0)
-            .map_err(|e| e.message().to_string())?;
-
-        WinHttpReceiveResponse(request.ptr(), std::ptr::null_mut())
-            .map_err(|e| e.message().to_string())?;
-
-        read_body(request.ptr())
-    }
-}
-
-/// Reads the full response body into a byte vector.
-unsafe fn read_body(request: *mut c_void) -> Result<Vec<u8>, String> {
-    let mut body = Vec::new();
-    loop {
-        let mut available: u32 = 0;
-        // SAFETY: WinHttpQueryDataAvailable and WinHttpReadData operate
-        // on the open request handle. The buffer is freshly allocated
-        // with sufficient capacity for the available byte count.
+        // SAFETY: WinHttpCloseHandle closes a WinHTTP handle. The pointer
+        // is non-null (checked in `new`) and exclusively owned.
         unsafe {
-            WinHttpQueryDataAvailable(request, &mut available)
-                .map_err(|e| e.message().to_string())?;
+            let _ = WinHttpCloseHandle(self.0);
         }
-        if available == 0 {
-            break;
-        }
-        let mut buf = vec![0u8; available as usize];
-        let mut read: u32 = 0;
-        // SAFETY: WinHttpReadData reads into a buffer of sufficient size.
-        unsafe {
-            WinHttpReadData(request, buf.as_mut_ptr().cast(), available, &mut read)
-                .map_err(|e| e.message().to_string())?;
-        }
-        if read == 0 {
-            break;
-        }
-        body.extend_from_slice(&buf[..read as usize]);
     }
-    Ok(body)
+}
+
+/// Turns the error of a failed WinHTTP call during `step` into a failed
+/// request for `url`.
+fn failed<'a>(url: &'a str, step: &'static str) -> impl FnOnce(windows::core::Error) -> Error + 'a {
+    move |e| Error::Network(format!("{url}: could not {step}: {e}"))
+}
+
+/// Fails a request whose answer has a status outside 200-299, so an
+/// error page is never taken for the file that was asked for.
+fn check_status(url: &str, status: u32) -> Result<()> {
+    if (200..300).contains(&status) {
+        Ok(())
+    } else {
+        Err(Error::Network(format!(
+            "{url} answered with HTTP status {status}"
+        )))
+    }
+}
+
+/// `timeout` in the whole milliseconds WinHTTP takes, at most `i32::MAX`.
+fn timeout_ms(timeout: Duration) -> i32 {
+    i32::try_from(timeout.as_millis()).unwrap_or(i32::MAX)
 }
 
 /// Converts a `&str` to a null-terminated wide (UTF-16) string.
 fn to_wide(s: &str) -> Vec<u16> {
     s.encode_utf16().chain(std::iter::once(0)).collect()
 }
+
+#[cfg(test)]
+#[path = "http_tests.rs"]
+mod tests;
