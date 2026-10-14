@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use mosaico_core::Command;
-use mosaico_core::ipc::ResponseStatus;
+use mosaico_core::ipc::{IpcError, ResponseStatus};
 
 use super::context::{Clock, Context, Exit, complain, say};
 use super::request;
@@ -23,45 +23,45 @@ pub fn execute(cx: &mut Context) -> Exit {
     // while it is alive, and the wait below needs something to watch.
     let pid = cx.pid_file.read().ok().flatten();
 
-    // Try graceful shutdown via IPC first.
-    if cx.daemon.is_running() {
-        match cx.daemon.send(&Command::Stop) {
-            Ok(response) if response.status == ResponseStatus::Ok => {
-                let message = response.message.unwrap_or_default();
+    // Try graceful shutdown via IPC first. There is no liveness check
+    // before it: a daemon busy with another client would look missing.
+    match cx.daemon.send(&Command::Stop) {
+        Ok(response) if response.status == ResponseStatus::Ok => {
+            let message = response.message.unwrap_or_default();
 
-                // The acknowledgement only means the daemon accepted the
-                // command. It holds the single instance mutex until the
-                // process exits, so returning now would let a start that
-                // follows be rejected with nothing left running.
-                let exited = match pid {
-                    Some(pid) => wait_until_gone(
-                        || cx.processes.is_alive(pid),
-                        cx.clock,
-                        SHUTDOWN_TIMEOUT,
-                        POLL_INTERVAL,
-                    ),
-                    // No pid file to watch, so there is nothing to wait on.
-                    None => true,
-                };
+            // The acknowledgement only means the daemon accepted the
+            // command. It holds the single instance mutex until the
+            // process exits, so returning now would let a start that
+            // follows be rejected with nothing left running.
+            let exited = match pid {
+                Some(pid) => wait_until_gone(
+                    || cx.processes.is_alive(pid),
+                    cx.clock,
+                    SHUTDOWN_TIMEOUT,
+                    POLL_INTERVAL,
+                ),
+                // No pid file to watch, so there is nothing to wait on.
+                None => true,
+            };
 
-                let _ = cx.pid_file.remove();
-                say!(cx, "Mosaico stopped. {message}");
-                if !exited {
-                    complain!(
-                        cx,
-                        "Warning: the daemon acknowledged the stop but was still running after \
-                         {}s. Starting again may fail until it exits.",
-                        SHUTDOWN_TIMEOUT.as_secs()
-                    );
-                }
-                return Exit::Success;
+            let _ = cx.pid_file.remove();
+            say!(cx, "Mosaico stopped. {message}");
+            if !exited {
+                complain!(
+                    cx,
+                    "Warning: the daemon acknowledged the stop but was still running after \
+                     {}s. Starting again may fail until it exits.",
+                    SHUTDOWN_TIMEOUT.as_secs()
+                );
             }
-            Ok(response) => {
-                complain!(cx, "Error: {}", request::describe_refusal(&response));
-                return Exit::Failure;
-            }
-            Err(e) => complain!(cx, "IPC failed: {e}"),
+            return Exit::Success;
         }
+        Ok(response) => {
+            complain!(cx, "Error: {}", request::describe_refusal(&response));
+            return Exit::Failure;
+        }
+        Err(IpcError::NotRunning) => {}
+        Err(e) => complain!(cx, "IPC failed: {e}"),
     }
 
     // Fallback: the IPC pipe is gone but the process may still be

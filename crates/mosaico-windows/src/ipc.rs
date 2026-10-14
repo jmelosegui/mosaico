@@ -10,7 +10,8 @@ use std::os::windows::io::{AsRawHandle, FromRawHandle};
 use mosaico_core::Instance;
 use mosaico_core::ipc::{IpcClient, IpcConnection, IpcError, IpcServer};
 use windows::Win32::Foundation::{
-    ERROR_FILE_NOT_FOUND, ERROR_PIPE_BUSY, ERROR_PIPE_CONNECTED, HANDLE, INVALID_HANDLE_VALUE,
+    ERROR_FILE_NOT_FOUND, ERROR_PIPE_BUSY, ERROR_PIPE_CONNECTED, GetLastError, HANDLE,
+    INVALID_HANDLE_VALUE,
 };
 use windows::Win32::Storage::FileSystem::{
     CreateFileW, FILE_SHARE_NONE, FlushFileBuffers, OPEN_EXISTING, PIPE_ACCESS_DUPLEX,
@@ -66,11 +67,21 @@ impl PipeClient {
 impl IpcClient for PipeClient {
     type Stream = File;
 
-    /// Checks for a listening pipe instance without connecting to it.
+    /// Checks whether the pipe exists, without connecting to it.
+    ///
+    /// `WaitNamedPipeW` fails with `ERROR_FILE_NOT_FOUND` when no
+    /// instance of the pipe exists, which is the only case in which no
+    /// daemon is listening. When every instance is busy with another
+    /// client it times out instead, and the daemon is running.
     fn is_daemon_running(&self) -> bool {
         // SAFETY: WaitNamedPipeW only checks whether a pipe instance is
         // available; 1 ms makes it return almost immediately.
-        unsafe { WaitNamedPipeW(&self.name, 1).as_bool() }
+        if unsafe { WaitNamedPipeW(&self.name, 1) }.as_bool() {
+            return true;
+        }
+        // SAFETY: GetLastError reads the error of the call just above.
+        let error = unsafe { GetLastError() };
+        error != ERROR_FILE_NOT_FOUND
     }
 
     fn connect(&self) -> Result<File, IpcError> {
@@ -98,10 +109,13 @@ impl IpcClient for PipeClient {
 
 /// The daemon end of the pipe.
 ///
-/// Each accepted connection gets a fresh pipe instance, which is what
-/// lets the next client connect while one is being answered.
+/// A spare pipe instance is created as soon as a client connects, so
+/// while one client is being answered the next one finds a free instance
+/// and connects straight away instead of finding the pipe busy.
 pub struct PipeServer {
     name: HSTRING,
+    /// The instance the next client will connect to.
+    spare: Option<File>,
 }
 
 impl PipeServer {
@@ -109,14 +123,12 @@ impl PipeServer {
     pub fn new(name: &str) -> Self {
         Self {
             name: HSTRING::from(name),
+            spare: None,
         }
     }
-}
 
-impl IpcServer for PipeServer {
-    type Connection = PipeConnection;
-
-    fn accept(&mut self) -> Result<PipeConnection, IpcError> {
+    /// Creates one more instance of the pipe.
+    fn create_instance(&self) -> Result<File, IpcError> {
         // SAFETY: CreateNamedPipeW creates a new instance of the pipe; the
         // result is checked against INVALID_HANDLE_VALUE below. The
         // default security descriptor only lets the creating user (and
@@ -137,8 +149,20 @@ impl IpcServer for PipeServer {
             return Err(IpcError::Io(io::Error::last_os_error()));
         }
         // SAFETY: the handle is valid and owned by nobody else; the File
-        // closes it when the connection is dropped.
-        let file = unsafe { File::from_raw_handle(handle.0) };
+        // closes it when it is dropped.
+        Ok(unsafe { File::from_raw_handle(handle.0) })
+    }
+}
+
+impl IpcServer for PipeServer {
+    type Connection = PipeConnection;
+
+    fn accept(&mut self) -> Result<PipeConnection, IpcError> {
+        let file = match self.spare.take() {
+            Some(file) => file,
+            None => self.create_instance()?,
+        };
+        let handle = HANDLE(file.as_raw_handle());
 
         // SAFETY: ConnectNamedPipe blocks until a client connects. A
         // client that connected between creation and this call is
@@ -147,6 +171,14 @@ impl IpcServer for PipeServer {
             Ok(()) => {}
             Err(e) if e.code() == ERROR_PIPE_CONNECTED.to_hresult() => {}
             Err(e) => return Err(IpcError::Io(io::Error::from(e))),
+        }
+
+        // Leave a free instance behind for the next client before this
+        // one is served. If it cannot be created now, the next accept
+        // tries again and reports the error if it still fails.
+        match self.create_instance() {
+            Ok(spare) => self.spare = Some(spare),
+            Err(e) => mosaico_core::log_warn!("IPC: could not prepare the next pipe instance: {e}"),
         }
         Ok(PipeConnection { file })
     }
@@ -190,24 +222,5 @@ impl IpcConnection for PipeConnection {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn the_default_instance_keeps_the_usual_pipe() {
-        // Arrange
-        let instance = Instance::new(None, "cfg", "data").unwrap();
-
-        // Act / Assert
-        assert_eq!(pipe_name(&instance), r"\\.\pipe\mosaico");
-    }
-
-    #[test]
-    fn a_named_instance_gets_its_own_pipe() {
-        // Arrange
-        let instance = Instance::new(Some("test-7"), "cfg", "data").unwrap();
-
-        // Act / Assert
-        assert_eq!(pipe_name(&instance), r"\\.\pipe\mosaico-test-7");
-    }
-}
+#[path = "ipc_tests.rs"]
+mod tests;
