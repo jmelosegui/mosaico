@@ -271,8 +271,13 @@ the CLI and daemon use the default instance, with the usual names and paths.
 | Variable | Effect |
 |----------|--------|
 | `MOSAICO_INSTANCE` | Selects a named instance. Pipe `\\.\pipe\mosaico-<name>`, mutex `Global\MosaicoDaemon-<name>`, files under `instances\<name>` in the usual config and data folders. 1-64 ASCII letters, digits, `-` or `_`. |
-| `MOSAICO_CONFIG_DIR` | Overrides the config directory (config files and logs). |
-| `MOSAICO_DATA_DIR` | Overrides the data directory (PID file). |
+| `MOSAICO_CONFIG_DIR` | Overrides the config directory (config files and logs). Used as given. |
+| `MOSAICO_DATA_DIR` | Overrides the data directory (PID file). Used as given. |
+
+The usual folders come from the platform (`mosaico_core::user_dirs::UserDirs`).
+On Windows the config directory is `.config\mosaico` in the profile folder
+(`USERPROFILE`, or `HOME` when `USERPROFILE` is not set) and the data directory
+is `mosaico` in `LOCALAPPDATA`.
 
 `mosaico start` passes its environment to the daemon it launches, so both
 belong to the same instance. An invalid instance name makes every command

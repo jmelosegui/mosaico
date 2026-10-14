@@ -11,35 +11,33 @@ use super::report;
 use super::rules::{KeybindingsFile, RulesFile, UserRulesFile};
 use super::{Config, Keybinding, WindowRule, default_rules};
 
-/// Returns the config directory of this process's [`Instance`](crate::Instance):
-/// `~/.config/mosaico/` for the default instance.
+/// Returns the config directory of this process's [`Instance`](crate::Instance),
+/// or `None` before the instance is resolved.
 pub fn config_dir() -> Option<PathBuf> {
-    crate::Instance::current()
-        .ok()
-        .map(|instance| instance.config_dir().to_path_buf())
+    crate::Instance::current().map(|instance| instance.config_dir().to_path_buf())
 }
 
-/// Returns the config file path: `~/.config/mosaico/config.toml`.
+/// Returns the config file path: `config.toml` in [`config_dir`].
 pub fn config_path() -> Option<PathBuf> {
     config_dir().map(|d| d.join("config.toml"))
 }
 
-/// Returns the keybindings file path: `~/.config/mosaico/keybindings.toml`.
+/// Returns the keybindings file path: `keybindings.toml` in [`config_dir`].
 pub fn keybindings_path() -> Option<PathBuf> {
     config_dir().map(|d| d.join("keybindings.toml"))
 }
 
-/// Returns the rules file path: `~/.config/mosaico/rules.toml`.
+/// Returns the rules file path: `rules.toml` in [`config_dir`].
 pub fn rules_path() -> Option<PathBuf> {
     config_dir().map(|d| d.join("rules.toml"))
 }
 
-/// Returns the user rules file path: `~/.config/mosaico/user-rules.toml`.
+/// Returns the user rules file path: `user-rules.toml` in [`config_dir`].
 pub fn user_rules_path() -> Option<PathBuf> {
     config_dir().map(|d| d.join("user-rules.toml"))
 }
 
-/// Returns the bar config file path: `~/.config/mosaico/bar.toml`.
+/// Returns the bar config file path: `bar.toml` in [`config_dir`].
 pub fn bar_path() -> Option<PathBuf> {
     config_dir().map(|d| d.join("bar.toml"))
 }

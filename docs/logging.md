@@ -39,8 +39,12 @@ Logging is disabled by default to avoid disk writes for casual users.
 
 ## Log File Location
 
-Logs are written to `~/.config/mosaico/logs/mosaico.log`. The `logs/`
-directory is created automatically if it does not exist.
+Logs are written to `logs/mosaico.log` in the instance's config directory:
+`~/.config/mosaico/logs/mosaico.log` for the default instance. The `logs/`
+directory is created automatically if it does not exist. Without a resolved
+instance there is no log file, so nothing is logged: `init()` leaves logging
+off and drops the lines kept so far. The CLI resolves the instance at startup,
+before the daemon reads its config.
 
 ## Initialization
 
@@ -48,10 +52,11 @@ directory is created automatically if it does not exist.
 
 1. Returns at once if the logger was already set up: only the first call counts
 2. Parses the configured level string
-3. If logging is enabled, creates the log directory and opens or creates the
-   log file
+3. If logging is enabled and the instance of the process has been resolved,
+   creates the log directory and opens or creates the log file
 4. Stores the `Logger` in a global `OnceLock<Option<Mutex<Logger>>>`, `None`
-   when logging is disabled or the file cannot be opened
+   when logging is disabled, the instance is not resolved or the file cannot
+   be opened
 5. Writes an initialization log message with the configured level and max size
 6. Writes the backlog: the lines logged before `init()`, at or above the
    configured level, in the order they were logged

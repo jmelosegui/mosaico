@@ -6,6 +6,7 @@
 
 use mosaico_core::Instance;
 use mosaico_core::event::EventSource;
+use mosaico_core::instance::InstanceError;
 use mosaico_core::lifecycle::Startup;
 use mosaico_core::pid::PidFile;
 use mosaico_core::system::{Interrupts, ProcessSetup};
@@ -14,12 +15,19 @@ use mosaico_core::tiler::Enumerator;
 use crate::commands::banner;
 use crate::commands::context::{Context, Exit, SystemClock};
 
+/// Finds the daemon instance of this process from its environment and
+/// the user's folders. `main` calls it before running any command.
+#[cfg(target_os = "windows")]
+pub fn resolve_instance() -> Result<&'static Instance, InstanceError> {
+    Instance::init(&mosaico_windows::user_dirs::WindowsUserDirs::current())
+}
+
 /// The daemon instance this CLI talks to.
 ///
-/// `main` checks the instance before running any command, so this only
-/// fails if that check was skipped.
+/// `main` resolves the instance before running any command, so this only
+/// fails if that was skipped.
 pub fn instance() -> &'static Instance {
-    Instance::current().expect("the instance is validated at startup")
+    Instance::current().expect("the instance is resolved at startup")
 }
 
 /// Sets this process up for the platform, so it sees windows and

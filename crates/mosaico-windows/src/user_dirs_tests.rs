@@ -17,7 +17,7 @@ fn env(pairs: &[(&str, &str)]) -> impl Fn(&str) -> Option<OsString> {
 
 /// The instance the CLI finds at startup in an environment of `pairs`.
 fn instance(pairs: &[(&str, &str)]) -> Result<Instance, InstanceError> {
-    Instance::from_env(env(pairs))
+    Instance::from_env(env(pairs), &WindowsUserDirs::from_env(env(pairs)))
 }
 
 const PROFILE: (&str, &str) = ("USERPROFILE", r"C:\Users\me");
