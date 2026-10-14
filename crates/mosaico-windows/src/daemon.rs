@@ -4,6 +4,8 @@ use mosaico_core::{Instance, Result};
 use crate::dpi;
 use crate::instance_guard::InstanceGuard;
 
+#[path = "daemon_inputs.rs"]
+mod daemon_inputs;
 #[path = "daemon_ipc.rs"]
 mod daemon_ipc;
 #[path = "daemon_loop.rs"]
@@ -20,8 +22,8 @@ mod daemon_types;
 /// Runs the Mosaico daemon.
 ///
 /// Starts background threads for the Win32 event loop (which also
-/// handles global hotkeys) and the IPC listener. The main thread
-/// manages the tiling workspace.
+/// handles global hotkeys), focus-follows-mouse and the IPC listener.
+/// The main thread manages the tiling workspace.
 ///
 /// The daemon has no console, so it reports through the log. An error
 /// from the daemon loop is logged here as well as returned. Errors before

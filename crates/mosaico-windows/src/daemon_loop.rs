@@ -12,9 +12,9 @@ use windows::Win32::UI::WindowsAndMessaging::{
 
 use crate::bar_manager::BarManager;
 use crate::enumerate::WindowsEnumerator;
-use crate::event_loop;
 use crate::tiling::TilingManager;
 
+use super::daemon_inputs::Inputs;
 use super::daemon_loop_handlers;
 use super::daemon_settle::DisplaySettle;
 use super::daemon_threads;
@@ -91,26 +91,19 @@ pub(super) fn daemon_loop(pipe_name: &str) -> Result<()> {
     bar_mgr.update(&manager.bar_states(&get_update(), false));
     mosaico_core::log_info!("Managing {} windows", manager.window_count());
 
-    // Start the Win32 event loop + hotkeys on its own thread.
+    // Start the window events, hotkeys and focus-follows-mouse.
     let event_tx = tx.clone();
     let action_tx = tx.clone();
     let (event_channel_tx, event_channel_rx) = mpsc::channel();
     let (action_channel_tx, action_channel_rx) = mpsc::channel();
-    let event_loop = event_loop::start(
+    let mut inputs = Inputs::start(
         event_channel_tx,
         action_channel_tx,
         keybindings,
         config.mouse.focus_follows_mouse,
     )?;
-    if let Some(e) = event_loop.sink_error() {
-        let and_mouse = if config.mouse.focus_follows_mouse {
-            " and focus follows mouse will not work"
-        } else {
-            ""
-        };
-        mosaico_core::log_error!(
-            "Display and work area changes will not be noticed{and_mouse}: {e}"
-        );
+    if let Some(e) = inputs.sink_error() {
+        mosaico_core::log_error!("Display and work area changes will not be noticed: {e}");
     }
 
     // Bridge: forward window events into the unified channel.
@@ -225,7 +218,7 @@ pub(super) fn daemon_loop(pipe_name: &str) -> Result<()> {
                         action,
                         &mut manager,
                         &mut bar_mgr,
-                        &event_loop,
+                        &inputs,
                         &mut hotkeys_paused,
                         &get_update,
                     );
@@ -235,7 +228,7 @@ pub(super) fn daemon_loop(pipe_name: &str) -> Result<()> {
                         &command,
                         &mut manager,
                         &mut bar_mgr,
-                        &event_loop,
+                        &inputs,
                         &mut hotkeys_paused,
                         &get_update,
                     ) {
@@ -251,7 +244,7 @@ pub(super) fn daemon_loop(pipe_name: &str) -> Result<()> {
                         &mut manager,
                         &mut bar_mgr,
                         &mut current_theme,
-                        &event_loop,
+                        &mut inputs,
                         hotkeys_paused,
                         &get_update,
                     );
@@ -304,7 +297,7 @@ pub(super) fn daemon_loop(pipe_name: &str) -> Result<()> {
 
     manager.restore_all_windows();
     bar_mgr.hide_all();
-    event_loop.stop();
+    inputs.stop();
     watcher_stop.store(true, std::sync::atomic::Ordering::Relaxed);
     drop(tx);
     let _ = event_bridge.join();

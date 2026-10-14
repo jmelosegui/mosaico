@@ -52,9 +52,8 @@ pub fn start(
     event_tx: Sender<WindowEvent>,
     action_tx: Sender<Action>,
     keybindings: Vec<Keybinding>,
-    focus_follows_mouse: bool,
 ) -> Result<EventLoopHandle> {
-    let (ready_tx, ready_rx) = std::sync::mpsc::channel::<Result<(u32, usize, Option<Error>)>>();
+    let (ready_tx, ready_rx) = std::sync::mpsc::channel::<Result<(u32, Option<Error>)>>();
 
     let handle = thread::spawn(move || {
         EVENT_SENDER.with(|cell| {
@@ -110,24 +109,22 @@ pub fn start(
         let mut hotkeys = HotkeyManager::new(action_tx);
         hotkeys.register_from_config(&keybindings);
 
-        // Create a hidden window that receives display/work-area changes
-        // and (optionally) focus-follows-mouse timer ticks. Without it the
-        // loop still runs, it just misses those, so the caller is told
-        // why instead of the start failing.
-        let (event_sink, sink_error) =
-            match event_loop_event_sink::create_event_sink(focus_follows_mouse) {
-                Ok(sink) => (sink, None),
-                Err(e) => (HWND::default(), Some(e)),
-            };
+        // Create a hidden window that receives display/work-area changes.
+        // Without it the loop still runs, it just misses those, so the
+        // caller is told why instead of the start failing.
+        let (event_sink, sink_error) = match event_loop_event_sink::create_event_sink() {
+            Ok(sink) => (sink, None),
+            Err(e) => (HWND::default(), Some(e)),
+        };
 
-        let _ = ready_tx.send(Ok((thread_id, event_sink.0 as usize, sink_error)));
+        let _ = ready_tx.send(Ok((thread_id, sink_error)));
 
         // Run the message pump with hotkey dispatching.
         event_loop_message_pump::run_message_pump(&mut hotkeys);
 
         // Cleanup: destroy event sink, hotkeys unregistered in Drop.
         if !event_sink.is_invalid() {
-            event_loop_event_sink::destroy_event_sink(event_sink, focus_follows_mouse);
+            event_loop_event_sink::destroy_event_sink(event_sink);
         }
         drop(hotkeys);
 
@@ -142,11 +139,10 @@ pub fn start(
     let ready = ready_rx
         .recv()
         .map_err(|_| Error::platform("start the event loop", "its thread exited unexpectedly"))?;
-    let (thread_id, event_sink, sink_error) = ready?;
+    let (thread_id, sink_error) = ready?;
 
     Ok(EventLoopHandle {
         thread_id,
-        event_sink,
         sink_error,
         handle,
     })
@@ -155,15 +151,14 @@ pub fn start(
 /// Handle for controlling the event loop from the daemon.
 pub struct EventLoopHandle {
     thread_id: u32,
-    event_sink: usize,
     sink_error: Option<Error>,
     handle: thread::JoinHandle<()>,
 }
 
 impl EventLoopHandle {
-    /// Why the hidden window that reports display and work area changes,
-    /// and drives focus follows mouse, could not be created. The loop
-    /// runs without it, so those changes never arrive.
+    /// Why the hidden window that reports display and work area changes
+    /// could not be created. The loop runs without it, so those changes
+    /// never arrive.
     pub fn sink_error(&self) -> Option<&Error> {
         self.sink_error.as_ref()
     }
@@ -208,15 +203,6 @@ impl EventLoopHandle {
                 LPARAM(0),
             );
         }
-    }
-
-    /// Enables or disables focus-follows-mouse on the event loop thread.
-    pub fn toggle_focus_follows_mouse(&self, enabled: bool) {
-        if self.event_sink == 0 {
-            return;
-        }
-        let hwnd = HWND(self.event_sink as *mut _);
-        event_loop_event_sink::toggle_focus_follows_mouse(hwnd, enabled);
     }
 
     /// Signals the event loop to stop and waits for the thread to finish.

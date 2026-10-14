@@ -34,7 +34,7 @@ fn a_missing_event_sink_window_is_reported_to_the_caller() {
     let (action_tx, _actions) = mpsc::channel();
 
     // Act
-    let Ok(event_loop) = start(event_tx, action_tx, Vec::new(), false) else {
+    let Ok(event_loop) = start(event_tx, action_tx, Vec::new()) else {
         // No desktop to hook into, nothing to assert.
         return;
     };

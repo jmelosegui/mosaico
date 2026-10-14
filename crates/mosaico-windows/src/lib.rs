@@ -67,6 +67,9 @@ pub mod ipc;
 /// Monitor work area queries.
 mod monitor;
 
+/// The window under the mouse pointer, for focus-follows-mouse.
+pub mod pointer;
+
 /// Workarounds for Chromium-based windows.
 mod chromium;
 
