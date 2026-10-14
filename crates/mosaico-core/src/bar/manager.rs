@@ -24,9 +24,11 @@ pub struct BarManager {
     system: Box<dyn SystemInfo>,
     /// The config, with its colors resolved against the theme.
     config: BarConfig,
-    /// Colors as loaded from the file, before theme resolution.
-    /// Kept so that switching themes can re-resolve from the originals
-    /// instead of treating previously-resolved hex values as overrides.
+    /// The `[colors]` table as loaded from the file, before theme
+    /// resolution. Kept so that switching themes re-resolves those colors
+    /// from the originals instead of treating the previous theme's hex
+    /// values as overrides. Widget colors are not kept, see
+    /// [`resolve_colors`](Self::resolve_colors).
     raw_colors: BarColors,
     /// Monitor work areas, before the bar is reserved.
     monitor_areas: Vec<Rect>,
@@ -98,8 +100,11 @@ impl BarManager {
 
     /// Re-resolves the colors against a theme that may have changed.
     ///
-    /// Starts again from the colors loaded from the file, so the theme's
-    /// colors are applied instead of kept as user overrides.
+    /// The `[colors]` table starts again from the file, so the new
+    /// theme's colors replace the old theme's instead of being kept as
+    /// user overrides. Widget colors do not: a widget `color` given by
+    /// name was turned into the old theme's hex value when it was first
+    /// resolved, and keeps it (#109).
     pub fn resolve_colors(&mut self, theme: Theme) {
         self.config.colors = self.raw_colors.clone();
         self.config.resolve_colors(theme);
@@ -115,7 +120,8 @@ impl BarManager {
     }
 
     /// Replaces the bars after a display change: drops the old ones,
-    /// re-resolves the colors and makes new ones for `monitor_areas`.
+    /// re-resolves the colors as [`resolve_colors`](Self::resolve_colors)
+    /// does and makes new ones for `monitor_areas`.
     pub fn rebuild_for_monitors(&mut self, monitor_areas: Vec<Rect>, theme: Theme) {
         self.monitor_areas = monitor_areas;
         self.resolve_colors(theme);

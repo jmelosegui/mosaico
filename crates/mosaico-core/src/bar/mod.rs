@@ -1,11 +1,15 @@
 //! What the status bar shows, and the contracts that put it on screen.
 //!
-//! Core decides what every bar shows. [`BarContent::build`] turns the bar
-//! config, a monitor's [`BarState`] and the [`SystemReadings`] into the
-//! items to draw: which widgets appear, in what order, with what text and
-//! colors. [`BarManager`] decides which monitors get a bar and refreshes
-//! them. A platform only reports raw readings through [`SystemInfo`] and
-//! draws through [`BarRenderer`], so every platform shows the same bar.
+//! Core decides what every bar shows.
+//! [`BarContent::build`](crate::bar::BarContent::build) turns the bar
+//! config, a monitor's [`BarState`](crate::bar::BarState) and the
+//! [`SystemReadings`](crate::bar::SystemReadings) into the items to draw:
+//! which widgets appear, in what order, with what text and colors.
+//! [`BarManager`](crate::bar::BarManager) decides which monitors get a
+//! bar and refreshes them. A platform only reports raw readings through
+//! [`SystemInfo`](crate::bar::SystemInfo) and draws through
+//! [`BarRenderer`](crate::bar::BarRenderer), so every platform shows the
+//! same bar.
 
 mod content;
 mod cpu;

@@ -147,8 +147,9 @@ included in the default bar config and added automatically to existing
   be missing.
 - When `separator` is set, it goes between every two widgets that show,
   with a space on each side.
-- A widget's `color` tints its text and pill outline. Without one, the pill
-  uses the `foreground` and `pill_border` colors.
+- A pill widget's `color` tints its text and outline. Without one, the
+  pill uses the `foreground` and `pill_border` colors. On the left, the
+  workspace container and the window icon keep the bar's colors.
 - The workspace numbers and the window icon are only drawn on the left
   side. On the right, those widgets are plain pills showing their icon.
 - The `active_window` widget keeps its place on monitors without a focused
@@ -201,10 +202,11 @@ tell, and the widget stays hidden until a non-blocking query is added.
 `TilingManager::bar_states()` passes it the update text and pause state.
 
 The system widgets read `SystemReadings` instead, which `BarManager` takes
-once per refresh for all bars: CPU usage (only while a `cpu` widget is
-configured), memory in use (only with an enabled `ram` widget), what is
-playing (only with an enabled `media` widget) and the local time. A reading
-that fails shows as 0, or as nothing playing.
+once per refresh for all bars, and not at all while no monitor has a bar:
+CPU usage (only while a `cpu` widget is configured), memory in use (only
+with an enabled `ram` widget), what is playing (only with an enabled
+`media` widget) and the local time (only with an enabled `clock` or `date`
+widget). A reading that fails shows as 0, or as nothing playing.
 
 ## Widget Auto-Merge
 
@@ -226,19 +228,24 @@ its side is added back on the next start; to hide a widget, set
   per selected monitor through the renderer, resolves colors from theme,
   and starts a `CpuTracker` when a `cpu` widget is configured
 - `update(states)` -- reads the system once, then builds each bar's content
-  from its monitor's state and draws it
+  from its monitor's state and draws it; does nothing while no monitor has
+  a bar
 - `bar_height()` -- returns bar height if enabled, 0 otherwise
 - `bar_monitor_indices()` -- returns which monitor indices have bars
-- `resolve_colors(theme)` -- re-resolves colors on theme change
+- `resolve_colors(theme)` -- re-resolves the `[colors]` table on theme
+  change (widget colors keep their shade, see below)
 - `rebuild_for_monitors(monitor_rects, theme)` -- replaces the bars after a
   display change
 - `reload(config)` -- recreates bars with new config, returns new height
 - `hide_all()` -- hides all bars on shutdown
 
 A monitor whose bar cannot be made goes without one, and the failure is
-logged. The manager stores `raw_colors` (pre-resolution) separately from
-resolved colors to support re-resolution when the theme changes. The daemon
-creates it with `Win32BarRenderer` and `Win32SystemInfo`.
+logged. The manager keeps the `[colors]` table as loaded (`raw_colors`)
+apart from the resolved one, so a theme change re-resolves those colors
+from the file. Widget colors are not kept that way: a widget `color` given
+by name keeps the shade of the theme it was first resolved with until the
+daemon restarts (#109). The daemon creates the manager with
+`Win32BarRenderer` and `Win32SystemInfo`.
 
 ## Work Area Reservation
 
@@ -289,5 +296,6 @@ See [configuration.md](configuration.md) for the full `bar.toml` format.
   so every monitor shows the same CPU, memory and time.
 - **One `Bar` per monitor** rather than a single shared bar, because each
   monitor has independent workspace state and work area.
-- **Raw colors stored separately** from resolved colors enables re-resolution
-  when the theme changes without re-reading `bar.toml`.
+- **Raw `[colors]` stored separately** from the resolved ones lets a theme
+  change re-resolve them without re-reading `bar.toml`. Widget colors are
+  not stored that way yet (#109).
