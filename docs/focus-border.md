@@ -115,8 +115,10 @@ a stale bitmap from the previous size would briefly appear at the new position.
   positions the overlay window over the target rectangle; it fails when
   the bitmap does not reach the overlay, which keeps the one it had and
   is still put in place
-- `Border::restack(rect, width, target)` -- puts the overlay back just
-  behind its window and shows it, with the bitmap it already has
+- `Border::restack(rect, width, target)` -- puts the overlay in its
+  window's topmost band, then just behind its window at `rect`, and only
+  then shows it, with the bitmap it already has, so a hidden border never
+  shows where it was hidden
 - `Border::hide()` -- hides the overlay window via `ShowWindow(SW_HIDE)`
 
 `Win32Decorations` remembers the style each overlay was last rendered with,
@@ -296,6 +298,7 @@ platform that keeps what it drew, and checks that a retile, reading the
 work areas again and a display change draw every border from scratch,
 while a focus change draws only the borders that change. In
 `mosaico-windows`, `border/show_tests.rs` checks that restacking a hidden
-border, as drawing it again the same way does, shows it again, with
-overlays of its own off screen, and `decorations_tests.rs` that
+border, as drawing it again the same way does, shows it again, and only
+once it is at its new rect, with overlays of its own off screen, and
+`decorations_tests.rs` that
 forgetting how the borders were drawn renders every one again.
