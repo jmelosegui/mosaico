@@ -16,13 +16,16 @@ pub struct Color {
 }
 
 impl Color {
-    /// Parses a hex color string like `"#00b4d8"` or `"00b4d8"`.
+    /// Parses a hex color string like `"#00b4d8"` or `"00b4d8"`: six hex
+    /// digits, in either case, after any leading `#`.
     ///
     /// Returns `None` for anything else, such as a color name the theme
     /// did not resolve.
     pub fn from_hex(hex: &str) -> Option<Self> {
         let hex = hex.trim_start_matches('#');
-        if hex.len() != 6 {
+        // Only ASCII hex digits, which also keeps the byte slices below
+        // on character boundaries.
+        if hex.len() != 6 || !hex.bytes().all(|b| b.is_ascii_hexdigit()) {
             return None;
         }
         Some(Self {
@@ -36,3 +39,7 @@ impl Color {
 #[cfg(test)]
 #[path = "color_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "color_digit_tests.rs"]
+mod digit_tests;
