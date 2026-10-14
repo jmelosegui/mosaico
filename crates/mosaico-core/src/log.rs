@@ -10,6 +10,7 @@
 //! reports what is wrong with it, before it knows whether to log at all.
 
 use std::fmt;
+use std::path::Path;
 use std::sync::{Mutex, OnceLock, PoisonError};
 
 use serde::{Deserialize, Serialize};
@@ -83,17 +84,37 @@ impl Level {
     }
 }
 
-/// Initialises the global logger. Call once at daemon startup.
+/// Initialises the global logger, writing to this process's instance's
+/// log directory. Call once at daemon startup.
 ///
 /// Does nothing if `config.enabled` is `false`, other than drop the
 /// lines logged so far. Otherwise the lines logged so far follow its
-/// own first line, filtered by the configured level.
+/// own first line, filtered by the configured level. Only the first
+/// call has any effect.
 pub fn init(config: &LogConfig) {
+    let log_dir = crate::Instance::current()
+        .ok()
+        .map(|instance| instance.log_dir());
+    start(config, log_dir.as_deref());
+}
+
+/// Like [`init`], but writes to `log_dir`, so a test can keep its log
+/// away from the user's.
+pub fn init_in(config: &LogConfig, log_dir: &Path) {
+    start(config, Some(log_dir));
+}
+
+/// Sets up the logger. Without a directory, logging is off.
+fn start(config: &LogConfig, log_dir: Option<&Path>) {
+    // Only the first call counts, so a later one must not even create
+    // the file.
+    if LOGGER.get().is_some() {
+        return;
+    }
     let min_level = Level::parse(&config.level);
-    let logger = if config.enabled {
-        Logger::open(config, min_level)
-    } else {
-        None
+    let logger = match log_dir {
+        Some(dir) if config.enabled => Logger::open(config, min_level, dir),
+        _ => None,
     };
     let early = {
         let mut backlog = BACKLOG.lock().unwrap_or_else(PoisonError::into_inner);

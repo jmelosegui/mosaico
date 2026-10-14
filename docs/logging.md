@@ -46,17 +46,24 @@ directory is created automatically if it does not exist.
 
 `init(config)`:
 
-1. Parses the configured level string
-2. If logging is enabled, creates the log directory and opens or creates the
+1. Returns at once if the logger was already set up: only the first call counts
+2. Parses the configured level string
+3. If logging is enabled, creates the log directory and opens or creates the
    log file
-3. Stores the `Logger` in a global `OnceLock<Option<Mutex<Logger>>>`, `None`
+4. Stores the `Logger` in a global `OnceLock<Option<Mutex<Logger>>>`, `None`
    when logging is disabled or the file cannot be opened
-4. Writes an initialization log message with the configured level and max size
-5. Writes the backlog: the lines logged before `init()`, at or above the
+5. Writes an initialization log message with the configured level and max size
+6. Writes the backlog: the lines logged before `init()`, at or above the
    configured level, in the order they were logged
 
 Initialization is called once in `daemon_loop()` after loading configuration.
 The `OnceLock` ensures thread-safe single initialization.
+
+`init()` writes to the instance's log directory. `init_in(config, dir)` does the
+same with a directory of its own, which is how the tests in
+`crates/mosaico-core/tests/` (`log_early_lines.rs`, `log_disabled.rs`) keep
+their log away from the user's. Each of them runs in a process of its own, as
+the logger can only be set up once.
 
 ## Writing Logs
 

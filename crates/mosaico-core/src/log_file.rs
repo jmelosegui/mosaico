@@ -3,14 +3,14 @@
 use std::fmt;
 use std::fs::{self, File, OpenOptions};
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use super::{Level, LogConfig};
 
 const LOG_FILE_NAME: &str = "mosaico.log";
 const BACKUP_SUFFIX: &str = ".1";
 
-/// The open log file of this process's instance.
+/// The open log file.
 pub(super) struct Logger {
     file: File,
     path: PathBuf,
@@ -20,13 +20,12 @@ pub(super) struct Logger {
 }
 
 impl Logger {
-    /// Opens, or creates, the log file of this process's instance.
+    /// Opens, or creates, the log file in `log_dir`, creating the
+    /// directory if needed.
     ///
-    /// `None` when there is no instance or the file cannot be opened.
-    pub(super) fn open(config: &LogConfig, min_level: Level) -> Option<Self> {
-        let instance = crate::Instance::current().ok()?;
-        let log_dir = instance.log_dir();
-        let _ = fs::create_dir_all(&log_dir);
+    /// `None` when the file cannot be opened.
+    pub(super) fn open(config: &LogConfig, min_level: Level, log_dir: &Path) -> Option<Self> {
+        let _ = fs::create_dir_all(log_dir);
         let path = log_dir.join(LOG_FILE_NAME);
 
         let file = OpenOptions::new()

@@ -43,6 +43,9 @@ jobs:
       - name: Doc tests
         run: cargo test --doc
 
+      - name: Core integration tests
+        run: cargo test -p mosaico-core --test '*'
+
       - name: CLI tests
         run: cargo test -p mosaico --test cli
 
