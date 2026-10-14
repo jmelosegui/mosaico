@@ -12,6 +12,10 @@ pub fn execute(cx: &mut Context) -> Exit {
             return Exit::Success;
         }
         Err(IpcError::NotRunning) => {}
+        Err(IpcError::TimedOut) => {
+            say!(cx, "{}", request::NOT_RESPONDING);
+            return Exit::Success;
+        }
         Err(e) => {
             say!(cx, "Mosaico is running, but did not answer: {e}");
             return Exit::Success;

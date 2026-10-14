@@ -314,9 +314,15 @@ impl IpcConnection for PipeConnection {
 }
 
 /// What a failed wait for a busy pipe means for the client.
+///
+/// The pipe going away during the wait means the daemon exited, not
+/// that it stopped answering.
 fn busy_wait_failure(error: WIN32_ERROR) -> IpcError {
-    let _ = error;
-    IpcError::TimedOut
+    if error == ERROR_FILE_NOT_FOUND {
+        IpcError::NotRunning
+    } else {
+        IpcError::TimedOut
+    }
 }
 
 #[cfg(test)]
