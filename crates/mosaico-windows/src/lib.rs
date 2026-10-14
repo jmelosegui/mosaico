@@ -97,6 +97,9 @@ pub mod setup;
 /// Tiling manager that applies layouts to managed windows.
 pub mod tiling;
 
+/// The user's profile and local application data folders.
+pub mod user_dirs;
+
 /// Window type wrapping a Win32 `HWND`, which other crates reach only
 /// through the core contracts.
 mod window;
