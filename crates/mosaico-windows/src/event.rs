@@ -22,7 +22,14 @@ const OBJID_WINDOW: i32 = 0;
 /// events with non-zero `id_object` for their main window. For those
 /// event types we skip the filter and let downstream handlers
 /// (`is_tileable`) decide whether the window is real.
+///
+/// Reports that name no window are dropped first. The mouse pointer
+/// reports being shown and changing shape with a null handle, and the
+/// relaxed filter would pass those on as window `0x0`.
 pub(crate) fn translate(event: u32, hwnd: HWND, id_object: i32) -> Option<WindowEvent> {
+    if hwnd.is_invalid() {
+        return None;
+    }
     let is_window = id_object == OBJID_WINDOW;
     let window = crate::window::Window::new(hwnd).id();
 
