@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 /// - The id of a window does not change while the window exists.
 /// - An id may be reused once its window is gone, so it must not be
 ///   kept across sessions.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct WindowId(u64);
 
@@ -68,6 +68,14 @@ impl fmt::Display for WindowId {
     }
 }
 
+/// The printed id inside the type name, so a window reads the same in
+/// logs, `debug` output and test failures.
+impl fmt::Debug for WindowId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "WindowId({self})")
+    }
+}
+
 /// Identifies a connected monitor until the next display change.
 ///
 /// Opaque to the core: ids are compared, ordered, hashed and printed, so
@@ -80,7 +88,7 @@ impl fmt::Display for WindowId {
 ///
 /// - Two connected monitors never share an id.
 /// - The id of a monitor does not change between display changes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct MonitorId(u64);
 
 impl MonitorId {
@@ -103,9 +111,17 @@ impl MonitorId {
     }
 }
 
+/// Printed in hexadecimal, like window ids.
 impl fmt::Display for MonitorId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
+        write!(f, "0x{:X}", self.0)
+    }
+}
+
+/// The printed id inside the type name, as for [`WindowId`].
+impl fmt::Debug for MonitorId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "MonitorId({self})")
     }
 }
 
@@ -160,13 +176,25 @@ mod tests {
     }
 
     #[test]
-    fn monitor_id_round_trips() {
+    fn monitor_id_round_trips_and_prints_in_hex() {
         // Arrange
-        let id = MonitorId::from_raw(25362577);
+        let id = MonitorId::from_raw(0x1830091);
 
         // Act / Assert
-        assert_eq!(id.raw(), 25362577);
-        assert_eq!(id.to_string(), "25362577");
+        assert_eq!(id.raw(), 0x1830091);
+        assert_eq!(id.to_string(), "0x1830091");
+    }
+
+    #[test]
+    fn debug_shows_the_same_number_as_display() {
+        // Arrange
+        let window = WindowId::from_raw(0x4014E);
+        let monitor = MonitorId::from_raw(0x10001);
+
+        // Act / Assert
+        assert_eq!(format!("{window:?}"), "WindowId(0x4014E)");
+        assert_eq!(format!("{monitor:?}"), "MonitorId(0x10001)");
+        assert_eq!(format!("{:?}", Some(window)), "Some(WindowId(0x4014E))");
     }
 
     #[test]
