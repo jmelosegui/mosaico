@@ -1,11 +1,12 @@
 //! Picks the platform implementation of each core contract.
 //!
-//! Commands use the core traits through a [`Context`] built here, so
-//! supporting another OS means adding a branch to this file rather than
-//! touching every command.
+//! Commands use the core traits through a [`Context`] built here, and the
+//! daemon through a [`Startup`], so supporting another OS means adding a
+//! branch to this file rather than touching every command.
 
 use mosaico_core::Instance;
 use mosaico_core::event::EventSource;
+use mosaico_core::lifecycle::Startup;
 use mosaico_core::pid::PidFile;
 use mosaico_core::system::ProcessSetup;
 
@@ -54,6 +55,21 @@ pub fn run(command: impl FnOnce(&mut Context) -> Exit) -> Exit {
         err: &mut err,
     };
     command(&mut cx)
+}
+
+/// What the daemon of this instance starts and stops with: the real
+/// single instance lock, installer and executable, and the platform's
+/// daemon loop.
+#[cfg(target_os = "windows")]
+pub fn daemon_startup() -> Startup<'static> {
+    Startup {
+        instance: instance(),
+        lock: &mosaico_windows::instance_guard::NamedMutex,
+        installer: &mosaico_windows::install::RenameInstaller,
+        exe: std::env::current_exe().ok(),
+        pid: std::process::id(),
+        serve: &mosaico_windows::daemon::serve,
+    }
 }
 
 /// Where window events come from, for `debug events`.

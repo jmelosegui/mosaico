@@ -28,6 +28,8 @@ pub mod instance;
 pub mod ipc;
 /// Tiling layout trait and implementations.
 pub mod layout;
+/// Starting and stopping a daemon around its loop.
+pub mod lifecycle;
 /// Logging configuration and helpers.
 pub mod log;
 /// Platform-agnostic monitor identity and matching.

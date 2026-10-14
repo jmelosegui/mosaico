@@ -48,22 +48,22 @@ packaged and installed (`mosaico_core::update::Installer`), the logo, and
 the output and error streams. They return an `Exit` (`Success` or
 `Failure`), and only `main` calls `std::process::exit`.
 
-`crates/mosaico/src/platform.rs` builds the real context; it is the one place
-in the CLI that picks a platform implementation. Before any command runs,
-`main` sets the process up through `platform::init()`, which makes it DPI
-aware, so the coordinates commands move windows to or show match the daemon's.
-The unit tests build one from `commands/test_support.rs`, a fake `World`
-standing in for the daemon, processes, registry, program files, desktop,
-GitHub, the release installer and clock, and `commands/fake_desktop.rs`, a
-fake list of windows and monitors, so `start`, `stop`, `status`,
-`autostart`, `action`,
-`pause`, `update`, `debug move`, `debug list` and `doctor`'s autostart,
-daemon and monitor checks are tested without a daemon, a desktop or a
-network.
+`crates/mosaico/src/platform.rs` builds the real context, and the `Startup`
+that the `daemon` subcommand hands to `mosaico_core::lifecycle::run()`; it is
+the one place in the CLI that picks a platform implementation. Before any
+command runs, `main` sets the process up through `platform::init()`, which
+makes it DPI aware, so the coordinates commands move windows to or show match
+the daemon's. The unit tests build one from `commands/test_support.rs`, a
+fake `World` standing in for the daemon, processes, registry, program files,
+desktop, GitHub, the release installer and clock, and
+`commands/fake_desktop.rs`, a fake list of windows and monitors, so `start`,
+`stop`, `status`, `autostart`, `action`, `pause`, `update`, `debug move`,
+`debug list` and `doctor`'s autostart, daemon and monitor checks are tested
+without a daemon, a desktop or a network. `daemon` is tested with a fake lock
+and loop.
 
-Still calling the platform crate directly: `daemon` (it is the daemon), and
-`debug events`' Ctrl+C handler and window titles, which wait for the signal
-contract (#48). `debug events` gets its event source from
+Still calling the platform crate directly: `debug events`' Ctrl+C handler
+and window titles. `debug events` gets its event source from
 `platform::event_source()`.
 
 ### Key Types
@@ -231,6 +231,11 @@ mosaico unpause
 Runs the daemon in-process. This subcommand is hidden from `--help` output
 because users should use `mosaico start` instead. The `start` command
 re-spawns the binary with this subcommand as a detached process.
+
+It runs `mosaico_core::lifecycle::run()` (see [daemon.md](daemon.md)) and
+exits with status 1 after printing `Daemon error: <reason>` when the daemon
+cannot run, for example `Daemon error: Mosaico daemon is already running.`
+when another daemon of the instance holds the lock.
 
 ### `mosaico debug list`
 

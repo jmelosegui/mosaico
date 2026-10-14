@@ -160,7 +160,9 @@ fn main() {
     platform::init();
 
     let exit = match cli.command {
-        Commands::Daemon => commands::daemon::execute(),
+        Commands::Daemon => {
+            commands::daemon::execute(platform::daemon_startup(), &mut std::io::stderr())
+        }
         Commands::Debug {
             command: DebugCommands::Events,
         } => {

@@ -112,14 +112,14 @@ Four convenience macros are provided:
 - `log_error!(format, args...)` -- logs at `Error` level
 
 These are used throughout `tiling.rs` for window add/remove/event logging
-and in `daemon.rs` for startup/shutdown information.
+and in `mosaico_core::lifecycle` for startup/shutdown information.
 
 ## Where Errors Go
 
 The daemon runs without a console, so everything it reports goes through
 these macros: hotkeys that cannot be registered, a missing event sink window,
 a bar that cannot be created, and an error from the daemon loop, which
-`daemon::run()` logs before returning it. Errors before the loop, such as
+`lifecycle::run()` logs before returning it. Errors before the loop, such as
 another daemon holding the single instance lock, happen before the logger is
 set up, so they only reach `mosaico daemon`'s standard error.
 

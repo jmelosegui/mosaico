@@ -25,7 +25,7 @@ use super::daemon_types::DaemonMsg;
 /// thread's Win32 message queue again.
 const PUMP_INTERVAL: std::time::Duration = std::time::Duration::from_millis(50);
 
-/// The inner daemon loop, separated so cleanup always runs in `run()`.
+/// The inner daemon loop, separated so the cleanup in `lifecycle::run` always runs.
 ///
 /// This thread owns the bar and border windows, so it has to pump its Win32
 /// message queue. Windows classifies every window whose owning thread is not
