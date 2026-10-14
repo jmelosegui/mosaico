@@ -171,10 +171,7 @@ fn main() {
         }
         Commands::Debug {
             command: DebugCommands::Move(args),
-        } => {
-            commands::debug::move_window::execute(&args);
-            Exit::Success
-        }
+        } => platform::run_on_desktop(|cx| commands::debug::move_window::execute(cx, &args)),
         command => platform::run(|cx| run(cx, command)),
     };
     std::process::exit(exit.code());

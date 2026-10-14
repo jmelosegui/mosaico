@@ -49,7 +49,7 @@ This command is useful for:
 - Verifying which windows Mosaico would manage
 - Checking window class names for writing rules
 - Confirming DWM border offsets
-- Identifying HWND values for `debug move`
+- Finding window ids for `debug move`
 
 ## `mosaico debug events`
 
@@ -84,28 +84,30 @@ The `ctrlc` crate is used to register a signal handler. On Ctrl+C, the handler
 calls `EventLoopHandle::stop()`, which posts `WM_QUIT` to the event loop
 thread, causing a clean exit.
 
-## `mosaico debug move <hwnd> <x> <y> <width> <height>`
+## `mosaico debug move --window <id> --x <x> --y <y> --w <width> --h <height>`
 
 Moves a specific window to exact pixel coordinates.
 
 ### Arguments
 
-- `hwnd` -- Window handle in decimal or `0x` hex format
-- `x`, `y` -- Target position
-- `width`, `height` -- Target dimensions
+- `--window` -- Window id as `debug list` shows it (`0x` hex), or the same
+  number in decimal. `--hwnd` is still accepted for it
+- `--x`, `--y` -- Target position of the window's visible frame
+- `--w`, `--h` -- Target width and height
 
 ### Behavior
 
 1. Enables DPI awareness
-2. Parses the HWND (supports `0x` prefix for hex)
-3. Creates a `Window` from the raw handle
-4. Calls `set_rect()` with the specified rectangle (includes invisible frame
-   compensation)
-5. Reports success with the window title
+2. Reads the id with `WindowId::parse`. Anything else is refused with exit
+   status 1
+3. Calls `WindowControl::place` with the rectangle (on Windows this includes
+   invisible frame compensation)
+4. Prints `Done.`, or the error with exit status 1 when the window cannot be
+   moved
 
 This command is useful for:
 - Testing window positioning with frame compensation
-- Verifying that `set_rect()` produces the expected visual result
+- Verifying that a placement produces the expected visual result
 - Manually arranging a specific window for debugging
 
 ## `mosaico doctor`
@@ -145,5 +147,7 @@ colored status tags:
   "Managed" status.
 - `debug events` runs without hotkeys to avoid interfering with the running
   daemon's hotkey registrations.
-- `debug move` uses the same `Window::set_rect()` code path as the tiling
-  manager, so it accurately represents how the daemon positions windows.
+- `debug move` places the window through `WindowControl::place`, the same
+  call the tiler's placements end in, so it accurately represents how the
+  daemon positions windows. Unlike the tiler it does not skip a window that
+  is already in place, and does not repaint the window afterwards.

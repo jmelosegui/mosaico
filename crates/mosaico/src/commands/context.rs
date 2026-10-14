@@ -1,15 +1,16 @@
 //! What a command needs from the outside world.
 //!
 //! Commands take a [`Context`] instead of reaching for the daemon, the
-//! process table, the registry, the clock or the terminal directly, and
-//! return an [`Exit`] instead of ending the process. `main` builds the
-//! real context and turns the exit into a status code; the unit tests
-//! build one from fakes.
+//! process table, the registry, the desktop, the clock or the terminal
+//! directly, and return an [`Exit`] instead of ending the process.
+//! `main` builds the real context and turns the exit into a status code;
+//! the unit tests build one from fakes.
 
 use std::io::Write;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
+use mosaico_core::WindowControl;
 use mosaico_core::ipc::{Command, IpcClient, IpcError, Response};
 use mosaico_core::pid::PidFile;
 use mosaico_core::system::{Autostart, ProcessControl};
@@ -85,6 +86,13 @@ pub struct Context<'a> {
     pub processes: &'a dyn ProcessControl,
     /// Start at login.
     pub autostart: &'a dyn Autostart,
+    /// Moving windows on the desktop.
+    ///
+    /// Positions and sizes are in the coordinates the daemon works in
+    /// only when the command runs through `platform::run_on_desktop`,
+    /// which makes the process DPI aware first. Without it, a window
+    /// placed on a scaled monitor lands in the wrong place.
+    pub windows: &'a dyn WindowControl,
     /// Where the daemon records its process id.
     pub pid_file: PidFile,
     /// The instance's config directory, for telling the user.

@@ -138,7 +138,8 @@ Displays a formatted table of all visible windows showing:
 Streams real-time window events to stdout. Press `Ctrl+C` to stop. Useful
 for understanding how Mosaico reacts to window changes.
 
-## `mosaico debug move <hwnd> <x> <y> <width> <height>`
+## `mosaico debug move --window <id> --x <x> --y <y> --w <width> --h <height>`
 
-Moves a specific window to exact pixel coordinates. The HWND can be provided
-in decimal or `0x` hex format. Useful for testing window positioning.
+Moves a specific window to exact pixel coordinates. The id is the one
+`mosaico debug list` shows (`0x` hex), or the same number in decimal; `--hwnd`
+still works in place of `--window`. Useful for testing window positioning.

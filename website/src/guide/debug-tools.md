@@ -66,8 +66,11 @@ and diagnosing timing issues.
 Moves a specific window to exact coordinates:
 
 ```sh
-mosaico debug move 0x1A2B3C 100 200 800 600
+mosaico debug move --window 0x1A2B3C --x 100 --y 200 --w 800 --h 600
 ```
 
-Arguments: `<hwnd> <x> <y> <width> <height>`. The HWND can be in decimal
-or `0x` hex format (use `debug list` to find it).
+`--window` is the id `debug list` shows (`0x` hex), or the same number in
+decimal; `--hwnd` still works in its place. `--x` and `--y` are where the
+window's visible frame goes, `--w` and `--h` its width and height. The
+command exits with status 1 when the id is not a window id or the window
+cannot be moved.
