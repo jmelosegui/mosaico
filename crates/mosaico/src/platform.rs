@@ -5,6 +5,7 @@
 //! branch to this file rather than touching every command.
 
 use mosaico_core::Instance;
+use mosaico_core::config::ConfigStore;
 use mosaico_core::event::EventSource;
 use mosaico_core::instance::InstanceError;
 use mosaico_core::lifecycle::Startup;
@@ -55,7 +56,7 @@ pub fn run(command: impl FnOnce(&mut Context) -> Exit) -> Exit {
         current_exe: &std::env::current_exe,
         files: &mosaico_windows::files::WindowsFiles,
         pid_file: PidFile::new(instance.pid_path()),
-        config_dir: instance.config_dir().to_path_buf(),
+        config: ConfigStore::for_instance(instance),
         clock: &SystemClock,
         http: &mosaico_windows::http::WinHttpClient,
         installer: &mosaico_windows::install::RenameInstaller,

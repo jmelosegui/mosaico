@@ -3,7 +3,7 @@ use std::sync::mpsc;
 use std::time::Instant;
 
 use mosaico_core::Result;
-use mosaico_core::config;
+use mosaico_core::config::ConfigStore;
 use mosaico_core::ipc::Command;
 use mosaico_core::tiler::Enumerator;
 use windows::Win32::UI::WindowsAndMessaging::{
@@ -26,6 +26,7 @@ use super::daemon_types::DaemonMsg;
 const PUMP_INTERVAL: std::time::Duration = std::time::Duration::from_millis(50);
 
 /// The inner daemon loop, separated so the cleanup in `lifecycle::run` always runs.
+/// It reads and watches the config files in `store`.
 ///
 /// This thread owns the bar and border windows, so it has to pump its Win32
 /// message queue. Windows classifies every window whose owning thread is not
@@ -34,19 +35,19 @@ const PUMP_INTERVAL: std::time::Duration = std::time::Duration::from_millis(50);
 /// desktop compositor paints an opaque ghost over what should be a
 /// transparent layered bar. Draining the queue on every iteration, and on
 /// every wait timeout, keeps those windows classified as alive.
-pub(super) fn daemon_loop(pipe_name: &str) -> Result<()> {
+pub(super) fn daemon_loop(pipe_name: &str, store: &ConfigStore) -> Result<()> {
     // Append any missing top-level config sections introduced by newer
     // versions of mosaico (e.g. [workspaces]) before loading, so the
     // user's config.toml visibly tracks the latest schema.
-    config::merge_missing_config_sections();
+    store.merge_missing_config_sections();
 
     // Whatever was logged so far, including problems with the config,
     // waits for the logger, which needs the config to start.
-    let config = config::load();
+    let config = store.load_config();
     mosaico_core::log::init(&config.logging);
 
-    let keybindings = config::merge_missing_keybindings();
-    let rules = config::load_merged_rules();
+    let keybindings = store.merge_missing_keybindings();
+    let rules = store.load_merged_rules();
 
     mosaico_core::log_info!(
         "Config: layout(gap={}, ratio={}), borders(width={}), log_level={}",
@@ -58,7 +59,7 @@ pub(super) fn daemon_loop(pipe_name: &str) -> Result<()> {
 
     let mut current_theme = config.theme.resolve();
 
-    let bar_config = config::merge_missing_bar_widgets();
+    let bar_config = store.merge_missing_bar_widgets();
     let monitor_rects: Vec<_> = WindowsEnumerator
         .monitors()?
         .iter()
@@ -86,7 +87,7 @@ pub(super) fn daemon_loop(pipe_name: &str) -> Result<()> {
     let update_text = daemon_threads::spawn_version_check(WinHttpClient);
 
     // Background community-rules download — updates cached rules.toml.
-    daemon_threads::spawn_rules_download(WinHttpClient, config::rules_path(), tx.clone());
+    daemon_threads::spawn_rules_download(WinHttpClient, store.clone(), tx.clone());
 
     let get_update = || update_text.lock().map_or(String::new(), |t| t.clone());
     bar_mgr.update(&manager.bar_states(&get_update(), false));
@@ -118,7 +119,7 @@ pub(super) fn daemon_loop(pipe_name: &str) -> Result<()> {
 
     // Start the config file watcher on its own thread.
     let (watcher_stop, watcher_thread, reload_bridge) =
-        daemon_threads::spawn_config_watcher(tx.clone());
+        daemon_threads::spawn_config_watcher(tx.clone(), store.clone());
 
     // 1-second tick for bar system widget refresh (clock, RAM).
     let tick_thread = daemon_threads::spawn_tick_thread(tx.clone(), watcher_stop.clone());

@@ -134,8 +134,8 @@ while loading it go to both places: to standard error, where commands such as
 `mosaico doctor` and `mosaico debug list` have always shown them as
 `Warning: ...` and `Info: ...` lines, and to the log. That covers a file that
 cannot be read or parsed and falls back to defaults, a `[workspaces.layouts]`
-key that is not a workspace number, and a migrated legacy section. The
-`merge_missing_*` helpers, which only the daemon calls, log alone. CLI
+key that is not a workspace number, and a migrated legacy section. The store's
+`merge_missing_*` methods, which only the daemon calls, log alone. CLI
 commands keep printing their own messages to the terminal.
 
 ## Design Decisions

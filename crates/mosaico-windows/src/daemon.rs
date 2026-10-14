@@ -1,3 +1,4 @@
+use mosaico_core::config::ConfigStore;
 use mosaico_core::{Instance, Result};
 
 #[path = "daemon_inputs.rs"]
@@ -20,11 +21,11 @@ mod daemon_types;
 /// `instance` must be the instance this process resolved at startup, the
 /// one [`Instance::current`] returns. The pipe comes from `instance`, as
 /// do the lock and the PID file [`mosaico_core::lifecycle::run`] holds,
-/// but the loop finds the config, the logs, the record of hidden windows,
-/// the config watcher and the community rules through
-/// [`Instance::current`]. A loop run on another instance would mix the
-/// files of both, so it fails with `InstanceError::NotCurrent` before it
-/// starts.
+/// and the config files, which the loop reads, watches and updates
+/// through the instance's [`ConfigStore`]. But the loop finds the logs
+/// and the record of hidden windows through [`Instance::current`]. A loop
+/// run on another instance would mix the files of both, so it fails with
+/// `InstanceError::NotCurrent` before it starts.
 ///
 /// This is the Windows part of the daemon, which
 /// [`mosaico_core::lifecycle::run`] runs while it holds the instance's
@@ -36,7 +37,8 @@ mod daemon_types;
 /// command, so the daemon sees the desktop in physical pixels.
 pub fn serve(instance: &Instance) -> Result<()> {
     instance.require_current()?;
-    daemon_loop::daemon_loop(&crate::ipc::pipe_name(instance))
+    let store = ConfigStore::for_instance(instance);
+    daemon_loop::daemon_loop(&crate::ipc::pipe_name(instance), &store)
 }
 
 // ipc_loop moved to daemon_ipc.rs

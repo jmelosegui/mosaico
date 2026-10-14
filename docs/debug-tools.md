@@ -135,9 +135,9 @@ colored status tags:
 
 ### Checks Performed
 
-1. **Config directory** -- verifies `~/.config/mosaico/` exists; creates it
-   if missing (`[fixed]`)
-2. **config.toml** -- validates TOML syntax via `try_load()`
+1. **Config directory** -- verifies the instance's config directory
+   (`~/.config/mosaico/` by default) exists; creates it if missing (`[fixed]`)
+2. **config.toml** -- validates TOML syntax via `ConfigStore::try_load_config()`
 3. **keybindings.toml** -- validates syntax via `try_load_keybindings()`
 4. **Keybinding key codes** -- loads all keybindings and checks each key
    name with `Keybinding::combo()`, the check the daemon uses; reports the

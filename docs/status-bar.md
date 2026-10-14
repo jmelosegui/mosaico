@@ -142,12 +142,15 @@ monitors on each render cycle.
 
 ## Widget Auto-Merge
 
-On daemon startup, `merge_missing_bar_widgets()` compares the widget types
-present in the user's `bar.toml` against the built-in defaults. Any widget
-type not already present is appended to the file automatically, so new widgets
-added in future versions are picked up without requiring users to edit their
-config. The comparison uses `std::mem::discriminant` (enum variant identity)
-so a user who intentionally removes a widget type will not have it re-added.
+On daemon startup, `ConfigStore::merge_missing_bar_widgets()` compares the
+widget types present in the user's `bar.toml` against the built-in defaults.
+Any widget type not already present is appended to the file automatically, so
+new widgets added in future versions are picked up without requiring users to
+edit their config. The comparison uses `std::mem::discriminant` (enum variant
+identity) on each side, `[[left]]` and `[[right]]`, so a widget the user
+configured differently is not added twice. A default widget type removed from
+its side is added back on the next start; to hide a widget, set
+`enabled = false` on it instead.
 
 ## Bar Manager
 

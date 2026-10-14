@@ -140,7 +140,8 @@ fields.
 
 ### Config Loading Pipeline
 
-1. `load()` reads `config.toml` including the `[theme]` section
+1. `ConfigStore::load_config()` reads `config.toml` including the `[theme]`
+   section
 2. `Config::validate()` calls `theme.resolve()` to get the concrete `Theme`
 3. `validate()` calls `resolve_borders()` which fills border colors from
    the theme

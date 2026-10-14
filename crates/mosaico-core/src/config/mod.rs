@@ -6,7 +6,8 @@ mod color;
 mod hiding_behaviour;
 /// Keybinding definitions and defaults.
 pub mod keybinding;
-/// Configuration file loading and path resolution.
+/// The config files of an instance: where they are, and loading,
+/// merging and migrating them.
 mod loader;
 /// Color palette definitions for themes.
 mod palette;
@@ -27,12 +28,7 @@ pub use bar::{BarColors, BarConfig, WidgetConfig};
 pub use color::Color;
 pub use hiding_behaviour::HidingBehaviour;
 pub use keybinding::{Keybinding, Modifier};
-pub use loader::{
-    bar_path, config_dir, config_path, keybindings_path, load, load_bar, load_keybindings,
-    load_merged_rules, load_rules, load_user_rules, merge_missing_bar_widgets,
-    merge_missing_config_sections, merge_missing_keybindings, rules_path, try_load, try_load_bar,
-    try_load_keybindings, try_load_rules, try_load_user_rules, user_rules_path,
-};
+pub use loader::ConfigStore;
 pub use rules::{WindowRule, default_rules, matching_rule, should_manage, validate_rules};
 pub use theme::{CatppuccinFlavor, RosePineFlavor, Theme, ThemeConfig, TokyoNightFlavor};
 pub use types::*;

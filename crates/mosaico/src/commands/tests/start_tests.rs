@@ -29,7 +29,8 @@ fn starts_the_daemon_and_shows_where_its_config_lives() {
     assert_eq!(exit, Exit::Success);
     let out = h.out();
     assert!(out.contains("Started (PID: \x1b[1;97m4321"), "{out}");
-    assert!(out.contains("C:\\config\\mosaico"), "{out}");
+    let config_dir = h.config.dir().display().to_string();
+    assert!(out.contains(&config_dir), "{out}");
 }
 
 #[test]

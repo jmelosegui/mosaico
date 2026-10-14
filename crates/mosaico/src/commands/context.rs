@@ -11,6 +11,7 @@ use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 use mosaico_core::WindowControl;
+use mosaico_core::config::ConfigStore;
 use mosaico_core::http::HttpClient;
 use mosaico_core::ipc::{Command, IpcClient, IpcError, Response};
 use mosaico_core::pid::PidFile;
@@ -111,8 +112,8 @@ pub struct Context<'a> {
     pub files: &'a dyn FileProbe,
     /// Where the daemon records its process id.
     pub pid_file: PidFile,
-    /// The instance's config directory, for telling the user.
-    pub config_dir: PathBuf,
+    /// The instance's config files.
+    pub config: ConfigStore,
     /// Time, for polling.
     pub clock: &'a dyn Clock,
     /// The web, for looking up and downloading releases.

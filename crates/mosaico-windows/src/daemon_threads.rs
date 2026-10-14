@@ -1,4 +1,3 @@
-use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -6,8 +5,9 @@ use std::sync::mpsc;
 use std::thread;
 
 use mosaico_core::Action;
+use mosaico_core::config::ConfigStore;
 use mosaico_core::http::HttpClient;
-use mosaico_core::{community_rules, config, update};
+use mosaico_core::{community_rules, update};
 
 use crate::config_watcher::ConfigReload;
 
@@ -33,21 +33,18 @@ pub(super) fn spawn_version_check(http: impl HttpClient + Send + 'static) -> Arc
     update_text
 }
 
-/// Spawns a background thread that downloads the community rules to
-/// `cache` and then reloads the merged rules.
+/// Spawns a background thread that downloads the community rules to the
+/// `rules.toml` of `store` and then reloads the merged rules.
 ///
-/// Without a `cache` there is nowhere to keep them, so nothing is
-/// downloaded. The thread takes `http` with it, so the client must be
-/// `Send`.
+/// The thread takes `http` with it, so the client must be `Send`.
 pub(super) fn spawn_rules_download(
     http: impl HttpClient + Send + 'static,
-    cache: Option<PathBuf>,
+    store: ConfigStore,
     tx: mpsc::Sender<DaemonMsg>,
 ) {
     thread::spawn(move || {
-        let Some(cache) = cache else { return };
-        if community_rules::download(&http, COMMUNITY_RULE_SET, &cache).is_ok() {
-            let rules = config::load_merged_rules();
+        if community_rules::download(&http, COMMUNITY_RULE_SET, &store.rules_path()).is_ok() {
+            let rules = store.load_merged_rules();
             let _ = tx.send(DaemonMsg::Reload(Box::new(ConfigReload::Rules(rules))));
         }
     });
@@ -90,9 +87,11 @@ pub(super) fn spawn_ipc_listener(
     thread::spawn(move || daemon_ipc::ipc_loop(tx, pipe_name))
 }
 
-/// Spawns the config watcher thread and a bridge into the daemon channel.
+/// Spawns the watcher of the config files in `store` and a bridge into
+/// the daemon channel.
 pub(super) fn spawn_config_watcher(
     tx: mpsc::Sender<DaemonMsg>,
+    store: ConfigStore,
 ) -> (
     Arc<AtomicBool>,
     thread::JoinHandle<()>,
@@ -102,7 +101,7 @@ pub(super) fn spawn_config_watcher(
     let watcher_stop = Arc::new(AtomicBool::new(false));
     let watcher_stop_flag = watcher_stop.clone();
     let watcher_thread =
-        thread::spawn(move || crate::config_watcher::watch(reload_tx, watcher_stop_flag));
+        thread::spawn(move || crate::config_watcher::watch(&store, reload_tx, watcher_stop_flag));
 
     let reload_bridge = thread::spawn(move || {
         for reload in reload_rx {

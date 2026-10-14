@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use serde::de::DeserializeOwned;
 
-use crate::{Error, Result};
+use crate::{Error, Instance, Result};
 
 use super::bar::BarConfig;
 use super::keybinding;
@@ -11,63 +11,92 @@ use super::report;
 use super::rules::{KeybindingsFile, RulesFile, UserRulesFile};
 use super::{Config, Keybinding, WindowRule, default_rules};
 
-/// Returns the config directory of this process's [`Instance`](crate::Instance),
-/// or `None` before the instance is resolved.
-pub fn config_dir() -> Option<PathBuf> {
-    crate::Instance::current().map(|instance| instance.config_dir().to_path_buf())
-}
-
-/// Returns the config file path: `config.toml` in [`config_dir`].
-pub fn config_path() -> Option<PathBuf> {
-    config_dir().map(|d| d.join("config.toml"))
-}
-
-/// Returns the keybindings file path: `keybindings.toml` in [`config_dir`].
-pub fn keybindings_path() -> Option<PathBuf> {
-    config_dir().map(|d| d.join("keybindings.toml"))
-}
-
-/// Returns the rules file path: `rules.toml` in [`config_dir`].
-pub fn rules_path() -> Option<PathBuf> {
-    config_dir().map(|d| d.join("rules.toml"))
-}
-
-/// Returns the user rules file path: `user-rules.toml` in [`config_dir`].
-pub fn user_rules_path() -> Option<PathBuf> {
-    config_dir().map(|d| d.join("user-rules.toml"))
-}
-
-/// Returns the bar config file path: `bar.toml` in [`config_dir`].
-pub fn bar_path() -> Option<PathBuf> {
-    config_dir().map(|d| d.join("bar.toml"))
-}
-
-/// Tries to load and parse `config.toml`.
+/// The config files of one instance, all kept in one directory.
 ///
-/// Returns `Ok(Config)` on success, or an [`Error::Config`] naming the
-/// file and what went wrong (IO error, parse error, etc.).
+/// Every operation reads and writes files in [`dir`](Self::dir) and
+/// nowhere else, so a store on a temporary directory exercises loading,
+/// merging and migrating without touching the user's files. The daemon
+/// and the CLI use [`ConfigStore::for_instance`].
 ///
-/// If a legacy `[layout.workspaces]` section is detected, the file is
-/// backed up and rewritten in place to the new `[workspaces.layouts]`
-/// shape before parsing.
-///
-/// # Errors
-///
-/// Returns `Err` if the config path cannot be determined, the file
-/// cannot be read, or the TOML content is invalid.
-pub fn try_load() -> Result<Config> {
-    let path =
-        config_path().ok_or_else(|| Error::config(None, "could not determine config path"))?;
-    let content = read_file(&path)?;
+/// A missing file is never created: loading it gives the defaults and
+/// merging into it does nothing. Two kinds of operation change files
+/// that exist: loading `config.toml` rewrites keys from older versions
+/// after saving a backup next to it, and the `merge_missing_*` methods
+/// add what newer versions introduced, appending it or, for the
+/// `unfocused` border color, inserting it into `[borders.colors]`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ConfigStore {
+    dir: PathBuf,
+}
 
-    let content = match migrate_config_if_needed(&path, &content)? {
-        Some(rewritten) => rewritten,
-        None => content,
-    };
+impl ConfigStore {
+    /// A store for the config files in `dir`.
+    pub fn new(dir: impl Into<PathBuf>) -> Self {
+        Self { dir: dir.into() }
+    }
 
-    let mut config: Config = parse_toml(&path, &content)?;
-    config.validate();
-    Ok(config)
+    /// The store of `instance`, on the files in its config directory.
+    pub fn for_instance(instance: &Instance) -> Self {
+        Self::new(instance.config_dir())
+    }
+
+    /// The directory holding the files.
+    pub fn dir(&self) -> &Path {
+        &self.dir
+    }
+
+    /// `config.toml`: theme, layout, workspaces, borders, mouse and logging.
+    pub fn config_path(&self) -> PathBuf {
+        self.dir.join("config.toml")
+    }
+
+    /// `keybindings.toml`: the hotkeys.
+    pub fn keybindings_path(&self) -> PathBuf {
+        self.dir.join("keybindings.toml")
+    }
+
+    /// `rules.toml`: the community window rules the daemon downloads.
+    pub fn rules_path(&self) -> PathBuf {
+        self.dir.join("rules.toml")
+    }
+
+    /// `user-rules.toml`: the user's own window rules.
+    pub fn user_rules_path(&self) -> PathBuf {
+        self.dir.join("user-rules.toml")
+    }
+
+    /// `bar.toml`: the status bar.
+    pub fn bar_path(&self) -> PathBuf {
+        self.dir.join("bar.toml")
+    }
+}
+
+impl ConfigStore {
+    /// Loads and parses `config.toml`, then clamps its values with
+    /// [`Config::validate`].
+    ///
+    /// If the file still has keys from older versions
+    /// (`[layout.workspaces]`, or `focused` / `monocle` directly under
+    /// `[borders]`), it is backed up and rewritten in place to the
+    /// current shape before parsing.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`Error::Config`] naming the file if it cannot be
+    /// read, cannot be migrated, or is not valid TOML for a [`Config`].
+    pub fn try_load_config(&self) -> Result<Config> {
+        let path = self.config_path();
+        let content = read_file(&path)?;
+
+        let content = match migrate_config_if_needed(&path, &content)? {
+            Some(rewritten) => rewritten,
+            None => content,
+        };
+
+        let mut config: Config = parse_toml(&path, &content)?;
+        config.validate();
+        Ok(config)
+    }
 }
 
 /// Detects and applies all legacy -> current schema migrations:
@@ -224,12 +253,19 @@ fn backup_path(path: &Path) -> PathBuf {
     base
 }
 
-/// Loads the configuration from disk, falling back to defaults.
-///
-/// After loading, values are clamped to safe ranges via [`Config::validate`].
-/// Non-existent files silently return defaults; other IO errors are logged.
-pub fn load() -> Config {
-    load_or_default(config_path(), try_load, Config::default)
+impl ConfigStore {
+    /// Loads `config.toml` like [`try_load_config`](Self::try_load_config),
+    /// falling back to the defaults.
+    ///
+    /// A missing file silently gives the defaults; any other failure is
+    /// reported as a warning, on standard error and in the log.
+    pub fn load_config(&self) -> Config {
+        load_or_default(
+            &self.config_path(),
+            || self.try_load_config(),
+            Config::default,
+        )
+    }
 }
 
 /// Snippet appended to `config.toml` when the `[workspaces]` section is
@@ -250,40 +286,50 @@ mode = "per-monitor"
 # 3 = "three-column"
 "##;
 
-/// Appends a documented `[workspaces]` section to `config.toml` when the
-/// user's file is missing it.
-///
-/// Mirrors [`merge_missing_keybindings`] and [`merge_missing_bar_widgets`]:
-/// new top-level sections introduced by future versions of mosaico are
-/// appended as commented or default-valued blocks so users discover them
-/// without losing their existing customizations.
-///
-/// No-op when the file does not exist (a brand-new install will get the
-/// full section from `mosaico init`'s template). Errors are logged and
-/// swallowed -- failure here must not prevent the daemon from starting.
-/// Only the daemon calls this, so it reports to the log alone.
-pub fn merge_missing_config_sections() {
-    let path = match config_path() {
-        Some(p) if p.exists() => p,
-        _ => return,
-    };
+impl ConfigStore {
+    /// Adds what newer versions of mosaico introduced to `config.toml`:
+    ///
+    /// - A documented `[workspaces]` section, appended when the file has
+    ///   none.
+    /// - The `unfocused` border color. When `[borders.colors]` is an
+    ///   active table without the key, `unfocused = ""` is inserted into
+    ///   it under a comment, which rewrites the file in place without a
+    ///   backup. Otherwise a comment block about it is appended, unless
+    ///   the file already mentions `unfocused` anywhere.
+    ///
+    /// Mirrors [`merge_missing_keybindings`](Self::merge_missing_keybindings)
+    /// and [`merge_missing_bar_widgets`](Self::merge_missing_bar_widgets):
+    /// what future versions of mosaico introduce is added as commented or
+    /// default-valued entries so users discover it without losing their
+    /// existing customizations.
+    ///
+    /// No-op when the file does not exist (a brand-new install will get the
+    /// full section from `mosaico init`'s template). Errors are logged and
+    /// swallowed -- failure here must not prevent the daemon from starting.
+    /// Only the daemon calls this, so it reports to the log alone.
+    pub fn merge_missing_config_sections(&self) {
+        let path = self.config_path();
+        if !path.exists() {
+            return;
+        }
 
-    match append_missing_workspaces_section(&path) {
-        Ok(true) => crate::log_info!(
-            "Appended [workspaces] section to {} (new in this version)",
-            path.display()
-        ),
-        Ok(false) => {}
-        Err(e) => crate::log_warn!("Could not add the [workspaces] section: {e}"),
-    }
+        match append_missing_workspaces_section(&path) {
+            Ok(true) => crate::log_info!(
+                "Appended [workspaces] section to {} (new in this version)",
+                path.display()
+            ),
+            Ok(false) => {}
+            Err(e) => crate::log_warn!("Could not add the [workspaces] section: {e}"),
+        }
 
-    match append_missing_unfocused_border_hint(&path) {
-        Ok(true) => crate::log_info!(
-            "Appended unfocused border hint to {} (new in this version)",
-            path.display()
-        ),
-        Ok(false) => {}
-        Err(e) => crate::log_warn!("Could not add the unfocused border hint: {e}"),
+        match append_missing_unfocused_border_hint(&path) {
+            Ok(true) => crate::log_info!(
+                "Appended unfocused border hint to {} (new in this version)",
+                path.display()
+            ),
+            Ok(false) => {}
+            Err(e) => crate::log_warn!("Could not add the unfocused border hint: {e}"),
+        }
     }
 }
 
@@ -308,7 +354,7 @@ const UNFOCUSED_BORDER_HINT_SNIPPET: &str = r##"
 #   unfocused = "none"
 "##;
 
-/// Path-pure helper for [`merge_missing_config_sections`]: returns
+/// Path-pure helper for [`ConfigStore::merge_missing_config_sections`]: returns
 /// `Ok(true)` when an append happened, `Ok(false)` when the file already
 /// has a `[workspaces]` section.
 fn append_missing_workspaces_section(path: &Path) -> Result<bool> {
@@ -423,96 +469,96 @@ fn insert_unfocused_into_active_section(
     Ok(Some(doc.to_string()))
 }
 
-/// Tries to load and parse `keybindings.toml`.
-///
-/// Returns the parsed keybindings or an [`Error::Config`] naming the
-/// file.
-///
-/// # Errors
-///
-/// Returns `Err` if the keybindings path cannot be determined, the file
-/// cannot be read, or the TOML content is invalid.
-pub fn try_load_keybindings() -> Result<Vec<Keybinding>> {
-    let path = keybindings_path()
-        .ok_or_else(|| Error::config(None, "could not determine keybindings path"))?;
-    let file: KeybindingsFile = load_toml(&path)?;
-    Ok(file.keybinding)
-}
+impl ConfigStore {
+    /// Loads and parses `keybindings.toml`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`Error::Config`] naming the file if it cannot be
+    /// read or is not valid TOML for a keybindings file.
+    pub fn try_load_keybindings(&self) -> Result<Vec<Keybinding>> {
+        let file: KeybindingsFile = load_toml(&self.keybindings_path())?;
+        Ok(file.keybinding)
+    }
 
-/// Loads keybindings from `~/.config/mosaico/keybindings.toml`.
-///
-/// Falls back to the built-in defaults if the file is missing or invalid.
-pub fn load_keybindings() -> Vec<Keybinding> {
-    load_or_default(
-        keybindings_path(),
-        try_load_keybindings,
-        keybinding::defaults,
-    )
-}
+    /// Loads `keybindings.toml`, falling back to the built-in defaults.
+    ///
+    /// A missing file silently gives the defaults; any other failure is
+    /// reported as a warning, on standard error and in the log.
+    pub fn load_keybindings(&self) -> Vec<Keybinding> {
+        load_or_default(
+            &self.keybindings_path(),
+            || self.try_load_keybindings(),
+            keybinding::defaults,
+        )
+    }
 
-/// Loads keybindings and appends any missing defaults to the user's file.
-///
-/// Compares the user's configured actions against the built-in defaults.
-/// Any default action not already bound by the user is appended to the
-/// keybindings file so new bindings from future versions are picked up
-/// automatically, without overwriting anything the user has configured.
-///
-/// Falls back to `load_keybindings()` if the file cannot be read or written.
-/// Only the daemon calls this, so it reports to the log alone.
-pub fn merge_missing_keybindings() -> Vec<Keybinding> {
-    let path = match keybindings_path() {
-        Some(p) if p.exists() => p,
-        _ => return load_keybindings(),
-    };
-
-    let user = match try_load_keybindings() {
-        Ok(kb) => kb,
-        Err(e) => {
-            crate::log_warn!("Using the default keybindings: {e}");
-            return keybinding::defaults();
+    /// Loads keybindings and appends any missing defaults to the user's file.
+    ///
+    /// Compares the user's configured actions against the built-in defaults.
+    /// Any default action not already bound by the user is appended to the
+    /// keybindings file so new bindings from future versions are picked up
+    /// automatically, without overwriting anything the user has configured.
+    ///
+    /// Without a file, returns the defaults and creates nothing. When the
+    /// file cannot be parsed, returns the defaults and leaves it alone.
+    /// When appending fails, returns what the file has.
+    /// Only the daemon calls this, so it reports to the log alone.
+    pub fn merge_missing_keybindings(&self) -> Vec<Keybinding> {
+        let path = self.keybindings_path();
+        if !path.exists() {
+            return self.load_keybindings();
         }
-    };
 
-    let defaults = keybinding::defaults();
-    let missing: Vec<&Keybinding> = defaults
-        .iter()
-        .filter(|d| !user.iter().any(|u| u.action == d.action))
-        .collect();
+        let user = match self.try_load_keybindings() {
+            Ok(kb) => kb,
+            Err(e) => {
+                crate::log_warn!("Using the default keybindings: {e}");
+                return keybinding::defaults();
+            }
+        };
 
-    if missing.is_empty() {
-        return user;
-    }
+        let defaults = keybinding::defaults();
+        let missing: Vec<&Keybinding> = defaults
+            .iter()
+            .filter(|d| !user.iter().any(|u| u.action == d.action))
+            .collect();
 
-    // Append missing bindings to the file.
-    let mut addition =
-        String::from("\n# Added automatically — new defaults from this version of mosaico\n");
-    for kb in &missing {
-        addition.push_str(&keybinding_toml_entry(kb));
-    }
+        if missing.is_empty() {
+            return user;
+        }
 
-    match std::fs::OpenOptions::new().append(true).open(&path) {
-        Ok(mut f) => {
-            use std::io::Write;
-            if let Err(e) = f.write_all(addition.as_bytes()) {
-                crate::log_warn!("Could not append missing keybindings: {e}");
+        // Append missing bindings to the file.
+        let mut addition =
+            String::from("\n# Added automatically — new defaults from this version of mosaico\n");
+        for kb in &missing {
+            addition.push_str(&keybinding_toml_entry(kb));
+        }
+
+        match std::fs::OpenOptions::new().append(true).open(&path) {
+            Ok(mut f) => {
+                use std::io::Write;
+                if let Err(e) = f.write_all(addition.as_bytes()) {
+                    crate::log_warn!("Could not append missing keybindings: {e}");
+                    return user;
+                }
+            }
+            Err(e) => {
+                crate::log_warn!("Could not open keybindings file for appending: {e}");
                 return user;
             }
         }
-        Err(e) => {
-            crate::log_warn!("Could not open keybindings file for appending: {e}");
-            return user;
-        }
+
+        crate::log_info!(
+            "Appended {} missing default keybinding(s) to keybindings.toml",
+            missing.len()
+        );
+
+        // Return the full merged set.
+        let mut merged = user;
+        merged.extend(missing.into_iter().cloned());
+        merged
     }
-
-    crate::log_info!(
-        "Appended {} missing default keybinding(s) to keybindings.toml",
-        missing.len()
-    );
-
-    // Return the full merged set.
-    let mut merged = user;
-    merged.extend(missing.into_iter().cloned());
-    merged
 }
 
 /// Formats a single keybinding as a `[[keybinding]]` TOML entry.
@@ -538,208 +584,211 @@ fn keybinding_toml_entry(kb: &Keybinding) -> String {
     )
 }
 
-/// Loads bar config and appends any missing default widgets to the user's file.
-///
-/// Compares the user's `[[left]]` and `[[right]]` widget lists against the
-/// built-in defaults by widget type. Any default widget type not already
-/// present in the user's file is appended so new widgets from future versions
-/// are picked up automatically, without overwriting anything the user has set.
-///
-/// Falls back to `load_bar()` if the file cannot be read or written.
-/// Only the daemon calls this, so it reports to the log alone.
-pub fn merge_missing_bar_widgets() -> super::bar::BarConfig {
-    use super::bar::{BarConfig, WidgetConfig};
-    use serde::Serialize;
+impl ConfigStore {
+    /// Loads bar config and appends any missing default widgets to the user's file.
+    ///
+    /// Compares the user's `[[left]]` and `[[right]]` widget lists against the
+    /// built-in defaults by widget type. Any default widget type not already
+    /// present in the user's file is appended so new widgets from future versions
+    /// are picked up automatically, without overwriting anything the user has set.
+    ///
+    /// Without a file, returns the defaults and creates nothing. When the
+    /// file cannot be parsed, returns the defaults and leaves it alone.
+    /// When appending fails, returns what the file has.
+    /// Only the daemon calls this, so it reports to the log alone.
+    pub fn merge_missing_bar_widgets(&self) -> BarConfig {
+        use super::bar::WidgetConfig;
+        use serde::Serialize;
 
-    let path = match bar_path() {
-        Some(p) if p.exists() => p,
-        _ => return load_bar(),
-    };
-
-    let mut user = match try_load_bar() {
-        Ok(cfg) => cfg,
-        Err(e) => {
-            crate::log_warn!("Using the default bar: {e}");
-            return BarConfig::default();
+        let path = self.bar_path();
+        if !path.exists() {
+            return self.load_bar();
         }
-    };
 
-    let defaults = BarConfig::default();
+        let mut user = match self.try_load_bar() {
+            Ok(cfg) => cfg,
+            Err(e) => {
+                crate::log_warn!("Using the default bar: {e}");
+                return BarConfig::default();
+            }
+        };
 
-    // Find widget types (by enum discriminant) present in defaults but missing
-    // from the user's left/right lists. Users may intentionally remove widgets,
-    // but a type that never existed before must be a new default.
-    let missing_left: Vec<&WidgetConfig> = defaults
-        .left
-        .iter()
-        .filter(|d| {
-            !user
-                .left
-                .iter()
-                .any(|u| std::mem::discriminant(u) == std::mem::discriminant(*d))
-        })
-        .collect();
+        let defaults = BarConfig::default();
 
-    let missing_right: Vec<&WidgetConfig> = defaults
-        .right
-        .iter()
-        .filter(|d| {
-            !user
-                .right
-                .iter()
-                .any(|u| std::mem::discriminant(u) == std::mem::discriminant(*d))
-        })
-        .collect();
+        // Find widget types (by enum discriminant) present in defaults but missing
+        // from the user's left/right lists. Users may intentionally remove widgets,
+        // but a type that never existed before must be a new default.
+        let missing_left: Vec<&WidgetConfig> = defaults
+            .left
+            .iter()
+            .filter(|d| {
+                !user
+                    .left
+                    .iter()
+                    .any(|u| std::mem::discriminant(u) == std::mem::discriminant(*d))
+            })
+            .collect();
 
-    if missing_left.is_empty() && missing_right.is_empty() {
-        return user;
-    }
+        let missing_right: Vec<&WidgetConfig> = defaults
+            .right
+            .iter()
+            .filter(|d| {
+                !user
+                    .right
+                    .iter()
+                    .any(|u| std::mem::discriminant(u) == std::mem::discriminant(*d))
+            })
+            .collect();
 
-    // Serialize missing entries as TOML using a wrapper struct.
-    #[derive(Serialize)]
-    struct BarSideDiff<'a> {
-        #[serde(skip_serializing_if = "Vec::is_empty")]
-        left: Vec<&'a WidgetConfig>,
-        #[serde(skip_serializing_if = "Vec::is_empty")]
-        right: Vec<&'a WidgetConfig>,
-    }
-
-    let diff = BarSideDiff {
-        left: missing_left.clone(),
-        right: missing_right.clone(),
-    };
-
-    let toml_addition = match toml::to_string(&diff) {
-        Ok(s) => {
-            format!("\n# Added automatically — new defaults from this version of mosaico\n{s}")
-        }
-        Err(e) => {
-            crate::log_warn!("Could not serialize missing bar widgets: {e}");
+        if missing_left.is_empty() && missing_right.is_empty() {
             return user;
         }
-    };
 
-    match std::fs::OpenOptions::new().append(true).open(&path) {
-        Ok(mut f) => {
-            use std::io::Write;
-            if let Err(e) = f.write_all(toml_addition.as_bytes()) {
-                crate::log_warn!("Could not append missing bar widgets: {e}");
+        // Serialize missing entries as TOML using a wrapper struct.
+        #[derive(Serialize)]
+        struct BarSideDiff<'a> {
+            #[serde(skip_serializing_if = "Vec::is_empty")]
+            left: Vec<&'a WidgetConfig>,
+            #[serde(skip_serializing_if = "Vec::is_empty")]
+            right: Vec<&'a WidgetConfig>,
+        }
+
+        let diff = BarSideDiff {
+            left: missing_left.clone(),
+            right: missing_right.clone(),
+        };
+
+        let toml_addition = match toml::to_string(&diff) {
+            Ok(s) => {
+                format!("\n# Added automatically — new defaults from this version of mosaico\n{s}")
+            }
+            Err(e) => {
+                crate::log_warn!("Could not serialize missing bar widgets: {e}");
+                return user;
+            }
+        };
+
+        match std::fs::OpenOptions::new().append(true).open(&path) {
+            Ok(mut f) => {
+                use std::io::Write;
+                if let Err(e) = f.write_all(toml_addition.as_bytes()) {
+                    crate::log_warn!("Could not append missing bar widgets: {e}");
+                    return user;
+                }
+            }
+            Err(e) => {
+                crate::log_warn!("Could not open bar.toml for appending: {e}");
                 return user;
             }
         }
-        Err(e) => {
-            crate::log_warn!("Could not open bar.toml for appending: {e}");
-            return user;
-        }
+
+        let total = missing_left.len() + missing_right.len();
+        crate::log_info!("Appended {total} missing default bar widget(s) to bar.toml");
+
+        // Return merged config.
+        user.left.extend(missing_left.into_iter().cloned());
+        user.right.extend(missing_right.into_iter().cloned());
+        user
+    }
+}
+
+impl ConfigStore {
+    /// Loads and parses `rules.toml`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`Error::Config`] naming the file if it cannot be
+    /// read or is not valid TOML for a rules file.
+    pub fn try_load_rules(&self) -> Result<Vec<WindowRule>> {
+        let file: RulesFile = load_toml(&self.rules_path())?;
+        Ok(file.rule)
     }
 
-    let total = missing_left.len() + missing_right.len();
-    crate::log_info!("Appended {total} missing default bar widget(s) to bar.toml");
+    /// Loads `rules.toml`, falling back to the built-in defaults.
+    ///
+    /// A missing file silently gives the defaults; any other failure is
+    /// reported as a warning, on standard error and in the log.
+    pub fn load_rules(&self) -> Vec<WindowRule> {
+        load_or_default(&self.rules_path(), || self.try_load_rules(), default_rules)
+    }
 
-    // Return merged config.
-    user.left.extend(missing_left.into_iter().cloned());
-    user.right.extend(missing_right.into_iter().cloned());
-    user
+    /// Loads and parses `user-rules.toml`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`Error::Config`] naming the file if it cannot be
+    /// read or is not valid TOML for a rules file.
+    pub fn try_load_user_rules(&self) -> Result<Vec<WindowRule>> {
+        let file: UserRulesFile = load_toml(&self.user_rules_path())?;
+        Ok(file.rule)
+    }
+
+    /// Loads `user-rules.toml`, falling back to no rules.
+    ///
+    /// A missing file silently gives no rules; any other failure is
+    /// reported as a warning, on standard error and in the log.
+    pub fn load_user_rules(&self) -> Vec<WindowRule> {
+        load_or_default(
+            &self.user_rules_path(),
+            || self.try_load_user_rules(),
+            Vec::new,
+        )
+    }
+
+    /// Loads and merges both rule sets: user rules first, then community rules.
+    ///
+    /// User rules are prepended so they take priority (first match wins
+    /// in [`should_manage`](super::should_manage)). Falls back gracefully
+    /// if either file is missing or invalid.
+    pub fn load_merged_rules(&self) -> Vec<WindowRule> {
+        let mut rules = self.load_user_rules();
+        rules.extend(self.load_rules());
+        rules
+    }
+
+    /// Loads and parses `bar.toml`, then clamps its values with
+    /// [`BarConfig::validate`].
+    ///
+    /// Colors are **not** resolved here; the caller must call
+    /// `resolve_colors(theme)` with the global theme from `config.toml`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`Error::Config`] naming the file if it cannot be
+    /// read or is not valid TOML for a [`BarConfig`].
+    pub fn try_load_bar(&self) -> Result<BarConfig> {
+        let mut config: BarConfig = load_toml(&self.bar_path())?;
+        config.validate();
+        Ok(config)
+    }
+
+    /// Loads `bar.toml`, falling back to the defaults.
+    ///
+    /// A missing file silently gives the defaults; any other failure is
+    /// reported as a warning, on standard error and in the log.
+    pub fn load_bar(&self) -> BarConfig {
+        load_or_default(&self.bar_path(), || self.try_load_bar(), BarConfig::default)
+    }
 }
 
-/// Tries to load and parse `rules.toml`.
+/// Loads the file at `path` with `try_load`, falling back to `default`.
 ///
-/// Returns the parsed rules or an [`Error::Config`] naming the file.
-///
-/// # Errors
-///
-/// Returns `Err` if the rules path cannot be determined, the file
-/// cannot be read, or the TOML content is invalid.
-pub fn try_load_rules() -> Result<Vec<WindowRule>> {
-    let path = rules_path().ok_or_else(|| Error::config(None, "could not determine rules path"))?;
-    let file: RulesFile = load_toml(&path)?;
-    Ok(file.rule)
-}
-
-/// Loads window rules from `~/.config/mosaico/rules.toml`.
-///
-/// Falls back to the built-in defaults if the file is missing or invalid.
-pub fn load_rules() -> Vec<WindowRule> {
-    load_or_default(rules_path(), try_load_rules, default_rules)
-}
-
-/// Tries to load and parse `user-rules.toml`.
-///
-/// Returns the parsed rules or an [`Error::Config`] naming the file.
-///
-/// # Errors
-///
-/// Returns `Err` if the user-rules path cannot be determined, the file
-/// cannot be read, or the TOML content is invalid.
-pub fn try_load_user_rules() -> Result<Vec<WindowRule>> {
-    let path = user_rules_path()
-        .ok_or_else(|| Error::config(None, "could not determine user-rules path"))?;
-    let file: UserRulesFile = load_toml(&path)?;
-    Ok(file.rule)
-}
-
-/// Loads user rules from `~/.config/mosaico/user-rules.toml`.
-///
-/// Returns an empty vec if the file is missing or invalid.
-pub fn load_user_rules() -> Vec<WindowRule> {
-    load_or_default(user_rules_path(), try_load_user_rules, Vec::new)
-}
-
-/// Loads and merges both rule sets: user rules first, then community rules.
-///
-/// User rules are prepended so they take priority (first match wins
-/// in [`super::should_manage`]). Falls back gracefully if either file
-/// is missing or invalid.
-pub fn load_merged_rules() -> Vec<WindowRule> {
-    let mut rules = load_user_rules();
-    rules.extend(load_rules());
-    rules
-}
-
-/// Tries to load and parse `bar.toml`.
-///
-/// Returns the parsed bar config or an [`Error::Config`] naming the
-/// file. Colors are **not** resolved here; the caller must call
-/// `resolve_colors(theme)` with the global theme from `config.toml`.
-///
-/// # Errors
-///
-/// Returns `Err` if the bar config path cannot be determined, the file
-/// cannot be read, or the TOML content is invalid.
-pub fn try_load_bar() -> Result<BarConfig> {
-    let path =
-        bar_path().ok_or_else(|| Error::config(None, "could not determine bar config path"))?;
-    let mut config: BarConfig = load_toml(&path)?;
-    config.validate();
-    Ok(config)
-}
-
-/// Loads the bar configuration from disk, falling back to defaults.
-///
-/// Non-existent files silently return defaults; other IO errors are logged.
-pub fn load_bar() -> BarConfig {
-    load_or_default(bar_path(), try_load_bar, BarConfig::default)
-}
-
-/// Loads a config value from disk, falling back to defaults.
-///
-/// Non-existent files silently return defaults; other errors are
-/// reported as warnings, on standard error and in the log.
+/// A missing file silently gives the default; any other failure is
+/// reported as a warning, on standard error and in the log.
 fn load_or_default<T>(
-    path: Option<PathBuf>,
+    path: &Path,
     try_load: impl FnOnce() -> Result<T>,
     default: impl Fn() -> T,
 ) -> T {
-    match path {
-        Some(p) if !p.exists() => default(),
-        None => default(),
-        _ => match try_load() {
-            Ok(val) => val,
-            Err(e) => {
-                report::warning(format_args!("{e}"));
-                default()
-            }
-        },
+    if !path.exists() {
+        return default();
+    }
+    match try_load() {
+        Ok(val) => val,
+        Err(e) => {
+            report::warning(format_args!("{e}"));
+            default()
+        }
     }
 }
 

@@ -3,6 +3,7 @@
 //! These checks inspect live system state (autostart registration,
 //! daemon process, monitors) rather than static configuration files.
 
+use mosaico_core::config::ConfigStore;
 use mosaico_core::system::AutostartStatus;
 
 use super::autostart;
@@ -13,10 +14,8 @@ const WARN: &str = "\x1b[33m[warn]\x1b[0m";
 const FAIL: &str = "\x1b[31m[fail]\x1b[0m";
 const FIXED: &str = "\x1b[36m[fixed]\x1b[0m";
 
-pub fn check_rules_cache_age() {
-    let Some(path) = mosaico_core::config::rules_path() else {
-        return;
-    };
+pub fn check_rules_cache_age(store: &ConfigStore) {
+    let path = store.rules_path();
     if !path.exists() {
         println!("  {WARN} Community rules not cached (will download on first start)");
         return;

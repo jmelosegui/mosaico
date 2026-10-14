@@ -77,7 +77,6 @@ fn a_test_process_has_no_instance() {
     // Act / Assert -- no unit test resolves the instance of the process,
     // so none of them reaches the user's real folders.
     assert_eq!(Instance::current(), None);
-    assert_eq!(crate::config::config_dir(), None);
 }
 
 #[test]
@@ -89,7 +88,7 @@ fn only_the_instance_resolved_is_current() {
     let resolved = slot.init_from(env(&[]), &Temp).unwrap().clone();
 
     // Act / Assert -- the daemon refuses to run on an instance whose
-    // config and logs it would not find.
+    // logs and record of hidden windows it would not find.
     assert_eq!(before, Err(InstanceError::NotCurrent));
     assert_eq!(slot.require(&resolved), Ok(()));
     assert_eq!(slot.require(&other), Err(InstanceError::NotCurrent));

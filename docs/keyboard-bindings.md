@@ -59,8 +59,9 @@ Keyboard binding handling spans two crates:
 
 ## Registration Flow
 
-1. **Config loading** -- `daemon_loop()` calls `config::merge_missing_keybindings()`,
-   which reads `~/.config/mosaico/keybindings.toml`, appends any missing default
+1. **Config loading** -- `daemon_loop()` calls `merge_missing_keybindings()` on
+   the daemon's `ConfigStore`, which reads the instance's `keybindings.toml`
+   (`~/.config/mosaico/keybindings.toml` by default), appends any missing default
    actions (new bindings added by future versions) to the file, then returns the
    merged set. Falls back to `keybinding::defaults()` if the file is absent.
 

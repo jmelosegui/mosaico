@@ -1,4 +1,4 @@
-use mosaico_core::config::{WindowRule, load_merged_rules, matching_rule, should_manage};
+use mosaico_core::config::{WindowRule, matching_rule, should_manage};
 use mosaico_core::tiler::{Display, WindowDetails};
 use mosaico_core::{MonitorId, Rect};
 
@@ -7,7 +7,8 @@ use crate::commands::context::{Context, Exit, complain, say};
 /// Lists the windows and monitors on the desktop, and whether the
 /// window rules would tile each window.
 pub fn execute(cx: &mut Context) -> Exit {
-    list(cx, &load_merged_rules())
+    let rules = cx.config.load_merged_rules();
+    list(cx, &rules)
 }
 
 /// [`execute`], judging windows against `rules`.
