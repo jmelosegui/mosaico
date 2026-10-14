@@ -75,11 +75,27 @@ fn a_failed_write_puts_the_old_executable_back() {
 }
 
 #[test]
-fn the_release_is_the_64_bit_windows_archive_with_mosaico_exe() {
+fn each_64_bit_cpu_has_the_archive_built_for_it() {
+    // Act / Assert
+    assert_eq!(archive_for("x86_64").unwrap(), "mosaico-windows-amd64.zip");
+    assert_eq!(archive_for("aarch64").unwrap(), "mosaico-windows-arm64.zip");
+}
+
+#[test]
+fn a_build_for_another_cpu_cannot_update_itself() {
+    // Act
+    let error = archive_for("x86").unwrap_err();
+
+    // Assert
+    assert!(matches!(error, Error::Unsupported(_)), "{error:?}");
+}
+
+#[test]
+fn this_build_asks_for_the_archive_of_its_own_cpu_with_mosaico_exe() {
     // Act / Assert
     assert_eq!(
         RenameInstaller.asset_name().unwrap(),
-        "mosaico-windows-amd64.zip"
+        archive_for(std::env::consts::ARCH).unwrap()
     );
     assert_eq!(RenameInstaller.binary_name(), "mosaico.exe");
 }

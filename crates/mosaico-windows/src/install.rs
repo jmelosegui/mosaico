@@ -18,9 +18,10 @@ use mosaico_core::{Error, Result};
 pub struct RenameInstaller;
 
 impl Installer for RenameInstaller {
-    /// The archive the release workflow builds for 64-bit Windows.
+    /// The archive for the CPU this binary was built for, see
+    /// [`archive_for`].
     fn asset_name(&self) -> Result<&str> {
-        Ok("mosaico-windows-amd64.zip")
+        archive_for(std::env::consts::ARCH)
     }
 
     fn binary_name(&self) -> &str {
@@ -102,6 +103,20 @@ fn replace(files: &impl Files, exe: &Path, binary: &[u8]) -> Result<()> {
     // Try to delete the backup (fails while it is still locked).
     let _ = files.remove(&backup);
     Ok(())
+}
+
+/// The release archive for `arch`, Rust's name for the CPU of a build.
+///
+/// Only the x86-64 archive is published so far. An ARM64 build asks for
+/// the ARM64 one, so updating it fails on the missing archive instead of
+/// installing an x86-64 binary over it. A build for any other CPU has no
+/// archive, so it cannot update itself.
+fn archive_for(arch: &str) -> Result<&'static str> {
+    match arch {
+        "x86_64" => Ok("mosaico-windows-amd64.zip"),
+        "aarch64" => Ok("mosaico-windows-arm64.zip"),
+        _ => Err(Error::Unsupported("self-update")),
+    }
 }
 
 /// Where `replace` moves the running executable: `mosaico.exe.old`.

@@ -195,7 +195,9 @@ running one come from the platform's `Installer` (`mosaico_core::update`). On a
 platform that cannot update itself, it says so before it stops the daemon or
 downloads anything.
 
-On Windows the archive is `mosaico-windows-amd64.zip`, and the self-replacement
+On Windows the archive is the one for the CPU the build is for:
+`mosaico-windows-amd64.zip` for x86-64, the only one published so far, or
+`mosaico-windows-arm64.zip` for ARM64. The self-replacement
 works by renaming the running `mosaico.exe` to `mosaico.exe.old` (Windows allows
 renaming but not overwriting a locked file), then writing the new binary in its
 place. The `.old` backup is cleaned up immediately or on the next daemon start.
