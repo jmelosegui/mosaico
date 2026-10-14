@@ -86,14 +86,20 @@ impl Drop for InstanceGuard {
 mod tests {
     use super::*;
 
+    /// A mutex name of this test process, so test runs in two worktrees
+    /// at the same time do not take each other's mutex.
+    fn test_mutex(name: &str) -> String {
+        format!("Local\\MosaicoTest_{name}-{}", std::process::id())
+    }
+
     #[test]
     fn second_acquire_is_rejected() {
         // Arrange
-        let _first = InstanceGuard::acquire_named("Local\\MosaicoTest_SecondAcquire")
-            .expect("first acquire should succeed");
+        let name = test_mutex("SecondAcquire");
+        let _first = InstanceGuard::acquire_named(&name).expect("first acquire should succeed");
 
         // Act
-        let second = InstanceGuard::acquire_named("Local\\MosaicoTest_SecondAcquire");
+        let second = InstanceGuard::acquire_named(&name);
 
         // Assert
         assert!(second.is_err());
@@ -102,11 +108,11 @@ mod tests {
     #[test]
     fn a_second_daemon_is_told_that_one_is_already_running() {
         // Arrange
-        let _first = InstanceGuard::acquire_named("Local\\MosaicoTest_AlreadyRunning")
-            .expect("first acquire should succeed");
+        let name = test_mutex("AlreadyRunning");
+        let _first = InstanceGuard::acquire_named(&name).expect("first acquire should succeed");
 
         // Act
-        let second = InstanceGuard::acquire_named("Local\\MosaicoTest_AlreadyRunning");
+        let second = InstanceGuard::acquire_named(&name);
 
         // Assert -- not mistaken for a failed OS call.
         assert!(
@@ -130,12 +136,12 @@ mod tests {
     #[test]
     fn acquire_succeeds_after_release() {
         // Arrange
-        let first = InstanceGuard::acquire_named("Local\\MosaicoTest_AfterRelease")
-            .expect("first acquire should succeed");
+        let name = test_mutex("AfterRelease");
+        let first = InstanceGuard::acquire_named(&name).expect("first acquire should succeed");
 
         // Act
         drop(first);
-        let second = InstanceGuard::acquire_named("Local\\MosaicoTest_AfterRelease");
+        let second = InstanceGuard::acquire_named(&name);
 
         // Assert
         assert!(second.is_ok());
