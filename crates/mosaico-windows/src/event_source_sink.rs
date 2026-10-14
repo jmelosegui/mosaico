@@ -107,3 +107,7 @@ unsafe extern "system" fn sink_proc(
     // messages not handled above. Required by the WNDPROC contract.
     unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) }
 }
+
+#[cfg(test)]
+#[path = "event_source_sink_tests.rs"]
+mod tests;

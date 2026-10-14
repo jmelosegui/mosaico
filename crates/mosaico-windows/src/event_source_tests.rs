@@ -5,7 +5,7 @@ use std::sync::mpsc::{self, RecvTimeoutError, TryRecvError};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use mosaico_core::{Error, WindowEvent};
+use mosaico_core::{Error, WindowEvent, WindowId};
 
 use super::{SetUp, send, set_up, watch};
 
@@ -99,4 +99,41 @@ fn the_hidden_window_goes_before_the_hooks() {
 
     // Assert
     assert_eq!(*log.lock().expect("the log"), vec!["window", "hooks"]);
+}
+
+#[test]
+fn without_its_hidden_window_the_source_runs_and_says_why() {
+    // Arrange -- review of #97: the hooks work, but the window that
+    // reports display and work-area changes cannot be created.
+    let (events, received) = mpsc::channel();
+    let window = WindowId::from_raw(7);
+    let no_window = || {
+        let reason = "not enough memory";
+        Err::<(), _>(Error::platform(
+            "create the MosaicoEventSink window",
+            reason,
+        ))
+    };
+
+    // Act -- a window event as the hooks would report it.
+    let watching = watch(events, move || {
+        send(WindowEvent::Focused { window });
+        set_up(|| Ok(()), no_window)
+    })
+    .expect("the source starts without the window");
+    let error = watching.display_error().map(ToString::to_string);
+
+    // Assert -- window events still come, and the caller can say why
+    // display changes will not.
+    assert_eq!(
+        received.recv_timeout(WAIT),
+        Ok(WindowEvent::Focused { window })
+    );
+    assert!(
+        error
+            .as_deref()
+            .is_some_and(|e| e.starts_with("could not create the MosaicoEventSink window")),
+        "the watch must say why there are no display changes, but got {error:?}"
+    );
+    watching.stop();
 }
