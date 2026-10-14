@@ -47,3 +47,31 @@ fn a_daemon_that_never_frees_a_pipe_instance_is_reported_as_not_responding() {
     release_tx.send(()).unwrap();
     server.join().unwrap();
 }
+
+#[test]
+fn a_pipe_that_goes_away_during_the_busy_wait_is_not_running() {
+    // Arrange -- the daemon exited while the client waited for a free
+    // instance, so the wait failed because the pipe no longer exists.
+    let error = ERROR_FILE_NOT_FOUND;
+
+    // Act
+    let outcome = busy_wait_failure(error);
+
+    // Assert
+    assert!(
+        matches!(outcome, IpcError::NotRunning),
+        "a pipe that is gone is a daemon that is not running, got {outcome:?}"
+    );
+}
+
+#[test]
+fn a_busy_wait_that_runs_out_of_time_is_not_responding() {
+    // Arrange
+    let error = windows::Win32::Foundation::ERROR_SEM_TIMEOUT;
+
+    // Act
+    let outcome = busy_wait_failure(error);
+
+    // Assert
+    assert!(matches!(outcome, IpcError::TimedOut), "got {outcome:?}");
+}

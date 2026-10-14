@@ -185,6 +185,21 @@ mod tests {
     }
 
     #[test]
+    fn a_daemon_that_does_not_reply_is_reported_as_not_responding() {
+        // Arrange -- the daemon took the request but never answered.
+        let mut h = Harness::new("status-no-reply");
+        h.world.daemon_up(5);
+        h.world.reply(Err(IpcError::TimedOut));
+
+        // Act
+        let exit = h.run(execute);
+
+        // Assert
+        assert_eq!(exit, Exit::Success);
+        assert_eq!(h.out(), format!("{}\n", request::NOT_RESPONDING));
+    }
+
+    #[test]
     fn reports_nothing_running() {
         // Arrange
         let mut h = Harness::new("status-none");
