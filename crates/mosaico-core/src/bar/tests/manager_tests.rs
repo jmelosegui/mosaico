@@ -1,7 +1,7 @@
 //! Which bars the manager makes, replaces and hides.
 
 use super::*;
-use crate::bar::fakes::BarEvent::{Created, Dropped, Hidden};
+use crate::bar::fakes::BarEvent::{Created, Dropped, Hidden, RendererDropped};
 use crate::bar::fakes::{FakeRenderer, FakeSystem};
 use crate::config::CatppuccinFlavor;
 
@@ -29,7 +29,7 @@ pub(super) fn start(
     system: &FakeSystem,
 ) -> BarManager {
     BarManager::new(
-        Box::new(renderer.clone()),
+        renderer.boxed(),
         Box::new(system.clone()),
         config,
         areas.to_vec(),
@@ -180,4 +180,26 @@ fn hiding_hides_every_bar() {
 
     // Assert
     assert_eq!(renderer.take(), [Hidden(left()), Hidden(right())]);
+}
+
+#[test]
+fn the_bars_are_dropped_before_their_renderer() {
+    // Arrange
+    let renderer = FakeRenderer::default();
+    let manager = start(
+        BarConfig::default(),
+        &[left(), right()],
+        &renderer,
+        &FakeSystem::default(),
+    );
+    renderer.take();
+
+    // Act
+    drop(manager);
+
+    // Assert
+    assert_eq!(
+        renderer.take(),
+        [Dropped(left()), Dropped(right()), RendererDropped]
+    );
 }

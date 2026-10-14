@@ -19,6 +19,9 @@ use super::BarContent;
 ///   its area, in front of application windows. It never takes focus or
 ///   pointer input, does not appear in the taskbar or the task switcher,
 ///   and is never reported to the tiler as a window to manage.
+/// - Every bar is dropped before the renderer that made it, so a
+///   renderer may release what its bars share, such as a loaded font or
+///   a connection to the display, when it is dropped.
 pub trait BarRenderer {
     /// Makes a hidden bar at the top of `area`.
     fn create(&mut self, area: Rect) -> Result<Box<dyn BarSurface>>;

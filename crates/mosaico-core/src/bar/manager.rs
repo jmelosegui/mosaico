@@ -15,6 +15,11 @@ use super::{
 /// machine through [`SystemInfo`]. The daemon refreshes it after every
 /// change it makes and once a second.
 pub struct BarManager {
+    /// The bars on screen. Declared before `renderer`, so they are
+    /// dropped before the renderer that made them.
+    bars: Vec<Box<dyn BarSurface>>,
+    /// The monitor index of each bar in `bars`.
+    bar_monitor_indices: Vec<usize>,
     renderer: Box<dyn BarRenderer>,
     system: Box<dyn SystemInfo>,
     /// The config, with its colors resolved against the theme.
@@ -25,10 +30,6 @@ pub struct BarManager {
     raw_colors: BarColors,
     /// Monitor work areas, before the bar is reserved.
     monitor_areas: Vec<Rect>,
-    /// The bars on screen.
-    bars: Vec<Box<dyn BarSurface>>,
-    /// The monitor index of each bar in `bars`.
-    bar_monitor_indices: Vec<usize>,
     /// Only kept while a CPU widget is configured, so the CPU is not
     /// read otherwise.
     cpu: Option<CpuTracker>,
@@ -46,13 +47,13 @@ impl BarManager {
         theme: Theme,
     ) -> Self {
         let mut manager = Self {
+            bars: Vec::new(),
+            bar_monitor_indices: Vec::new(),
             renderer,
             system,
             raw_colors: config.colors.clone(),
             config,
             monitor_areas,
-            bars: Vec::new(),
-            bar_monitor_indices: Vec::new(),
             cpu: None,
         };
         manager.config.resolve_colors(theme);

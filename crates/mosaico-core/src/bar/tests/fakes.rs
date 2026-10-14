@@ -98,6 +98,8 @@ pub(super) enum BarEvent {
     Hidden(Rect),
     /// The bar for this area was dropped, which removes it.
     Dropped(Rect),
+    /// The renderer the code under test owned was dropped.
+    RendererDropped,
 }
 
 /// Bars that only record what happens to them.
@@ -133,19 +135,35 @@ impl FakeRenderer {
     pub(super) fn take(&self) -> Vec<BarEvent> {
         std::mem::take(&mut self.events.borrow_mut())
     }
+
+    /// The renderer to hand the code under test. Dropping it is recorded,
+    /// unlike dropping the test's own clone.
+    pub(super) fn boxed(&self) -> Box<dyn BarRenderer> {
+        Box::new(OwnedRenderer(self.clone()))
+    }
 }
 
-impl BarRenderer for FakeRenderer {
+/// The copy of a [`FakeRenderer`] that the code under test owns.
+struct OwnedRenderer(FakeRenderer);
+
+impl BarRenderer for OwnedRenderer {
     fn create(&mut self, area: Rect) -> Result<Box<dyn BarSurface>> {
-        if self.failing.borrow().contains(&area) {
+        let fake = &self.0;
+        if fake.failing.borrow().contains(&area) {
             return Err(failed("create the bar"));
         }
-        self.events.borrow_mut().push(BarEvent::Created(area));
+        fake.events.borrow_mut().push(BarEvent::Created(area));
         Ok(Box::new(FakeBar {
             area,
-            events: Rc::clone(&self.events),
-            failing_draws: Rc::clone(&self.failing_draws),
+            events: Rc::clone(&fake.events),
+            failing_draws: Rc::clone(&fake.failing_draws),
         }))
+    }
+}
+
+impl Drop for OwnedRenderer {
+    fn drop(&mut self) {
+        self.0.events.borrow_mut().push(BarEvent::RendererDropped);
     }
 }
 
