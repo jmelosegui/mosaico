@@ -7,6 +7,7 @@
 mod applier;
 mod desktop;
 mod inspect;
+mod platform;
 
 use std::time::Instant;
 
@@ -23,6 +24,8 @@ use crate::window_control::Win32WindowControl;
 
 use applier::Applier;
 use desktop::Win32Desktop;
+
+pub use platform::Win32Platform;
 
 /// Manages tiled windows across all connected monitors.
 pub struct TilingManager {
