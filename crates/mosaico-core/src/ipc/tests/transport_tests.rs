@@ -267,6 +267,8 @@ impl Write for FakeStream {
     }
 }
 
+impl IpcStream for FakeStream {}
+
 impl IpcClient for FakeClient {
     type Stream = FakeStream;
 

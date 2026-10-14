@@ -9,7 +9,7 @@ use std::os::windows::io::{AsRawHandle, FromRawHandle};
 use std::time::{Duration, Instant};
 
 use mosaico_core::Instance;
-use mosaico_core::ipc::{IpcClient, IpcConnection, IpcError, IpcServer};
+use mosaico_core::ipc::{IpcClient, IpcConnection, IpcError, IpcServer, IpcStream};
 use windows::Win32::Foundation::{
     ERROR_FILE_NOT_FOUND, ERROR_PIPE_BUSY, ERROR_PIPE_CONNECTED, GetLastError, HANDLE,
     INVALID_HANDLE_VALUE,
@@ -71,7 +71,7 @@ impl PipeClient {
 }
 
 impl IpcClient for PipeClient {
-    type Stream = File;
+    type Stream = PipeStream;
 
     /// Checks whether the pipe exists, without connecting to it.
     ///
@@ -90,7 +90,7 @@ impl IpcClient for PipeClient {
         error != ERROR_FILE_NOT_FOUND
     }
 
-    fn connect(&self) -> Result<File, IpcError> {
+    fn connect(&self) -> Result<PipeStream, IpcError> {
         let handle = match self.open() {
             Ok(handle) => handle,
             Err(e) if e.code() == ERROR_FILE_NOT_FOUND.to_hresult() => {
@@ -109,9 +109,33 @@ impl IpcClient for PipeClient {
         };
         // SAFETY: the handle was just opened and nothing else owns it, so
         // the File takes sole ownership and closes it when dropped.
-        Ok(unsafe { File::from_raw_handle(handle.0) })
+        let file = unsafe { File::from_raw_handle(handle.0) };
+        Ok(PipeStream { file })
     }
 }
+
+/// The CLI's end of one connection to the daemon.
+pub struct PipeStream {
+    file: File,
+}
+
+impl Read for PipeStream {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        self.file.read(buf)
+    }
+}
+
+impl Write for PipeStream {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.file.write(buf)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.file.flush()
+    }
+}
+
+impl IpcStream for PipeStream {}
 
 /// The daemon end of the pipe.
 ///

@@ -33,7 +33,7 @@ use super::{Command, ErrorCode, IpcError, Request, Response, decode_request};
 ///   separate check can only add a window in which the answer changes.
 pub trait IpcClient {
     /// A connection to the daemon.
-    type Stream: Read + Write;
+    type Stream: IpcStream;
 
     /// Whether a daemon is listening, busy or not.
     fn is_daemon_running(&self) -> bool;
@@ -41,11 +41,38 @@ pub trait IpcClient {
     /// Opens a connection to the daemon.
     fn connect(&self) -> Result<Self::Stream, IpcError>;
 
-    /// Sends one command and waits for its reply.
+    /// Sends one command and waits for its reply, for up to
+    /// [`REPLY_TIMEOUT`].
     fn send(&self, command: &Command) -> Result<Response, IpcError> {
+        self.send_with_timeout(command, REPLY_TIMEOUT)
+    }
+
+    /// Sends one command and waits for its reply, for up to `timeout`.
+    fn send_with_timeout(
+        &self,
+        command: &Command,
+        timeout: Duration,
+    ) -> Result<Response, IpcError> {
+        let _ = timeout;
         let mut stream = self.connect()?;
         write_message(&mut stream, &Request::new(command.clone()))?;
         read_message(&mut BufReader::new(stream))
+    }
+}
+
+/// How long the CLI waits for the daemon's reply. Long enough for any
+/// real command, including a retile of a crowded desktop, short enough
+/// that a daemon that stopped answering is reported rather than waited
+/// on forever.
+pub const REPLY_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// The client's end of a connection to the daemon.
+pub trait IpcStream: Read + Write {
+    /// Limits how long reading the reply may take, counted from now.
+    /// The default does nothing.
+    fn set_read_timeout(&mut self, timeout: Duration) -> Result<(), IpcError> {
+        let _ = timeout;
+        Ok(())
     }
 }
 
