@@ -6,7 +6,6 @@
 
 mod applier;
 mod desktop;
-mod hidden_file;
 mod inspect;
 
 use std::time::Instant;
@@ -14,7 +13,9 @@ use std::time::Instant;
 use mosaico_core::bar::BarState;
 use mosaico_core::config::{BorderConfig, Config, LayoutConfig, WindowRule, WorkspacesConfig};
 use mosaico_core::snapshot::DesktopSnapshot;
-use mosaico_core::tiler::{BarReservation, Display, Enumerator, Input, Settings, Tiler};
+use mosaico_core::tiler::{
+    BarReservation, Display, Enumerator, HiddenFile, Input, Settings, Tiler,
+};
 use mosaico_core::{Action, HidingSupport, Result, WindowControl, WindowEvent};
 
 use crate::enumerate::WindowsEnumerator;
@@ -22,7 +23,6 @@ use crate::window_control::Win32WindowControl;
 
 use applier::Applier;
 use desktop::Win32Desktop;
-use hidden_file::HiddenFile;
 
 /// Manages tiled windows across all connected monitors.
 pub struct TilingManager {

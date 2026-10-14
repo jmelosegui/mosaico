@@ -20,14 +20,12 @@
 use std::time::Instant;
 
 use mosaico_core::tiler::{
-    Coalescer, Desktop, Effect, Expectations, HiddenWindows, apply_decoration_effect,
+    Coalescer, Desktop, Effect, Expectations, HiddenFile, HiddenWindows, apply_decoration_effect,
     apply_window_effect,
 };
 use mosaico_core::{HidingSupport, WindowControl, WindowId};
 
 use crate::decorations::Win32Decorations;
-
-use super::hidden_file::HiddenFile;
 
 /// Executes effects and remembers what the OS should report back.
 #[derive(Default)]
