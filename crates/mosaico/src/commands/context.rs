@@ -95,6 +95,12 @@ pub struct Context<'a> {
     /// placed on a scaled monitor lands in the wrong place.
     pub windows: &'a dyn WindowControl,
     /// The windows and monitors on the desktop.
+    ///
+    /// Positions and sizes are in the coordinates the daemon works in,
+    /// and window frames mean something, only when the command runs
+    /// through `platform::run_on_desktop`, which makes the process DPI
+    /// aware first. `doctor` runs without it, and prints monitor sizes as
+    /// the system scales them for such a process.
     pub desktop: &'a dyn Enumerator,
     /// Where the daemon records its process id.
     pub pid_file: PidFile,

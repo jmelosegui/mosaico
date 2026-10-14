@@ -18,8 +18,9 @@ const MONITORINFOF_PRIMARY: u32 = 1;
 ///
 /// `MonitorFromWindow` picks the monitor with the largest share of the
 /// window, uses the restored position of a minimized window, and falls
-/// back to the primary monitor for a window on no monitor or a handle
-/// that is no longer valid.
+/// back to the primary monitor for a window on no monitor. For a handle
+/// that is no longer valid it returns a null monitor handle, which comes
+/// out as an id that is in no monitor list.
 pub(crate) fn monitor_id_for_window(window: WindowId) -> MonitorId {
     let hwnd = crate::window::Window::from_id(window).hwnd();
     // SAFETY: MonitorFromWindow is a read-only query on a window handle.
@@ -28,6 +29,10 @@ pub(crate) fn monitor_id_for_window(window: WindowId) -> MonitorId {
 }
 
 /// The core id of a monitor, which is its `HMONITOR` value.
+///
+/// Only valid until the next display change: Windows hands out new
+/// handles whenever the configuration changes, even for monitors that
+/// stayed connected. The monitor's key recognises it across changes.
 fn monitor_id(monitor: HMONITOR) -> MonitorId {
     MonitorId::from_raw(monitor.0 as usize as u64)
 }

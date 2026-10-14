@@ -14,6 +14,14 @@ use crate::{frame, monitor};
 /// Windows come from `EnumWindows`, which walks the top-level windows in
 /// Z order, topmost first, so the list runs front to back. Monitors come
 /// from `EnumDisplayMonitors`, with keys from the display configuration.
+///
+/// The process must be per-monitor DPI aware before this is used (see
+/// [`enable_dpi_awareness`](crate::dpi::enable_dpi_awareness)), as the
+/// daemon and `debug list` are. Otherwise Windows scales work areas and
+/// `GetWindowRect` to the system DPI but reports the DWM frame bounds,
+/// which window bounds come from, in physical pixels. On a scaled display
+/// work areas and window bounds then disagree, which breaks the contract,
+/// and the frame in `details` means nothing.
 pub struct WindowsEnumerator;
 
 impl Enumerator for WindowsEnumerator {
