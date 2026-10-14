@@ -3,9 +3,10 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use crate::{Error, Result};
+use crate::config::bar::BarConfig;
+use crate::{Error, Rect, Result};
 
-use super::{CpuTimes, LocalTime, NowPlaying, SystemInfo};
+use super::{BarContent, BarRenderer, BarSurface, CpuTimes, LocalTime, NowPlaying, SystemInfo};
 
 /// What a [`FakeSystem`] reports.
 #[derive(Debug, Default)]
@@ -79,7 +80,88 @@ impl SystemInfo for FakeSystem {
     }
 }
 
-/// The error a fake reports for a reading set to fail.
+/// What happened to a [`FakeRenderer`]'s bars, in order.
+#[derive(Debug, Clone, PartialEq)]
+pub(super) enum BarEvent {
+    /// A bar was made for this area.
+    Created(Rect),
+    /// The bar for `area` was drawn with `content`, on `background`.
+    Drawn {
+        area: Rect,
+        content: BarContent,
+        background: String,
+    },
+    /// The bar for this area was hidden.
+    Hidden(Rect),
+    /// The bar for this area was dropped, which removes it.
+    Dropped(Rect),
+}
+
+/// Bars that only record what happens to them.
+///
+/// Clones share one record, so a test can keep a clone while the code
+/// under test owns another.
+#[derive(Debug, Clone, Default)]
+pub(super) struct FakeRenderer {
+    events: Rc<RefCell<Vec<BarEvent>>>,
+    /// Areas whose bar cannot be made.
+    failing: Rc<RefCell<Vec<Rect>>>,
+}
+
+impl FakeRenderer {
+    /// Makes creating the bar for `area` fail.
+    pub(super) fn fail_on(&self, area: Rect) {
+        self.failing.borrow_mut().push(area);
+    }
+
+    /// What happened since the last call.
+    pub(super) fn take(&self) -> Vec<BarEvent> {
+        std::mem::take(&mut self.events.borrow_mut())
+    }
+}
+
+impl BarRenderer for FakeRenderer {
+    fn create(&mut self, area: Rect) -> Result<Box<dyn BarSurface>> {
+        if self.failing.borrow().contains(&area) {
+            return Err(failed("create the bar"));
+        }
+        self.events.borrow_mut().push(BarEvent::Created(area));
+        Ok(Box::new(FakeBar {
+            area,
+            events: Rc::clone(&self.events),
+        }))
+    }
+}
+
+/// One bar of a [`FakeRenderer`].
+struct FakeBar {
+    area: Rect,
+    events: Rc<RefCell<Vec<BarEvent>>>,
+}
+
+impl BarSurface for FakeBar {
+    fn draw(&mut self, config: &BarConfig, content: &BarContent) -> Result<()> {
+        self.events.borrow_mut().push(BarEvent::Drawn {
+            area: self.area,
+            content: content.clone(),
+            background: config.colors.background.clone(),
+        });
+        Ok(())
+    }
+
+    fn hide(&mut self) -> Result<()> {
+        self.events.borrow_mut().push(BarEvent::Hidden(self.area));
+        Ok(())
+    }
+}
+
+impl Drop for FakeBar {
+    fn drop(&mut self) {
+        self.events.borrow_mut().push(BarEvent::Dropped(self.area));
+    }
+}
+
+/// The error a fake reports for a call set to fail.
 fn failed(operation: &'static str) -> Error {
     Error::platform(operation, "the fake was set to fail")
 }
