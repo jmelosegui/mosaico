@@ -1,6 +1,7 @@
 //! The autostart registration and the program files of the fake world.
 
-use std::path::Path;
+use std::io;
+use std::path::{Path, PathBuf};
 
 use mosaico_core::Result;
 use mosaico_core::system::{Autostart, FileProbe, LaunchCommand};
@@ -14,6 +15,15 @@ pub const EXE: &str = r"C:\apps\mosaico\mosaico.exe";
 pub const MOVED_AWAY: &str = r"C:\moved-away\mosaico.exe";
 
 impl World {
+    /// The executable commands run from: [`EXE`], or an error when
+    /// [`World::exe_missing`] is set.
+    pub fn current_exe(&self) -> io::Result<PathBuf> {
+        if self.exe_missing.get() {
+            return Err(io::Error::other("no executable"));
+        }
+        Ok(PathBuf::from(EXE))
+    }
+
     /// Fails the way the registration does when an autostart error is set.
     fn autostart_fails(&self) -> Result<()> {
         match self.autostart_error.borrow().clone() {

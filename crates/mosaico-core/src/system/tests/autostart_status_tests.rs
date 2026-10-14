@@ -10,6 +10,15 @@ fn path(name: &str) -> PathBuf {
         .join(name)
 }
 
+/// What `of` says when `registered` is not what enabling from `exe`
+/// registers.
+fn other(registered: LaunchCommand, exe: &Path) -> AutostartStatus {
+    AutostartStatus::Other {
+        registered,
+        expected: LaunchCommand::autostart(exe),
+    }
+}
+
 /// A file system where `files` exist, each pair in `same` names one
 /// file, and `far` cannot be checked without waiting.
 #[derive(Default)]
@@ -98,24 +107,24 @@ fn this_executable_with_other_arguments_is_another_command() {
     let status = AutostartStatus::of(Some(registered.clone()), &exe, &Untouched);
 
     // Assert
-    assert_eq!(status, AutostartStatus::Other(registered));
+    assert_eq!(status, other(registered, &exe));
 }
 
 #[test]
 fn another_program_that_exists_is_another_command() {
     // Arrange
-    let other = path("other-mosaico");
+    let another = path("another-mosaico");
     let files = Files {
-        files: vec![other.clone()],
+        files: vec![another.clone()],
         ..Files::default()
     };
-    let registered = LaunchCommand::autostart(other);
+    let registered = LaunchCommand::autostart(another);
 
     // Act
     let status = AutostartStatus::of(Some(registered.clone()), &path("mosaico"), &files);
 
     // Assert
-    assert_eq!(status, AutostartStatus::Other(registered));
+    assert_eq!(status, other(registered, &path("mosaico")));
 }
 
 #[test]
@@ -148,7 +157,7 @@ fn a_program_that_cannot_be_checked_without_waiting_is_another_command() {
     let status = AutostartStatus::of(Some(registered.clone()), &path("mosaico"), &files);
 
     // Assert
-    assert_eq!(status, AutostartStatus::Other(registered));
+    assert_eq!(status, other(registered, &path("mosaico")));
 }
 
 #[test]
@@ -160,5 +169,5 @@ fn a_relative_program_is_another_command_and_the_disk_is_not_asked() {
     let status = AutostartStatus::of(Some(registered.clone()), &path("mosaico"), &Untouched);
 
     // Assert
-    assert_eq!(status, AutostartStatus::Other(registered));
+    assert_eq!(status, other(registered, &path("mosaico")));
 }

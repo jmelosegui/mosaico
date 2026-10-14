@@ -187,7 +187,7 @@ fn an_autostart_entry_with_other_arguments_is_a_warning() {
     assert_eq!(
         out,
         format!(
-            "  {WARN} Autostart starts \"{EXE}\" daemon instead of this mosaico (run `mosaico autostart enable` to switch)\n"
+            "  {WARN} Autostart starts \"{EXE}\" daemon instead of \"{EXE}\" start (run `mosaico autostart enable` to switch)\n"
         )
     );
 }
@@ -207,7 +207,7 @@ fn an_autostart_entry_for_another_mosaico_is_a_warning() {
     assert_eq!(
         out,
         format!(
-            "  {WARN} Autostart starts \"{other}\" start instead of this mosaico (run `mosaico autostart enable` to switch)\n"
+            "  {WARN} Autostart starts \"{other}\" start instead of \"{EXE}\" start (run `mosaico autostart enable` to switch)\n"
         )
     );
 }

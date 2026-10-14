@@ -37,9 +37,12 @@ pub fn status(cx: &mut Context) -> Exit {
     match check(cx) {
         Ok(AutostartStatus::Enabled) => say!(cx, "Autostart is currently enabled."),
         Ok(AutostartStatus::Disabled) => say!(cx, "Autostart is currently disabled."),
-        Ok(AutostartStatus::Other(command)) => say!(
+        Ok(AutostartStatus::Other {
+            registered,
+            expected,
+        }) => say!(
             cx,
-            "Autostart is currently enabled, but starts {command} instead of this mosaico."
+            "Autostart is currently enabled, but starts {registered} instead of {expected}."
         ),
         Ok(AutostartStatus::Missing(command)) => say!(
             cx,
@@ -62,9 +65,15 @@ pub fn register(cx: &Context) -> mosaico_core::Result<()> {
 }
 
 /// How the registration compares with what [`register`] would register.
+///
+/// Reads the registration first, so that with nothing registered the
+/// answer is "disabled" even when the executable cannot be found.
 pub fn check(cx: &Context) -> mosaico_core::Result<AutostartStatus> {
-    let exe = running_exe(cx)?;
     let registered = cx.autostart.registered_command()?;
+    if registered.is_none() {
+        return Ok(AutostartStatus::Disabled);
+    }
+    let exe = running_exe(cx)?;
     Ok(AutostartStatus::of(registered, &exe, cx.files))
 }
 

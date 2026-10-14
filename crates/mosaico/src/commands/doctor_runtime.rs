@@ -49,9 +49,12 @@ pub fn check_autostart(cx: &mut Context) {
             cx,
             "  {WARN} Autostart is disabled (run `mosaico autostart enable` to set up)"
         ),
-        Ok(AutostartStatus::Other(command)) => say!(
+        Ok(AutostartStatus::Other {
+            registered,
+            expected,
+        }) => say!(
             cx,
-            "  {WARN} Autostart starts {command} instead of this mosaico (run `mosaico autostart enable` to switch)"
+            "  {WARN} Autostart starts {registered} instead of {expected} (run `mosaico autostart enable` to switch)"
         ),
         Ok(AutostartStatus::Missing(command)) => say!(
             cx,

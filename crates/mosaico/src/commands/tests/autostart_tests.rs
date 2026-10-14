@@ -98,7 +98,7 @@ fn status_names_the_command_of_another_registration() {
     assert_eq!(
         h.out(),
         format!(
-            "Autostart is currently enabled, but starts \"{EXE}\" daemon instead of this mosaico.\n"
+            "Autostart is currently enabled, but starts \"{EXE}\" daemon instead of \"{EXE}\" start.\n"
         )
     );
 }
@@ -117,5 +117,37 @@ fn status_says_when_the_registered_program_is_not_a_file() {
     assert_eq!(
         h.out(),
         format!("Autostart is currently enabled, but \"{MOVED_AWAY}\" is not a file.\n")
+    );
+}
+
+#[test]
+fn status_with_nothing_registered_does_not_need_the_executable() {
+    // Arrange
+    let mut h = Harness::new("autostart-status-no-exe");
+    h.world.exe_missing.set(true);
+
+    // Act
+    let exit = h.run(status);
+
+    // Assert
+    assert_eq!(exit, Exit::Success);
+    assert_eq!(h.out(), "Autostart is currently disabled.\n");
+}
+
+#[test]
+fn status_fails_when_the_executable_cannot_be_found() {
+    // Arrange
+    let mut h = Harness::new("autostart-status-lost-exe");
+    h.world.exe_missing.set(true);
+    *h.world.autostart.borrow_mut() = Some(LaunchCommand::autostart(EXE));
+
+    // Act
+    let exit = h.run(status);
+
+    // Assert
+    assert_eq!(exit, Exit::Failure);
+    assert_eq!(
+        h.err(),
+        "Error: could not find the mosaico executable: no executable\n"
     );
 }

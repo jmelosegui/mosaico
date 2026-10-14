@@ -12,8 +12,14 @@ pub enum AutostartStatus {
     Disabled,
     /// This executable is registered, started the way enabling does it.
     Enabled,
-    /// Another program, or this one with other arguments, is registered.
-    Other(LaunchCommand),
+    /// Another command is registered: another program, or this one with
+    /// other arguments.
+    Other {
+        /// What is registered.
+        registered: LaunchCommand,
+        /// What enabling autostart from this executable registers.
+        expected: LaunchCommand,
+    },
     /// The registered program is not a file: nothing is at its path, or
     /// something else such as a directory, as after the binary was moved
     /// or deleted. Nothing starts at login.
@@ -37,19 +43,19 @@ impl AutostartStatus {
         };
         let expected = LaunchCommand::autostart(exe);
         let program = registered.program.as_path();
-        if !program.is_absolute() {
-            return Self::Other(registered);
+        if program.is_absolute() {
+            let is_this =
+                program == expected.program || files.same_file(program, &expected.program);
+            if is_this && registered.args == expected.args {
+                return Self::Enabled;
+            }
+            if !is_this && files.is_file(program) == Some(false) {
+                return Self::Missing(registered);
+            }
         }
-        if program == expected.program || files.same_file(program, &expected.program) {
-            return if registered.args == expected.args {
-                Self::Enabled
-            } else {
-                Self::Other(registered)
-            };
-        }
-        match files.is_file(program) {
-            Some(false) => Self::Missing(registered),
-            Some(true) | None => Self::Other(registered),
+        Self::Other {
+            registered,
+            expected,
         }
     }
 }

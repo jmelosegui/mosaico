@@ -77,6 +77,8 @@ pub struct World {
     pub place_error: RefCell<Option<String>>,
     /// Program files that exist.
     pub files: RefCell<Vec<PathBuf>>,
+    /// Whether the executable commands run from cannot be found.
+    pub exe_missing: Cell<bool>,
     /// The fake time.
     pub now: Cell<Instant>,
 }
@@ -96,6 +98,7 @@ impl Default for World {
             placed: RefCell::default(),
             place_error: RefCell::default(),
             files: RefCell::default(),
+            exe_missing: Cell::new(false),
             now: Cell::new(Instant::now()),
         }
     }
@@ -236,7 +239,7 @@ impl Harness {
             autostart: &self.world,
             windows: &self.world,
             desktop: &self.desktop,
-            current_exe: &|| Ok(PathBuf::from(EXE)),
+            current_exe: &|| self.world.current_exe(),
             files: &self.world,
             pid_file: self.pid_file.clone(),
             config_dir: "C:\\config\\mosaico".into(),
