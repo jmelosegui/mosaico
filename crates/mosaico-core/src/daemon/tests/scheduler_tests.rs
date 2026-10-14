@@ -11,6 +11,8 @@ use super::*;
 
 #[path = "scheduler_flush_tests.rs"]
 mod flush_tests;
+#[path = "scheduler_hold_tests.rs"]
+mod hold_tests;
 #[path = "scheduler_settle_tests.rs"]
 mod settle_tests;
 
