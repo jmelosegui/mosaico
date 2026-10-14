@@ -115,3 +115,37 @@ fn each_command_sends_what_it_says() {
         ]
     );
 }
+
+#[test]
+fn a_daemon_busy_with_another_client_still_gets_the_command() {
+    // Arrange -- its liveness check misses it, but it answers (#73).
+    let mut h = Harness::new("request-busy");
+    h.world.daemon_up(1);
+    h.world.looks_missing.set(true);
+    h.world.reply(Ok(Response::ok_with_message("state dump")));
+
+    // Act
+    let exit = h.run(|cx| run(cx, &Command::Inspect));
+
+    // Assert
+    assert_eq!(exit, Exit::Success);
+    assert_eq!(h.out(), "state dump\n");
+}
+
+#[test]
+fn status_and_stop_reach_a_busy_daemon() {
+    // Arrange
+    let mut h = Harness::new("request-busy-status-stop");
+    h.world.daemon_up(1);
+    h.world.looks_missing.set(true);
+
+    // Act
+    h.run(crate::commands::status::execute);
+    let stopped = h.run(crate::commands::stop::execute);
+
+    // Assert
+    assert!(h.out().starts_with("Mosaico is running"), "{}", h.out());
+    assert!(h.out().contains("Mosaico stopped."), "{}", h.out());
+    assert_eq!(stopped, Exit::Success);
+    assert_eq!(*h.world.sent.borrow(), vec![Command::Status, Command::Stop]);
+}
