@@ -21,8 +21,8 @@ pub fn instance() -> &'static Instance {
 /// Runs `command` with the real daemon, processes, registry, desktop,
 /// clock and terminal.
 ///
-/// The process is not DPI aware, so commands that show where windows and
-/// monitors are use [`run_on_desktop`] instead.
+/// The process is not DPI aware, so commands that move windows or show
+/// where windows and monitors are use [`run_on_desktop`] instead.
 #[cfg(target_os = "windows")]
 pub fn run(command: impl FnOnce(&mut Context) -> Exit) -> Exit {
     let instance = instance();
