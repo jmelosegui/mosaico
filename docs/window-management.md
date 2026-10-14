@@ -14,7 +14,11 @@ which includes invisible frame compensation and DPI awareness.
 | `crates/mosaico-core/src/window.rs` | `WindowControl` trait |
 | `crates/mosaico-core/src/tiler/desktop.rs` | `Desktop` trait, the read side |
 | `crates/mosaico-core/src/tiler/window_effects.rs` | `apply_window_effect()`, which carries out window effects |
-| `crates/mosaico-windows/src/window.rs` | Win32 `Window` struct wrapping an `HWND` |
+| `crates/mosaico-windows/src/window.rs` | Win32 `Window` struct wrapping an `HWND`, and its basic queries |
+| `crates/mosaico-windows/src/window/place.rs` | `set_rect()` and `invalidate()`: placing a window and repainting it |
+| `crates/mosaico-windows/src/window/pre_place.rs` | `move_async()`: moving a window that has not been shown yet |
+| `crates/mosaico-windows/src/window/process.rs` | The owning process: `process_id()`, `is_elevated()`, `exe_path()` |
+| `crates/mosaico-windows/src/window/kind.rs` | `app_window_caption()`: whether a window is an application window |
 | `crates/mosaico-windows/src/window_control.rs` | `Win32WindowControl`, the Win32 `WindowControl` |
 | `crates/mosaico-windows/src/frame.rs` | `visible_rect()`, `border_offset()`, `BorderOffset` |
 | `crates/mosaico-windows/src/enumerate.rs` | `enumerate_windows()` |
