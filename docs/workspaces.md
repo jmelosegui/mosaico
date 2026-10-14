@@ -113,6 +113,13 @@ configured strategy. A window that leaves the layout, whether it closes, is
 let go by the rules or is taken out for any other reason, is forgotten, so a
 new window that gets its id is hidden the configured way.
 
+When the window rules are reloaded, a hidden window is judged by the rules
+alone: the platform may not count it as a candidate while it is out of view
+(Windows rules out cloaked windows), so the tiler asks `Desktop::facts`
+instead of `Desktop::candidate`. If the new rules let go of it, it is shown
+again the way it was hidden rather than left out of view with nothing to
+bring it back.
+
 On Windows every strategy is available:
 
 | Strategy | Method | Events |

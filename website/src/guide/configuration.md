@@ -150,8 +150,10 @@ reloads each of these files whose modification time changed.
   take effect on the next workspace switch.
 - **user-rules.toml** -- both rule sets are re-merged, your rules first.
   New rules apply to new windows. Managed windows the new rules no longer
-  manage are released at once, and their monitor is retiled. A window the
-  new rules would manage is picked up the next time it gets focus.
+  manage are released at once, and their monitor is retiled. A window on
+  another workspace that the new rules stop tiling appears on screen right
+  away, where it was, no longer tiled. A window the new rules would manage
+  is picked up the next time it gets focus.
 - **bar.toml** -- the status bar is recreated with updated settings and
   colors.
 - **rules.toml** -- community rules, not watched: updated only on daemon

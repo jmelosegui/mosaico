@@ -333,8 +333,11 @@ same way.
   rules from `rules.toml`) are replaced via `reload_rules()`. New rules apply
   to new windows. Managed windows the new rules no longer manage are released
   at once, which the log shows as `-rule <window> (unmanaged by new rules)`,
-  and their monitor is retiled. A window the new rules would manage is
-  picked up the next time it gets focus.
+  and their monitor is retiled. A window hidden on another workspace is out
+  of view only because the tiler hid it, so it is judged by the rules alone,
+  on what `Desktop::facts` says about it, and a hidden window the rules
+  release is shown again the way it was hidden. A window the new rules would
+  manage is picked up the next time it gets focus.
 - **rules.toml**: **not** watched. The daemon downloads the community rules
   at startup and reloads them itself once they are saved, and the next
   download overwrites hand edits. Put your own rules in `user-rules.toml`.

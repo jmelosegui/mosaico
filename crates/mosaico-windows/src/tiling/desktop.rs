@@ -99,4 +99,24 @@ impl Desktop for Win32Desktop {
             has_caption,
         })
     }
+
+    /// Reads what `candidate` reads, without ruling out cloaked windows,
+    /// which is how `hiding = "cloak"` hides them, or windows of elevated
+    /// processes, which the tiler only manages when it can position them.
+    ///
+    /// Unlike `candidate`, it first checks with `IsWindow` that the window
+    /// still exists: the style queries behind `app_window_caption` read a
+    /// closed window as an untitled application window rather than fail.
+    fn facts(&self, window: WindowId) -> Option<WindowFacts> {
+        let win = Window::from_id(window);
+        if !win.is_valid() {
+            return None;
+        }
+        Some(WindowFacts {
+            has_caption: win.app_window_caption()?,
+            class: win.class().unwrap_or_default(),
+            title: win.title().unwrap_or_default(),
+            path: win.exe_path(),
+        })
+    }
 }

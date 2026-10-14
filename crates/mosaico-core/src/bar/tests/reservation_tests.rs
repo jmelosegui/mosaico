@@ -52,6 +52,10 @@ impl Desktop for NoWindows {
     fn candidate(&self, _: WindowId) -> Option<WindowFacts> {
         None
     }
+
+    fn facts(&self, _: WindowId) -> Option<WindowFacts> {
+        None
+    }
 }
 
 /// The tiling area of each monitor in `areas`, once the tiler reserves

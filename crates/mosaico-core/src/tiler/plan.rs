@@ -127,4 +127,8 @@ impl<'a> Plan<'a> {
     pub(super) fn candidate(&self, window: WindowId) -> Option<WindowFacts> {
         self.desktop.candidate(window)
     }
+
+    pub(super) fn facts(&self, window: WindowId) -> Option<WindowFacts> {
+        self.desktop.facts(window)
+    }
 }

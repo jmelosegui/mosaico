@@ -4,7 +4,7 @@ use crate::config;
 
 use crate::WindowId;
 
-use super::{Effect, Plan, Tiler};
+use super::{Effect, Plan, Tiler, WindowFacts};
 
 /// Whether a window that exists but has not been shown yet should be
 /// moved into the slot it is going to occupy.
@@ -23,9 +23,12 @@ impl Tiler {
     /// Everything `is_tileable` checks except visibility, so a window
     /// that has been created but not shown yet can be judged.
     pub(super) fn passes_tiling_rules(&self, plan: &Plan, window: WindowId) -> bool {
-        let Some(facts) = plan.candidate(window) else {
-            return false;
-        };
+        plan.candidate(window)
+            .is_some_and(|facts| self.rules_manage(&facts))
+    }
+
+    /// Whether the rules manage a window with these facts.
+    pub(super) fn rules_manage(&self, facts: &WindowFacts) -> bool {
         if facts.has_caption {
             config::should_manage(&facts.class, &facts.title, &facts.path, &self.rules)
         } else {

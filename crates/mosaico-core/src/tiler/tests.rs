@@ -45,6 +45,8 @@ mod move_tests;
 mod pipeline_tests;
 #[path = "tests/pre_place_tests.rs"]
 mod pre_place_tests;
+#[path = "tests/rules_release_tests.rs"]
+mod rules_release_tests;
 #[path = "tests/rules_reload_tests.rs"]
 mod rules_reload_tests;
 #[path = "tests/session_tests.rs"]
@@ -156,6 +158,10 @@ impl Desktop for FakeDesktop {
             .get(&window)
             .filter(|w| !w.cloaked)
             .and_then(|w| w.facts.clone())
+    }
+
+    fn facts(&self, window: WindowId) -> Option<WindowFacts> {
+        self.windows.get(&window).and_then(|w| w.facts.clone())
     }
 }
 

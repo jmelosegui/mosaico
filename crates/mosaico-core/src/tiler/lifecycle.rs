@@ -45,7 +45,8 @@ impl Tiler {
     }
 
     /// Replaces the window rules and lets go of windows the new rules
-    /// no longer manage.
+    /// no longer manage. One hidden by a workspace switch is shown
+    /// again as it is let go, so it is not left out of view.
     pub(super) fn reload_rules(&mut self, plan: &mut Plan, rules: Vec<WindowRule>) {
         self.rules = rules;
         self.adopt_rejected.clear();
@@ -54,7 +55,7 @@ impl Tiler {
         for (mi, mon) in self.monitors.iter().enumerate() {
             for (wi, ws) in mon.workspaces.iter().enumerate() {
                 for &window in ws.windows() {
-                    if !self.is_tileable(plan, window) {
+                    if !self.still_managed(plan, window) {
                         removals.push((mi, wi, window));
                     }
                 }
@@ -64,8 +65,16 @@ impl Tiler {
         let mut affected: Vec<usize> = Vec::new();
         for (mi, wi, window) in removals {
             self.undecorate(plan, window);
-            self.monitors[mi].workspaces[wi].remove(window);
-            self.hidden_how.forget(window);
+            let ws = &mut self.monitors[mi].workspaces[wi];
+            ws.remove(window);
+            // As when a window leaves any other way, a workspace whose
+            // monocle window goes is no longer in monocle.
+            if ws.monocle() && ws.monocle_window() == Some(window) {
+                ws.set_monocle(false);
+                ws.set_monocle_window(None);
+            }
+            // Shows it the way it was hidden, if it was, then forgets it.
+            self.hidden_how.release(plan, window);
             crate::log_info!("-rule {window} (unmanaged by new rules)");
             if !affected.contains(&mi) {
                 affected.push(mi);
@@ -74,6 +83,19 @@ impl Tiler {
         for idx in affected {
             self.apply_layout_on(plan, idx);
         }
+    }
+
+    /// Whether the rules still manage a window the tiler manages.
+    ///
+    /// A window hidden by a workspace switch is out of view by the
+    /// tiler's own doing, so only the rules judge it, on what the
+    /// platform says about it whether or not it is in view (#111).
+    fn still_managed(&self, plan: &Plan, window: WindowId) -> bool {
+        if !self.hidden_how.contains(window) {
+            return self.is_tileable(plan, window);
+        }
+        plan.facts(window)
+            .is_some_and(|facts| self.rules_manage(&facts))
     }
 
     /// Every managed window, on every workspace of every monitor.

@@ -17,8 +17,8 @@ use super::WindowIdentity;
 ///   own effects that have not been applied yet, so a platform must not
 ///   try to predict them.
 /// - A window that no longer exists answers like an invisible one:
-///   `is_visible` false, `rect`, `owner` and `identity` `None`. Its
-///   `monitor_of` may be an id that is in no [`Display`] list.
+///   `is_visible` false, `rect`, `owner`, `identity` and `facts` `None`.
+///   Its `monitor_of` may be an id that is in no [`Display`] list.
 pub trait Desktop {
     /// Whether the window is shown. A window that is only hidden by the
     /// system's own desktop switching still counts as shown.
@@ -61,6 +61,18 @@ pub trait Desktop {
     /// check, so a window that exists but has not been shown yet can
     /// still be judged.
     fn candidate(&self, window: WindowId) -> Option<WindowFacts>;
+
+    /// What the rules match against, for a window the tiler hid itself.
+    ///
+    /// [`candidate`](Self::candidate) may rule such a window out for
+    /// being out of view, which is the tiler's own doing, so the tiler
+    /// asks this instead when it judges a window it hid, for example
+    /// when the rules change. Describe the window the way `candidate`
+    /// does once it is in view, but do not rule it out for being out of
+    /// view, nor for being out of reach: the tiler only hides windows it
+    /// took in, and it could position them then. `None` only when the
+    /// window no longer exists or is no longer an application window.
+    fn facts(&self, window: WindowId) -> Option<WindowFacts>;
 }
 
 /// Properties the window rules match against.
