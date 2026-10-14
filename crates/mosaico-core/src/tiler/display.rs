@@ -6,6 +6,7 @@ use crate::config::{HidingBehaviour, WorkspaceMode};
 
 use crate::WindowId;
 
+use super::display_monocle::join_monocle;
 use super::display_rebuild::rebuild_monitors;
 use super::{BarReservation, Display, Plan, Tiler};
 
@@ -77,6 +78,7 @@ impl Tiler {
         // of step anyway has its windows hidden and shown below, with the
         // windows that moved, as a safeguard.
         let mut moved = rebuilt.moved;
+        let from_elsewhere = moved.clone();
         if self.workspace_mode == WorkspaceMode::Global
             && let Some(target) = in_view
         {
@@ -97,6 +99,12 @@ impl Tiler {
         // on a workspace a monitor switched. Each is hidden or shown once.
         let mut seen = HashSet::new();
         moved.retain(|&window| seen.insert(window));
+        // Windows from another monitor wait behind the monocle window of a
+        // monocle workspace they land on, and one that brings focus hands
+        // it to the monocle window as focus settles (#132). Only the
+        // windows the rebuild moved count, once the line-up has settled
+        // which workspaces are in view.
+        join_monocle(&mut self.monitors, &from_elsewhere);
 
         // Focus settles first, so a focused window about to be hidden has
         // handed it on and the system's own pick is not followed. Windows

@@ -17,6 +17,7 @@ orchestration logic in `mosaico-windows`.
 | `crates/mosaico-core/src/layout/three_column.rs` | `ThreeColumnLayout` -- center master with side stacks |
 | `crates/mosaico-core/src/layout/tests.rs` | Unit tests for all three layouts and `LayoutKind` |
 | `crates/mosaico-core/src/workspace.rs` | `Workspace` -- ordered collection of window handles per monitor, tracks `LayoutKind` |
+| `crates/mosaico-core/src/workspace/monocle.rs` | Monocle state of a `Workspace`, with the windows a display change brought onto it that wait behind the monocle window |
 | `crates/mosaico-core/src/rect.rs` | `Rect` -- rectangle type with spatial helpers |
 | `crates/mosaico-core/src/spatial.rs` | Pure spatial navigation functions (`find_neighbor`, `find_entry`) |
 | `crates/mosaico-windows/src/tiling/mod.rs` | `TilingManager`, `MonitorState` -- core orchestration, event/action dispatch |
@@ -242,7 +243,9 @@ The `TilingManager` supports hot-reloading of configuration:
    without a report. A window the tiler hid with `hide` is kept while it still
    exists and is still hidden, since a display change bringing it into view
    shows it right after the retile.
-2. In **monocle mode**: positions only the monocle window to fill the work area
+2. In **monocle mode**: positions the monocle window to fill the work area,
+   and a window a display change brought there behind it, at the same rect
+   (see [Monocle Mode](#monocle-mode))
 3. In **normal mode**: reads the workspace's `layout_kind` and instantiates
    the corresponding layout (`BspLayout`, `VerticalStackLayout`, or
    `ThreeColumnLayout`) via `compute_positions()`, then emits a placement for
@@ -275,6 +278,37 @@ When monocle is active, `apply_layout_on()` skips the normal layout computation
 and directly positions the monocle window to fill the monitor's work area with
 gap padding. The monocle window is remembered per workspace via the
 `monocle_window` field so it persists across workspace switches.
+
+The monocle window stays in front because it is the window that gets focus.
+It has focus when monocle is turned on, and a focus report for another window
+of the workspace, as clicking it gives, ends monocle (`on_focused`). Focus the
+tiler gives itself through `focus_window` does not end it: a window sent to a
+monocle workspace, focus following the mouse, or a dialog owned by a window
+of the workspace leave monocle on.
+
+A window a display change moves onto a monocle workspace from another
+monitor, in view or not, waits behind the monocle window, whether it held
+focus or not. The next time the workspace is laid out in monocle, it is put
+directly behind the monocle window in the stacking order
+(`WindowControl::put_behind`), then placed at the same rect, once. A window
+that comes home with a returning monitor does the same on its own workspace.
+One that held focus hands it to the monocle window (`settle_focus`), so focus
+is on the window in front. A monocle workspace with no window takes the
+newcomer as its monocle window, as adoption does, and if that window leaves in
+a display change while others wait behind it, the one in front of them becomes
+the monocle window. So a window that arrives never turns monocle off, and a
+visit from another monitor, with focus or not, leaves the monocle window,
+monocle and the stacking as they were.
+
+The workspace keeps the windows that wait (`Workspace::wait_behind`), so a
+window that leaves it, by any way, leaves nothing waiting, and leaving monocle
+forgets them all.
+
+A window that is always on top, pinned by the user for example, cannot wait
+behind a monocle window that is not: `put_behind` keeps each window in its
+layer and leaves it in front. It shows at the monocle rect over the monocle
+window, which keeps focus and the border, and clicking it ends monocle as
+clicking any other window of the workspace does.
 
 ## Workspace Management
 

@@ -116,16 +116,17 @@ impl Tiler {
             // The monocle window fills the work area. Fall back to the
             // focused window when monocle was toggled without a target.
             let target = state.active_ws().monocle_window().or(self.focused_window);
-            if let Some(window) = target
-                && state.active_ws().contains(window)
+            if let Some(front) = target
+                && state.active_ws().contains(front)
             {
                 let rect = self.monocle_rect(monitor_idx);
+                self.place_waiting_behind(plan, monitor_idx, front, rect, timing);
                 plan.emit(Effect::Place {
-                    window,
+                    window: front,
                     rect,
                     timing,
                 });
-                self.show_border_for(plan, window, rect, monitor_idx);
+                self.show_border_for(plan, front, rect, monitor_idx);
                 return;
             }
         }

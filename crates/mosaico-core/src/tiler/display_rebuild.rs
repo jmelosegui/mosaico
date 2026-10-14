@@ -7,6 +7,7 @@ use crate::WindowId;
 use super::Display;
 
 use super::MonitorState;
+use super::display_monocle::clear_stale_monocle;
 use super::reconnect::ReconnectMemory;
 
 /// Result of [`rebuild_monitors`].
@@ -86,6 +87,8 @@ pub(super) fn rebuild_monitors(
         moved.extend(memory.park(gone, &mut states[host]));
     }
 
+    let mut returning = Vec::new();
+    let mut went_home = Vec::new();
     for (idx, parked_key) in returned {
         let back = memory.restore(&mut states, idx, &parked_key);
         crate::log_info!(
@@ -93,25 +96,19 @@ pub(super) fn rebuild_monitors(
             back.len(),
             states[idx].key
         );
-        moved.extend(back);
-        clear_stale_monocle(&mut states[idx]);
+        returning.push(idx);
+        went_home.extend(back);
     }
+    // After every move, so a host whose monocle window went home is
+    // settled as well as a returning monitor whose one did not come back.
+    clear_stale_monocle(&mut states, &returning, &went_home);
+    moved.extend(went_home);
 
     Rebuilt {
         monitors: states,
         moved,
         pairs,
         host,
-    }
-}
-
-/// Turns monocle off on workspaces whose monocle window did not return.
-fn clear_stale_monocle(monitor: &mut MonitorState) {
-    for ws in &mut monitor.workspaces {
-        if ws.monocle() && !ws.monocle_window().is_some_and(|h| ws.contains(h)) {
-            ws.set_monocle(false);
-            ws.set_monocle_window(None);
-        }
     }
 }
 

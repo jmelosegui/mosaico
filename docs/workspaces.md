@@ -79,6 +79,14 @@ Actions use 1-based indexing in the user-facing interface (config, CLI) and
 8. When `refocus` is true and the new workspace is empty, pins focus to the
    monitor until something takes it
 
+A display change can change a workspace while it is out of view. Windows
+from a monitor that went away can wait there, behind its monocle window if it
+is in monocle, and are put in place when the workspace is switched to. If its
+monocle window went back to its own monitor, the workspace leaves monocle
+when other windows remain, unless windows wait behind it there: the one in
+front of them becomes the monocle window (see
+[monitor-management.md](monitor-management.md#disconnect-and-reconnect)).
+
 ### Hiding Behaviour
 
 The `hiding` setting in `[layout]` controls how windows are hidden during

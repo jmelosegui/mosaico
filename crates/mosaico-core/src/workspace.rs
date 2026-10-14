@@ -1,5 +1,9 @@
+mod monocle;
+
 use crate::layout::{Layout, LayoutKind};
 use crate::{Rect, WindowId};
+
+use monocle::Visits;
 
 /// A workspace manages a set of tiled windows on a single monitor.
 ///
@@ -12,6 +16,9 @@ pub struct Workspace {
     monocle: bool,
     /// The window shown fullscreen in monocle mode.
     monocle_window: Option<WindowId>,
+    /// What monocle keeps of the windows a display change brought from
+    /// another monitor (see `workspace/monocle.rs`).
+    visits: Visits,
     /// The last focused window on this workspace.
     ///
     /// Saved when switching away, restored when switching back so the
@@ -29,6 +36,7 @@ impl Workspace {
             windows: Vec::new(),
             monocle: false,
             monocle_window: None,
+            visits: Visits::default(),
             last_focused: None,
             layout_kind: LayoutKind::default(),
         }
@@ -40,26 +48,6 @@ impl Workspace {
             layout_kind,
             ..Self::new()
         }
-    }
-
-    /// Returns whether monocle mode is active on this workspace.
-    pub fn monocle(&self) -> bool {
-        self.monocle
-    }
-
-    /// Sets the monocle mode flag.
-    pub fn set_monocle(&mut self, value: bool) {
-        self.monocle = value;
-    }
-
-    /// Returns the monocle window handle, if any.
-    pub fn monocle_window(&self) -> Option<WindowId> {
-        self.monocle_window
-    }
-
-    /// Sets the monocle window handle.
-    pub fn set_monocle_window(&mut self, value: Option<WindowId>) {
-        self.monocle_window = value;
     }
 
     /// Returns the last focused window on this workspace.
@@ -112,6 +100,7 @@ impl Workspace {
     pub fn remove(&mut self, window: WindowId) -> bool {
         if let Some(pos) = self.windows.iter().position(|&h| h == window) {
             self.windows.remove(pos);
+            self.visits.forget(window);
             if self.last_focused == Some(window) {
                 self.last_focused = None;
             }

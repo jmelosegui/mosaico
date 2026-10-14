@@ -22,6 +22,7 @@ and monitors using vim-style H/J/K/L motions.
 | `crates/mosaico-windows/src/monitor_edid.rs` | Reads the EDID copy from the registry |
 | `crates/mosaico-core/src/tiler/display.rs` | `handle_display_change()` |
 | `crates/mosaico-core/src/tiler/display_rebuild.rs` | `rebuild_monitors()`, `pair_monitors()` (unit tested) |
+| `crates/mosaico-core/src/tiler/display_monocle.rs` | `join_monocle()`, `clear_stale_monocle()`: monocle workspaces across a display change, and the windows that wait behind their monocle window |
 | `crates/mosaico-core/src/tiler/state.rs` | `MonitorState`, `SpatialTarget` |
 | `crates/mosaico-core/src/tiler/navigation.rs`, `navigation_helpers.rs` | Multi-monitor focus/move logic, spatial target resolution |
 | `crates/mosaico-windows/src/tiling/mod.rs` | `TilingManager`, which feeds the core tiler the monitor lists |
@@ -148,7 +149,14 @@ which keeps a `ReconnectMemory` (`tiler/reconnect.rs`) owned by the core
   whose home is that monitor back to its workspace, in slot order, but only
   if it is still on the host workspace it was put on. A window the user
   moved somewhere else stays there. The record is dropped either way.
-  Monocle is turned off on a workspace whose monocle window did not return.
+  Once every window has moved, monocle is settled on the workspaces the
+  change took the monocle window from. One of a returning monitor whose
+  monocle window did not come back leaves monocle. One whose monocle window
+  went home stays in monocle when windows wait behind it there, with the one
+  in front of them as its monocle window; otherwise it keeps monocle with no
+  monocle window if it is empty, and leaves monocle if other windows remain.
+  A stale monocle anywhere else, such as one whose monocle window the user
+  sent away, is left for that window to come back to.
 - **New monitors** start with workspaces built from `[workspaces.layouts]`.
 
 A window displaced twice (its host disconnects as well) keeps its original
@@ -185,20 +193,23 @@ restored. All of them go through `HiddenHow`
 (`crates/mosaico-core/src/tiler/hidden_how.rs`): a window is shown the way
 the tiler hid it, and one that is already hidden stays hidden the way it
 was rather than being hidden again with the configured strategy (see
-[workspaces.md](workspaces.md#hiding-behaviour)).
+[workspaces.md](workspaces.md#hiding-behaviour)). A window that lands on a
+monocle workspace waits behind its monocle window, with focus or not (see
+[tiling-layout.md](tiling-layout.md#monocle-mode)).
 
-A focused window that is still in view keeps focus, wherever it moved.
-Otherwise focus stays on the same physical monitor if it is still
-connected, followed through its pairing, so a monitor that reports a
-different key keeps focus. When that monitor is gone, focus moves to the
-primary monitor, which took in its windows. If the focused window ends up
-out of view, the focused monitor's window takes focus as in a workspace
-switch: its monocle window, then the one it remembers, then its first.
-With nothing there, focus is parked on that monitor until something takes
-it. Either way the system's own pick once the window is hidden is not
-followed: the echo filter drops it while the focus change is held, and the
-parked claim while focus is parked. When the pointer follows focus, it
-moves onto the window that takes focus.
+A focused window that is still in view keeps focus, wherever it moved,
+unless the change has it wait behind a monocle window: then the monocle
+window takes focus, as it is the one on screen. Otherwise focus stays on the
+same physical monitor if it is still connected, followed through its
+pairing, so a monitor that reports a different key keeps focus. When that
+monitor is gone, focus moves to the primary monitor, which took in its
+windows. If the focused window ends up out of view, the focused monitor's
+window takes focus as in a workspace switch: its monocle window, then the
+one it remembers, then its first. With nothing there, focus is parked on
+that monitor until something takes it. Either way the system's own pick
+once the window is hidden is not followed: the echo filter drops it while
+the focus change is held, and the parked claim while focus is parked. When
+the pointer follows focus, it moves onto the window that takes focus.
 
 In global mode the monitors are always in step: every switch moves all of
 them, and a reload that turns global mode on lines them up. A display
