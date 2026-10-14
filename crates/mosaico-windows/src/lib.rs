@@ -53,7 +53,7 @@ pub mod hotkey;
 pub mod keys;
 
 /// Win32 event translation.
-pub mod event;
+mod event;
 
 /// Single-instance daemon guard (named kernel mutex).
 pub mod instance_guard;

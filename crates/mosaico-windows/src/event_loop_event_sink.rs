@@ -1,8 +1,8 @@
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, WPARAM};
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DestroyWindow, GA_ROOT, GetAncestor, GetCursorPos, KillTimer,
-    PostMessageW, RegisterClassW, SPI_SETWORKAREA, SetTimer, WM_APP, WM_DISPLAYCHANGE,
-    WM_SETTINGCHANGE, WM_TIMER, WNDCLASSW, WS_EX_TOOLWINDOW, WindowFromPoint,
+    PostMessageW, RegisterClassW, SetTimer, WM_APP, WM_TIMER, WNDCLASSW, WS_EX_TOOLWINDOW,
+    WindowFromPoint,
 };
 use windows::core::w;
 
@@ -132,16 +132,10 @@ pub(crate) unsafe extern "system" fn event_sink_proc(
     wparam: WPARAM,
     lparam: LPARAM,
 ) -> LRESULT {
-    if msg == WM_DISPLAYCHANGE {
+    if let Some(event) = crate::event::translate_broadcast(msg, wparam.0) {
         EVENT_SENDER.with(|cell| {
             if let Some(sender) = cell.borrow().as_ref() {
-                let _ = sender.send(WindowEvent::DisplayChanged);
-            }
-        });
-    } else if msg == WM_SETTINGCHANGE && wparam.0 == SPI_SETWORKAREA.0 as usize {
-        EVENT_SENDER.with(|cell| {
-            if let Some(sender) = cell.borrow().as_ref() {
-                let _ = sender.send(WindowEvent::WorkAreaChanged);
+                let _ = sender.send(event);
             }
         });
     } else if msg == FOCUS_FOLLOWS_MOUSE_TOGGLE_MSG {
