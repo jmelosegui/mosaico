@@ -97,11 +97,12 @@ impl IpcClient for PipeClient {
                 return Err(IpcError::NotRunning);
             }
             // The only instance is serving another client. Wait for it
-            // to free up, then try once more.
+            // to free up, then try once more. A daemon that keeps every
+            // instance busy that long is not answering anyone.
             Err(e) if e.code() == ERROR_PIPE_BUSY.to_hresult() => {
                 // SAFETY: WaitNamedPipeW blocks for at most BUSY_WAIT_MS.
                 if !unsafe { WaitNamedPipeW(&self.name, BUSY_WAIT_MS) }.as_bool() {
-                    return Err(IpcError::Io(io::Error::from(e)));
+                    return Err(IpcError::TimedOut);
                 }
                 self.open().map_err(|e| IpcError::Io(io::Error::from(e)))?
             }

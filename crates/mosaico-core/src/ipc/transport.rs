@@ -21,7 +21,7 @@ use super::{Command, ErrorCode, IpcError, Request, Response, decode_request};
 /// - `connect` fails with [`IpcError::NotRunning`] when no daemon is
 ///   listening, without waiting. When the daemon is listening but busy
 ///   with another client, it waits a short, bounded time for it to
-///   become free before giving up.
+///   become free, then gives up with [`IpcError::TimedOut`].
 /// - Once connected, reads wait until the daemon replies, goes away, or
 ///   the timeout set with [`IpcStream::set_read_timeout`] passes. A
 ///   daemon that exits mid-request must end the stream, so the client

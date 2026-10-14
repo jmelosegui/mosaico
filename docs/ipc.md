@@ -161,7 +161,8 @@ stop it.
   the client gets error 233.
 - `PipeClient::connect` opens the pipe with `CreateFileW`. `ERROR_FILE_NOT_FOUND`
   means no daemon. On `ERROR_PIPE_BUSY` it waits up to 2 seconds with
-  `WaitNamedPipeW` and tries once more.
+  `WaitNamedPipeW` and tries once more. A pipe still busy after that is a
+  daemon that is not answering, reported as `IpcError::TimedOut`.
 - `PipeClient::is_daemon_running` uses `WaitNamedPipeW` with a 1 ms timeout.
   Only `ERROR_FILE_NOT_FOUND` means no daemon; a timeout means every instance
   is busy and the daemon is running.
