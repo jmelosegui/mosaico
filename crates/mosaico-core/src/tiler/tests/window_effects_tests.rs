@@ -238,6 +238,45 @@ fn closing_minimizing_and_repainting_reach_the_platform() {
 }
 
 #[test]
+fn putting_a_window_behind_another_reaches_the_platform() {
+    // Arrange
+    let windows = Recorder::default();
+    let effect = Effect::PutBehind {
+        window: wid(2),
+        other: wid(1),
+    };
+
+    // Act
+    let calls = apply(&[effect], &desktop(), &windows);
+
+    // Assert -- nothing else is moved, repainted or focused.
+    assert_eq!(calls, [Call::PutBehind(wid(2), wid(1))]);
+}
+
+#[test]
+fn a_window_that_cannot_be_put_behind_another_does_not_stop_the_rest() {
+    // Arrange -- every change fails, as for a window that is gone.
+    let windows = Recorder::default();
+    windows.failing.set(true);
+    let effects = [
+        Effect::PutBehind {
+            window: wid(2),
+            other: wid(1),
+        },
+        Effect::Repaint { window: wid(1) },
+    ];
+
+    // Act
+    let calls = apply(&effects, &desktop(), &windows);
+
+    // Assert
+    assert_eq!(
+        calls,
+        [Call::PutBehind(wid(2), wid(1)), Call::Repaint(wid(1))]
+    );
+}
+
+#[test]
 fn borders_and_decorations_are_left_to_the_caller() {
     // Arrange
     let windows = Recorder::default();

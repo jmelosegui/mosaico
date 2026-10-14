@@ -160,7 +160,8 @@ impl Applier {
             | Effect::CenterCursor { .. }
             | Effect::Close { .. }
             | Effect::Minimize { .. }
-            | Effect::Repaint { .. } => apply_window_effect(effect, desktop, control),
+            | Effect::Repaint { .. }
+            | Effect::PutBehind { .. } => apply_window_effect(effect, desktop, control),
             Effect::Decorate { .. }
             | Effect::Undecorate { .. }
             | Effect::Border { .. }

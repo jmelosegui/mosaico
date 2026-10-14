@@ -1,6 +1,7 @@
 //! Changes to windows and the pointer, made through Win32.
 
 mod hiding;
+mod stacking;
 
 use mosaico_core::config::HidingBehaviour;
 use mosaico_core::{Error, HidingEvents, Rect, Result, WindowControl, WindowId};
@@ -17,7 +18,8 @@ use crate::window::Window;
 /// Holds no state: every call goes straight to the window's handle.
 /// `ShowWindow` does not say whether it worked, so the calls built on
 /// it first check that the window still exists. Hiding, showing and
-/// minimizing windows are in `window_control/hiding.rs`.
+/// minimizing windows are in `window_control/hiding.rs`, and putting
+/// one behind another in `window_control/stacking.rs`.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Win32WindowControl;
 
@@ -48,6 +50,10 @@ impl WindowControl for Win32WindowControl {
             ));
         }
         Ok(())
+    }
+
+    fn put_behind(&self, window: WindowId, other: WindowId) -> Result<()> {
+        stacking::put_behind(existing(window)?, existing(other)?)
     }
 
     /// Posts `WM_CLOSE`, the message the window's close button leads

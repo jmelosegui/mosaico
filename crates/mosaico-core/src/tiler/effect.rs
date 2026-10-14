@@ -78,6 +78,14 @@ pub enum Effect {
         /// The window.
         window: WindowId,
     },
+    /// Put a window directly behind another, without focusing either, so
+    /// the other stays in front where they overlap.
+    PutBehind {
+        /// The window to put behind.
+        window: WindowId,
+        /// The window it goes behind.
+        other: WindowId,
+    },
     /// Apply the configured corner style to a managed window's frame.
     Decorate {
         /// The window.
