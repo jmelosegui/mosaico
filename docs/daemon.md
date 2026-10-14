@@ -57,8 +57,9 @@ from separate `mpsc` channels into the unified `DaemonMsg` channel.
 subcommand once `main` has set the process up, as it does for every command
 (`platform::init()`, which makes it per-monitor DPI aware):
 
-1. Take the single instance lock; a second daemon of the same instance stops
-   here with `Error::AlreadyRunning` ("Mosaico daemon is already running.")
+1. Take the single instance lock (`SingleInstance`, a named mutex on Windows);
+   a second daemon of the same instance stops here with
+   `Error::AlreadyRunning` ("Mosaico daemon is already running.")
 2. Write PID file to `%LOCALAPPDATA%\mosaico\mosaico.pid`
 3. Log that it started
 4. Call `daemon_loop()` for the main logic

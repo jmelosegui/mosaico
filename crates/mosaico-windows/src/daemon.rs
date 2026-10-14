@@ -1,9 +1,10 @@
 use mosaico_core::pid;
+use mosaico_core::system::SingleInstance;
 use mosaico_core::update::Installer;
 use mosaico_core::{Instance, Result};
 
 use crate::install::RenameInstaller;
-use crate::instance_guard::InstanceGuard;
+use crate::instance_guard::NamedMutex;
 
 #[path = "daemon_inputs.rs"]
 mod daemon_inputs;
@@ -36,7 +37,7 @@ mod daemon_types;
 pub fn run() -> Result<()> {
     clean_old_binary();
     let instance = Instance::current()?;
-    let _guard = InstanceGuard::acquire(instance)?;
+    let _lock = NamedMutex.acquire(instance)?;
     pid::write_pid_file()?;
     mosaico_core::log_info!("Daemon started (PID: {})", std::process::id());
 

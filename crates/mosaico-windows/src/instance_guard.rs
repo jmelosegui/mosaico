@@ -1,12 +1,13 @@
-//! Single-instance daemon guard using a named kernel mutex.
+//! The single instance lock, as a named kernel mutex.
 //!
-//! The first daemon creates the mutex; any subsequent daemon sees
-//! `ERROR_ALREADY_EXISTS` and exits cleanly.
+//! The first daemon of an instance creates the mutex; any later daemon of
+//! the same instance sees `ERROR_ALREADY_EXISTS` and is turned away.
 
 use windows::Win32::Foundation::{CloseHandle, ERROR_ALREADY_EXISTS, GetLastError, HANDLE};
 use windows::Win32::System::Threading::CreateMutexW;
 use windows::core::HSTRING;
 
+use mosaico_core::system::{InstanceLock, SingleInstance};
 use mosaico_core::{Error, Instance, Result};
 
 use crate::error::OrPlatform;
@@ -14,38 +15,50 @@ use crate::error::OrPlatform;
 /// Namespace-qualified mutex name visible across all sessions.
 const MUTEX_PREFIX: &str = "Global\\MosaicoDaemon";
 
+/// [`SingleInstance`] on Windows: a named kernel mutex per instance.
+///
+/// The mutex is named after the instance's name only, and is in the
+/// `Global\` namespace, so a daemon of an instance keeps a second one out
+/// from any session on the machine. Windows closes every handle of a
+/// process that ends, however it ends, and that is what releases the lock
+/// of a daemon that crashed or was killed.
+///
+/// When the mutex exists but the security on it does not let this process
+/// open it, as when another user's daemon or an elevated one holds it,
+/// `CreateMutexW` fails with access denied. That is reported as the
+/// [`Error::Platform`] it is, not as [`Error::AlreadyRunning`].
+pub struct NamedMutex;
+
+impl SingleInstance for NamedMutex {
+    fn acquire(&self, instance: &Instance) -> Result<InstanceLock> {
+        let guard = InstanceGuard::acquire_named(&mutex_name(instance))?;
+        Ok(InstanceLock::new(move || drop(guard)))
+    }
+}
+
 /// The mutex that marks an instance's daemon as running:
 /// `Global\MosaicoDaemon` for the default instance, with `-<name>`
 /// appended for a named one.
-pub fn mutex_name(instance: &Instance) -> String {
+fn mutex_name(instance: &Instance) -> String {
     match instance.name() {
         Some(name) => format!("{MUTEX_PREFIX}-{name}"),
         None => MUTEX_PREFIX.to_string(),
     }
 }
 
-/// RAII guard that holds a named kernel mutex for the process lifetime.
+/// RAII guard that holds a named kernel mutex until it is dropped.
 ///
 /// When dropped (on clean exit or panic unwind), the mutex is released
 /// so the next daemon can start.
-pub struct InstanceGuard {
+struct InstanceGuard {
     handle: HANDLE,
 }
 
 impl InstanceGuard {
-    /// Attempts to acquire the single-instance mutex of `instance`.
+    /// Creates the mutex `name`, or fails with [`Error::AlreadyRunning`]
+    /// when it exists already.
     ///
-    /// Returns `Ok(guard)` if no daemon of this instance runs yet, or
-    /// [`Error::AlreadyRunning`] if one already holds the mutex. Daemons
-    /// of other instances do not get in the way.
-    pub fn acquire(instance: &Instance) -> Result<Self> {
-        Self::acquire_named(&mutex_name(instance))
-    }
-
-    /// Acquires a mutex with the given name.
-    ///
-    /// This is the implementation behind [`acquire`]; it accepts an
-    /// arbitrary name so unit tests can use isolated mutex names.
+    /// It takes any name so unit tests can use isolated mutex names.
     fn acquire_named(name: &str) -> Result<Self> {
         let name = HSTRING::from(name);
 
@@ -83,67 +96,5 @@ impl Drop for InstanceGuard {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// A mutex name of this test process, so test runs in two worktrees
-    /// at the same time do not take each other's mutex.
-    fn test_mutex(name: &str) -> String {
-        format!("Local\\MosaicoTest_{name}-{}", std::process::id())
-    }
-
-    #[test]
-    fn second_acquire_is_rejected() {
-        // Arrange
-        let name = test_mutex("SecondAcquire");
-        let _first = InstanceGuard::acquire_named(&name).expect("first acquire should succeed");
-
-        // Act
-        let second = InstanceGuard::acquire_named(&name);
-
-        // Assert
-        assert!(second.is_err());
-    }
-
-    #[test]
-    fn a_second_daemon_is_told_that_one_is_already_running() {
-        // Arrange
-        let name = test_mutex("AlreadyRunning");
-        let _first = InstanceGuard::acquire_named(&name).expect("first acquire should succeed");
-
-        // Act
-        let second = InstanceGuard::acquire_named(&name);
-
-        // Assert -- not mistaken for a failed OS call.
-        assert!(
-            matches!(second, Err(Error::AlreadyRunning)),
-            "{:?}",
-            second.err()
-        );
-    }
-
-    #[test]
-    fn the_default_instance_keeps_the_usual_mutex() {
-        // Arrange
-        let default = Instance::new(None, "cfg", "data").unwrap();
-        let named = Instance::new(Some("ci"), "cfg", "data").unwrap();
-
-        // Act / Assert
-        assert_eq!(mutex_name(&default), "Global\\MosaicoDaemon");
-        assert_eq!(mutex_name(&named), "Global\\MosaicoDaemon-ci");
-    }
-
-    #[test]
-    fn acquire_succeeds_after_release() {
-        // Arrange
-        let name = test_mutex("AfterRelease");
-        let first = InstanceGuard::acquire_named(&name).expect("first acquire should succeed");
-
-        // Act
-        drop(first);
-        let second = InstanceGuard::acquire_named(&name);
-
-        // Assert
-        assert!(second.is_ok());
-    }
-}
+#[path = "instance_guard_tests.rs"]
+mod tests;

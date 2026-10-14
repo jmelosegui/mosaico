@@ -61,7 +61,7 @@ mod event;
 /// Installing a downloaded release over the running executable.
 pub mod install;
 
-/// Single-instance daemon guard (named kernel mutex).
+/// The single instance lock, as a named kernel mutex.
 pub mod instance_guard;
 
 /// Window events from Win32 event hooks and broadcasts.

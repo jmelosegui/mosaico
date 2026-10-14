@@ -1,11 +1,12 @@
 //! What mosaico asks of the OS besides talking to the daemon: setting up
-//! each process, starting and stopping processes, and registering for
-//! start on login.
+//! each process, starting and stopping processes, keeping a second daemon
+//! from starting, and registering for start on login.
 
 mod autostart;
 mod autostart_status;
 mod file_probe;
 mod setup;
+mod single_instance;
 
 use crate::Result;
 
@@ -13,6 +14,7 @@ pub use autostart::{Autostart, LaunchCommand};
 pub use autostart_status::AutostartStatus;
 pub use file_probe::FileProbe;
 pub use setup::ProcessSetup;
+pub use single_instance::{InstanceLock, SingleInstance};
 
 /// Starting and stopping daemon processes.
 ///
