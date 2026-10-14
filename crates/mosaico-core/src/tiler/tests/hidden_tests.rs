@@ -170,6 +170,28 @@ fn a_record_an_earlier_daemon_wrote_still_reads() {
 }
 
 #[test]
+fn the_record_keeps_window_ids_as_plain_numbers() {
+    // Arrange -- what a daemon writes today. A killed daemon leaves it
+    // behind, and the next one, maybe a newer build, must still read it.
+    let earlier =
+        r#"{"version":1,"hidden":[{"window":262478,"how":"hide","process":7,"class":"App"}]}"#;
+
+    // Act
+    let record = HiddenWindows::from_text(earlier).unwrap();
+    let written: serde_json::Value = serde_json::from_str(&record.to_text()).unwrap();
+
+    // Assert
+    assert_eq!(
+        record.restore(|_| Some(who(7))),
+        vec![Effect::Show {
+            window: wid(0x4014E),
+            how: HidingBehaviour::Hide
+        }]
+    );
+    assert_eq!(written["hidden"][0]["window"], 262478);
+}
+
+#[test]
 fn corrupt_or_unknown_text_is_an_error() {
     // Act / Assert
     assert!(HiddenWindows::from_text("not json").is_err());

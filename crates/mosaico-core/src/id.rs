@@ -1,9 +1,12 @@
 use std::fmt;
 
+use serde::{Deserialize, Serialize};
+
 /// Identifies a window for the length of a session.
 ///
-/// Opaque to the core: only compared, hashed and printed. Each platform
-/// builds it from its own native handle and turns it back into one.
+/// Opaque to the core: ids are compared, ordered, hashed, printed and
+/// stored, but the order means nothing beyond being stable. Each platform
+/// builds an id from its own native handle and turns it back into one.
 ///
 /// # Contract for platform implementations
 ///
@@ -11,16 +14,26 @@ use std::fmt;
 /// - The id of a window does not change while the window exists.
 /// - An id may be reused once its window is gone, so it must not be
 ///   kept across sessions.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct WindowId(u64);
 
 impl WindowId {
     /// Wraps a platform handle.
+    ///
+    /// Only platform implementations, and the fakes that stand in for
+    /// them in tests, build ids from raw handles. Everywhere else an id
+    /// comes from the platform and is compared, hashed, printed, or read
+    /// back from its printed form or from where it was stored or sent,
+    /// never made up. "No window" is `None`, not an id of `0`.
     pub const fn from_raw(raw: u64) -> Self {
         Self(raw)
     }
 
     /// The platform handle this id was built from.
+    ///
+    /// For platform implementations only, to turn an id back into a
+    /// native handle. Nothing else may read meaning into the number.
     pub const fn raw(self) -> u64 {
         self.0
     }
@@ -30,9 +43,10 @@ impl WindowId {
     /// in decimal. Anything else, a sign or spaces included, is refused.
     ///
     /// This is for ids a user types, such as one copied from `debug
-    /// list`. Besides the platform's [`WindowId::from_raw`], it is the
-    /// only way to build an id. It only reads the text: whether a window
-    /// has that id is for the platform to find out.
+    /// list`. Besides the platform's [`WindowId::from_raw`] and reading
+    /// an id back from where it was stored or sent, it is the only way to
+    /// build an id. It only reads the text: whether a window has that id
+    /// is for the platform to find out.
     pub fn parse(text: &str) -> Option<Self> {
         let (digits, radix) = match text.strip_prefix("0x").or_else(|| text.strip_prefix("0X")) {
             Some(hex) => (hex, 16),
@@ -56,8 +70,9 @@ impl fmt::Display for WindowId {
 
 /// Identifies a connected monitor until the next display change.
 ///
-/// Opaque to the core: only compared and printed. Platforms may hand out
-/// new ids on every display change, even for monitors that stayed
+/// Opaque to the core: ids are compared, ordered, hashed and printed, so
+/// they can key a map, but the order means nothing. Platforms may hand
+/// out new ids on every display change, even for monitors that stayed
 /// connected, so use [`crate::MonitorKey`] to recognise a monitor across
 /// changes.
 ///
@@ -70,11 +85,19 @@ pub struct MonitorId(u64);
 
 impl MonitorId {
     /// Wraps a platform handle.
+    ///
+    /// Only platform implementations, and the fakes that stand in for
+    /// them in tests, build ids from raw handles. Everywhere else an id
+    /// comes from the platform and is compared, hashed or printed, never
+    /// made up.
     pub const fn from_raw(raw: u64) -> Self {
         Self(raw)
     }
 
     /// The platform handle this id was built from.
+    ///
+    /// For platform implementations only, to turn an id back into a
+    /// native handle. Nothing else may read meaning into the number.
     pub const fn raw(self) -> u64 {
         self.0
     }
@@ -144,5 +167,19 @@ mod tests {
         // Act / Assert
         assert_eq!(id.raw(), 25362577);
         assert_eq!(id.to_string(), "25362577");
+    }
+
+    #[test]
+    fn a_window_id_is_stored_as_a_plain_number() {
+        // Arrange
+        let id = WindowId::from_raw(0x4014E);
+
+        // Act
+        let json = serde_json::to_string(&id).unwrap();
+        let back: WindowId = serde_json::from_str(&json).unwrap();
+
+        // Assert
+        assert_eq!(json, "262478");
+        assert_eq!(back, id);
     }
 }
