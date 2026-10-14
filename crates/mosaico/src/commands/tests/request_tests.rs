@@ -149,3 +149,33 @@ fn status_and_stop_reach_a_busy_daemon() {
     assert_eq!(stopped, Exit::Success);
     assert_eq!(*h.world.sent.borrow(), vec![Command::Status, Command::Stop]);
 }
+
+#[test]
+fn an_unresponsive_daemon_is_reported_with_what_to_do() {
+    // Arrange -- #86: the daemon is listening but does not reply.
+    let mut h = Harness::new("request-unresponsive");
+    h.world.daemon_up(1);
+    h.world.reply(Err(IpcError::TimedOut));
+
+    // Act
+    let exit = h.run(|cx| run(cx, &Command::Inspect));
+
+    // Assert
+    assert_eq!(exit, Exit::Failure);
+    assert_eq!(h.err(), format!("{NOT_RESPONDING}\n"));
+}
+
+#[test]
+fn stop_says_it_is_ending_an_unresponsive_daemon() {
+    // Arrange
+    let mut h = Harness::new("request-unresponsive-stop");
+    h.world.daemon_up(77);
+    h.pid_file.write(77).unwrap();
+    h.world.reply(Err(IpcError::TimedOut));
+
+    // Act
+    h.run(crate::commands::stop::execute);
+
+    // Assert
+    assert_eq!(h.err(), "The daemon is not responding; ending it.\n");
+}

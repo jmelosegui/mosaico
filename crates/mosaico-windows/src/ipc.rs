@@ -110,18 +110,26 @@ impl IpcClient for PipeClient {
         // SAFETY: the handle was just opened and nothing else owns it, so
         // the File takes sole ownership and closes it when dropped.
         let file = unsafe { File::from_raw_handle(handle.0) };
-        Ok(PipeStream { file })
+        Ok(PipeStream {
+            file,
+            read_deadline: None,
+        })
     }
 }
 
 /// The CLI's end of one connection to the daemon.
 pub struct PipeStream {
     file: File,
+    /// When reading the reply stops waiting for the daemon, if set.
+    read_deadline: Option<Instant>,
 }
 
 impl Read for PipeStream {
+    /// Reads the daemon's reply, failing with `TimedOut` once the
+    /// deadline set by `set_read_timeout` has passed.
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.file.read(buf)
+        let file = &mut self.file;
+        with_deadline(self.read_deadline, || file.read(buf))
     }
 }
 
@@ -135,7 +143,12 @@ impl Write for PipeStream {
     }
 }
 
-impl IpcStream for PipeStream {}
+impl IpcStream for PipeStream {
+    fn set_read_timeout(&mut self, timeout: Duration) -> Result<(), IpcError> {
+        self.read_deadline = Some(Instant::now() + timeout);
+        Ok(())
+    }
+}
 
 /// The daemon end of the pipe.
 ///

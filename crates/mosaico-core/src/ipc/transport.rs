@@ -22,9 +22,11 @@ use super::{Command, ErrorCode, IpcError, Request, Response, decode_request};
 ///   listening, without waiting. When the daemon is listening but busy
 ///   with another client, it waits a short, bounded time for it to
 ///   become free before giving up.
-/// - Once connected, reads block until the daemon replies or goes away.
-///   A daemon that exits mid-request must end the stream, so the client
-///   sees [`IpcError::Closed`] rather than hanging.
+/// - Once connected, reads wait until the daemon replies, goes away, or
+///   the timeout set with [`IpcStream::set_read_timeout`] passes. A
+///   daemon that exits mid-request must end the stream, so the client
+///   sees [`IpcError::Closed`]; one that is alive but stuck is reported
+///   as [`IpcError::TimedOut`]. Neither may leave the client hanging.
 /// - `is_daemon_running` reports whether the daemon's endpoint exists. A
 ///   daemon busy answering another client is running. It must not
 ///   consume the daemon's attention: it checks without connecting.
@@ -53,10 +55,15 @@ pub trait IpcClient {
         command: &Command,
         timeout: Duration,
     ) -> Result<Response, IpcError> {
-        let _ = timeout;
         let mut stream = self.connect()?;
         write_message(&mut stream, &Request::new(command.clone()))?;
-        read_message(&mut BufReader::new(stream))
+        // A daemon that is alive but stuck keeps the connection open and
+        // never replies; without a limit the CLI would wait forever.
+        stream.set_read_timeout(timeout)?;
+        read_message(&mut BufReader::new(stream)).map_err(|e| match e {
+            IpcError::Io(e) if e.kind() == std::io::ErrorKind::TimedOut => IpcError::TimedOut,
+            other => other,
+        })
     }
 }
 
@@ -69,7 +76,12 @@ pub const REPLY_TIMEOUT: Duration = Duration::from_secs(10);
 /// The client's end of a connection to the daemon.
 pub trait IpcStream: Read + Write {
     /// Limits how long reading the reply may take, counted from now.
-    /// The default does nothing.
+    ///
+    /// Once `timeout` has passed, reads fail with
+    /// [`io::ErrorKind::TimedOut`](std::io::ErrorKind::TimedOut), which
+    /// [`IpcClient::send`] reports as [`IpcError::TimedOut`]. A transport
+    /// whose reads can block must implement it; the default, which does
+    /// nothing, only suits streams that never block.
     fn set_read_timeout(&mut self, timeout: Duration) -> Result<(), IpcError> {
         let _ = timeout;
         Ok(())
