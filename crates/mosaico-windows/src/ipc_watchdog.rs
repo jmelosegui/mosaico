@@ -11,7 +11,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::thread::{self, JoinHandle};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use windows::Win32::Foundation::{CloseHandle, HANDLE};
 use windows::Win32::System::IO::CancelSynchronousIo;
@@ -43,6 +43,31 @@ impl Drop for ThreadHandle {
         unsafe {
             let _ = CloseHandle(self.0);
         }
+    }
+}
+
+/// Runs one blocking I/O call, failing with `TimedOut` if `deadline`
+/// passes before it returns. Without a deadline it just runs the call.
+pub(super) fn with_deadline<T>(
+    deadline: Option<Instant>,
+    io_call: impl FnOnce() -> io::Result<T>,
+) -> io::Result<T> {
+    let Some(deadline) = deadline else {
+        return io_call();
+    };
+    let remaining = deadline.saturating_duration_since(Instant::now());
+    if remaining.is_zero() {
+        return Err(io::ErrorKind::TimedOut.into());
+    }
+    let watchdog = Watchdog::arm(remaining)?;
+    let result = io_call();
+    let timed_out = watchdog.disarm();
+    match result {
+        Err(_) if timed_out => Err(io::Error::new(
+            io::ErrorKind::TimedOut,
+            "the client did not keep up in time",
+        )),
+        other => other,
     }
 }
 
@@ -152,6 +177,56 @@ mod tests {
 
         // Cleanup
         drop(stalled);
+        client.send(&Command::Stop).unwrap();
+        server.join().unwrap();
+    }
+
+    #[test]
+    fn a_reply_larger_than_the_pipe_buffer_does_not_wait_for_a_client_that_never_reads() {
+        // Arrange -- the reply does not fit in the pipe's buffer, so the
+        // write itself waits for the client, not only `finish`.
+        let name = format!(r"\\.\pipe\mosaico-test-bigreply-{}", std::process::id());
+        let server_name = name.clone();
+        let server = thread::spawn(move || {
+            let mut server = PipeServer::new(&server_name);
+            serve_with_timeout(&mut server, Duration::from_millis(200), |command| {
+                let message = match command {
+                    Command::Inspect => "x".repeat(64 * 1024),
+                    other => format!("{other:?}"),
+                };
+                Some(Response::ok_with_message(message))
+            })
+        });
+        let client = PipeClient::new(&name);
+        for _ in 0..100 {
+            if client.is_daemon_running() {
+                break;
+            }
+            thread::sleep(Duration::from_millis(10));
+        }
+        let mut unread = client.connect().expect("the first client connects");
+        mosaico_core::ipc::write_message(
+            &mut unread,
+            &mosaico_core::ipc::Request::new(Command::Inspect),
+        )
+        .unwrap();
+
+        // Act
+        let (reply_tx, reply_rx) = mpsc::channel();
+        let next_name = name.clone();
+        thread::spawn(move || {
+            let _ = reply_tx.send(PipeClient::new(&next_name).send(&Command::Status));
+        });
+
+        // Assert
+        let reply = reply_rx
+            .recv_timeout(Duration::from_secs(3))
+            .expect("the next client was never answered")
+            .expect("the next client gets a reply");
+        assert_eq!(reply.message.as_deref(), Some("Status"));
+
+        // Cleanup
+        drop(unread);
         client.send(&Command::Stop).unwrap();
         server.join().unwrap();
     }
