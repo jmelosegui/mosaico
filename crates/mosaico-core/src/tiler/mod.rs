@@ -8,11 +8,13 @@
 //! and records them in an [`Expectations`] so that the events they
 //! cause are recognized as ours.
 
+mod actions;
 mod adopt;
 mod bar_states;
 mod borders;
 mod coalesce;
 mod corners;
+mod created;
 mod decoration_effects;
 mod desktop;
 mod display;
@@ -32,12 +34,14 @@ mod input;
 mod layout;
 mod layout_actions;
 mod lifecycle;
+mod lookup;
 mod navigation;
 mod navigation_helpers;
 mod plan;
 mod queries;
 mod reconnect;
 mod release;
+mod removal;
 mod snapshot;
 mod startup;
 mod state;

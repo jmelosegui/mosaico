@@ -4,16 +4,7 @@ use crate::config;
 
 use crate::WindowId;
 
-use super::{Effect, Plan, Tiler, WindowFacts};
-
-/// Whether a window that exists but has not been shown yet should be
-/// moved into the slot it is going to occupy.
-///
-/// Monocle workspaces are included: `pre_place` asks `monocle_rect` for
-/// them, so the destination is right either way.
-pub(super) fn should_pre_place(tracked: bool, passes_rules: bool) -> bool {
-    !tracked && passes_rules
-}
+use super::{Plan, Tiler, WindowFacts};
 
 impl Tiler {
     pub(super) fn is_tileable(&self, plan: &Plan, window: WindowId) -> bool {
@@ -59,37 +50,6 @@ impl Tiler {
             }
             _ => {}
         }
-    }
-
-    pub(super) fn monitor_index_for(&self, plan: &Plan, window: WindowId) -> Option<usize> {
-        let id = plan.monitor_of(window);
-        self.monitors.iter().position(|m| m.id == id)
-    }
-
-    pub(super) fn is_managed_on_active_workspace(&self, window: WindowId) -> bool {
-        self.monitors
-            .get(self.focused_monitor)
-            .is_some_and(|mon| mon.active_ws().contains(window))
-    }
-
-    pub(super) fn owning_monitor(&self, window: WindowId) -> Option<usize> {
-        self.find_window(window).map(|(mi, _)| mi)
-    }
-
-    /// Finds the `(monitor, workspace)` indices holding a window.
-    pub(super) fn find_window(&self, window: WindowId) -> Option<(usize, usize)> {
-        self.monitors.iter().enumerate().find_map(|(mi, mon)| {
-            mon.workspaces
-                .iter()
-                .position(|ws| ws.contains(window))
-                .map(|wi| (mi, wi))
-        })
-    }
-
-    /// Whether the window is on the active workspace of its monitor.
-    pub(super) fn is_on_active_workspace(&self, window: WindowId) -> bool {
-        self.find_window(window)
-            .is_some_and(|(mi, wi)| self.monitors[mi].active_workspace == wi)
     }
 
     /// Adopts a window we never heard being created, if it is tileable,
@@ -145,45 +105,5 @@ impl Tiler {
             self.monitors[idx].active_workspace + 1,
             self.monitors[idx].active_ws().len()
         );
-    }
-
-    /// Moves a window that has been created but not shown yet into the
-    /// slot it would get, so its first frame is already in place.
-    ///
-    /// Nothing is adopted and the workspace is left exactly as it was:
-    /// the destination comes from asking the layout where the window
-    /// would go, and only that window is moved. It is taken over for
-    /// real when it is shown.
-    pub(super) fn pre_place(&mut self, plan: &mut Plan, window: WindowId) {
-        let idx = self.focused_monitor;
-        let Some(state) = self.monitors.get(idx) else {
-            return;
-        };
-
-        let rect = if state.active_ws().monocle() {
-            // A window adopted onto a monocle workspace becomes the
-            // monocle target, which always fills the work area.
-            self.monocle_rect(idx)
-        } else {
-            if !self.monitors[idx].active_ws_mut().add(window) {
-                return;
-            }
-            let positions = self.compute_positions(idx);
-            self.monitors[idx].active_ws_mut().remove(window);
-            let Some((_, rect)) = positions.into_iter().find(|(w, _)| *w == window) else {
-                return;
-            };
-            rect
-        };
-        crate::log_debug!(
-            "~pre {} to mon {} ({},{} {}x{}) before it is shown",
-            window,
-            idx,
-            rect.x,
-            rect.y,
-            rect.width,
-            rect.height
-        );
-        plan.emit(Effect::PrePlace { window, rect });
     }
 }

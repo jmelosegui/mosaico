@@ -26,6 +26,15 @@ impl Tiler {
         self.apply_layout_on(plan, idx);
     }
 
+    /// Exits monocle mode on the active workspace of `mon_idx` and lays
+    /// the workspace out again.
+    pub(super) fn exit_monocle(&mut self, plan: &mut Plan, mon_idx: usize) {
+        let ws = self.monitors[mon_idx].active_ws_mut();
+        ws.set_monocle(false);
+        ws.set_monocle_window(None);
+        self.apply_layout_on(plan, mon_idx);
+    }
+
     pub(super) fn retile_all(&mut self, plan: &mut Plan) {
         for i in 0..self.monitors.len() {
             self.apply_layout_on(plan, i);
