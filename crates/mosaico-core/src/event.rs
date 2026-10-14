@@ -2,6 +2,11 @@ use std::fmt;
 
 use crate::WindowId;
 
+mod hover;
+mod rest;
+
+pub use hover::{FocusFollowsMouse, MousePointer, POLL_INTERVAL, REST_POLLS};
+
 /// A platform-agnostic window event.
 ///
 /// These represent meaningful state changes that the tiling manager
