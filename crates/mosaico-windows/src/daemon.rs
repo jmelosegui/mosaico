@@ -1,5 +1,5 @@
-use mosaico_core::WindowResult;
 use mosaico_core::pid;
+use mosaico_core::{Instance, WindowResult};
 
 use crate::dpi;
 use crate::instance_guard::InstanceGuard;
@@ -25,11 +25,12 @@ mod daemon_types;
 pub fn run() -> WindowResult<()> {
     dpi::enable_dpi_awareness();
     clean_old_binary();
-    let _guard = InstanceGuard::acquire()?;
+    let instance = Instance::current()?;
+    let _guard = InstanceGuard::acquire(instance)?;
     pid::write_pid_file()?;
     eprintln!("Mosaico daemon started.");
 
-    let result = daemon_loop::daemon_loop(crate::ipc::DEFAULT_PIPE_NAME);
+    let result = daemon_loop::daemon_loop(&crate::ipc::pipe_name(instance));
 
     let _ = pid::remove_pid_file();
 

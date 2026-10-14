@@ -3,9 +3,18 @@
 //! These tests require a real desktop session. They start/stop the
 //! daemon and compare its tiling areas against the bar windows it draws.
 
-use std::process::Command;
 use std::thread;
 use std::time::Duration;
+
+mod common;
+
+use common::{RunningDaemon, TestInstance, require_no_user_daemon};
+
+/// The daemon instance these tests run, separate from the user's own.
+fn instance() -> &'static TestInstance {
+    static INSTANCE: std::sync::OnceLock<TestInstance> = std::sync::OnceLock::new();
+    INSTANCE.get_or_init(|| TestInstance::new("bar-reservation"))
+}
 
 #[allow(non_snake_case, clippy::upper_case_acronyms)]
 mod win32 {
@@ -40,24 +49,26 @@ mod win32 {
 }
 
 fn mosaico(args: &[&str]) -> String {
-    let output = Command::new(env!("CARGO_BIN_EXE_mosaico"))
-        .args(args)
+    let output = instance()
+        .command(args)
         .output()
         .expect("failed to run mosaico");
     String::from_utf8_lossy(&output.stdout).into_owned()
 }
 
-fn start_daemon() {
+fn start_daemon() -> RunningDaemon<'static> {
+    require_no_user_daemon();
     mosaico(&["stop"]);
     thread::sleep(Duration::from_secs(1));
-    let status = Command::new(env!("CARGO_BIN_EXE_mosaico"))
-        .arg("start")
+    let status = instance()
+        .command(&["start"])
         .spawn()
         .expect("failed to spawn mosaico")
         .wait()
         .expect("failed to wait for mosaico");
     assert!(status.success(), "daemon failed to start");
     thread::sleep(Duration::from_secs(3));
+    RunningDaemon::new(instance())
 }
 
 /// Returns `(left, bottom)` of every visible bar window.
@@ -132,7 +143,7 @@ fn assert_tiling_starts_below_bars(when: &str) {
 #[test]
 fn work_area_changes_and_retile_keep_bar_reserved_once() {
     // Arrange
-    start_daemon();
+    let _daemon = start_daemon();
     assert!(!tiling_area_origins().is_empty(), "daemon did not start");
     if bar_windows().is_empty() {
         eprintln!("bar disabled in config, skipping");

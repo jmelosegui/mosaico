@@ -5,9 +5,12 @@ use super::keybinding;
 use super::rules::{KeybindingsFile, RulesFile, UserRulesFile};
 use super::{Config, Keybinding, WindowRule, default_rules};
 
-/// Returns the config directory: `~/.config/mosaico/`.
+/// Returns the config directory of this process's [`Instance`](crate::Instance):
+/// `~/.config/mosaico/` for the default instance.
 pub fn config_dir() -> Option<PathBuf> {
-    std::env::var_os("USERPROFILE").map(|h| PathBuf::from(h).join(".config").join("mosaico"))
+    crate::Instance::current()
+        .ok()
+        .map(|instance| instance.config_dir().to_path_buf())
 }
 
 /// Returns the config file path: `~/.config/mosaico/config.toml`.

@@ -193,6 +193,24 @@ loop.
 Moves a specific window by its HWND to exact pixel coordinates. Accepts HWND
 in decimal or `0x` hex format.
 
+## Instances
+
+Everything that identifies a daemon is derived from its instance
+(`mosaico_core::Instance`): the IPC pipe, the single instance mutex, the PID
+file, and the config and log directories. Without any of the variables below
+the CLI and daemon use the default instance, with the usual names and paths.
+
+| Variable | Effect |
+|----------|--------|
+| `MOSAICO_INSTANCE` | Selects a named instance. Pipe `\\.\pipe\mosaico-<name>`, mutex `Global\MosaicoDaemon-<name>`, files under `instances\<name>` in the usual config and data folders. 1-64 ASCII letters, digits, `-` or `_`. |
+| `MOSAICO_CONFIG_DIR` | Overrides the config directory (config files and logs). |
+| `MOSAICO_DATA_DIR` | Overrides the data directory (PID file). |
+
+`mosaico start` passes its environment to the daemon it launches, so both
+belong to the same instance. An invalid instance name makes every command
+exit with status 2 rather than fall back to the default instance. The
+integration tests use this to run each test against a private instance.
+
 ## Design Decisions
 
 - The `daemon` subcommand is hidden so users never invoke it directly.

@@ -4,10 +4,19 @@
 //! so supporting another OS means adding a branch to this file rather
 //! than touching every command.
 
+use mosaico_core::Instance;
 use mosaico_core::ipc::IpcClient;
 
-/// The channel to the daemon of this session.
+/// The daemon instance this CLI talks to.
+///
+/// `main` checks the instance before running any command, so this only
+/// fails if that check was skipped.
+pub fn instance() -> &'static Instance {
+    Instance::current().expect("the instance is validated at startup")
+}
+
+/// The channel to the daemon of this instance.
 #[cfg(target_os = "windows")]
 pub fn ipc() -> impl IpcClient {
-    mosaico_windows::ipc::PipeClient::new(mosaico_windows::ipc::DEFAULT_PIPE_NAME)
+    mosaico_windows::ipc::PipeClient::new(&mosaico_windows::ipc::pipe_name(instance()))
 }

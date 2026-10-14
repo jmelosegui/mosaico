@@ -1,6 +1,7 @@
 //! File-based logger with size-based rotation.
 //!
-//! Logs are written to `~/.config/mosaico/logs/mosaico.log`. When
+//! Logs are written to the instance's log directory,
+//! `~/.config/mosaico/logs/mosaico.log` for the default instance. When
 //! the file exceeds the configured max size, it is rotated to
 //! `mosaico.log.1` (one backup kept).
 
@@ -87,10 +88,10 @@ pub fn init(config: &LogConfig) {
     if !config.enabled {
         return;
     }
-    let Some(dir) = crate::config::config_dir() else {
+    let Ok(instance) = crate::Instance::current() else {
         return;
     };
-    let log_dir = dir.join("logs");
+    let log_dir = instance.log_dir();
     let _ = fs::create_dir_all(&log_dir);
     let path = log_dir.join(LOG_FILE_NAME);
 

@@ -10,6 +10,8 @@ pub mod config;
 pub mod event;
 /// Opaque window and monitor ids.
 pub mod id;
+/// Which daemon instance a process belongs to.
+pub mod instance;
 /// Inter-process communication protocol types.
 pub mod ipc;
 /// Tiling layout trait and implementations.
@@ -37,6 +39,7 @@ pub use action::{Action, Direction};
 pub use config::{BarConfig, Config};
 pub use event::WindowEvent;
 pub use id::{MonitorId, WindowId};
+pub use instance::Instance;
 pub use ipc::{Command, Response};
 pub use layout::{BspLayout, Layout, LayoutKind, ThreeColumnLayout, VerticalStackLayout};
 pub use monitor::{EdidIdentity, Monitor, MonitorKey, match_monitors, pnp_manufacturer};
