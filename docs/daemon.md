@@ -36,6 +36,7 @@ from separate `mpsc` channels into the unified `DaemonMsg` channel.
 | `crates/mosaico-windows/src/daemon_loop_run.rs` | The main loop: waits for messages and runs the scheduler's steps |
 | `crates/mosaico-windows/src/daemon_loop_task.rs` | `Task` -- every `DaemonMsg` except a window event, as the main loop runs it |
 | `crates/mosaico-windows/src/daemon_loop_pump.rs` | `pump_thread_messages()`, `PUMP_INTERVAL` -- keeps the bar and border windows responsive |
+| `crates/mosaico-windows/src/daemon_loop_commands.rs` | `carry_out()`, `handle_action()`, `handle_command()` -- hotkey actions and CLI commands |
 | `crates/mosaico-core/src/daemon/` | `Scheduler` -- decides what the main loop runs, and when |
 | `crates/mosaico-windows/src/daemon_inputs.rs` | `Inputs` -- starts and stops window events, hotkeys and focus-follows-mouse |
 | `crates/mosaico-windows/src/event_source.rs` | `WindowsEventSource` -- the WinEvent hooks and the broadcast window |
