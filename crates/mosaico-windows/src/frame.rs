@@ -82,36 +82,33 @@ const DWMWCP_ROUNDSMALL: u32 = 3;
 /// - `Small` = small rounding (~4 px, `ROUNDSMALL`)
 /// - `Round` = standard rounding (~8 px, `ROUND`)
 ///
-/// Fails silently on Windows 10 where the attribute does not exist.
-pub(crate) fn set_corner_preference(hwnd: HWND, style: CornerStyle) {
+/// Fails on Windows 10, where the attribute does not exist.
+pub(crate) fn set_corner_preference(hwnd: HWND, style: CornerStyle) -> Result<()> {
     let pref = match style {
         CornerStyle::Square => DWMWCP_DONOTROUND,
         CornerStyle::Small => DWMWCP_ROUNDSMALL,
         CornerStyle::Round => DWMWCP_ROUND,
     };
-    // SAFETY: DwmSetWindowAttribute sets a DWM corner preference on a valid HWND.
-    let _ = unsafe {
-        DwmSetWindowAttribute(
-            hwnd,
-            DWMWA_WINDOW_CORNER_PREFERENCE,
-            &pref as *const u32 as *const _,
-            mem::size_of::<u32>() as u32,
-        )
-    };
+    set_corner_attribute(hwnd, pref).or_platform("set the window corners")
 }
 
 /// Resets a window's corner preference to the system default.
 ///
 /// Called when a window is removed from management.
-pub(crate) fn reset_corner_preference(hwnd: HWND) {
-    let pref = DWMWCP_DEFAULT;
-    // SAFETY: DwmSetWindowAttribute resets the DWM corner preference on a valid HWND.
-    let _ = unsafe {
+pub(crate) fn reset_corner_preference(hwnd: HWND) -> Result<()> {
+    set_corner_attribute(hwnd, DWMWCP_DEFAULT).or_platform("reset the window corners")
+}
+
+/// Sets `DWMWA_WINDOW_CORNER_PREFERENCE` on a window to `pref`.
+fn set_corner_attribute(hwnd: HWND, pref: u32) -> windows::core::Result<()> {
+    // SAFETY: DwmSetWindowAttribute sets a DWM corner preference on a
+    // valid HWND, reading `pref` only for the duration of the call.
+    unsafe {
         DwmSetWindowAttribute(
             hwnd,
             DWMWA_WINDOW_CORNER_PREFERENCE,
             &pref as *const u32 as *const _,
             mem::size_of::<u32>() as u32,
         )
-    };
+    }
 }
