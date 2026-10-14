@@ -170,7 +170,17 @@ impl IpcServer for PipeServer {
         match unsafe { ConnectNamedPipe(handle, None) } {
             Ok(()) => {}
             Err(e) if e.code() == ERROR_PIPE_CONNECTED.to_hresult() => {}
-            Err(e) => return Err(IpcError::Io(io::Error::from(e))),
+            // Any other failure is about this one client, typically
+            // ERROR_NO_DATA for a client that connected and closed its
+            // end before we got to it. Only a failure to create an
+            // instance means the pipe can no longer be served. Put a
+            // fresh instance in place before this one is dropped, so the
+            // pipe never disappears for the next client.
+            Err(e) => {
+                mosaico_core::log_debug!("IPC: client connection failed: {e}");
+                self.spare = Some(self.create_instance()?);
+                return Err(IpcError::Closed);
+            }
         }
 
         // Leave a free instance behind for the next client before this

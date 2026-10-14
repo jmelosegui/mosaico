@@ -108,6 +108,9 @@ other.
   connection
 - while one connection is being answered, the endpoint keeps accepting the
   next client
+- a client that leaves before it is handed out is reported as
+  `IpcError::Closed`: that client is lost, the server keeps listening and
+  `serve()` waits for the next one. Any other `accept` error is fatal
 - `finish` must not return until the client can read the whole reply
 
 `serve()` runs the loop: accept, read, refuse or hand the command to the
@@ -125,7 +128,10 @@ stop it.
   while that client is answered a second one finds a free instance instead of
   `ERROR_PIPE_BUSY`. A client that connects between creation and
   `ConnectNamedPipe` is reported as `ERROR_PIPE_CONNECTED`, which counts as
-  connected.
+  connected. Any other `ConnectNamedPipe` failure, such as `ERROR_NO_DATA` for
+  a client that connected and closed its end first, concerns that client
+  only: a fresh instance takes the failed one's place and `accept` returns
+  `IpcError::Closed`. Only a failure of `CreateNamedPipeW` is fatal.
 - `PipeConnection::finish` calls `FlushFileBuffers` before
   `DisconnectNamedPipe`. Disconnecting first throws away the unread reply and
   the client gets error 233.
