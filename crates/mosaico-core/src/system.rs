@@ -21,6 +21,8 @@ use crate::Result;
 ///   fails with [`Error::Platform`](crate::Error::Platform) when the
 ///   process could not be ended, for example because the caller is not
 ///   allowed to.
+/// - `kill` also fails for a process that has already exited, even one
+///   that was alive at the last `is_alive`.
 pub trait ProcessControl {
     /// Starts a daemon in the background and returns its process id.
     fn launch_daemon(&self) -> Result<u32>;

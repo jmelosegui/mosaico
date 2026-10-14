@@ -58,7 +58,8 @@ requiring elevated privileges.
 
 Windows-specific function that opens the process with `PROCESS_TERMINATE`
 permission and calls `TerminateProcess` to forcefully kill it. Fails with
-`Error::Platform` when the process cannot be opened or terminated. Used,
+`Error::Platform` when the process cannot be opened or terminated, which
+includes a process that exited after `mosaico stop` found it alive. Used,
 through `ProcessControl::kill`, as a fallback when the IPC pipe is
 unavailable. When it fails, `mosaico stop` reports `Failed to kill process
 <pid>.` and keeps the PID file, so the process can still be found.

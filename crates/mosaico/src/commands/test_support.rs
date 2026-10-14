@@ -155,8 +155,15 @@ impl ProcessControl for World {
         if !self.can_kill.get() {
             return Err(Error::platform("end the process", "access denied"));
         }
-        self.processes.borrow_mut().remove(&pid);
-        Ok(())
+        match self.processes.borrow_mut().remove(&pid) {
+            // A process with no checks left exited after the last one.
+            // Ending a process that has exited fails, as the contract says.
+            None | Some(Lifetime::Checks(0)) => Err(Error::platform(
+                "open the process to end it",
+                "no such process",
+            )),
+            Some(_) => Ok(()),
+        }
     }
 }
 
