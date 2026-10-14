@@ -30,6 +30,8 @@ use crate::{Error, Result};
 ///   every platform.
 /// - Each request tells the server it comes from mosaico, and which
 ///   version, since some servers refuse anonymous requests.
+/// - A platform without a way to make HTTPS requests returns
+///   [`Error::Unsupported`] from every request.
 pub trait HttpClient {
     /// Fetches `path` from `host` and returns the body.
     fn get_bytes(&self, host: &str, path: &str, timeout: Duration) -> Result<Vec<u8>>;

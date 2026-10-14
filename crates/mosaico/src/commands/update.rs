@@ -39,10 +39,13 @@ pub fn execute(cx: &mut Context, force: bool) -> Exit {
         say!(cx, " reinstalling v{local}.");
     }
 
-    // 2. Was the daemon running?
-    let daemon_was_running = cx.daemon.is_running();
+    // 2. Make sure this platform can install it before stopping anything.
+    if let Err(e) = cx.installer.asset_name() {
+        return fail(cx, e, false);
+    }
 
     // 3. Stop daemon if running.
+    let daemon_was_running = cx.daemon.is_running();
     if daemon_was_running {
         say!(cx, "Stopping daemon...");
         super::stop::execute(cx);

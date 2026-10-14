@@ -19,8 +19,8 @@ pub struct RenameInstaller;
 
 impl Installer for RenameInstaller {
     /// The archive the release workflow builds for 64-bit Windows.
-    fn asset_name(&self) -> &str {
-        "mosaico-windows-amd64.zip"
+    fn asset_name(&self) -> Result<&str> {
+        Ok("mosaico-windows-amd64.zip")
     }
 
     fn binary_name(&self) -> &str {

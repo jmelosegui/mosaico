@@ -1,7 +1,7 @@
 //! GitHub and the platform's installer, faked, for the commands that
 //! look up and install releases.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -65,11 +65,24 @@ pub struct FakeInstaller {
     pub replaced: RefCell<Option<(PathBuf, Vec<u8>)>>,
     /// Error replacing fails with, if any.
     pub error: RefCell<Option<String>>,
+    /// Whether this platform cannot update itself.
+    pub unsupported: Cell<bool>,
+}
+
+impl FakeInstaller {
+    /// Fails as a platform that cannot update itself does, if it is one.
+    fn supported(&self) -> Result<()> {
+        if self.unsupported.get() {
+            return Err(Error::Unsupported("self-update"));
+        }
+        Ok(())
+    }
 }
 
 impl Installer for FakeInstaller {
-    fn asset_name(&self) -> &str {
-        ASSET
+    fn asset_name(&self) -> Result<&str> {
+        self.supported()?;
+        Ok(ASSET)
     }
 
     fn binary_name(&self) -> &str {
@@ -77,6 +90,7 @@ impl Installer for FakeInstaller {
     }
 
     fn replace(&self, exe: &Path, binary: &[u8]) -> Result<()> {
+        self.supported()?;
         if let Some(error) = self.error.borrow().clone() {
             return Err(Error::platform("write the new executable", error));
         }

@@ -26,9 +26,13 @@ use crate::Result;
 ///   it starts.
 /// - A file that cannot be renamed, written or deleted is an
 ///   [`Error::Platform`](crate::Error::Platform) saying which.
+/// - A platform that cannot update itself returns
+///   [`Error::Unsupported`](crate::Error::Unsupported) from `asset_name`
+///   and from `replace`, and its `remove_leftovers` succeeds. Callers ask
+///   for `asset_name` before they stop anything or download.
 pub trait Installer {
     /// The file name of this platform's release archive.
-    fn asset_name(&self) -> &str;
+    fn asset_name(&self) -> Result<&str>;
 
     /// The file name of the mosaico executable in the archive.
     fn binary_name(&self) -> &str;

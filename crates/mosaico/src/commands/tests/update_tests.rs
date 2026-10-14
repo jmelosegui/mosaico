@@ -217,3 +217,30 @@ fn a_failed_install_is_reported_with_how_to_get_the_daemon_back() {
     );
     assert!(!h.world.daemon_running.get(), "not started again");
 }
+
+#[test]
+fn says_so_before_stopping_anything_on_a_platform_that_cannot_update_itself() {
+    // Arrange
+    let mut h = released("update-unsupported", "v99.0.0");
+    h.world.daemon_up(10);
+    h.world.installer.unsupported.set(true);
+
+    // Act
+    let exit = h.run(|cx| execute(cx, false));
+
+    // Assert
+    assert_eq!(exit, Exit::Failure);
+    assert_eq!(
+        h.out(),
+        format!("Checking for updates... v{LOCAL} -> v99.0.0.\n")
+    );
+    assert_eq!(
+        h.err(),
+        "Error: self-update is not supported on this platform\n"
+    );
+    assert!(
+        h.world.sent.borrow().is_empty(),
+        "the daemon was not asked to stop"
+    );
+    assert!(h.world.daemon_running.get());
+}

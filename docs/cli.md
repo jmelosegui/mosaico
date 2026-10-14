@@ -191,7 +191,9 @@ recovering a corrupted binary or verifying the update mechanism.
 
 The command itself is the same on every platform. Which release archive it
 downloads, which file in it is the binary, and how that binary replaces the
-running one come from the platform's `Installer` (`mosaico_core::update`).
+running one come from the platform's `Installer` (`mosaico_core::update`). On a
+platform that cannot update itself, it says so before it stops the daemon or
+downloads anything.
 
 On Windows the archive is `mosaico-windows-amd64.zip`, and the self-replacement
 works by renaming the running `mosaico.exe` to `mosaico.exe.old` (Windows allows

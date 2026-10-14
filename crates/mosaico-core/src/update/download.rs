@@ -23,19 +23,19 @@ const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(60);
 ///
 /// # Errors
 ///
-/// Fails with [`Error::Network`](crate::Error::Network) when the archive
-/// cannot be downloaded, for example because the release has none for
-/// this platform, and with [`Error::Io`](crate::Error::Io) when it is
-/// not a zip archive or does not hold the executable.
+/// Fails with [`Error::Unsupported`](crate::Error::Unsupported), before
+/// downloading anything, when the platform cannot update itself, with
+/// [`Error::Network`](crate::Error::Network) when the archive cannot be
+/// downloaded, for example because the release has none for this
+/// platform, and with [`Error::Io`](crate::Error::Io) when it is not a
+/// zip archive or does not hold the executable.
 pub fn download_binary(
     http: &dyn HttpClient,
     installer: &dyn Installer,
     tag: &str,
 ) -> Result<Vec<u8>> {
-    let path = format!(
-        "/jmelosegui/mosaico/releases/download/{tag}/{}",
-        installer.asset_name()
-    );
+    let asset = installer.asset_name()?;
+    let path = format!("/jmelosegui/mosaico/releases/download/{tag}/{asset}");
     let archive = http.get_bytes(DOWNLOAD_HOST, &path, DOWNLOAD_TIMEOUT)?;
     extract(&archive, installer.binary_name())
 }

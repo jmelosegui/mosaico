@@ -77,7 +77,10 @@ fn a_failed_write_puts_the_old_executable_back() {
 #[test]
 fn the_release_is_the_64_bit_windows_archive_with_mosaico_exe() {
     // Act / Assert
-    assert_eq!(RenameInstaller.asset_name(), "mosaico-windows-amd64.zip");
+    assert_eq!(
+        RenameInstaller.asset_name().unwrap(),
+        "mosaico-windows-amd64.zip"
+    );
     assert_eq!(RenameInstaller.binary_name(), "mosaico.exe");
 }
 
