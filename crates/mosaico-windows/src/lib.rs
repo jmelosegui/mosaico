@@ -85,5 +85,8 @@ pub mod version_check;
 /// Window type wrapping a Win32 `HWND`.
 pub mod window;
 
+/// Moving, showing, hiding and focusing windows through Win32.
+pub mod window_control;
+
 pub use enumerate::enumerate_windows;
 pub use window::Window;

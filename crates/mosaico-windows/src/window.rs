@@ -55,16 +55,6 @@ impl Window {
         self.hwnd
     }
 
-    /// Sets this window as the foreground (focused) window.
-    pub fn set_foreground(&self) {
-        use windows::Win32::UI::WindowsAndMessaging::SetForegroundWindow;
-
-        // SAFETY: SetForegroundWindow is safe to call with a valid HWND.
-        unsafe {
-            let _ = SetForegroundWindow(self.hwnd);
-        }
-    }
-
     /// Moves the window without waiting for the thread that owns it.
     ///
     /// `SetWindowPos` delivers WM_WINDOWPOSCHANGED, WM_MOVE and WM_SIZE to
@@ -116,61 +106,6 @@ impl Window {
     fn needs_frame_changed(&self) -> bool {
         let class = mosaico_core::Window::class(self).unwrap_or_default();
         class == "Chrome_WidgetWin_1" || class == "MozillaWindowClass"
-    }
-
-    /// Cloaks the window via the ImmersiveShell COM interface.
-    ///
-    /// Makes the window invisible without removing its taskbar icon or
-    /// firing `EVENT_OBJECT_HIDE`. This is the same mechanism Windows
-    /// uses for its built-in virtual desktop feature.
-    pub fn cloak(&self) {
-        crate::com::cloak_window(self.hwnd);
-    }
-
-    /// Uncloaks a previously cloaked window.
-    ///
-    /// No-op if the window is not cloaked.
-    pub fn uncloak(&self) {
-        crate::com::uncloak_window(self.hwnd);
-    }
-
-    /// Hides the window without destroying it.
-    pub fn hide(&self) {
-        use windows::Win32::UI::WindowsAndMessaging::{SW_HIDE, ShowWindow};
-        // SAFETY: ShowWindow is safe to call with a valid HWND.
-        unsafe {
-            let _ = ShowWindow(self.hwnd, SW_HIDE);
-        }
-    }
-
-    /// Shows a previously hidden window.
-    pub fn show(&self) {
-        use windows::Win32::UI::WindowsAndMessaging::{SW_SHOWNOACTIVATE, ShowWindow};
-        // SAFETY: ShowWindow is safe to call with a valid HWND.
-        unsafe {
-            let _ = ShowWindow(self.hwnd, SW_SHOWNOACTIVATE);
-        }
-    }
-
-    /// Minimizes the window.
-    pub fn minimize(&self) {
-        use windows::Win32::UI::WindowsAndMessaging::{SW_MINIMIZE, ShowWindow};
-        // SAFETY: ShowWindow is safe to call with a valid HWND.
-        unsafe {
-            let _ = ShowWindow(self.hwnd, SW_MINIMIZE);
-        }
-    }
-
-    /// Forcibly shows a hidden window, used during daemon shutdown.
-    ///
-    /// Uses `SW_SHOW` for stronger activation than `SW_SHOWNOACTIVATE`,
-    /// ensuring Windows fully restores the window's visibility state.
-    pub fn force_show(&self) {
-        use windows::Win32::UI::WindowsAndMessaging::{SW_SHOW, ShowWindow};
-        // SAFETY: ShowWindow is safe to call with a valid HWND.
-        unsafe {
-            let _ = ShowWindow(self.hwnd, SW_SHOW);
-        }
     }
 
     /// Returns whether the window handle is still valid (the window exists).
@@ -504,6 +439,8 @@ impl mosaico_core::Window for Window {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::window_control::Win32WindowControl;
+    use mosaico_core::WindowControl;
     use std::sync::mpsc;
     use std::time::Duration;
     use windows::Win32::Foundation::{LPARAM, LRESULT, WPARAM};
@@ -597,7 +534,7 @@ mod tests {
     }
 
     #[test]
-    fn move_async_returns_even_when_the_owner_never_pumps() {
+    fn pre_place_returns_even_when_the_owner_never_pumps() {
         // Arrange -- a window whose thread will never process messages.
         let Some((raw, stop_tx, handle)) = window_owned_by_a_thread_that_never_pumps() else {
             // No interactive desktop available, nothing to assert.
@@ -608,8 +545,8 @@ mod tests {
         // SetWindowPos against this window never returns at all.
         let (done_tx, done_rx) = mpsc::channel::<()>();
         let mover = std::thread::spawn(move || {
-            let window = Window::from_id(WindowId::from_raw(raw as u64));
-            let _ = window.move_async(&Rect::new(20, 20, 200, 200));
+            let window = WindowId::from_raw(raw as u64);
+            let _ = Win32WindowControl.pre_place(window, Rect::new(20, 20, 200, 200));
             let _ = done_tx.send(());
         });
         let returned = done_rx.recv_timeout(Duration::from_secs(2)).is_ok();
@@ -624,7 +561,7 @@ mod tests {
         // Assert
         assert!(
             returned,
-            "move_async did not return within 2s against a window whose thread never pumps, \
+            "pre_place did not return within 2s against a window whose thread never pumps, \
              which means the move was sent synchronously instead of posted"
         );
     }

@@ -236,9 +236,11 @@ The `TilingManager` supports hot-reloading of configuration:
 2. In **monocle mode**: positions only the monocle window to fill the work area
 3. In **normal mode**: reads the workspace's `layout_kind` and instantiates
    the corresponding layout (`BspLayout`, `VerticalStackLayout`, or
-   `ThreeColumnLayout`) via `compute_positions()`, then calls `set_rect()` +
-   `invalidate()` on each window. Windows whose position has not changed are
-   skipped to avoid unnecessary repaints.
+   `ThreeColumnLayout`) via `compute_positions()`, then emits a placement for
+   each window. When the placements are applied, `tiler::apply_window_effect`
+   skips windows that are already in place (unless they are maximized), to
+   avoid unnecessary repaints, and places and repaints the rest through the
+   platform's `WindowControl`.
 
 The `applying_layout` flag suppresses `Moved` events during programmatic layout
 to prevent re-entrant tiling.

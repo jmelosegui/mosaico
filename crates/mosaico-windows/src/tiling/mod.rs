@@ -19,6 +19,7 @@ use crate::bar::BarState;
 use crate::enumerate;
 use crate::monitor::{self, MonitorInfo};
 use crate::window::Window;
+use crate::window_control::Win32WindowControl;
 
 use applier::Applier;
 use desktop::Win32Desktop;
@@ -29,6 +30,7 @@ pub struct TilingManager {
     tiler: Tiler,
     applier: Applier,
     desktop: Win32Desktop,
+    control: Win32WindowControl,
 }
 
 impl TilingManager {
@@ -43,8 +45,9 @@ impl TilingManager {
         // Show what a killed or crashed daemon left hidden before looking
         // at the windows, so they are found and adopted like any other.
         let desktop = Win32Desktop::new();
+        let control = Win32WindowControl;
         let mut applier = Applier::with_hidden_file(HiddenFile::current());
-        applier.restore_previous(&desktop, Instant::now());
+        applier.restore_previous(&desktop, &control, Instant::now());
 
         let displays = displays(monitor::enumerate_monitors()?);
         let windows: Vec<WindowId> = enumerate::enumerate_windows()?
@@ -64,15 +67,19 @@ impl TilingManager {
             tiler,
             applier,
             desktop,
+            control,
         };
-        manager.applier.apply(effects, &manager.desktop, now);
+        manager
+            .applier
+            .apply(effects, &manager.desktop, &manager.control, now);
         Ok(manager)
     }
 
     fn step(&mut self, input: Input) {
         let now = Instant::now();
         let effects = self.tiler.step(input, &self.desktop, now);
-        self.applier.apply(effects, &self.desktop, now);
+        self.applier
+            .apply(effects, &self.desktop, &self.control, now);
     }
 
     /// Executes a user-triggered action.
@@ -101,7 +108,8 @@ impl TilingManager {
     /// Applies everything held back. The daemon calls this once input
     /// has been quiet for a moment.
     pub fn flush_pending(&mut self) {
-        self.applier.flush(&self.desktop, Instant::now());
+        self.applier
+            .flush(&self.desktop, &self.control, Instant::now());
     }
 
     /// Redraws every border to match the current window positions.

@@ -9,11 +9,14 @@ mod interfaces;
 
 use std::ffi::c_void;
 
-use windows::Win32::Foundation::HWND;
+use mosaico_core::Result;
+use windows::Win32::Foundation::{E_POINTER, HWND};
 use windows::Win32::System::Com::{
     CLSCTX_ALL, COINIT_APARTMENTTHREADED, CoCreateInstance, CoInitializeEx, CoUninitialize,
 };
-use windows::core::Interface;
+use windows::core::{HRESULT, Interface};
+
+use crate::error::OrPlatform;
 
 use interfaces::{
     CLSID_ImmersiveShell, IApplicationViewCollectionVtbl, IApplicationViewVtbl,
@@ -48,13 +51,13 @@ thread_local! {
 }
 
 /// Cloaks a window, making it invisible while keeping its taskbar icon.
-pub fn cloak_window(hwnd: HWND) {
-    set_cloak(hwnd, 1, 2);
+pub fn cloak_window(hwnd: HWND) -> Result<()> {
+    set_cloak(hwnd, 1, 2).or_platform("cloak the window")
 }
 
 /// Uncloaks a previously cloaked window, restoring its visibility.
-pub fn uncloak_window(hwnd: HWND) {
-    set_cloak(hwnd, 1, 0);
+pub fn uncloak_window(hwnd: HWND) -> Result<()> {
+    set_cloak(hwnd, 1, 0).or_platform("uncloak the window")
 }
 
 /// Calls Release on a raw COM pointer.
@@ -70,8 +73,10 @@ unsafe fn release(ptr: *mut c_void) {
 
 /// Calls `IApplicationView::set_cloak` via the ImmersiveShell COM API.
 ///
-/// Errors are logged and silently ignored — cloaking is best-effort.
-fn set_cloak(hwnd: HWND, cloak_type: u32, flags: i32) {
+/// Fails with the error of the first step that does not work, such as
+/// a window the shell has no view for. When the shell itself cannot be
+/// reached, which affects every window, that is logged as well.
+fn set_cloak(hwnd: HWND, cloak_type: u32, flags: i32) -> windows::core::Result<()> {
     COM_INIT.with(|_| {
         // SAFETY: COM is initialized on this thread via COM_INIT.
         let unk: windows::core::IUnknown =
@@ -79,7 +84,7 @@ fn set_cloak(hwnd: HWND, cloak_type: u32, flags: i32) {
                 Ok(p) => p,
                 Err(e) => {
                     mosaico_core::log_info!("COM ImmersiveShell failed: {e}");
-                    return;
+                    return Err(e);
                 }
             };
 
@@ -92,7 +97,7 @@ fn set_cloak(hwnd: HWND, cloak_type: u32, flags: i32) {
         let hr = unsafe { (unk_vtbl.QueryInterface)(unk_ptr, &IID_SERVICE_PROVIDER, &mut sp_ptr) };
         if hr.is_err() || sp_ptr.is_null() {
             mosaico_core::log_info!("COM QI for IServiceProvider failed: {hr:?}");
-            return;
+            return Err(failed(hr));
         }
 
         // SAFETY: `sp_ptr` is a valid IServiceProvider from the QI above; released after use.
@@ -111,7 +116,7 @@ fn set_cloak(hwnd: HWND, cloak_type: u32, flags: i32) {
         unsafe { release(sp_ptr) };
         if hr.is_err() || col_ptr.is_null() {
             mosaico_core::log_info!("COM QueryService for ViewCollection failed: {hr:?}");
-            return;
+            return Err(failed(hr));
         }
 
         // SAFETY: `col_ptr` is a valid IApplicationViewCollection; released after use.
@@ -122,14 +127,25 @@ fn set_cloak(hwnd: HWND, cloak_type: u32, flags: i32) {
         // SAFETY: col_ptr is no longer needed; release its refcount.
         unsafe { release(col_ptr) };
         if hr.is_err() || view_ptr.is_null() {
-            return;
+            return Err(failed(hr));
         }
 
         // SAFETY: `view_ptr` is a valid IApplicationView; released after use.
         let view_vtbl = unsafe { &*(*(view_ptr as *const *const IApplicationViewVtbl)) };
         // SAFETY: set_cloak on a valid IApplicationView vtbl.
-        let _ = unsafe { (view_vtbl.set_cloak)(view_ptr, cloak_type, flags) };
+        let hr = unsafe { (view_vtbl.set_cloak)(view_ptr, cloak_type, flags) };
         // SAFETY: view_ptr is no longer needed; release its refcount.
         unsafe { release(view_ptr) };
-    });
+        hr.ok()
+    })
+}
+
+/// The error of a COM call that failed, or that reported success but
+/// handed back no object.
+fn failed(hr: HRESULT) -> windows::core::Error {
+    if hr.is_err() {
+        hr.into()
+    } else {
+        E_POINTER.into()
+    }
 }
