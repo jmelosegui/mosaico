@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::WindowId;
 use crate::config::HidingBehaviour;
@@ -6,12 +6,25 @@ use crate::tiler::{Effect, WindowIdentity};
 
 use super::*;
 
-fn temp_file(test: &str) -> HiddenFile {
+/// A directory of a test's own in the temp directory, removed when the
+/// test ends.
+struct TempDir(PathBuf);
+
+impl Drop for TempDir {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.0);
+        // The parent is shared with the other tests, which run at the
+        // same time, so it is left in place.
+    }
+}
+
+/// A record in a directory of the test's own, with nothing in it yet.
+fn temp_file(test: &str) -> (HiddenFile, TempDir) {
     let dir = std::env::temp_dir()
         .join("mosaico-hidden-file-tests")
         .join(format!("{test}-{}", std::process::id()));
     let _ = fs::remove_dir_all(&dir);
-    HiddenFile::new(dir.join(FILE_NAME))
+    (HiddenFile::new(dir.join(FILE_NAME)), TempDir(dir))
 }
 
 fn one_hidden() -> HiddenWindows {
@@ -46,7 +59,7 @@ fn the_record_of_an_instance_is_in_its_data_directory() {
 #[test]
 fn a_missing_file_is_an_empty_record() {
     // Arrange
-    let file = temp_file("missing");
+    let (file, _dir) = temp_file("missing");
 
     // Act / Assert
     assert!(file.load().is_empty());
@@ -55,7 +68,7 @@ fn a_missing_file_is_an_empty_record() {
 #[test]
 fn a_saved_record_loads_back() {
     // Arrange
-    let file = temp_file("round-trip");
+    let (file, _dir) = temp_file("round-trip");
     let record = one_hidden();
 
     // Act
@@ -68,7 +81,7 @@ fn a_saved_record_loads_back() {
 #[test]
 fn saving_an_empty_record_removes_the_file() {
     // Arrange
-    let file = temp_file("empty");
+    let (file, _dir) = temp_file("empty");
     file.save(&one_hidden());
 
     // Act
@@ -81,7 +94,7 @@ fn saving_an_empty_record_removes_the_file() {
 #[test]
 fn a_corrupt_file_is_an_empty_record() {
     // Arrange
-    let file = temp_file("corrupt");
+    let (file, _dir) = temp_file("corrupt");
     fs::create_dir_all(file.path.parent().unwrap()).unwrap();
     fs::write(&file.path, "{ this is not a record").unwrap();
 
