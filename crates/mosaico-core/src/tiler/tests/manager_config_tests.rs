@@ -1,10 +1,11 @@
-//! The tiling manager on a fake platform: what it takes from the config.
+//! The tiling manager on a fake platform: what it takes from the config
+//! and the window rules.
 
-use crate::config::{Config, CornerStyle};
+use crate::config::{Config, CornerStyle, WindowRule};
 use crate::{Direction, LayoutKind};
 
 use super::fake_platform::{Call, FakePlatform};
-use super::manager_support::start;
+use super::manager_support::{start, tiled};
 use super::*;
 
 /// Whether the pointer was moved after a keyboard focus change with
@@ -89,4 +90,53 @@ fn workspaces_start_with_the_layouts_the_config_says() {
     let workspaces = manager.tiler().monitors()[0].workspaces();
     assert_eq!(workspaces[0].layout_kind(), LayoutKind::VerticalStack);
     assert_eq!(workspaces[1].layout_kind(), LayoutKind::ThreeColumn);
+}
+
+/// Windows 1 and 2 on one monitor, window 2 of the class "Floating".
+fn with_a_floating_window() -> FakePlatform {
+    let platform = FakePlatform::new(1, &[(1, 0), (2, 0)]);
+    platform.edit(2, |w| {
+        if let Some(facts) = w.facts.as_mut() {
+            facts.class = "Floating".into();
+        }
+    });
+    platform
+}
+
+/// A rule that leaves the windows of the class "Floating" alone.
+fn floating() -> WindowRule {
+    WindowRule {
+        match_class: Some("Floating".into()),
+        match_title: None,
+        match_path: None,
+        manage: false,
+    }
+}
+
+#[test]
+fn the_rules_it_starts_with_leave_windows_alone() {
+    // Arrange
+    let platform = with_a_floating_window();
+
+    // Act
+    let manager = TilingManager::new(platform.clone(), None, &Config::default(), vec![floating()])
+        .expect("the manager starts");
+
+    // Assert
+    assert_eq!(tiled(&manager, 0), vec![1]);
+}
+
+#[test]
+fn reloaded_rules_let_go_of_the_windows_they_leave_alone() {
+    // Arrange -- no rules at first, so both windows are tiled.
+    let platform = with_a_floating_window();
+    let mut manager = start(&platform, None, &Config::default());
+    let before = tiled(&manager, 0);
+
+    // Act
+    manager.reload_rules(vec![floating()]);
+
+    // Assert
+    assert_eq!(before, vec![1, 2]);
+    assert_eq!(tiled(&manager, 0), vec![1]);
 }
