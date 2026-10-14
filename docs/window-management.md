@@ -197,9 +197,10 @@ On Windows, `WindowsEnumerator` calls `enumerate_windows()`, which uses
   `WS_EX_DLGMODALFRAME` (`Window::app_window_caption()`). `WS_CAPTION` is
   not required
 
-`Enumerator::details()` describes one window for `debug list`: title, class,
-executable path, whether it has a title bar, rect, state, monitor and the
-invisible frame border (`frame::border_offset()`).
+`Enumerator::details()` describes one window for `debug list`, and gives
+`debug events` its window titles: title, class, executable path, whether it
+has a title bar, rect, state, monitor and the invisible frame border
+(`frame::border_offset()`).
 
 ## DPI Awareness
 

@@ -232,7 +232,8 @@ Shutdown is triggered by:
     thread, where dropping `Hotkeys` unregisters the hotkeys still
     registered, and stops the focus-follows-mouse thread; it waits for each
     of them
-  - PID file is removed
+  - Once the loop has returned, `lifecycle::run` removes the PID file and then
+    releases the single instance lock
   - Bridge threads (event, action, reload) and tick thread are joined
 
 ### Unclean exit

@@ -1,5 +1,5 @@
-//! Processes on Windows: [`ProcessControl`] for the CLI, and whether
-//! mosaico itself runs elevated, for the desktop.
+//! Processes on Windows: [`ProcessControl`](mosaico_core::system::ProcessControl)
+//! for the CLI, and whether mosaico itself runs elevated, for the desktop.
 
 use std::os::windows::process::CommandExt;
 use std::process::{Command, Stdio};

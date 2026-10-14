@@ -15,7 +15,7 @@ troubleshooting.
 | `crates/mosaico/src/commands/debug/events.rs` | `mosaico debug events` handler |
 | `crates/mosaico/src/commands/debug/move_window.rs` | `mosaico debug move` handler |
 | `crates/mosaico/src/commands/doctor.rs` | `mosaico doctor` handler |
-| `crates/mosaico-core/src/tiler/enumerator.rs` | `Enumerator`, which `debug list` and `doctor` list windows and monitors through |
+| `crates/mosaico-core/src/tiler/enumerator.rs` | `Enumerator`, which `debug list` and `doctor` list windows and monitors through, and `debug events` reads window titles through |
 
 ## `mosaico debug list`
 
