@@ -11,6 +11,7 @@
 mod adopt;
 mod borders;
 mod coalesce;
+mod corners;
 mod decoration_effects;
 mod desktop;
 mod display;
