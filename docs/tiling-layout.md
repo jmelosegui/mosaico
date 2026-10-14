@@ -32,7 +32,7 @@ contracts the manager runs on.
 
 ### Key Types
 
-- `Layout` (trait) -- defines `fn apply(&self, handles: &[usize], work_area: &Rect) -> Vec<(usize, Rect)>`
+- `Layout` (trait) -- defines `fn apply(&self, windows: &[WindowId], work_area: &Rect) -> Vec<(WindowId, Rect)>`
 - `LayoutKind` (enum) -- `Bsp`, `VerticalStack`, `ThreeColumn`; provides
   `next()` for cycling and `name()` for status-bar display
 - `BspLayout` -- implements `Layout` with configurable `gap` and `ratio`
@@ -40,7 +40,7 @@ contracts the manager runs on.
   stack right
 - `ThreeColumnLayout` -- implements `Layout`: master pane center, stacks on
   both sides; extra windows alternate left/right
-- `Workspace` -- maintains an ordered `Vec<usize>` of window handles for a
+- `Workspace` -- maintains an ordered `Vec<WindowId>` of the windows on a
   monitor plus a `layout_kind: LayoutKind` field; provides `add()`,
   `insert()`, `remove()`, `swap()`, `compute_layout()`,
   `layout_kind()` / `set_layout_kind()`
@@ -265,16 +265,21 @@ The `TilingManager` supports hot-reloading of configuration:
    avoid unnecessary repaints, and places and repaints the rest through the
    platform's `WindowControl`.
 
-The `applying_layout` flag suppresses `Moved` events during programmatic layout
-to prevent re-entrant tiling.
+A layout never sets off another one: `WindowEvent::Moved` is only reported
+when the user finishes dragging a window, never for the tiler's own
+placements, and the `LocationChanged` reports they cause are only acted on
+when the focused window is maximized or restored.
 
 ### Window Tileability
 
-`is_tileable(hwnd)` checks:
+`Tiler::is_tileable(window)` (in `adopt.rs`) checks:
 
-1. Window is visible
-2. Window has `WS_CAPTION` and is not `WS_EX_TOOLWINDOW`
-3. Window passes `should_manage()` rule evaluation
+1. The window is visible
+2. The platform offers it as a candidate (`Desktop::candidate`), which rules
+   out tool windows, owned dialogs, shell surfaces, windows the system keeps
+   out of view and windows the platform cannot position
+3. The rules manage it: `should_manage()` for a window with a title bar, and
+   only a rule that asks for it (`matching_rule()`) for one without
 
 ## Monocle Mode
 
@@ -336,19 +341,19 @@ time (`active_workspace` index).
 
 The `Workspace` type maintains window ordering:
 
-- `add(handle)` -- appends to the end (no duplicates)
-- `insert(index, handle)` -- inserts at a specific position (index clamped
+- `add(window)` -- appends to the end (no duplicates)
+- `insert(index, window)` -- inserts at a specific position (index clamped
   to length, no duplicates). Used when moving windows across monitors to
   control BSP slot placement.
-- `remove(handle)` -- removes and shifts remaining handles
-- `swap(a, b)` -- swaps two handles by index
+- `remove(window)` -- removes and shifts the remaining windows
+- `swap(a, b)` -- swaps two windows by index
 - `compute_layout(layout, work_area)` -- delegates to `Layout::apply()`
-- `handles()` -- returns a slice of all window handles in the workspace
+- `windows()` -- returns a slice of all the windows in the workspace
 
 New windows are always placed on the **focused** monitor's **active
 workspace**, not the OS-determined monitor. When moving a window to an
-adjacent monitor, `insert(0, hwnd)` is used when entering from the right
-(leftmost BSP slot) and `add(hwnd)` when entering from the left.
+adjacent monitor, `insert(0, window)` is used when entering from the right
+(leftmost BSP slot) and `add(window)` when entering from the left.
 
 ### Workspace Switching
 
@@ -369,13 +374,13 @@ and showing windows cause are kept from undoing a switch as described in
 - Layout cycling wraps around: `Bsp -> VerticalStack -> ThreeColumn -> Bsp`.
 - All three layouts share the same `gap` and `ratio` parameters; only the
   spatial algorithm differs.
-- `applying_layout` flag prevents infinite loops from programmatic window
-  moves triggering `Moved` events.
+- Programmatic moves never report `Moved`, so a layout cannot set off
+  another one.
 - Stale handle pruning runs before every layout application to handle UWP apps
   that close without firing destroy events, and windows minimized without a
   report. It leaves alone a window the tiler itself hid with `hide` and is
   about to show, which is out of view by the tiler's doing, not stale.
-- `Workspace` stores a `layout_kind` alongside its `Vec<usize>` handle list
+- `Workspace` stores a `layout_kind` alongside its `Vec<WindowId>` list
   -- the layout algorithm determines spatial positioning, not insertion order.
 - The core layout module is split into sub-files (`mod.rs`, `bsp.rs`,
   `vertical_stack.rs`, `three_column.rs`, `tests.rs`) with one layout per
