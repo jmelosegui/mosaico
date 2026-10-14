@@ -12,6 +12,10 @@ use super::Border;
 impl Border {
     /// Puts the border just behind `target` and shows it, around `rect`
     /// with a stroke `width` wide, with the bitmap it has.
+    ///
+    /// A border drawn again the same way needs only this: the window it
+    /// surrounds may have moved in the z-order, or the border may have
+    /// been hidden.
     pub(crate) fn restack(&self, rect: &Rect, width: i32, target: HWND) {
         let w = rect.width + width * 2;
         let h = rect.height + width * 2;

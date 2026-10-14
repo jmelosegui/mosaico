@@ -13,10 +13,20 @@ use super::{Border, Color};
 
 impl Border {
     /// Renders the border bitmap and applies it via `UpdateLayeredWindow`.
+    /// Returns whether the bitmap reached the overlay.
     #[allow(clippy::too_many_arguments)]
-    pub(super) fn render(&self, x: i32, y: i32, w: i32, h: i32, color: Color, bw: i32, r: i32) {
+    pub(super) fn render(
+        &self,
+        x: i32,
+        y: i32,
+        w: i32,
+        h: i32,
+        color: Color,
+        bw: i32,
+        r: i32,
+    ) -> bool {
         if w <= 0 || h <= 0 {
-            return;
+            return false;
         }
 
         // SAFETY: This block creates a temporary memory DC + DIB section,
@@ -44,13 +54,13 @@ impl Border {
             else {
                 let _ = DeleteDC(mem_dc);
                 let _ = ReleaseDC(None, screen_dc);
-                return;
+                return false;
             };
             if bits.is_null() {
                 let _ = DeleteObject(bmp.into());
                 let _ = DeleteDC(mem_dc);
                 let _ = ReleaseDC(None, screen_dc);
-                return;
+                return false;
             }
 
             let old = SelectObject(mem_dc, bmp.into());
@@ -83,7 +93,7 @@ impl Border {
                 ..Default::default()
             };
 
-            let _ = UpdateLayeredWindow(
+            let updated = UpdateLayeredWindow(
                 self.hwnd,
                 Some(screen_dc),
                 Some(&pt_dst),
@@ -93,12 +103,14 @@ impl Border {
                 windows::Win32::Foundation::COLORREF(0),
                 Some(&blend),
                 ULW_ALPHA,
-            );
+            )
+            .is_ok();
 
             SelectObject(mem_dc, old);
             let _ = DeleteObject(bmp.into());
             let _ = DeleteDC(mem_dc);
             let _ = ReleaseDC(None, screen_dc);
+            updated
         }
     }
 }

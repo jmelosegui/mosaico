@@ -63,14 +63,23 @@ impl Border {
     ///
     /// Renders the bitmap before making the window visible to avoid
     /// flickering caused by a stale bitmap being shown at the new size.
-    pub(crate) fn show(&self, rect: &Rect, color: Color, width: i32, radius: i32, target: HWND) {
+    /// Returns whether the new bitmap reached the overlay.
+    pub(crate) fn show(
+        &self,
+        rect: &Rect,
+        color: Color,
+        width: i32,
+        radius: i32,
+        target: HWND,
+    ) -> bool {
         let w = rect.width + width * 2;
         let h = rect.height + width * 2;
 
         // Render the new bitmap first so `UpdateLayeredWindow` atomically
         // sets position, size, and pixel content in one call.
-        self.render(rect.x - width, rect.y - width, w, h, color, width, radius);
+        let rendered = self.render(rect.x - width, rect.y - width, w, h, color, width, radius);
         self.restack(rect, width, target);
+        rendered
     }
 
     /// Hides the border.
@@ -91,3 +100,7 @@ impl Drop for Border {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "border/show_tests.rs"]
+mod tests;

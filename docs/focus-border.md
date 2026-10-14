@@ -104,7 +104,15 @@ a stale bitmap from the previous size would briefly appear at the new position.
 - `Border::new()` -- creates the overlay window (initially hidden)
 - `Border::show(rect, color, width)` -- renders the border bitmap and
   positions the overlay window over the target rectangle
+- `Border::restack(rect, width, target)` -- puts the overlay back just
+  behind its window and shows it, with the bitmap it already has
 - `Border::hide()` -- hides the overlay window via `ShowWindow(SW_HIDE)`
+
+`Win32Decorations` remembers the style each overlay was last rendered with.
+A border shown again with the same rect, color, width and radius is only
+restacked, because its window may have moved in the z-order, and a hidden
+one is shown again by that. Rendering takes tens of milliseconds for a
+large tile, about 30 ms for half a 4K screen in a release build.
 
 ## Color
 
@@ -242,3 +250,12 @@ In `mosaico-core`, `tiler/tests/decoration_effects_tests.rs` drives
 asked to draw, `tiler/tests/border_tests.rs` checks the colors borders are
 drawn in, including the fallback and `"none"`, and
 `tiler/tests/corner_tests.rs` checks which windows get their corners back.
+`tiler/tests/border_once_tests.rs` checks that opening a window, a retile,
+a focus change and a workspace switch decide each border once, after its
+window's last placement. `tiler/tests/plan_borders_tests.rs` and
+`tiler/tests/coalesce_border_tests.rs` check which border is kept, in a
+step and while a burst of moves is held.
+
+In `mosaico-windows`, `decorations_tests.rs` checks when a border needs a
+new bitmap, and `border/show_tests.rs` that a hidden border put back with
+its bitmap is shown again, with overlays of its own drawn off screen.

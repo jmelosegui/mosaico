@@ -19,35 +19,53 @@ use crate::window::Window;
 /// skips, so drawing them is never reported as a window event. Corners
 /// are the window's DWM corner preference, which Windows 10 does not
 /// have: there, changing corners is reported as unsupported.
+///
+/// Rendering a border's bitmap takes tens of milliseconds for a large
+/// tile, so each overlay remembers the style it was last rendered with,
+/// and a border drawn again the same way is only put back behind its
+/// window.
 #[derive(Default)]
 pub(crate) struct Win32Decorations {
     /// One overlay per bordered window.
-    borders: HashMap<WindowId, Border>,
+    borders: HashMap<WindowId, Overlay>,
+}
+
+/// A border overlay and what its bitmap shows.
+struct Overlay {
+    border: Border,
+    drawn: LastDrawn,
 }
 
 impl Decorations for Win32Decorations {
     /// Fails only when the overlay cannot be created. Drawing it puts it
-    /// just behind the window, in the window's topmost band. Placing it
-    /// behind a window that is gone fails without a trace, and the
-    /// overlay stays where it was drawn until the tiler drops it.
+    /// just behind the window, in the window's topmost band, even when
+    /// the bitmap is kept, since the window may have moved in the
+    /// z-order. Placing it behind a window that is gone fails without a
+    /// trace, and the overlay stays where it was drawn until the tiler
+    /// drops it.
     fn show_border(&mut self, window: WindowId, style: &BorderStyle) -> Result<()> {
-        let border = match self.borders.entry(window) {
+        let Overlay { border, drawn } = match self.borders.entry(window) {
             Entry::Occupied(entry) => entry.into_mut(),
-            Entry::Vacant(entry) => entry.insert(Border::new()?),
+            Entry::Vacant(entry) => entry.insert(Overlay {
+                border: Border::new()?,
+                drawn: LastDrawn::default(),
+            }),
         };
-        border.show(
-            &style.rect,
-            style.color,
-            style.width,
-            style.radius,
-            Window::from_id(window).hwnd(),
-        );
+        let target = Window::from_id(window).hwnd();
+        if drawn.needs_render(style) {
+            let reached = border.show(&style.rect, style.color, style.width, style.radius, target);
+            drawn.rendered(style, reached);
+        } else {
+            border.restack(&style.rect, style.width, target);
+        }
         Ok(())
     }
 
+    /// Hiding keeps the bitmap, so showing the border again the same way
+    /// only puts it back.
     fn hide_border(&mut self, window: WindowId) -> Result<()> {
-        if let Some(border) = self.borders.get(&window) {
-            border.hide();
+        if let Some(overlay) = self.borders.get(&window) {
+            overlay.border.hide();
         }
         Ok(())
     }
@@ -66,3 +84,26 @@ impl Decorations for Win32Decorations {
         frame::reset_corner_preference(Window::from_id(window).hwnd())
     }
 }
+
+/// The style an overlay's bitmap was last rendered with, if any.
+#[derive(Debug, Default)]
+struct LastDrawn(Option<BorderStyle>);
+
+impl LastDrawn {
+    /// Whether drawing `style` needs a new bitmap: it is not the one the
+    /// overlay has.
+    fn needs_render(&self, style: &BorderStyle) -> bool {
+        self.0.as_ref() != Some(style)
+    }
+
+    /// Records how rendering `style` went. A bitmap that did not reach
+    /// the overlay leaves it showing something else, so the next draw
+    /// renders again.
+    fn rendered(&mut self, style: &BorderStyle, reached: bool) {
+        self.0 = reached.then(|| style.clone());
+    }
+}
+
+#[cfg(test)]
+#[path = "decorations_tests.rs"]
+mod tests;
