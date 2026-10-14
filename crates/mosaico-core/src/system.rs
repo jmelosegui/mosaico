@@ -2,10 +2,14 @@
 //! and stopping processes, and registering for start on login.
 
 mod autostart;
+mod autostart_status;
+mod file_probe;
 
 use crate::Result;
 
-pub use autostart::{Autostart, AutostartStatus, LaunchCommand};
+pub use autostart::{Autostart, LaunchCommand};
+pub use autostart_status::AutostartStatus;
+pub use file_probe::FileProbe;
 
 /// Starting and stopping daemon processes.
 ///

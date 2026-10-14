@@ -43,7 +43,7 @@ pub fn status(cx: &mut Context) -> Exit {
         ),
         Ok(AutostartStatus::Missing(command)) => say!(
             cx,
-            "Autostart is currently enabled, but \"{}\" does not exist.",
+            "Autostart is currently enabled, but \"{}\" is not a file.",
             command.program.display()
         ),
         Err(e) => {
@@ -65,7 +65,7 @@ pub fn register(cx: &Context) -> mosaico_core::Result<()> {
 pub fn check(cx: &Context) -> mosaico_core::Result<AutostartStatus> {
     let exe = running_exe(cx)?;
     let registered = cx.autostart.registered_command()?;
-    Ok(AutostartStatus::of(registered, &exe))
+    Ok(AutostartStatus::of(registered, &exe, cx.files))
 }
 
 /// The mosaico executable this command runs from.

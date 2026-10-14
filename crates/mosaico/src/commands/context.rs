@@ -13,7 +13,7 @@ use std::time::{Duration, Instant};
 use mosaico_core::WindowControl;
 use mosaico_core::ipc::{Command, IpcClient, IpcError, Response};
 use mosaico_core::pid::PidFile;
-use mosaico_core::system::{Autostart, ProcessControl};
+use mosaico_core::system::{Autostart, FileProbe, ProcessControl};
 use mosaico_core::tiler::Enumerator;
 
 /// How a command ended.
@@ -105,6 +105,9 @@ pub struct Context<'a> {
     /// Finds the mosaico executable this command runs from, which is what
     /// autostart registers.
     pub current_exe: &'a dyn Fn() -> std::io::Result<PathBuf>,
+    /// Looks at program files without waiting on the network, for telling
+    /// whether autostart starts this mosaico.
+    pub files: &'a dyn FileProbe,
     /// Where the daemon records its process id.
     pub pid_file: PidFile,
     /// The instance's config directory, for telling the user.

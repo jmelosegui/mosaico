@@ -1,8 +1,7 @@
-//! Starting mosaico when the user logs in, and telling whether what is
-//! registered still starts this mosaico.
+//! Starting mosaico when the user logs in.
 
 use std::fmt;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use crate::Result;
 
@@ -83,56 +82,6 @@ pub trait Autostart {
 
     /// Removes the registration.
     fn disable(&self) -> Result<()>;
-}
-
-/// How the registration compares with what this mosaico registers.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum AutostartStatus {
-    /// Nothing is registered.
-    Disabled,
-    /// This executable is registered, started the way enabling does it.
-    Enabled,
-    /// Another program, or this one with other arguments, is registered.
-    Other(LaunchCommand),
-    /// The registered program does not exist, as after it was moved or
-    /// deleted, so nothing starts at login.
-    Missing(LaunchCommand),
-}
-
-impl AutostartStatus {
-    /// Compares `registered` with what enabling autostart from `exe`, the
-    /// running executable, registers.
-    ///
-    /// Paths name the same program when they are equal or resolve to the
-    /// same file, so another spelling of the running executable's path,
-    /// or a link to it, still counts as this one.
-    pub fn of(registered: Option<LaunchCommand>, exe: &Path) -> Self {
-        let Some(registered) = registered else {
-            return Self::Disabled;
-        };
-        let expected = LaunchCommand::autostart(exe);
-        if is_same_program(&registered.program, &expected.program) {
-            if registered.args == expected.args {
-                Self::Enabled
-            } else {
-                Self::Other(registered)
-            }
-        } else if registered.program.is_file() {
-            Self::Other(registered)
-        } else {
-            Self::Missing(registered)
-        }
-    }
-}
-
-/// Whether `a` and `b` name the same program: equal paths, or paths that
-/// resolve to the same file.
-fn is_same_program(a: &Path, b: &Path) -> bool {
-    a == b
-        || matches!(
-            (std::fs::canonicalize(a), std::fs::canonicalize(b)),
-            (Ok(a), Ok(b)) if a == b
-        )
 }
 
 #[cfg(test)]

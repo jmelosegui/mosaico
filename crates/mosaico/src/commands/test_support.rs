@@ -1,11 +1,13 @@
 //! Fakes for testing commands without a daemon, processes or registry.
 //!
 //! [`World`] stands in for everything outside the CLI at once (the
-//! daemon, the process table, the autostart registration, the desktop
-//! and the clock) so a test can describe a situation, such as "the
-//! daemon stopped answering but its process is still alive", in a few
-//! fields.
+//! daemon, the process table, the autostart registration, program files,
+//! the desktop and the clock) so a test can describe a situation, such
+//! as "the daemon stopped answering but its process is still alive", in
+//! a few fields.
 
+#[path = "test_support_autostart.rs"]
+mod autostart_fake;
 mod windows;
 
 use std::cell::{Cell, RefCell};
@@ -16,17 +18,13 @@ use std::time::{Duration, Instant};
 
 use mosaico_core::ipc::{Command, IpcError, Response};
 use mosaico_core::pid::PidFile;
-use mosaico_core::system::{Autostart, LaunchCommand, ProcessControl};
+use mosaico_core::system::{LaunchCommand, ProcessControl};
 use mosaico_core::{Error, Rect, Result, WindowId};
 
 use super::context::{Clock, Context, Daemon, Exit};
 use super::fake_desktop::FakeDesktop;
 
-/// The mosaico executable commands run from in the fake world.
-pub const EXE: &str = r"C:\apps\mosaico\mosaico.exe";
-
-/// A mosaico executable that is no longer there, as after it moved.
-pub const MOVED_AWAY: &str = r"C:\moved-away\mosaico.exe";
+pub use autostart_fake::{EXE, MOVED_AWAY};
 
 /// How long a fake process stays alive.
 #[derive(Debug, Clone, Copy)]
@@ -77,6 +75,8 @@ pub struct World {
     pub placed: RefCell<Vec<(WindowId, Rect)>>,
     /// Error placing a window fails with, if any.
     pub place_error: RefCell<Option<String>>,
+    /// Program files that exist.
+    pub files: RefCell<Vec<PathBuf>>,
     /// The fake time.
     pub now: Cell<Instant>,
 }
@@ -95,6 +95,7 @@ impl Default for World {
             autostart_error: RefCell::default(),
             placed: RefCell::default(),
             place_error: RefCell::default(),
+            files: RefCell::default(),
             now: Cell::new(Instant::now()),
         }
     }
@@ -110,14 +111,6 @@ impl World {
     /// Queues the daemon's next reply.
     pub fn reply(&self, reply: Result<Response, IpcError>) {
         self.replies.borrow_mut().push_back(reply);
-    }
-
-    /// Fails the way the registration does when an autostart error is set.
-    fn autostart_fails(&self) -> Result<()> {
-        match self.autostart_error.borrow().clone() {
-            Some(message) => Err(failure(message)),
-            None => Ok(()),
-        }
     }
 }
 
@@ -192,25 +185,6 @@ impl ProcessControl for World {
     }
 }
 
-impl Autostart for World {
-    fn registered_command(&self) -> Result<Option<LaunchCommand>> {
-        self.autostart_fails()?;
-        Ok(self.autostart.borrow().clone())
-    }
-
-    fn enable(&self, command: &LaunchCommand) -> Result<()> {
-        self.autostart_fails()?;
-        *self.autostart.borrow_mut() = Some(command.clone());
-        Ok(())
-    }
-
-    fn disable(&self) -> Result<()> {
-        self.autostart_fails()?;
-        *self.autostart.borrow_mut() = None;
-        Ok(())
-    }
-}
-
 /// An error that reads exactly `message`, so a test can pin what the
 /// command prints.
 fn failure(message: String) -> Error {
@@ -263,6 +237,7 @@ impl Harness {
             windows: &self.world,
             desktop: &self.desktop,
             current_exe: &|| Ok(PathBuf::from(EXE)),
+            files: &self.world,
             pid_file: self.pid_file.clone(),
             config_dir: "C:\\config\\mosaico".into(),
             clock: &self.world,

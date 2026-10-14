@@ -55,7 +55,7 @@ pub fn check_autostart(cx: &mut Context) {
         ),
         Ok(AutostartStatus::Missing(command)) => say!(
             cx,
-            "  {FAIL} Autostart starts \"{}\", which does not exist (run `mosaico autostart enable` to fix)",
+            "  {FAIL} Autostart starts \"{}\", which is not a file (run `mosaico autostart enable` to fix)",
             command.program.display()
         ),
         Err(e) => say!(cx, "  {FAIL} Autostart: {e}"),

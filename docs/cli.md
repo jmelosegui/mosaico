@@ -39,10 +39,11 @@ Commands do not reach for the OS themselves. They take a
 (`mosaico_core::system::Autostart`), window control
 (`mosaico_core::WindowControl`), the windows and monitors on the desktop
 (`mosaico_core::tiler::Enumerator`), the path of the running executable
-(`current_exe`, which is what autostart registers), the instance's `PidFile`,
-a clock, the update check, the logo, and the output and error streams. They
-return an `Exit` (`Success` or `Failure`), and only `main` calls
-`std::process::exit`.
+(`current_exe`, which is what autostart registers), file checks that never
+wait on the network (`mosaico_core::system::FileProbe`, for the autostart
+check), the instance's `PidFile`, a clock, the update check, the logo, and
+the output and error streams. They return an `Exit` (`Success` or
+`Failure`), and only `main` calls `std::process::exit`.
 
 `crates/mosaico/src/platform.rs` builds the real context; it is the one place
 in the CLI that picks a platform implementation. Commands that move windows
@@ -144,9 +145,10 @@ Checks performed:
    `mosaico autostart enable` would register from the running executable
    (`AutostartStatus::of` in `mosaico_core::system`): `[ok]` when they match,
    `[warn]` when nothing is registered or another command is (another copy
-   of mosaico, or other arguments), `[fail]` when the registered program
-   does not exist (the binary moved or was deleted) or the registration
-   cannot be read. Doctor only reports; it never changes the registration
+   of mosaico, or other arguments), `[fail]` when the registered program is
+   not a file (the binary moved or was deleted) or the registration cannot
+   be read. A program on a network share is not looked at, so it counts as
+   another command. Doctor only reports; it never changes the registration
 8. **Daemon** -- checks IPC pipe, PID file, and process liveness; cleans up
    stale PID files
 9. **Monitors** -- enumerates monitors and reports count with per-monitor

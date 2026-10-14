@@ -40,6 +40,9 @@ pub mod enumerate;
 /// Wrapping native errors in the core error.
 mod error;
 
+/// Quick file checks that never wait on a network share.
+pub mod files;
+
 /// Window frame and border offset helpers.
 mod frame;
 

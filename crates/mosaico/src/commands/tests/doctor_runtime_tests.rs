@@ -193,7 +193,27 @@ fn an_autostart_entry_with_other_arguments_is_a_warning() {
 }
 
 #[test]
-fn an_autostart_entry_for_a_program_that_does_not_exist_fails() {
+fn an_autostart_entry_for_another_mosaico_is_a_warning() {
+    // Arrange
+    let mut h = Harness::new("doctor-autostart-another");
+    let other = r"C:\dev\mosaico\mosaico.exe";
+    h.world.files.borrow_mut().push(other.into());
+    *h.world.autostart.borrow_mut() = Some(LaunchCommand::autostart(other));
+
+    // Act
+    let out = autostart_check(&mut h);
+
+    // Assert
+    assert_eq!(
+        out,
+        format!(
+            "  {WARN} Autostart starts \"{other}\" start instead of this mosaico (run `mosaico autostart enable` to switch)\n"
+        )
+    );
+}
+
+#[test]
+fn an_autostart_entry_for_a_program_that_is_not_a_file_fails() {
     // Arrange
     let mut h = Harness::new("doctor-autostart-missing");
     *h.world.autostart.borrow_mut() = Some(LaunchCommand::autostart(MOVED_AWAY));
@@ -205,7 +225,7 @@ fn an_autostart_entry_for_a_program_that_does_not_exist_fails() {
     assert_eq!(
         out,
         format!(
-            "  {FAIL} Autostart starts \"{MOVED_AWAY}\", which does not exist (run `mosaico autostart enable` to fix)\n"
+            "  {FAIL} Autostart starts \"{MOVED_AWAY}\", which is not a file (run `mosaico autostart enable` to fix)\n"
         )
     );
 }

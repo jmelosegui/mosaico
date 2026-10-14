@@ -104,7 +104,7 @@ fn status_names_the_command_of_another_registration() {
 }
 
 #[test]
-fn status_says_when_the_registered_program_does_not_exist() {
+fn status_says_when_the_registered_program_is_not_a_file() {
     // Arrange
     let mut h = Harness::new("autostart-status-missing");
     *h.world.autostart.borrow_mut() = Some(LaunchCommand::autostart(MOVED_AWAY));
@@ -116,6 +116,6 @@ fn status_says_when_the_registered_program_does_not_exist() {
     assert_eq!(exit, Exit::Success);
     assert_eq!(
         h.out(),
-        format!("Autostart is currently enabled, but \"{MOVED_AWAY}\" does not exist.\n")
+        format!("Autostart is currently enabled, but \"{MOVED_AWAY}\" is not a file.\n")
     );
 }

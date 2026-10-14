@@ -144,7 +144,7 @@ colored status tags:
 6. **bar.toml** -- validates syntax via `try_load_bar()`
 7. **Autostart** -- checks that what starts at login is the running mosaico
    executable with `start`: `[warn]` when nothing or another command is
-   registered, `[fail]` when the registered program does not exist or the
+   registered, `[fail]` when the registered program is not a file or the
    registration cannot be read. It never re-registers;
    `mosaico autostart enable` does
 8. **Daemon status** -- checks IPC pipe connectivity, PID file, and process
