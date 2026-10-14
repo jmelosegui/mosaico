@@ -34,7 +34,7 @@ mod decorations;
 /// DPI awareness setup.
 pub mod dpi;
 
-/// Win32 window enumeration.
+/// Window and monitor listing for the core `Enumerator` contract.
 pub mod enumerate;
 
 /// Wrapping native errors in the core error.

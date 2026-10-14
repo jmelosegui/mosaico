@@ -1,4 +1,5 @@
-use mosaico_core::Result;
+use mosaico_core::tiler::{Display, Enumerator, Insets, WindowDetails, WindowFacts};
+use mosaico_core::{Result, WindowId};
 
 use windows::Win32::Foundation::{HWND, LPARAM};
 use windows::Win32::UI::WindowsAndMessaging::{EnumWindows, IsIconic, IsWindowVisible};
@@ -6,6 +7,58 @@ use windows::core::BOOL;
 
 use crate::error::OrPlatform;
 use crate::window::Window;
+use crate::{frame, monitor};
+
+/// Lists windows and monitors through Win32.
+///
+/// Windows come from `EnumWindows`, which walks the top-level windows in
+/// Z order, topmost first, so the list runs front to back. Monitors come
+/// from `EnumDisplayMonitors`; see [`monitor`].
+pub struct WindowsEnumerator;
+
+impl Enumerator for WindowsEnumerator {
+    fn windows(&self) -> Result<Vec<WindowId>> {
+        Ok(enumerate_windows()?.iter().map(Window::id).collect())
+    }
+
+    fn connected_monitors(&self) -> Result<Vec<Display>> {
+        let monitors = monitor::enumerate_monitors()?;
+        Ok(monitors
+            .into_iter()
+            .map(|m| Display {
+                id: m.id,
+                key: m.key,
+                work_area: m.work_area,
+                primary: m.primary,
+            })
+            .collect())
+    }
+
+    /// The frame is the invisible resize border Windows 10 and 11 draw
+    /// around most windows: the difference between `GetWindowRect` and
+    /// the DWM extended frame bounds.
+    fn details(&self, window: WindowId) -> WindowDetails {
+        let win = Window::from_id(window);
+        WindowDetails {
+            facts: WindowFacts {
+                class: win.class().unwrap_or_default(),
+                title: win.title().unwrap_or_default(),
+                path: win.exe_path(),
+                has_caption: win.app_window_caption() == Some(true),
+            },
+            rect: win.rect().ok(),
+            minimized: win.is_minimized(),
+            maximized: win.is_maximized(),
+            monitor: monitor::monitor_id_for_window(window),
+            frame: frame::border_offset(win.hwnd()).ok().map(|b| Insets {
+                left: b.left,
+                top: b.top,
+                right: b.right,
+                bottom: b.bottom,
+            }),
+        }
+    }
+}
 
 /// Enumerates all visible, non-minimized, top-level application windows.
 ///
