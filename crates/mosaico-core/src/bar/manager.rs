@@ -176,6 +176,10 @@ impl BarManager {
 mod tests;
 
 #[cfg(test)]
+#[path = "tests/theme_tests.rs"]
+mod theme_tests;
+
+#[cfg(test)]
 #[path = "tests/manager_update_tests.rs"]
 mod update_tests;
 
