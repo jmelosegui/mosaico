@@ -150,5 +150,8 @@ impl ConfigStore {
 }
 
 #[cfg(test)]
+#[path = "tests/defaults_tests.rs"]
+mod defaults_tests;
+#[cfg(test)]
 #[path = "tests/load_tests.rs"]
 mod tests;
