@@ -1,0 +1,117 @@
+use mosaico_core::Action;
+use mosaico_core::action::Direction;
+
+use super::*;
+use crate::commands::test_support::Harness;
+
+#[test]
+fn prints_the_reply_of_a_successful_command() {
+    // Arrange
+    let mut h = Harness::new("request-ok");
+    h.world.daemon_up(1);
+    h.world.reply(Ok(Response::ok_with_message("state dump")));
+
+    // Act
+    let exit = h.run(|cx| run(cx, &Command::Inspect));
+
+    // Assert
+    assert_eq!(exit, Exit::Success);
+    assert_eq!(h.out(), "state dump\n");
+}
+
+#[test]
+fn fails_when_no_daemon_is_running() {
+    // Arrange
+    let mut h = Harness::new("request-down");
+
+    // Act
+    let exit = h.run(|cx| run(cx, &Command::Inspect));
+
+    // Assert
+    assert_eq!(exit, Exit::Failure);
+    assert_eq!(h.err(), "Mosaico is not running.\n");
+}
+
+#[test]
+fn reports_a_refusal_with_the_daemon_message() {
+    // Arrange
+    let mut h = Harness::new("request-refused");
+    h.world.daemon_up(1);
+    h.world
+        .reply(Ok(Response::error(ErrorCode::Failed, "nothing to focus")));
+
+    // Act
+    let exit = h.run(|cx| run(cx, &Command::Inspect));
+
+    // Assert
+    assert_eq!(exit, Exit::Failure);
+    assert_eq!(h.err(), "Error: nothing to focus\n");
+}
+
+#[test]
+fn tells_the_user_to_restart_a_mismatched_daemon() {
+    // Arrange
+    let mut h = Harness::new("request-mismatch");
+    h.world.daemon_up(1);
+    let status = DaemonStatus {
+        version: "0.0.1".into(),
+        protocol: 99,
+        windows: 0,
+    };
+    h.world.reply(Ok(
+        Response::error(ErrorCode::VersionMismatch, "mismatch").with_data(&status)
+    ));
+
+    // Act
+    let exit = h.run(|cx| run(cx, &Command::Status));
+
+    // Assert
+    assert_eq!(exit, Exit::Failure);
+    let err = h.err();
+    assert!(err.contains("version 0.0.1"), "{err}");
+    assert!(err.contains("mosaico stop"), "{err}");
+}
+
+#[test]
+fn reports_a_broken_channel() {
+    // Arrange -- the daemon went away mid-request.
+    let mut h = Harness::new("request-closed");
+    h.world.daemon_up(1);
+    h.world.reply(Err(IpcError::Closed));
+
+    // Act
+    let exit = h.run(|cx| run(cx, &Command::Status));
+
+    // Assert
+    assert_eq!(exit, Exit::Failure);
+    assert!(
+        h.err().starts_with("Failed to reach the daemon"),
+        "{}",
+        h.err()
+    );
+}
+
+#[test]
+fn each_command_sends_what_it_says() {
+    // Arrange
+    let mut h = Harness::new("request-commands");
+    h.world.daemon_up(1);
+    let action = Action::Focus(Direction::Left);
+
+    // Act
+    h.run(|cx| crate::commands::action::execute(cx, action));
+    h.run(crate::commands::pause::pause);
+    h.run(crate::commands::pause::unpause);
+    h.run(crate::commands::debug::state::execute);
+
+    // Assert
+    assert_eq!(
+        *h.world.sent.borrow(),
+        vec![
+            Command::Action { action },
+            Command::PauseHotkeys,
+            Command::UnpauseHotkeys,
+            Command::Inspect,
+        ]
+    );
+}

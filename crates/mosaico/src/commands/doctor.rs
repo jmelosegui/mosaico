@@ -1,5 +1,6 @@
 use mosaico_core::config;
 
+use super::context::{Context, Exit, say};
 use super::doctor_runtime;
 
 /// ANSI escape helpers for doctor output.
@@ -8,9 +9,9 @@ const WARN: &str = "\x1b[33m[warn]\x1b[0m";
 const FAIL: &str = "\x1b[31m[fail]\x1b[0m";
 const FIXED: &str = "\x1b[36m[fixed]\x1b[0m";
 
-pub fn execute() {
-    super::banner::print_logo();
-    println!();
+pub fn execute(cx: &mut Context) -> Exit {
+    (cx.logo)(&mut *cx.out);
+    say!(cx, "");
     check_config_dir();
     check_config_file();
     check_theme();
@@ -20,10 +21,11 @@ pub fn execute() {
     doctor_runtime::check_rules_cache_age();
     check_user_rules_file();
     check_bar_file();
-    doctor_runtime::check_autostart();
-    doctor_runtime::check_daemon();
+    doctor_runtime::check_autostart(cx);
+    doctor_runtime::check_daemon(cx);
     doctor_runtime::check_monitors();
     println!();
+    Exit::Success
 }
 
 fn check_config_dir() {

@@ -1,15 +1,14 @@
+use mosaico_core::Command;
+
+use super::context::{Context, Exit};
 use super::request;
 
-/// Sends a PauseHotkeys command to the running daemon.
-pub fn pause() {
-    send(mosaico_core::Command::PauseHotkeys);
+/// Pauses every hotkey except toggle-pause.
+pub fn pause(cx: &mut Context) -> Exit {
+    request::run(cx, &Command::PauseHotkeys)
 }
 
-/// Sends an UnpauseHotkeys command to the running daemon.
-pub fn unpause() {
-    send(mosaico_core::Command::UnpauseHotkeys);
-}
-
-fn send(command: mosaico_core::Command) {
-    request::print_message(request::send_or_exit(&command));
+/// Resumes the paused hotkeys.
+pub fn unpause(cx: &mut Context) -> Exit {
+    request::run(cx, &Command::UnpauseHotkeys)
 }

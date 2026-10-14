@@ -5,6 +5,7 @@
 //! so that `mosaico start` is executed on user logon. No elevation is
 //! required since HKCU is per-user.
 
+use mosaico_core::system::Autostart;
 use windows::Win32::System::Registry::{
     HKEY, HKEY_CURRENT_USER, KEY_QUERY_VALUE, KEY_SET_VALUE, REG_SAM_FLAGS, REG_SZ, RegCloseKey,
     RegDeleteValueW, RegOpenKeyExW, RegQueryValueExW, RegSetValueExW,
@@ -137,4 +138,21 @@ fn query_value_exists(key: HKEY) -> bool {
 fn close_key(key: HKEY) {
     // SAFETY: RegCloseKey is safe to call on any valid HKEY.
     let _ = unsafe { RegCloseKey(key) };
+}
+
+/// [`Autostart`] through the per-user Run registry key.
+pub struct RegistryAutostart;
+
+impl Autostart for RegistryAutostart {
+    fn is_enabled(&self) -> bool {
+        is_enabled()
+    }
+
+    fn enable(&self) -> Result<(), String> {
+        enable()
+    }
+
+    fn disable(&self) -> Result<(), String> {
+        disable()
+    }
 }

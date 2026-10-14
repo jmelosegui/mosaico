@@ -1,6 +1,8 @@
-use std::io::{Write, stdout};
+use std::io::Write;
 use std::thread;
 use std::time::Duration;
+
+use super::context::{Context, Exit, say};
 
 /// The mosaico logo in 6-row block-letter style matching the aspire CLI font.
 const LOGO: [&str; 6] = [
@@ -106,8 +108,7 @@ fn draw_frame(
 /// 3. Logo letter-by-letter (70ms per letter)
 /// 4. Version slide-in (50ms per step)
 /// 5. Shine sweep across logo (35ms per column)
-pub fn print_logo() {
-    let mut out = stdout();
+pub fn draw_logo(mut out: &mut dyn Write) {
     let ver = format!("v{}", env!("CARGO_PKG_VERSION"));
     let header_full = "Welcome to";
     let total_logo_cols = LOGO.iter().map(|l| l.chars().count()).max().unwrap_or(0);
@@ -227,7 +228,8 @@ fn colorize_row(line: &str, shine_col: Option<usize>) -> String {
 }
 
 /// Runs the banner animation as a standalone command.
-pub fn execute() {
-    print_logo();
-    println!();
+pub fn execute(cx: &mut Context) -> Exit {
+    (cx.logo)(&mut *cx.out);
+    say!(cx, "");
+    Exit::Success
 }

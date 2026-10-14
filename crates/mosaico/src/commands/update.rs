@@ -6,13 +6,13 @@
 
 use std::io::Read;
 
-use mosaico_core::ipc::IpcClient;
+use super::context::{Context, Exit};
 
 const GITHUB_HOST: &str = "github.com";
 const DOWNLOAD_TIMEOUT_MS: i32 = 60_000;
 
 /// Runs the full update cycle.
-pub fn execute(force: bool) {
+pub fn execute(cx: &mut Context, force: bool) -> Exit {
     // 1. Check for update.
     print!("Checking for updates...");
     let tag = match mosaico_windows::version_check::fetch_latest_tag() {
@@ -20,7 +20,7 @@ pub fn execute(force: bool) {
         None => {
             println!(" failed.");
             eprintln!("Error: could not reach GitHub to check for updates.");
-            std::process::exit(1);
+            return Exit::Failure;
         }
     };
 
@@ -31,7 +31,7 @@ pub fn execute(force: bool) {
     if !is_update && !force {
         println!();
         println!("You are already on the latest version (v{local}).");
-        return;
+        return Exit::Success;
     }
 
     if is_update {
@@ -41,12 +41,12 @@ pub fn execute(force: bool) {
     }
 
     // 2. Was the daemon running?
-    let daemon_was_running = crate::platform::ipc().is_daemon_running();
+    let daemon_was_running = cx.daemon.is_running();
 
     // 3. Stop daemon if running.
     if daemon_was_running {
         println!("Stopping daemon...");
-        super::stop::execute();
+        super::stop::execute(cx);
     }
 
     // 4. Download the release zip.
@@ -56,7 +56,7 @@ pub fn execute(force: bool) {
         Err(e) => {
             eprintln!("Error: {e}");
             print_recovery_hint(daemon_was_running);
-            std::process::exit(1);
+            return Exit::Failure;
         }
     };
 
@@ -66,7 +66,7 @@ pub fn execute(force: bool) {
         Err(e) => {
             eprintln!("Error: {e}");
             print_recovery_hint(daemon_was_running);
-            std::process::exit(1);
+            return Exit::Failure;
         }
     };
 
@@ -76,7 +76,7 @@ pub fn execute(force: bool) {
         Err(e) => {
             eprintln!("Error: cannot determine current exe path: {e}");
             print_recovery_hint(daemon_was_running);
-            std::process::exit(1);
+            return Exit::Failure;
         }
     };
 
@@ -84,7 +84,7 @@ pub fn execute(force: bool) {
     if let Err(e) = install_exe(&current_exe, &exe_bytes) {
         eprintln!("Error: {e}");
         print_recovery_hint(daemon_was_running);
-        std::process::exit(1);
+        return Exit::Failure;
     }
 
     if is_update {
@@ -96,8 +96,9 @@ pub fn execute(force: bool) {
     // 7. Restart daemon if it was running.
     if daemon_was_running {
         println!("Restarting daemon...");
-        super::start::execute();
+        return super::start::execute(cx);
     }
+    Exit::Success
 }
 
 /// Downloads the release zip from GitHub.

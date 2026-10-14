@@ -1,9 +1,9 @@
-use mosaico_core::Action;
+use mosaico_core::{Action, Command};
 
+use super::context::{Context, Exit};
 use super::request;
 
-/// Sends an action to the running daemon via IPC.
-pub fn execute(action: Action) {
-    let response = request::send_or_exit(&mosaico_core::Command::Action { action });
-    request::print_message(response);
+/// Sends an action to the running daemon.
+pub fn execute(cx: &mut Context, action: Action) -> Exit {
+    request::run(cx, &Command::Action { action })
 }

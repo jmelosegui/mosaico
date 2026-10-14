@@ -1,31 +1,33 @@
-use mosaico_core::ipc::{
-    Command, DAEMON_VERSION, DaemonStatus, IpcClient, Response, ResponseStatus,
-};
+use mosaico_core::ipc::{Command, DAEMON_VERSION, DaemonStatus, Response, ResponseStatus};
 
+use super::context::{Context, Exit, say};
 use super::request;
 
-pub fn execute() {
-    let ipc = crate::platform::ipc();
-    if ipc.is_daemon_running() {
-        match ipc.send(&Command::Status) {
-            Ok(response) => println!("{}", describe_running(&response)),
-            Err(e) => println!("Mosaico is running, but did not answer: {e}"),
+pub fn execute(cx: &mut Context) -> Exit {
+    if cx.daemon.is_running() {
+        match cx.daemon.send(&Command::Status) {
+            Ok(response) => say!(cx, "{}", describe_running(&response)),
+            Err(e) => say!(cx, "Mosaico is running, but did not answer: {e}"),
         }
-        return;
+        return Exit::Success;
     }
 
-    // Pipe is not responding, so check if a stale PID file was left behind
-    // by a daemon that was killed without a clean shutdown.
-    if let Ok(Some(pid)) = mosaico_core::pid::read_pid_file() {
-        if mosaico_windows::process::is_process_alive(pid) {
-            println!("Mosaico process exists (PID: {pid}) but is not responding.");
-        } else {
-            let _ = mosaico_core::pid::remove_pid_file();
-            println!("Mosaico is not running (cleaned up stale PID file).");
+    // The pipe is not answering, so check whether a daemon that was
+    // killed without a clean shutdown left its PID file behind.
+    match cx.pid_file.read() {
+        Ok(Some(pid)) if cx.processes.is_alive(pid) => {
+            say!(
+                cx,
+                "Mosaico process exists (PID: {pid}) but is not responding."
+            );
         }
-    } else {
-        println!("Mosaico is not running.");
+        Ok(Some(_)) => {
+            let _ = cx.pid_file.remove();
+            say!(cx, "Mosaico is not running (cleaned up stale PID file).");
+        }
+        _ => say!(cx, "Mosaico is not running."),
     }
+    Exit::Success
 }
 
 /// What to tell the user about a daemon that answered a status request.
@@ -56,6 +58,7 @@ mod tests {
     use mosaico_core::ipc::{ErrorCode, PROTOCOL_VERSION};
 
     use super::*;
+    use crate::commands::test_support::{Harness, Lifetime};
 
     fn status(version: &str) -> DaemonStatus {
         DaemonStatus {
@@ -114,5 +117,80 @@ mod tests {
 
         // Act / Assert
         assert_eq!(describe_running(&response), "Mosaico is running.");
+    }
+
+    #[test]
+    fn reports_a_running_daemon_with_its_status() {
+        // Arrange
+        let mut h = Harness::new("status-running");
+        h.world.daemon_up(5);
+        h.world
+            .reply(Ok(Response::ok().with_data(&status(DAEMON_VERSION))));
+
+        // Act
+        let exit = h.run(execute);
+
+        // Assert
+        assert_eq!(exit, Exit::Success);
+        assert_eq!(
+            h.out(),
+            format!(
+                "Mosaico {DAEMON_VERSION} is running, managing 3 windows.
+"
+            )
+        );
+    }
+
+    #[test]
+    fn cleans_up_a_stale_pid_file() {
+        // Arrange
+        let mut h = Harness::new("status-stale");
+        h.pid_file.write(99).unwrap();
+
+        // Act
+        h.run(execute);
+
+        // Assert
+        assert_eq!(
+            h.out(),
+            "Mosaico is not running (cleaned up stale PID file).
+"
+        );
+        assert_eq!(h.pid_file.read().unwrap(), None);
+    }
+
+    #[test]
+    fn notices_a_process_that_stopped_answering() {
+        // Arrange
+        let mut h = Harness::new("status-hung");
+        h.world.processes.borrow_mut().insert(99, Lifetime::Forever);
+        h.pid_file.write(99).unwrap();
+
+        // Act
+        h.run(execute);
+
+        // Assert
+        assert_eq!(
+            h.out(),
+            "Mosaico process exists (PID: 99) but is not responding.
+"
+        );
+        assert_eq!(h.pid_file.read().unwrap(), Some(99), "kept for `stop`");
+    }
+
+    #[test]
+    fn reports_nothing_running() {
+        // Arrange
+        let mut h = Harness::new("status-none");
+
+        // Act
+        h.run(execute);
+
+        // Assert
+        assert_eq!(
+            h.out(),
+            "Mosaico is not running.
+"
+        );
     }
 }

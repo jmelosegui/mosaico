@@ -6,6 +6,8 @@ use clap::{Parser, Subcommand};
 use mosaico_core::Action;
 use mosaico_core::action::Direction;
 
+use commands::context::{Context, Exit};
+
 #[derive(Parser)]
 #[command(
     name = "mosaico",
@@ -153,22 +155,48 @@ fn main() {
         std::process::exit(2);
     }
 
-    match cli.command {
-        Commands::Init => commands::init::execute(),
-        Commands::Start => commands::start::execute(),
-        Commands::Stop => commands::stop::execute(),
-        Commands::Status => commands::status::execute(),
-        Commands::Doctor => commands::doctor::execute(),
-        Commands::Autostart { action } => match action {
-            AutostartCommands::Enable => commands::autostart::enable(),
-            AutostartCommands::Disable => commands::autostart::disable(),
-            AutostartCommands::Status => commands::autostart::status(),
-        },
-        Commands::Pause => commands::pause::pause(),
-        Commands::Unpause => commands::pause::unpause(),
-        Commands::Banner => commands::banner::execute(),
-        Commands::Update { force } => commands::update::execute(force),
+    let exit = match cli.command {
         Commands::Daemon => commands::daemon::execute(),
+        Commands::Debug {
+            command: DebugCommands::List,
+        } => {
+            commands::debug::list::execute();
+            Exit::Success
+        }
+        Commands::Debug {
+            command: DebugCommands::Events,
+        } => {
+            commands::debug::events::execute();
+            Exit::Success
+        }
+        Commands::Debug {
+            command: DebugCommands::Move(args),
+        } => {
+            commands::debug::move_window::execute(&args);
+            Exit::Success
+        }
+        command => platform::run(|cx| run(cx, command)),
+    };
+    std::process::exit(exit.code());
+}
+
+/// Runs a command that goes through the context.
+fn run(cx: &mut Context, command: Commands) -> Exit {
+    match command {
+        Commands::Init => commands::init::execute(cx),
+        Commands::Start => commands::start::execute(cx),
+        Commands::Stop => commands::stop::execute(cx),
+        Commands::Status => commands::status::execute(cx),
+        Commands::Doctor => commands::doctor::execute(cx),
+        Commands::Autostart { action } => match action {
+            AutostartCommands::Enable => commands::autostart::enable(cx),
+            AutostartCommands::Disable => commands::autostart::disable(cx),
+            AutostartCommands::Status => commands::autostart::status(cx),
+        },
+        Commands::Pause => commands::pause::pause(cx),
+        Commands::Unpause => commands::pause::unpause(cx),
+        Commands::Banner => commands::banner::execute(cx),
+        Commands::Update { force } => commands::update::execute(cx, force),
         Commands::Action { action } => {
             let action = match action {
                 ActionCommands::Focus { direction: d } => Action::Focus(direction(d)),
@@ -180,13 +208,12 @@ fn main() {
                 ActionCommands::GoToWorkspace { n } => Action::GoToWorkspace(n),
                 ActionCommands::SendToWorkspace { n } => Action::SendToWorkspace(n),
             };
-            commands::action::execute(action);
+            commands::action::execute(cx, action)
         }
-        Commands::Debug { command } => match command {
-            DebugCommands::List => commands::debug::list::execute(),
-            DebugCommands::Events => commands::debug::events::execute(),
-            DebugCommands::Move(args) => commands::debug::move_window::execute(&args),
-            DebugCommands::State => commands::debug::state::execute(),
-        },
+        Commands::Debug {
+            command: DebugCommands::State,
+        } => commands::debug::state::execute(cx),
+        // Handled in `main` without a context.
+        Commands::Daemon | Commands::Debug { .. } => Exit::Success,
     }
 }

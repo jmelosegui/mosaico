@@ -3,7 +3,7 @@
 //! These checks inspect live system state (daemon process, monitors)
 //! rather than static configuration files.
 
-use mosaico_core::ipc::IpcClient;
+use super::context::{Context, say};
 
 const OK: &str = "\x1b[32m[ok]\x1b[0m";
 const WARN: &str = "\x1b[33m[warn]\x1b[0m";
@@ -37,32 +37,38 @@ pub fn check_rules_cache_age() {
     }
 }
 
-pub fn check_autostart() {
-    if mosaico_windows::autostart::is_enabled() {
-        println!("  {OK} Autostart is enabled");
+pub fn check_autostart(cx: &mut Context) {
+    if cx.autostart.is_enabled() {
+        say!(cx, "  {OK} Autostart is enabled");
     } else {
-        println!("  {WARN} Autostart is disabled (run `mosaico autostart enable` to set up)");
+        say!(
+            cx,
+            "  {WARN} Autostart is disabled (run `mosaico autostart enable` to set up)"
+        );
     }
 }
 
-pub fn check_daemon() {
-    if crate::platform::ipc().is_daemon_running() {
-        if let Ok(Some(pid)) = mosaico_core::pid::read_pid_file() {
-            println!("  {OK} Daemon is running (PID: {pid})");
-        } else {
-            println!("  {OK} Daemon is running");
+pub fn check_daemon(cx: &mut Context) {
+    let pid = cx.pid_file.read().ok().flatten();
+    if cx.daemon.is_running() {
+        match pid {
+            Some(pid) => say!(cx, "  {OK} Daemon is running (PID: {pid})"),
+            None => say!(cx, "  {OK} Daemon is running"),
         }
         return;
     }
-    if let Ok(Some(pid)) = mosaico_core::pid::read_pid_file() {
-        if mosaico_windows::process::is_process_alive(pid) {
-            println!("  {WARN} Process exists (PID: {pid}) but not responding");
-        } else {
-            let _ = mosaico_core::pid::remove_pid_file();
-            println!("  {FIXED} Removed stale PID file (PID: {pid})");
+    match pid {
+        Some(pid) if cx.processes.is_alive(pid) => {
+            say!(
+                cx,
+                "  {WARN} Process exists (PID: {pid}) but not responding"
+            );
         }
-    } else {
-        println!("  {WARN} Daemon is not running");
+        Some(pid) => {
+            let _ = cx.pid_file.remove();
+            say!(cx, "  {FIXED} Removed stale PID file (PID: {pid})");
+        }
+        None => say!(cx, "  {WARN} Daemon is not running"),
     }
 }
 
@@ -84,5 +90,71 @@ pub fn check_monitors() {
         Err(e) => {
             println!("  {FAIL} Could not enumerate monitors: {e}");
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::commands::context::Exit;
+    use crate::commands::test_support::{Harness, Lifetime};
+
+    #[test]
+    fn a_running_daemon_is_reported_with_its_pid() {
+        // Arrange
+        let mut h = Harness::new("doctor-running");
+        h.world.daemon_up(42);
+        h.pid_file.write(42).unwrap();
+
+        // Act
+        h.run(|cx| {
+            check_daemon(cx);
+            Exit::Success
+        });
+
+        // Assert
+        assert!(
+            h.out().contains("Daemon is running (PID: 42)"),
+            "{}",
+            h.out()
+        );
+    }
+
+    #[test]
+    fn a_stale_pid_file_is_removed() {
+        // Arrange
+        let mut h = Harness::new("doctor-stale");
+        h.pid_file.write(42).unwrap();
+
+        // Act
+        h.run(|cx| {
+            check_daemon(cx);
+            Exit::Success
+        });
+
+        // Assert
+        assert!(
+            h.out().contains("Removed stale PID file (PID: 42)"),
+            "{}",
+            h.out()
+        );
+        assert_eq!(h.pid_file.read().unwrap(), None);
+    }
+
+    #[test]
+    fn a_hung_daemon_is_flagged() {
+        // Arrange
+        let mut h = Harness::new("doctor-hung");
+        h.world.processes.borrow_mut().insert(42, Lifetime::Forever);
+        h.pid_file.write(42).unwrap();
+
+        // Act
+        h.run(|cx| {
+            check_daemon(cx);
+            Exit::Success
+        });
+
+        // Assert
+        assert!(h.out().contains("not responding"), "{}", h.out());
     }
 }
