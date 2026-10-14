@@ -137,8 +137,8 @@ point:
   drops borders for windows that are no longer visible, creates
   borders for new windows, and recolors each surviving border based on
   whether it owns focus.
-- `hide_border()` -- hides every overlay without dropping them
-  (used on pause and shutdown).
+- `hide_borders()` -- hides every border without dropping it, when the
+  tiler stops.
 
 Color selection per window:
 
@@ -184,10 +184,16 @@ Windows 10 does not have the DWM attribute, so there only the border
 overlay is affected: changing corners is reported as unsupported, and
 logged at debug level.
 
-The tiler gives the configured corners to every window it manages, and
-gives the system's corners back only to those windows: when they hide or
-close, when a rule reload lets go of them, and when the tiler stops.
-Menus and windows the rules leave alone keep the corners they chose.
+The tiler gives the configured corners to the windows it takes in, and
+gives the system's corners back only to the windows it gave them to:
+when they hide or close, when a rule reload lets go of them, and when
+the tiler stops. Menus and windows the rules leave alone keep the
+corners they chose.
+
+Two gaps remain. A window adopted after being dragged does not get the
+configured corners until the config is reloaded. A managed window that
+is minimized keeps the tiler's corners when the tiler stops, and when
+the rules change to leave it alone while it is minimized.
 
 ## Design Decisions
 
