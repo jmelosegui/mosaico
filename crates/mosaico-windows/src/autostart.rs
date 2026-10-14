@@ -2,72 +2,29 @@
 //!
 //! Writes a `Mosaico` value under
 //! `HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run`
-//! so that `mosaico start` is executed on user logon. No elevation is
+//! holding the command line Windows runs on user logon. No elevation is
 //! required since HKCU is per-user.
 
-use mosaico_core::Result;
-use mosaico_core::system::Autostart;
+#[path = "autostart_command_line.rs"]
+mod command_line;
+
 use windows::Win32::System::Registry::{
     HKEY, HKEY_CURRENT_USER, KEY_QUERY_VALUE, KEY_SET_VALUE, REG_SAM_FLAGS, REG_SZ, RegCloseKey,
     RegDeleteValueW, RegOpenKeyExW, RegQueryValueExW, RegSetValueExW,
 };
 use windows::core::PCWSTR;
 
+use mosaico_core::Result;
+use mosaico_core::system::{Autostart, LaunchCommand};
+
 use crate::error::OrPlatform;
 
 const RUN_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
 const VALUE_NAME: &str = "Mosaico";
 
-/// Registers Mosaico to start on Windows logon.
-///
-/// Writes `"<exe_path>" start` to the registry Run key.
-///
-/// # Errors
-///
-/// Returns `Err` if the executable path cannot be resolved or the
-/// registry key cannot be opened or written to.
-pub fn enable() -> Result<()> {
-    let value = exe_command()?;
-    let key = open_run_key(KEY_SET_VALUE)?;
-    let result = set_string_value(key, &value);
-    close_key(key);
-    result
-}
-
-/// Removes the Mosaico autostart entry from the registry.
-///
-/// Returns `Ok(())` if the value was removed or didn't exist.
-///
-/// # Errors
-///
-/// Returns `Err` if the registry key cannot be opened or the value
-/// cannot be deleted (for reasons other than it not existing).
-pub fn disable() -> Result<()> {
-    let key = open_run_key(KEY_SET_VALUE)?;
-    let result = delete_value(key);
-    close_key(key);
-    result
-}
-
-/// Checks whether the Mosaico autostart entry exists in the registry.
-pub fn is_enabled() -> bool {
-    let Ok(key) = open_run_key(KEY_QUERY_VALUE) else {
-        return false;
-    };
-    let exists = query_value_exists(key);
-    close_key(key);
-    exists
-}
-
-/// Returns `"<exe_path>" start` for the registry value.
-fn exe_command() -> Result<String> {
-    let exe = std::env::current_exe().or_platform("resolve exe path")?;
-    Ok(format!("\"{}\" start", exe.display()))
-}
-
 /// Opens the HKCU Run key with the given access rights.
 fn open_run_key(access: REG_SAM_FLAGS) -> Result<HKEY> {
-    let wide_key: Vec<u16> = RUN_KEY.encode_utf16().chain(std::iter::once(0)).collect();
+    let wide_key = to_wide(RUN_KEY);
     let mut key = HKEY::default();
     // SAFETY: RegOpenKeyExW is a standard Win32 registry API. We pass valid
     // pointers and close the key after use.
@@ -80,17 +37,14 @@ fn open_run_key(access: REG_SAM_FLAGS) -> Result<HKEY> {
             &mut key,
         )
     };
-    status.ok().or_platform("open registry key")?;
+    status.ok().or_platform("open the Run registry key")?;
     Ok(key)
 }
 
 /// Writes a REG_SZ value under the opened key.
 fn set_string_value(key: HKEY, value: &str) -> Result<()> {
-    let wide_name: Vec<u16> = VALUE_NAME
-        .encode_utf16()
-        .chain(std::iter::once(0))
-        .collect();
-    let wide_value: Vec<u16> = value.encode_utf16().chain(std::iter::once(0)).collect();
+    let wide_name = to_wide(VALUE_NAME);
+    let wide_value = to_wide(value);
     // SAFETY: reinterpreting a &[u16] as &[u8] is safe; the layout is
     // contiguous and we compute the correct byte length.
     let bytes: &[u8] =
@@ -99,15 +53,12 @@ fn set_string_value(key: HKEY, value: &str) -> Result<()> {
     // correct byte length for the wide-string value.
     let status =
         unsafe { RegSetValueExW(key, PCWSTR(wide_name.as_ptr()), None, REG_SZ, Some(bytes)) };
-    status.ok().or_platform("write registry value")
+    status.ok().or_platform("write the autostart entry")
 }
 
 /// Deletes the Mosaico value from the opened key.
 fn delete_value(key: HKEY) -> Result<()> {
-    let wide_name: Vec<u16> = VALUE_NAME
-        .encode_utf16()
-        .chain(std::iter::once(0))
-        .collect();
+    let wide_name = to_wide(VALUE_NAME);
     // SAFETY: RegDeleteValueW is a standard Win32 registry API.
     let status = unsafe { RegDeleteValueW(key, PCWSTR(wide_name.as_ptr())) };
     if status.is_err() {
@@ -116,15 +67,12 @@ fn delete_value(key: HKEY) -> Result<()> {
             return Ok(());
         }
     }
-    status.ok().or_platform("delete registry value")
+    status.ok().or_platform("remove the autostart entry")
 }
 
 /// Checks if the Mosaico value exists under the opened key.
 fn query_value_exists(key: HKEY) -> bool {
-    let wide_name: Vec<u16> = VALUE_NAME
-        .encode_utf16()
-        .chain(std::iter::once(0))
-        .collect();
+    let wide_name = to_wide(VALUE_NAME);
     // SAFETY: RegQueryValueExW with null data buffer just checks existence.
     let status =
         unsafe { RegQueryValueExW(key, PCWSTR(wide_name.as_ptr()), None, None, None, None) };
@@ -137,19 +85,39 @@ fn close_key(key: HKEY) {
     let _ = unsafe { RegCloseKey(key) };
 }
 
+/// Converts a `&str` to a null-terminated wide (UTF-16) string.
+fn to_wide(s: &str) -> Vec<u16> {
+    s.encode_utf16().chain(std::iter::once(0)).collect()
+}
+
 /// [`Autostart`] through the per-user Run registry key.
 pub struct RegistryAutostart;
 
 impl Autostart for RegistryAutostart {
+    /// Checks whether the Mosaico value exists in the Run key.
     fn is_enabled(&self) -> bool {
-        is_enabled()
+        let Ok(key) = open_run_key(KEY_QUERY_VALUE) else {
+            return false;
+        };
+        let exists = query_value_exists(key);
+        close_key(key);
+        exists
     }
 
-    fn enable(&self) -> Result<()> {
-        enable()
+    /// Writes the command line that runs `command` to the Mosaico value,
+    /// replacing what was there.
+    fn enable(&self, command: &LaunchCommand) -> Result<()> {
+        let key = open_run_key(KEY_SET_VALUE)?;
+        let result = set_string_value(key, &command_line::join(command));
+        close_key(key);
+        result
     }
 
+    /// Deletes the Mosaico value. Succeeds if it did not exist.
     fn disable(&self) -> Result<()> {
-        disable()
+        let key = open_run_key(KEY_SET_VALUE)?;
+        let result = delete_value(key);
+        close_key(key);
+        result
     }
 }

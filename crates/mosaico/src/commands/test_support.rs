@@ -11,15 +11,19 @@ mod windows;
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, VecDeque};
 use std::io;
+use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 use mosaico_core::ipc::{Command, IpcError, Response};
 use mosaico_core::pid::PidFile;
-use mosaico_core::system::{Autostart, ProcessControl};
+use mosaico_core::system::{Autostart, LaunchCommand, ProcessControl};
 use mosaico_core::{Error, Rect, Result, WindowId};
 
 use super::context::{Clock, Context, Daemon, Exit};
 use super::fake_desktop::FakeDesktop;
+
+/// The mosaico executable commands run from in the fake world.
+pub const EXE: &str = r"C:\apps\mosaico\mosaico.exe";
 
 /// How long a fake process stays alive.
 #[derive(Debug, Clone, Copy)]
@@ -62,8 +66,8 @@ pub struct World {
     pub can_kill: Cell<bool>,
     /// What `launch_daemon` does.
     pub launch: RefCell<Launch>,
-    /// Whether autostart is registered.
-    pub autostart: Cell<bool>,
+    /// What is registered to start at login.
+    pub autostart: RefCell<Option<LaunchCommand>>,
     /// Error the autostart registration fails with, if any.
     pub autostart_error: RefCell<Option<String>>,
     /// Windows placed, and where, in order.
@@ -84,7 +88,7 @@ impl Default for World {
             processes: RefCell::default(),
             can_kill: Cell::new(true),
             launch: RefCell::new(Launch::Answers(4321)),
-            autostart: Cell::new(false),
+            autostart: RefCell::default(),
             autostart_error: RefCell::default(),
             placed: RefCell::default(),
             place_error: RefCell::default(),
@@ -103,6 +107,14 @@ impl World {
     /// Queues the daemon's next reply.
     pub fn reply(&self, reply: Result<Response, IpcError>) {
         self.replies.borrow_mut().push_back(reply);
+    }
+
+    /// Fails the way the registration does when an autostart error is set.
+    fn autostart_fails(&self) -> Result<()> {
+        match self.autostart_error.borrow().clone() {
+            Some(message) => Err(failure(message)),
+            None => Ok(()),
+        }
     }
 }
 
@@ -179,22 +191,18 @@ impl ProcessControl for World {
 
 impl Autostart for World {
     fn is_enabled(&self) -> bool {
-        self.autostart.get()
+        self.autostart.borrow().is_some()
     }
 
-    fn enable(&self) -> Result<()> {
-        if let Some(message) = self.autostart_error.borrow().clone() {
-            return Err(failure(message));
-        }
-        self.autostart.set(true);
+    fn enable(&self, command: &LaunchCommand) -> Result<()> {
+        self.autostart_fails()?;
+        *self.autostart.borrow_mut() = Some(command.clone());
         Ok(())
     }
 
     fn disable(&self) -> Result<()> {
-        if let Some(message) = self.autostart_error.borrow().clone() {
-            return Err(failure(message));
-        }
-        self.autostart.set(false);
+        self.autostart_fails()?;
+        *self.autostart.borrow_mut() = None;
         Ok(())
     }
 }
@@ -250,6 +258,7 @@ impl Harness {
             autostart: &self.world,
             windows: &self.world,
             desktop: &self.desktop,
+            current_exe: &|| Ok(PathBuf::from(EXE)),
             pid_file: self.pid_file.clone(),
             config_dir: "C:\\config\\mosaico".into(),
             clock: &self.world,

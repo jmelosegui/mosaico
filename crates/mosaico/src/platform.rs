@@ -36,6 +36,7 @@ pub fn run(command: impl FnOnce(&mut Context) -> Exit) -> Exit {
         autostart: &mosaico_windows::autostart::RegistryAutostart,
         windows: &mosaico_windows::window_control::Win32WindowControl,
         desktop: &mosaico_windows::enumerate::WindowsEnumerator,
+        current_exe: &std::env::current_exe,
         pid_file: PidFile::new(instance.pid_path()),
         config_dir: instance.config_dir().to_path_buf(),
         clock: &SystemClock,

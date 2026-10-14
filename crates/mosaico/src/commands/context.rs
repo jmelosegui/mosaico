@@ -102,6 +102,9 @@ pub struct Context<'a> {
     /// aware first. `doctor` runs without it, and prints monitor sizes as
     /// the system scales them for such a process.
     pub desktop: &'a dyn Enumerator,
+    /// Finds the mosaico executable this command runs from, which is what
+    /// autostart registers.
+    pub current_exe: &'a dyn Fn() -> std::io::Result<PathBuf>,
     /// Where the daemon records its process id.
     pub pid_file: PidFile,
     /// The instance's config directory, for telling the user.

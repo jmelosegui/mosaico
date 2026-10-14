@@ -38,9 +38,11 @@ Commands do not reach for the OS themselves. They take a
 (`mosaico_core::system::ProcessControl`), start at login
 (`mosaico_core::system::Autostart`), window control
 (`mosaico_core::WindowControl`), the windows and monitors on the desktop
-(`mosaico_core::tiler::Enumerator`), the instance's `PidFile`, a clock, the
-update check, the logo, and the output and error streams. They return an
-`Exit` (`Success` or `Failure`), and only `main` calls `std::process::exit`.
+(`mosaico_core::tiler::Enumerator`), the path of the running executable
+(`current_exe`, which is what autostart registers), the instance's `PidFile`,
+a clock, the update check, the logo, and the output and error streams. They
+return an `Exit` (`Success` or `Failure`), and only `main` calls
+`std::process::exit`.
 
 `crates/mosaico/src/platform.rs` builds the real context; it is the one place
 in the CLI that picks a platform implementation. Commands that move windows

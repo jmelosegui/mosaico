@@ -1,5 +1,7 @@
+use mosaico_core::system::LaunchCommand;
+
 use super::*;
-use crate::commands::test_support::Harness;
+use crate::commands::test_support::{EXE, Harness};
 
 #[test]
 fn enabling_registers_and_says_so() {
@@ -11,7 +13,11 @@ fn enabling_registers_and_says_so() {
 
     // Assert
     assert_eq!(exit, Exit::Success);
-    assert!(h.world.autostart.get());
+    assert_eq!(
+        *h.world.autostart.borrow(),
+        Some(LaunchCommand::autostart(EXE)),
+        "the executable the command runs from is registered to start"
+    );
     assert_eq!(h.out(), "Autostart enabled.\n");
 }
 
@@ -33,7 +39,7 @@ fn a_registration_error_fails_the_command() {
 fn status_reports_the_registration() {
     // Arrange
     let mut h = Harness::new("autostart-status");
-    h.world.autostart.set(true);
+    *h.world.autostart.borrow_mut() = Some(LaunchCommand::autostart(EXE));
 
     // Act
     let exit = h.run(status);
