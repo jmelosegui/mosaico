@@ -116,6 +116,14 @@ clicks a cloaked window's taskbar icon, Windows fires `EVENT_SYSTEM_FOREGROUND`.
 The `Focused` event handler detects that the window belongs to an inactive
 workspace and automatically switches to that workspace.
 
+### After the Daemon Is Killed
+
+Hidden workspace windows are shown again on a clean `mosaico stop`. If the
+daemon is killed or crashes instead, the next daemon shows them again on
+startup from the record kept in the instance's data directory, whatever
+`hiding` mode hid them, and then tiles them like any other window. See the
+"Unclean exit" section in [daemon.md](daemon.md).
+
 ## Sending Windows
 
 `send_to_workspace(n)` (in `tiling/workspace.rs`):
