@@ -20,6 +20,7 @@ mod empty_focus;
 mod events;
 mod events_focus;
 mod focus;
+mod hidden;
 mod input;
 mod layout;
 mod lifecycle;
@@ -42,6 +43,7 @@ pub use coalesce::Coalescer;
 pub use desktop::{Desktop, Display, WindowFacts};
 pub use echo::{Expectations, FOCUS_ECHO_TTL, HIDE_FOCUS_ECHO_TTL};
 pub use effect::{BorderStyle, Effect, Timing};
+pub use hidden::{HiddenWindows, WindowIdentity};
 pub use input::{BarReservation, Input};
 pub use state::MonitorState;
 
