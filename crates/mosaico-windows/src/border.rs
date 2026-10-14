@@ -17,28 +17,8 @@ use windows::core::PCWSTR;
 
 use crate::error::OrPlatform;
 
-/// RGB color parsed from a hex string.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Color {
-    pub r: u8,
-    pub g: u8,
-    pub b: u8,
-}
-
-impl Color {
-    /// Parses a hex color string like "#00b4d8" or "00b4d8".
-    pub fn from_hex(hex: &str) -> Option<Self> {
-        let hex = hex.trim_start_matches('#');
-        if hex.len() != 6 {
-            return None;
-        }
-        Some(Self {
-            r: u8::from_str_radix(&hex[0..2], 16).ok()?,
-            g: u8::from_str_radix(&hex[2..4], 16).ok()?,
-            b: u8::from_str_radix(&hex[4..6], 16).ok()?,
-        })
-    }
-}
+/// The color type borders and the bar draw with, which lives in core.
+pub(crate) use mosaico_core::config::Color;
 
 /// A transparent overlay window that displays a colored border.
 ///
@@ -330,28 +310,6 @@ impl Drop for Border {
 mod tests {
     use super::*;
     use windows::Win32::UI::WindowsAndMessaging::{IsWindow, SendMessageW};
-
-    #[test]
-    fn parse_hex_color() {
-        // Assert
-        assert_eq!(
-            Color::from_hex("#00b4d8"),
-            Some(Color {
-                r: 0x00,
-                g: 0xB4,
-                b: 0xD8
-            })
-        );
-        assert_eq!(
-            Color::from_hex("2d6a4f"),
-            Some(Color {
-                r: 0x2D,
-                g: 0x6A,
-                b: 0x4F
-            })
-        );
-        assert_eq!(Color::from_hex("bad"), None);
-    }
 
     #[test]
     fn rounded_rect_zero_radius_is_full_rect() {

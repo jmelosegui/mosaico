@@ -16,13 +16,14 @@ Unfocused borders can be turned off entirely (see
 
 | File | Purpose |
 |------|---------|
-| `crates/mosaico-windows/src/border.rs` | `Border` struct, `Color` struct, rendering logic |
+| `crates/mosaico-windows/src/border.rs` | `Border` struct, rendering logic |
+| `crates/mosaico-core/src/config/color.rs` | `Color` struct and its hex parser |
 | `crates/mosaico-core/src/config/mod.rs` | `BorderConfig` for color and width settings |
 
 ### Key Types
 
 - `Border` -- wraps a layered `HWND` overlay window
-- `Color` -- `r`, `g`, `b` fields with `from_hex()` parser
+- `Color` -- `r`, `g`, `b` fields with `from_hex()` parser, in `mosaico-core`
 
 ## Border Window
 
@@ -65,7 +66,8 @@ a stale bitmap from the previous size would briefly appear at the new position.
 
 ## Color
 
-The `Color` struct represents an RGB color:
+The `Color` struct (`mosaico_core::config::Color`) represents an RGB
+color. The bar draws with it too.
 
 - `Color::from_hex(s)` -- parses `"#RRGGBB"` or `"RRGGBB"` format strings
 - Default focused color: theme-resolved (Mocha: `#89b4fa` blue)
