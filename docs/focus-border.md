@@ -160,6 +160,11 @@ where it was, so each border is drawn at most once per step, never before
 its window's last placement in the step, and a hide or drop wins over an
 earlier draw.
 
+While a burst of moves is held until input goes quiet, each window's
+border is held with its move: only the latest style, drawn around the slot
+the move lands in. That holds even when a later step, such as a focus
+change, decided the border from where the window still was.
+
 Color selection per window:
 
 - The focused window uses the configured `focused` color, or the
@@ -254,7 +259,9 @@ drawn in, including the fallback and `"none"`, and
 a focus change and a workspace switch decide each border once, after its
 window's last placement. `tiler/tests/plan_borders_tests.rs` and
 `tiler/tests/coalesce_border_tests.rs` check which border is kept, in a
-step and while a burst of moves is held.
+step and while a burst of moves is held. `tiler/tests/held_border_tests.rs`
+checks that a focus change or a border refresh before a held move lands
+still draws each border around its window's new slot, in the right color.
 
 In `mosaico-windows`, `decorations_tests.rs` checks when a border needs a
 new bitmap, and `border/show_tests.rs` that a hidden border put back with
