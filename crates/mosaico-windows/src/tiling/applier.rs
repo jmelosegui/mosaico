@@ -17,7 +17,7 @@ use std::collections::HashMap;
 use std::time::Instant;
 
 use mosaico_core::config::{BorderColors, HidingBehaviour};
-use mosaico_core::tiler::{BorderStyle, Coalescer, Effect, Expectations};
+use mosaico_core::tiler::{BorderStyle, Coalescer, Effect, Expectations, HiddenWindows};
 use mosaico_core::window::Window as _;
 use mosaico_core::{Rect, WindowId};
 use windows::Win32::Foundation::{LPARAM, WPARAM};
@@ -26,6 +26,8 @@ use windows::Win32::UI::WindowsAndMessaging::{PostMessageW, SetCursorPos, WM_CLO
 use crate::border::{Border, Color};
 use crate::frame;
 use crate::window::Window;
+
+use super::hidden_file::{self, HiddenFile};
 
 /// Border color used when a configured value does not parse. Matches
 /// the historical default focused color.
@@ -43,9 +45,57 @@ pub(super) struct Applier {
     /// Effects held back until input goes quiet.
     held: Coalescer,
     expectations: Expectations,
+    /// Windows hidden by workspace switching, so the next daemon can
+    /// show them again if this one is killed.
+    hidden: HiddenWindows,
+    /// Where `hidden` is kept, if the instance has a data directory.
+    hidden_file: Option<HiddenFile>,
 }
 
 impl Applier {
+    /// An applier that keeps its record of hidden windows in `file`.
+    pub(super) fn with_hidden_file(file: Option<HiddenFile>) -> Self {
+        Self {
+            hidden_file: file,
+            ..Self::default()
+        }
+    }
+
+    /// Shows again the windows a previous daemon hid and never showed,
+    /// because it was killed or crashed, then clears its record.
+    ///
+    /// Run before the first windows are enumerated, so they are adopted
+    /// like any other window.
+    pub(super) fn restore_previous(&mut self, now: Instant) {
+        let Some(file) = &self.hidden_file else {
+            return;
+        };
+        let effects = file.load().restore(hidden_file::identity);
+        if !effects.is_empty() {
+            mosaico_core::log_info!(
+                "showing {} window(s) a previous daemon left hidden",
+                effects.len()
+            );
+        }
+        for effect in &effects {
+            self.run(effect, now);
+        }
+        self.save_hidden();
+    }
+
+    /// Forgets a window that was destroyed.
+    pub(super) fn forget(&mut self, window: WindowId) {
+        if self.hidden.forget(window) {
+            self.save_hidden();
+        }
+    }
+
+    fn save_hidden(&self) {
+        if let Some(file) = &self.hidden_file {
+            file.save(&self.hidden);
+        }
+    }
+
     /// Applies effects in order, holding back the ones that may wait.
     pub(super) fn apply(&mut self, effects: Vec<Effect>, now: Instant) {
         for effect in effects {
@@ -129,6 +179,9 @@ impl Applier {
             }
         }
         self.expectations.applied(effect, now);
+        if self.hidden.applied(effect, hidden_file::identity) {
+            self.save_hidden();
+        }
     }
 
     fn draw_border(&mut self, window: WindowId, style: Option<&BorderStyle>) {

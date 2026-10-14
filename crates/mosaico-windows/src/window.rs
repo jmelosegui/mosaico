@@ -194,6 +194,18 @@ impl Window {
         unsafe { IsIconic(self.hwnd).as_bool() }
     }
 
+    /// The process that owns the window, or `None` when the window no
+    /// longer exists.
+    pub fn process_id(&self) -> Option<u32> {
+        use windows::Win32::UI::WindowsAndMessaging::GetWindowThreadProcessId;
+        let mut pid = 0u32;
+        // SAFETY: GetWindowThreadProcessId only reads the owner of a
+        // window handle into a caller-owned u32; it returns 0 for a handle
+        // that is no longer valid.
+        unsafe { GetWindowThreadProcessId(self.hwnd, Some(&mut pid)) };
+        (pid != 0).then_some(pid)
+    }
+
     /// Returns the owner window handle, or `None` if the window has no owner.
     ///
     /// Owned top-level windows are typically dialogs or property sheets

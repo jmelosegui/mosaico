@@ -169,6 +169,19 @@ Shutdown is triggered by:
   - PID file is removed
   - Bridge threads (event, action, reload) and tick thread are joined
 
+### Unclean exit
+
+A daemon that is killed or crashes never reaches `restore_all_windows()`, so
+the windows it hid with a workspace switch stay hidden, and the next daemon
+would skip them as cloaked or invisible. To recover them, the applier keeps a
+record of every window hidden by switching (`mosaico_core::tiler::HiddenWindows`)
+in `hidden-windows.json` in the instance's data directory, updated as hide and
+show effects are applied and deleted once nothing is hidden. On startup,
+before enumerating windows, `TilingManager::new` shows each recorded window
+the way it was hidden, then clears the record. Window handles can be reused,
+so an entry is only restored if the window still has the recorded process id
+and class.
+
 ## Design Decisions
 
 - Multi-thread architecture separates concerns: Win32 APIs require a message
