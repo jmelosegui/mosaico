@@ -15,7 +15,7 @@ The daemon uses a multi-thread architecture:
    window for display and work-area broadcasts, and runs the `GetMessageW`
    pump that delivers them (`WindowsEventSource`)
 3. **Hotkey thread** -- registers the keybindings with `RegisterHotKey` and
-   dispatches `WM_HOTKEY` (`HotkeyThread`)
+   dispatches `WM_HOTKEY` (`WindowsHotkeySource`)
 4. **Focus-follows-mouse thread** -- polls the pointer every 100 ms, and only
    exists while `focus_follows_mouse` is on (`FocusFollowsMouse`)
 5. **IPC thread** -- runs blocking named pipe server, accepts CLI commands
@@ -33,7 +33,7 @@ from separate `mpsc` channels into the unified `DaemonMsg` channel.
 | `crates/mosaico-windows/src/daemon.rs` | `run()`, `daemon_loop()`, `ipc_loop()`, `DaemonMsg` |
 | `crates/mosaico-windows/src/daemon_inputs.rs` | `Inputs` -- starts and stops window events, hotkeys and focus-follows-mouse |
 | `crates/mosaico-windows/src/event_source.rs` | `WindowsEventSource` -- the WinEvent hooks and the broadcast window |
-| `crates/mosaico-windows/src/hotkey_thread.rs` | `HotkeyThread` -- registers and dispatches hotkeys on a thread of its own |
+| `crates/mosaico-windows/src/hotkey_thread.rs` | `WindowsHotkeySource` -- registers and dispatches hotkeys on a thread of its own |
 | `crates/mosaico-windows/src/message_thread.rs` | `MessageThread` -- a thread with a message queue, stopped with `WM_QUIT` |
 | `crates/mosaico-windows/src/config_watcher.rs` | `watch()`, `ConfigReload` -- polls config files for changes |
 | `crates/mosaico-windows/src/bar_manager.rs` | `BarManager` -- manages status bar windows across monitors |
@@ -46,9 +46,10 @@ from separate `mpsc` channels into the unified `DaemonMsg` channel.
   - `Command(Command, ResponseSender)` -- CLI command from IPC with reply channel
   - `Reload(Box<ConfigReload>)` -- validated config change from file watcher
   - `Tick` -- 1-second timer for bar widget refresh
-- `Inputs` -- holds the `EventWatch` of the event source, the `HotkeyThread`
-  and `FocusFollowsMouse`; `.stop()` stops all three and waits for their
-  threads
+- `Inputs` -- holds the `EventWatch` of the event source, the `HotkeyWatch`
+  of the hotkey source and `FocusFollowsMouse`, and starts the sources
+  through the `EventSource` and `HotkeySource` traits; `.stop()` stops all
+  three and waits for their threads
 
 ## Startup Sequence
 
@@ -77,7 +78,7 @@ subcommand:
 6. Adjust work areas for bar height on monitors that display a bar
 7. Perform initial bar render with `bar_mgr.update(&manager.bar_states())`
 8. Create `mpsc` channels for events, actions, and the unified daemon channel
-9. Start the inputs: the window event source, the hotkey thread and, when
+9. Start the inputs: the window event source, the hotkey source and, when
    `focus_follows_mouse` is on, the focus-follows-mouse thread
 10. Start bridge threads to forward events and actions into `DaemonMsg`
 11. Start the IPC thread
@@ -149,12 +150,15 @@ cannot capture Rust closures.
 
 ### Hotkey Thread
 
-`HotkeyThread::start()` creates a `HotkeyManager`, registers every keybinding
-with `RegisterHotKey` and no window, so `WM_HOTKEY` lands in this thread's
-queue, and runs a pump that dispatches `WM_HOTKEY` before anything else.
-Pausing and unpausing are posted to it as `WM_HOTKEY_PAUSE` thread messages.
-Nothing else is queued on this thread, so a flood of window events cannot
-hold a shortcut back.
+`WindowsHotkeySource` implements core's `HotkeySource`. Its `start()`
+registers every keybinding through core's `Hotkeys` and `Win32Hotkeys`,
+which calls `RegisterHotKey` with no window, so `WM_HOTKEY` lands in this
+thread's queue, and runs a pump that dispatches `WM_HOTKEY` before anything
+else. Bindings that cannot be registered are logged at warn. The
+`HotkeyWatch` it returns posts pausing and unpausing to the thread as
+`WM_HOTKEY_PAUSE` thread messages, and `Hotkeys` decides which hotkeys a
+pause keeps. Nothing else is queued on this thread, so a flood of window
+events cannot hold a shortcut back.
 
 ### Focus-Follows-Mouse Thread
 
@@ -212,8 +216,9 @@ Shutdown is triggered by:
   - `BarManager::hide_all()` -- hides all status bar overlay windows
   - `Inputs::stop()` posts `WM_QUIT` to the window event thread, which
     destroys its hidden window and removes its hooks, then to the hotkey
-    thread, where `HotkeyManager::Drop` unregisters all hotkeys, and stops
-    the focus-follows-mouse thread; it waits for each of them
+    thread, where dropping `Hotkeys` unregisters the hotkeys still
+    registered, and stops the focus-follows-mouse thread; it waits for each
+    of them
   - PID file is removed
   - Bridge threads (event, action, reload) and tick thread are joined
 

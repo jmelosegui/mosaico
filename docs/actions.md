@@ -73,7 +73,7 @@ Directions parse from and serialize to lowercase strings: `"left"`, `"right"`,
 ### Hotkey Path
 
 ```
-Key press -> WM_HOTKEY -> HotkeyManager::dispatch() -> mpsc channel
+Key press -> WM_HOTKEY -> Hotkeys::triggered() -> mpsc channel
   -> bridge thread -> DaemonMsg::Action -> TilingManager::handle_action()
 ```
 
