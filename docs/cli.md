@@ -62,9 +62,11 @@ desktop, GitHub, the release installer and clock, and
 without a daemon, a desktop or a network. `daemon` is tested with a fake lock
 and loop.
 
-Still calling the platform crate directly: `debug events`' window titles.
-`debug events` gets its event source from `platform::event_source()` and
-hears about Ctrl+C through `platform::interrupts()`.
+No command calls the platform crate itself. The two that run without a
+context get what they need from `platform.rs` as well: `daemon` its
+`Startup` from `platform::daemon_startup()`, and `debug events` its event
+source, Ctrl+C and window titles from `platform::event_source()`,
+`platform::interrupts()` and `platform::desktop()`.
 
 ### Key Types
 

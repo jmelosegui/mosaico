@@ -97,10 +97,9 @@ pub mod setup;
 /// Tiling manager that applies layouts to managed windows.
 pub mod tiling;
 
-/// Window type wrapping a Win32 `HWND`.
-pub mod window;
+/// Window type wrapping a Win32 `HWND`, which other crates reach only
+/// through the core contracts.
+mod window;
 
 /// Moving, showing, hiding and focusing windows through Win32.
 pub mod window_control;
-
-pub use window::Window;

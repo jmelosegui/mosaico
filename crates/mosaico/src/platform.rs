@@ -9,6 +9,7 @@ use mosaico_core::event::EventSource;
 use mosaico_core::lifecycle::Startup;
 use mosaico_core::pid::PidFile;
 use mosaico_core::system::{Interrupts, ProcessSetup};
+use mosaico_core::tiler::Enumerator;
 
 use crate::commands::banner;
 use crate::commands::context::{Context, Exit, SystemClock};
@@ -82,4 +83,10 @@ pub fn event_source() -> impl EventSource {
 #[cfg(target_os = "windows")]
 pub fn interrupts() -> impl Interrupts {
     mosaico_windows::ctrl_c::ConsoleInterrupts
+}
+
+/// The windows on the desktop, for the titles `debug events` shows.
+#[cfg(target_os = "windows")]
+pub fn desktop() -> impl Enumerator {
+    mosaico_windows::enumerate::WindowsEnumerator
 }

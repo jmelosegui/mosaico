@@ -70,7 +70,9 @@ Streams real-time window events to stdout.
    warning saying why and goes on without those events
 3. Asks to hear about Ctrl+C (`Interrupts`), so it can stop the event source
    gracefully; if that fails it prints a warning, and Ctrl+C ends it at once
-4. Prints each received event: event name, HWND (hex), and window title
+4. Prints each received event: event name, HWND (hex), and window title,
+   which it reads with `Enumerator::details` from the `Enumerator` that
+   `platform::desktop()` picks
 
 ### Output Format
 

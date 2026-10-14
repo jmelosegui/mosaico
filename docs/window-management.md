@@ -38,7 +38,8 @@ which includes invisible frame compensation and DPI awareness.
 - `Desktop` (trait, core) -- what the tiler reads about windows and monitors
 - `mosaico_core::Result<T>` -- `Result<T, mosaico_core::Error>`, the error
   type of every platform contract
-- `Window` (struct, windows) -- wraps `HWND`
+- `Window` (struct, windows) -- wraps `HWND`; private to `mosaico-windows`,
+  so other crates reach windows only through the core contracts
 - `Win32WindowControl` (struct, windows) -- implements `WindowControl`
 - `BorderOffset` -- `left`, `top`, `right`, `bottom` offsets for frame
   compensation

@@ -166,7 +166,11 @@ fn main() {
         Commands::Debug {
             command: DebugCommands::Events,
         } => {
-            commands::debug::events::execute(&platform::event_source(), &platform::interrupts());
+            commands::debug::events::execute(
+                &platform::event_source(),
+                &platform::interrupts(),
+                &platform::desktop(),
+            );
             Exit::Success
         }
         command => platform::run(|cx| run(cx, command)),
