@@ -123,7 +123,11 @@ pub(super) fn handle_command(
             bar_mgr.update(&manager.bar_states(&get_update(), *hotkeys_paused));
             Some(Response::ok())
         }
-        Command::Inspect => Some(Response::ok_with_message(manager.inspect_state())),
+        Command::Inspect => {
+            // The text for people, the same state as data for programs.
+            let snapshot = manager.snapshot();
+            Some(Response::ok_with_message(snapshot.to_string()).with_data(&snapshot))
+        }
         Command::PauseHotkeys => {
             if !*hotkeys_paused {
                 inputs.pause_hotkeys();

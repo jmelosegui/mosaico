@@ -157,7 +157,8 @@ Tasks are dispatched like this:
   then bar is updated
 - `DaemonMsg::Command(cmd, reply)` -- handles `Stop` (breaks loop),
   `Status` (replies with window count), `Action` (forwards to tiling manager
-  and updates bar)
+  and updates bar), `Inspect` (replies with the state as text and as a
+  `DesktopSnapshot`, see [ipc.md](ipc.md))
 - `DaemonMsg::Reload(ConfigReload::Config(cfg))` -- resolves the new theme,
   calls `TilingManager::reload_config()`, re-resolves bar colors, updates bar
 - `DaemonMsg::Reload(ConfigReload::Rules(rules))` -- calls

@@ -24,6 +24,7 @@ The protocol lives in core and the platform only supplies byte streams:
 | `crates/mosaico-core/src/ipc/mod.rs` | `Command`, `PROTOCOL_VERSION`, `DAEMON_VERSION` |
 | `crates/mosaico-core/src/ipc/request.rs` | `Request` envelope and `decode_request()` |
 | `crates/mosaico-core/src/ipc/response.rs` | `Response`, `ErrorCode`, `DaemonStatus` |
+| `crates/mosaico-core/src/snapshot.rs` | `DesktopSnapshot`, what `Inspect` returns (re-exported from `ipc`), and its `debug state` text |
 | `crates/mosaico-core/src/ipc/framing.rs` | `read_message()`, `write_message()`, `MAX_MESSAGE_BYTES` |
 | `crates/mosaico-core/src/ipc/transport.rs` | `IpcClient`, `IpcServer`, `IpcConnection`, `serve()` |
 | `crates/mosaico-windows/src/ipc.rs` | `PipeClient`, `PipeServer`, `PipeConnection`, `DEFAULT_PIPE_NAME` |
@@ -84,7 +85,11 @@ other.
 - `code` -- an `ErrorCode` for programs, on errors. Codes a build does not
   know read as `Other`.
 - `data` -- a typed result, read with `Response::data::<T>()`. `Status`
-  returns a `DaemonStatus`.
+  returns a `DaemonStatus`. `Inspect` returns a `DesktopSnapshot`: every
+  monitor, workspace and managed window, the disconnected monitors and what
+  has focus. Its `message` holds the same state as text, which `mosaico debug
+  state` prints as the daemon wrote it; the CLI renders the payload itself
+  only when a daemon sends no text.
 
 `code` and `data` are optional, so replies from older daemons still parse.
 

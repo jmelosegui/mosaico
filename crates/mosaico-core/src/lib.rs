@@ -40,6 +40,8 @@ pub mod monitor;
 pub mod pid;
 /// Axis-aligned rectangle type.
 pub mod rect;
+/// What the daemon reports about its state, for `debug state`.
+pub mod snapshot;
 /// Spatial direction helpers.
 pub mod spatial;
 /// OS services mosaico uses: process setup, processes, the single instance

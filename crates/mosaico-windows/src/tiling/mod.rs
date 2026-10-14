@@ -12,6 +12,7 @@ mod inspect;
 use std::time::Instant;
 
 use mosaico_core::config::{BorderConfig, Config, LayoutConfig, WindowRule, WorkspacesConfig};
+use mosaico_core::snapshot::DesktopSnapshot;
 use mosaico_core::tiler::{BarReservation, Display, Enumerator, Input, Settings, Tiler};
 use mosaico_core::{Action, HidingSupport, Result, WindowControl, WindowEvent};
 
@@ -173,9 +174,9 @@ impl TilingManager {
         self.tiler.window_count()
     }
 
-    /// Returns a formatted dump of the daemon's internal workspace state.
-    pub fn inspect_state(&self) -> String {
-        inspect::describe(&self.tiler, self.desktop.self_elevated())
+    /// Returns the daemon's internal workspace state, for `debug state`.
+    pub fn snapshot(&self) -> DesktopSnapshot {
+        inspect::snapshot(&self.tiler, self.desktop.self_elevated())
     }
 
     /// Returns a snapshot of bar state for each monitor.

@@ -174,19 +174,17 @@ impl ReconnectMemory {
         self.displaced.remove(&window);
     }
 
-    /// Short summary for `debug state`.
-    pub(super) fn describe(&self) -> String {
-        let mut parked: Vec<String> = self.parked.keys().map(|k| k.to_string()).collect();
-        parked.sort();
-        format!(
-            "Disconnected monitors: {}, displaced windows: {}",
-            if parked.is_empty() {
-                "none".into()
-            } else {
-                parked.join("; ")
-            },
-            self.displaced.len()
-        )
+    /// Keys of the disconnected monitors, in the order of their printed
+    /// form, for `debug state`.
+    pub(super) fn disconnected(&self) -> Vec<MonitorKey> {
+        let mut keys: Vec<MonitorKey> = self.parked.keys().cloned().collect();
+        keys.sort_by_cached_key(ToString::to_string);
+        keys
+    }
+
+    /// How many windows wait for their monitor to come back.
+    pub(super) fn displaced_count(&self) -> usize {
+        self.displaced.len()
     }
 }
 

@@ -78,17 +78,18 @@ impl fmt::Debug for WindowId {
 
 /// Identifies a connected monitor until the next display change.
 ///
-/// Opaque to the core: ids are compared, ordered, hashed and printed, so
-/// they can key a map, but the order means nothing. Platforms may hand
-/// out new ids on every display change, even for monitors that stayed
-/// connected, so use [`crate::MonitorKey`] to recognise a monitor across
-/// changes.
+/// Opaque to the core: ids are compared, ordered, hashed, printed and
+/// sent to the CLI, so they can key a map, but the order means nothing.
+/// Platforms may hand out new ids on every display change, even for
+/// monitors that stayed connected, so use [`crate::MonitorKey`] to
+/// recognise a monitor across changes.
 ///
 /// # Contract for platform implementations
 ///
 /// - Two connected monitors never share an id.
 /// - The id of a monitor does not change between display changes.
-#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct MonitorId(u64);
 
 impl MonitorId {
@@ -96,8 +97,8 @@ impl MonitorId {
     ///
     /// Only platform implementations, and the fakes that stand in for
     /// them in tests, build ids from raw handles. Everywhere else an id
-    /// comes from the platform and is compared, hashed or printed, never
-    /// made up.
+    /// comes from the platform and is compared, hashed, printed, or read
+    /// back from where it was sent, never made up.
     pub const fn from_raw(raw: u64) -> Self {
         Self(raw)
     }

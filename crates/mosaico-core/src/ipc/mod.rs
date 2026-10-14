@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::Action;
 
+pub use crate::snapshot::{DesktopSnapshot, MonitorSnapshot, WindowSnapshot, WorkspaceSnapshot};
 pub use error::IpcError;
 pub use framing::{MAX_MESSAGE_BYTES, read_message, write_message};
 pub use request::{Request, decode_request};
@@ -48,7 +49,9 @@ pub enum Command {
         /// The action to execute.
         action: Action,
     },
-    /// Dump the daemon's internal workspace state for debugging.
+    /// Dump the daemon's internal workspace state for debugging. The
+    /// reply carries it as text in `message`, which `debug state` prints,
+    /// and as a [`DesktopSnapshot`] in `data`, for programs.
     Inspect,
     /// Pause all hotkeys (unregister all except toggle-pause).
     PauseHotkeys,
