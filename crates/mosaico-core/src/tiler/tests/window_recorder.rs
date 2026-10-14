@@ -3,7 +3,7 @@
 use std::cell::{Cell, RefCell};
 
 use crate::config::HidingBehaviour;
-use crate::{Error, Rect, Result, WindowControl, WindowId};
+use crate::{Error, HidingEvents, Rect, Result, WindowControl, WindowId};
 
 /// A change the platform was asked to make.
 #[derive(Debug, Clone, PartialEq)]
@@ -69,6 +69,10 @@ impl WindowControl for Recorder {
 
     fn show(&self, window: WindowId, how: HidingBehaviour) -> Result<()> {
         self.record(Call::Show(window, how))
+    }
+
+    fn hiding_events(&self, _: HidingBehaviour) -> Option<HidingEvents> {
+        Some(HidingEvents::default())
     }
 
     fn reveal(&self, window: WindowId) -> Result<()> {

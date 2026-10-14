@@ -3,9 +3,13 @@ use serde::{Deserialize, Serialize};
 /// How windows are hidden when switching away from their workspace.
 ///
 /// Each value is named after what the user sees, not after how a
-/// platform does it. The names in `config.toml` (`"cloak"`, `"hide"`
-/// and `"minimize"`) are also how the record of hidden windows is
-/// written, so they must not change.
+/// platform does it. Which of them a platform has, and what hiding a
+/// window each way reports back, is up to the platform: see
+/// [`WindowControl::hiding_events`](crate::WindowControl::hiding_events).
+///
+/// The names in `config.toml` (`"cloak"`, `"hide"` and `"minimize"`)
+/// are also how the record of hidden windows is written, so they must
+/// not change.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum HidingBehaviour {

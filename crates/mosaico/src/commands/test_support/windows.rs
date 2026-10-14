@@ -4,7 +4,7 @@
 //! made to fail. Everything else succeeds and changes nothing.
 
 use mosaico_core::config::HidingBehaviour;
-use mosaico_core::{Error, Rect, Result, WindowControl, WindowId};
+use mosaico_core::{Error, HidingEvents, Rect, Result, WindowControl, WindowId};
 
 use super::World;
 
@@ -43,6 +43,10 @@ impl WindowControl for World {
 
     fn show(&self, _: WindowId, _: HidingBehaviour) -> Result<()> {
         Ok(())
+    }
+
+    fn hiding_events(&self, _: HidingBehaviour) -> Option<HidingEvents> {
+        Some(HidingEvents::default())
     }
 
     fn reveal(&self, _: WindowId) -> Result<()> {
