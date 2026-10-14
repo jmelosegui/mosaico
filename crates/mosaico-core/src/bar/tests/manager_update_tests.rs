@@ -31,6 +31,17 @@ fn labels(content: &BarContent) -> Vec<String> {
         .collect()
 }
 
+/// The background color of each bar drawn.
+fn drawn_backgrounds(events: Vec<BarEvent>) -> Vec<String> {
+    events
+        .into_iter()
+        .filter_map(|event| match event {
+            Drawn { background, .. } => Some(background),
+            _ => None,
+        })
+        .collect()
+}
+
 #[test]
 fn each_bar_shows_its_own_monitors_state() {
     // Arrange
@@ -186,13 +197,53 @@ fn switching_the_theme_resolves_the_colors_from_the_file_again() {
     manager.update(&[]);
 
     // Assert
-    let backgrounds: Vec<String> = renderer
-        .take()
-        .into_iter()
-        .filter_map(|event| match event {
-            Drawn { background, .. } => Some(background),
-            _ => None,
-        })
-        .collect();
-    assert_eq!(backgrounds, ["#eff1f5"]);
+    assert_eq!(drawn_backgrounds(renderer.take()), ["#eff1f5"]);
+}
+
+#[test]
+fn rebuilding_under_another_theme_draws_in_its_colors() {
+    // Arrange -- the bars were made under Mocha.
+    let renderer = FakeRenderer::default();
+    let mut manager = start(
+        BarConfig::default(),
+        &[left()],
+        &renderer,
+        &FakeSystem::default(),
+    );
+    renderer.take();
+
+    // Act
+    manager.rebuild_for_monitors(vec![left()], Theme::Catppuccin(CatppuccinFlavor::Latte));
+    manager.update(&[]);
+
+    // Assert
+    assert_eq!(drawn_backgrounds(renderer.take()), ["#eff1f5"]);
+}
+
+#[test]
+fn a_bar_that_fails_to_draw_does_not_stop_the_others() {
+    // Arrange
+    let renderer = FakeRenderer::default();
+    let config = bar("left = []\nright = [{ type = \"layout\" }]");
+    let mut manager = start(
+        config,
+        &[left(), right()],
+        &renderer,
+        &FakeSystem::default(),
+    );
+    renderer.take();
+    renderer.fail_draws_on(left());
+
+    // Act -- the failure is only logged, and the next refresh tries again.
+    manager.update(&[]);
+    let while_failing = drawn_labels(&renderer.take());
+    renderer.heal_draws();
+    manager.update(&[]);
+
+    // Assert
+    assert_eq!(while_failing, [(right(), vec!["BSP".into()])]);
+    assert_eq!(
+        drawn_labels(&renderer.take()),
+        [(left(), vec!["BSP".into()]), (right(), vec!["BSP".into()])]
+    );
 }

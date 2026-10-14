@@ -106,12 +106,24 @@ pub(super) struct FakeRenderer {
     events: Rc<RefCell<Vec<BarEvent>>>,
     /// Areas whose bar cannot be made.
     failing: Rc<RefCell<Vec<Rect>>>,
+    /// Areas whose bar cannot be drawn.
+    failing_draws: Rc<RefCell<Vec<Rect>>>,
 }
 
 impl FakeRenderer {
     /// Makes creating the bar for `area` fail.
     pub(super) fn fail_on(&self, area: Rect) {
         self.failing.borrow_mut().push(area);
+    }
+
+    /// Makes drawing the bar for `area` fail, until [`heal_draws`](Self::heal_draws).
+    pub(super) fn fail_draws_on(&self, area: Rect) {
+        self.failing_draws.borrow_mut().push(area);
+    }
+
+    /// Lets every bar draw again.
+    pub(super) fn heal_draws(&self) {
+        self.failing_draws.borrow_mut().clear();
     }
 
     /// What happened since the last call.
@@ -129,6 +141,7 @@ impl BarRenderer for FakeRenderer {
         Ok(Box::new(FakeBar {
             area,
             events: Rc::clone(&self.events),
+            failing_draws: Rc::clone(&self.failing_draws),
         }))
     }
 }
@@ -137,10 +150,14 @@ impl BarRenderer for FakeRenderer {
 struct FakeBar {
     area: Rect,
     events: Rc<RefCell<Vec<BarEvent>>>,
+    failing_draws: Rc<RefCell<Vec<Rect>>>,
 }
 
 impl BarSurface for FakeBar {
     fn draw(&mut self, config: &BarConfig, content: &BarContent) -> Result<()> {
+        if self.failing_draws.borrow().contains(&self.area) {
+            return Err(failed("draw the bar"));
+        }
         self.events.borrow_mut().push(BarEvent::Drawn {
             area: self.area,
             content: content.clone(),

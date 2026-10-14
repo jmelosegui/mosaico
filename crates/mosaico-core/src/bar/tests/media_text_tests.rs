@@ -40,6 +40,15 @@ fn the_media_widget_shows_only_the_title_without_an_artist() {
 }
 
 #[test]
+fn the_media_widget_shows_only_the_artist_without_a_title() {
+    // Act
+    let label = media_label(40, &playing("Artist", ""));
+
+    // Assert
+    assert_eq!(label, "Artist");
+}
+
+#[test]
 fn the_media_widget_shows_its_icon_before_the_track() {
     // Act
     let label = label_of(
