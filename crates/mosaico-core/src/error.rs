@@ -29,6 +29,9 @@ pub enum Error {
     Ipc(IpcError),
     /// The instance settings are invalid.
     Instance(InstanceError),
+    /// A daemon of this instance is already running, so another one
+    /// must not start.
+    AlreadyRunning,
     /// A call into the operating system failed.
     Platform {
         /// What was being done, such as "create the border window".
@@ -81,6 +84,7 @@ impl fmt::Display for Error {
             } => f.write_str(message),
             Self::Ipc(e) => write!(f, "{e}"),
             Self::Instance(e) => write!(f, "{e}"),
+            Self::AlreadyRunning => f.write_str("Mosaico daemon is already running."),
             Self::Platform { operation, source } => {
                 write!(f, "could not {operation}: {source}")
             }
@@ -98,7 +102,10 @@ impl std::error::Error for Error {
             Self::Instance(e) => Some(e),
             Self::Platform { source, .. } => Some(source.as_ref()),
             Self::Io(e) => Some(e),
-            Self::Config { .. } | Self::Network(_) | Self::Unsupported(_) => None,
+            Self::Config { .. }
+            | Self::AlreadyRunning
+            | Self::Network(_)
+            | Self::Unsupported(_) => None,
         }
     }
 }

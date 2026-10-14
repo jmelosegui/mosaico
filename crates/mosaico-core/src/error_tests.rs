@@ -56,6 +56,18 @@ fn ipc_errors_convert_with_question_mark_and_can_still_be_matched() {
 }
 
 #[test]
+fn a_second_daemon_is_told_that_one_is_already_running() {
+    // Arrange
+    let error = Error::AlreadyRunning;
+
+    // Act
+    let text = error.to_string();
+
+    // Assert -- the wording the daemon has always printed.
+    assert_eq!(text, "Mosaico daemon is already running.");
+}
+
+#[test]
 fn errors_cross_threads() {
     // Arrange
     fn assert_send_sync<T: Send + Sync>() {}
