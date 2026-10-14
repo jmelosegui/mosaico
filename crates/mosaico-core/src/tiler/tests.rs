@@ -127,22 +127,22 @@ pub(super) fn key(name: &str) -> MonitorKey {
 }
 
 /// A tiler on a fake desktop that applies its own effects.
-pub(super) struct Harness {
-    pub(super) tiler: Tiler,
-    pub(super) desktop: FakeDesktop,
-    pub(super) now: Instant,
+pub(in crate::tiler) struct Harness {
+    pub(in crate::tiler) tiler: Tiler,
+    pub(in crate::tiler) desktop: FakeDesktop,
+    pub(in crate::tiler) now: Instant,
     /// Effects of the latest step.
-    pub(super) effects: Vec<Effect>,
+    pub(in crate::tiler) effects: Vec<Effect>,
 }
 
 impl Harness {
     /// Starts a tiler on `monitors` monitors with the given windows,
     /// each `(id, monitor)`, already open.
-    pub(super) fn new(monitors: usize, windows: &[(u64, usize)]) -> Self {
+    pub(in crate::tiler) fn new(monitors: usize, windows: &[(u64, usize)]) -> Self {
         Self::with_settings(Settings::default(), monitors, windows)
     }
 
-    pub(super) fn with_settings(
+    pub(in crate::tiler) fn with_settings(
         settings: Settings,
         monitors: usize,
         windows: &[(u64, usize)],
@@ -173,19 +173,19 @@ impl Harness {
     }
 
     /// Runs one input and applies its effects.
-    pub(super) fn step(&mut self, input: Input) -> &[Effect] {
+    pub(in crate::tiler) fn step(&mut self, input: Input) -> &[Effect] {
         let effects = self.tiler.step(input, &self.desktop, self.now);
         self.apply(effects);
         &self.effects
     }
 
-    pub(super) fn action(&mut self, action: Action) -> &[Effect] {
+    pub(in crate::tiler) fn action(&mut self, action: Action) -> &[Effect] {
         self.step(Input::Action(action))
     }
 
     /// Reports a window event. A window reported focused is in front,
     /// whoever focused it.
-    pub(super) fn event(&mut self, event: WindowEvent) -> &[Effect] {
+    pub(in crate::tiler) fn event(&mut self, event: WindowEvent) -> &[Effect] {
         if let WindowEvent::Focused { window } = event {
             self.desktop.raise(window);
         }
@@ -193,7 +193,7 @@ impl Harness {
     }
 
     /// Opens a new visible window on `monitor` and reports it.
-    pub(super) fn open(&mut self, id: u64, monitor: usize) -> &[Effect] {
+    pub(in crate::tiler) fn open(&mut self, id: u64, monitor: usize) -> &[Effect] {
         self.desktop
             .windows
             .insert(wid(id), FakeWindow::app(monitor));
@@ -201,12 +201,12 @@ impl Harness {
         self.event(WindowEvent::Created { window: wid(id) })
     }
 
-    pub(super) fn advance(&mut self, by: Duration) {
+    pub(in crate::tiler) fn advance(&mut self, by: Duration) {
         self.now += by;
     }
 
     /// Windows on the active workspace of monitor `mon`, in order.
-    pub(super) fn active(&self, mon: usize) -> Vec<u64> {
+    pub(in crate::tiler) fn active(&self, mon: usize) -> Vec<u64> {
         self.tiler.monitors()[mon]
             .active()
             .windows()
@@ -215,23 +215,23 @@ impl Harness {
             .collect()
     }
 
-    pub(super) fn workspace(&self, mon: usize, ws: usize) -> &Workspace {
+    pub(in crate::tiler) fn workspace(&self, mon: usize, ws: usize) -> &Workspace {
         &self.tiler.monitors()[mon].workspaces()[ws]
     }
 
-    pub(super) fn window(&mut self, window: u64) -> &mut FakeWindow {
+    pub(in crate::tiler) fn window(&mut self, window: u64) -> &mut FakeWindow {
         self.desktop
             .windows
             .get_mut(&wid(window))
             .expect("window exists")
     }
 
-    pub(super) fn rect_of(&self, window: u64) -> Rect {
+    pub(in crate::tiler) fn rect_of(&self, window: u64) -> Rect {
         self.desktop.windows[&wid(window)].rect
     }
 
     /// The window the last step asked to focus, if it asked.
-    pub(super) fn focus_request(&self) -> Option<u64> {
+    pub(in crate::tiler) fn focus_request(&self) -> Option<u64> {
         self.effects.iter().rev().find_map(|e| match e {
             Effect::Focus { window, .. } => Some(window.raw()),
             _ => None,
@@ -239,7 +239,7 @@ impl Harness {
     }
 
     /// Placements of the last step, as `(window, rect, timing)`.
-    pub(super) fn placements(&self) -> Vec<(u64, Rect, Timing)> {
+    pub(in crate::tiler) fn placements(&self) -> Vec<(u64, Rect, Timing)> {
         self.effects
             .iter()
             .filter_map(|e| match *e {
