@@ -8,6 +8,8 @@
 //! bindings are registered when, including what stays registered while
 //! paused, and a platform's
 //! [`HotkeyRegistrar`](crate::hotkey::HotkeyRegistrar) carries that out.
+//! A [`HotkeySource`](crate::hotkey::HotkeySource) runs both for the
+//! daemon and sends the actions of the presses.
 
 mod combo;
 mod hotkeys;
@@ -15,6 +17,7 @@ mod key;
 mod key_names;
 mod registrar;
 mod rejected;
+mod source;
 
 pub use combo::{KeyCombo, Modifiers};
 pub use hotkeys::Hotkeys;
@@ -23,3 +26,4 @@ pub use key::{Digit, FunctionKey, Key, Letter};
 pub(crate) use key::{digit, function, letter};
 pub use registrar::{HotkeyId, HotkeyRegistrar};
 pub use rejected::Rejected;
+pub use source::{HotkeyControl, HotkeySource, HotkeyWatch};
