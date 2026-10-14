@@ -1,7 +1,6 @@
 //! The desktop as the tiler reads it, through Win32 queries.
 
 use mosaico_core::tiler::{Desktop, WindowFacts, WindowIdentity};
-use mosaico_core::window::Window as _;
 use mosaico_core::{MonitorId, Rect, WindowId};
 use windows::Win32::Foundation::POINT;
 use windows::Win32::UI::WindowsAndMessaging::GetCursorPos;

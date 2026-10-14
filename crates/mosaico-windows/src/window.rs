@@ -104,7 +104,7 @@ impl Window {
     /// that only repaints when `WM_NCCALCSIZE` fires. Without
     /// `SWP_FRAMECHANGED`, they render a blank/stale surface.
     fn needs_frame_changed(&self) -> bool {
-        let class = mosaico_core::Window::class(self).unwrap_or_default();
+        let class = self.class().unwrap_or_default();
         class == "Chrome_WidgetWin_1" || class == "MozillaWindowClass"
     }
 
@@ -314,8 +314,9 @@ impl Window {
     }
 }
 
-impl mosaico_core::Window for Window {
-    fn title(&self) -> Result<String> {
+impl Window {
+    /// Returns the window title.
+    pub fn title(&self) -> Result<String> {
         // SAFETY: GetWindowTextLengthW and GetWindowTextW are safe to call
         // with a valid HWND. They read window text without modifying state.
         unsafe {
@@ -331,7 +332,8 @@ impl mosaico_core::Window for Window {
         }
     }
 
-    fn class(&self) -> Result<String> {
+    /// Returns the window class name.
+    pub fn class(&self) -> Result<String> {
         // SAFETY: RealGetWindowClassW reads the window class name.
         // 256 is the maximum class name length in Win32.
         unsafe {
@@ -341,12 +343,15 @@ impl mosaico_core::Window for Window {
         }
     }
 
-    fn rect(&self) -> Result<Rect> {
+    /// Returns the window's visible bounds, without the invisible resize
+    /// borders.
+    pub fn rect(&self) -> Result<Rect> {
         let frame = frame::visible_rect(self.hwnd)?;
         Ok(crate::monitor::rect_from_win32(&frame))
     }
 
-    fn set_rect(&self, rect: &mosaico_core::Rect) -> Result<()> {
+    /// Moves and resizes the window so its visible bounds are `rect`.
+    pub(crate) fn set_rect(&self, rect: &mosaico_core::Rect) -> Result<()> {
         // If the window is maximized, clear the WS_MAXIMIZE style first.
         // SetWindowPos alone doesn't remove the style, leaving the window
         // in a "maximized but tiled-sized" ghost state with wrong frame
@@ -408,7 +413,11 @@ impl mosaico_core::Window for Window {
         unsafe { SetWindowPos(self.hwnd, None, x, y, cx, cy, flags) }.or_platform("move the window")
     }
 
-    fn invalidate(&self) {
+    /// Repaints the window, its frame and its children, and puts the GPU
+    /// surface of a Chromium window back in place if it drifted.
+    ///
+    /// Fails when the redraw does; the realignment is tried either way.
+    pub(crate) fn invalidate(&self) -> Result<()> {
         use windows::Win32::Graphics::Gdi::{
             RDW_ALLCHILDREN, RDW_ERASE, RDW_FRAME, RDW_INVALIDATE, RDW_UPDATENOW, RedrawWindow,
         };
@@ -417,20 +426,22 @@ impl mosaico_core::Window for Window {
         // its frame, and all child windows. The aggressive flag
         // combination ensures GPU-composited apps (Chrome, Electron)
         // refresh their rendering surface after a programmatic resize.
-        unsafe {
-            let _ = RedrawWindow(
+        let redrawn = unsafe {
+            RedrawWindow(
                 Some(self.hwnd),
                 None,
                 None,
                 RDW_INVALIDATE | RDW_UPDATENOW | RDW_FRAME | RDW_ERASE | RDW_ALLCHILDREN,
-            );
-        }
+            )
+        };
         if self.needs_frame_changed() {
             crate::chromium::realign_gpu_child(self.hwnd);
         }
+        redrawn.ok().or_platform("repaint the window")
     }
 
-    fn is_visible(&self) -> bool {
+    /// Returns whether the window is currently visible.
+    pub fn is_visible(&self) -> bool {
         // SAFETY: IsWindowVisible is a simple query that returns a BOOL.
         unsafe { IsWindowVisible(self.hwnd).as_bool() }
     }

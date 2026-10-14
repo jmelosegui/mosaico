@@ -1,5 +1,5 @@
+use mosaico_core::WindowId;
 use mosaico_core::config::{load_merged_rules, matching_rule, should_manage};
-use mosaico_core::{Window, WindowId};
 use mosaico_windows::{frame, monitor};
 
 pub fn execute() {

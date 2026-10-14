@@ -5,7 +5,6 @@ use std::fmt::Write;
 
 use mosaico_core::WindowId;
 use mosaico_core::tiler::Tiler;
-use mosaico_core::window::Window as _;
 
 use crate::window::Window;
 

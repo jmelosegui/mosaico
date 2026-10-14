@@ -1,6 +1,5 @@
 use std::sync::mpsc;
 
-use mosaico_core::Window;
 use mosaico_windows::Window as WinWindow;
 
 /// Watches window events in real time. Press Ctrl+C to stop.

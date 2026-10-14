@@ -1,7 +1,6 @@
 //! Changes to windows and the pointer, made through Win32.
 
 use mosaico_core::config::HidingBehaviour;
-use mosaico_core::window::Window as _;
 use mosaico_core::{Error, Rect, Result, WindowControl, WindowId};
 use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
 use windows::Win32::UI::WindowsAndMessaging::{
@@ -16,8 +15,8 @@ use crate::window::Window;
 /// [`WindowControl`] on the Win32 desktop.
 ///
 /// Holds no state: every call goes straight to the window's handle.
-/// `ShowWindow` and the repaint do not say whether they worked, so the
-/// calls built on them first check that the window still exists.
+/// `ShowWindow` does not say whether it worked, so the calls built on
+/// it first check that the window still exists.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Win32WindowControl;
 
@@ -34,8 +33,7 @@ impl WindowControl for Win32WindowControl {
     }
 
     fn repaint(&self, window: WindowId) -> Result<()> {
-        existing(window)?.invalidate();
-        Ok(())
+        Window::from_id(window).invalidate()
     }
 
     fn focus(&self, window: WindowId) -> Result<()> {
