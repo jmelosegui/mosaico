@@ -148,7 +148,8 @@ fn a_frame_that_cannot_be_read_shows_as_a_question_mark() {
 fn fails_with_the_reason_when_the_windows_cannot_be_listed() {
     // Arrange
     let mut h = Harness::new("list-unreadable");
-    h.desktop.unreadable = true;
+    h.desktop.monitors = vec![monitor(1, 0)];
+    h.desktop.windows_unreadable = true;
 
     // Act
     let exit = h.run(|cx| list(cx, &[]));
@@ -157,4 +158,29 @@ fn fails_with_the_reason_when_the_windows_cannot_be_listed() {
     assert_eq!(exit, Exit::Failure);
     assert_eq!(h.err(), "Error: could not list windows: access denied\n");
     assert_eq!(h.out(), "");
+}
+
+#[test]
+fn lists_the_windows_without_monitor_numbers_when_the_monitors_cannot_be_listed() {
+    // Arrange
+    let mut h = Harness::new("list-monitors-unreadable");
+    h.desktop.monitors = vec![monitor(1, 0)];
+    h.desktop.windows = vec![(wid(1), app_window(1)), (wid(2), app_window(1))];
+    h.desktop.monitors_unreadable = true;
+
+    // Act
+    let exit = h.run(|cx| list(cx, &[]));
+
+    // Assert
+    assert_eq!(exit, Exit::Success);
+    let out = h.out();
+    assert_eq!(
+        status_lines(&out),
+        [
+            "Managed: yes  Monitor: ?  State: normal",
+            "Managed: yes  Monitor: ?  State: normal",
+        ]
+    );
+    assert!(out.ends_with("2 windows found\n\n"), "{out}");
+    assert_eq!(h.err(), "");
 }

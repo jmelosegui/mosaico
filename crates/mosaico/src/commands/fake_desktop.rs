@@ -10,20 +10,22 @@ pub struct FakeDesktop {
     pub windows: Vec<(WindowId, WindowDetails)>,
     /// Monitors, in the order the platform finds them.
     pub monitors: Vec<Display>,
-    /// Whether the system refuses to list anything.
-    pub unreadable: bool,
+    /// Whether the system refuses to list the windows.
+    pub windows_unreadable: bool,
+    /// Whether the system refuses to list the monitors.
+    pub monitors_unreadable: bool,
 }
 
 impl Enumerator for FakeDesktop {
     fn windows(&self) -> Result<Vec<WindowId>> {
-        if self.unreadable {
+        if self.windows_unreadable {
             return Err(Error::platform("list windows", "access denied"));
         }
         Ok(self.windows.iter().map(|(id, _)| *id).collect())
     }
 
     fn connected_monitors(&self) -> Result<Vec<Display>> {
-        if self.unreadable {
+        if self.monitors_unreadable {
             return Err(Error::platform("list monitors", "access denied"));
         }
         Ok(self.monitors.clone())

@@ -104,7 +104,7 @@ fn no_monitors_is_a_failure() {
 fn monitors_that_cannot_be_listed_are_reported_with_the_reason() {
     // Arrange
     let mut h = Harness::new("doctor-monitors-unreadable");
-    h.desktop.unreadable = true;
+    h.desktop.monitors_unreadable = true;
 
     // Act
     h.run(|cx| {
