@@ -21,6 +21,8 @@ mod display_tests;
 mod empty_focus_tests;
 #[path = "tests/event_tests.rs"]
 mod event_tests;
+#[path = "tests/fallback_tests.rs"]
+mod fallback_tests;
 #[path = "tests/focus_tests.rs"]
 mod focus_tests;
 #[path = "tests/layout_tests.rs"]
@@ -200,10 +202,20 @@ impl FakeDesktop {
 
 /// The platform side of the effect pipeline: what the applier does
 /// between the tiler and the desktop.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub(super) struct Pipeline {
     pub(super) coalescer: Coalescer,
     pub(super) expectations: Expectations,
+}
+
+impl Pipeline {
+    /// A pipeline on a platform whose ways of hiding are `hiding`.
+    fn new(hiding: HidingSupport) -> Self {
+        Self {
+            coalescer: Coalescer::default(),
+            expectations: Expectations::new(hiding),
+        }
+    }
 }
 
 /// Applies one effect to the desktop and records it in the hidden-window
@@ -290,7 +302,7 @@ impl Harness {
     /// effects reach the desktop only on [`Harness::flush`], and events
     /// that echo our own effects are dropped before the tiler sees them.
     pub(super) fn through_platform(mut self) -> Self {
-        self.pipeline = Some(Pipeline::default());
+        self.pipeline = Some(Pipeline::new(self.settings.hiding_support));
         self
     }
 
@@ -367,7 +379,7 @@ impl Harness {
         let record = std::mem::take(&mut self.hidden);
         // Held effects and expectations die with the old daemon.
         if self.pipeline.is_some() {
-            self.pipeline = Some(Pipeline::default());
+            self.pipeline = Some(Pipeline::new(self.settings.hiding_support));
         }
         let desktop = &self.desktop;
         let mut effects = record.restore(|w| desktop.identity(w));

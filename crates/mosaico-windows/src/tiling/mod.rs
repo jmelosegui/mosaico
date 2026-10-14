@@ -61,6 +61,7 @@ impl TilingManager {
             borders: border_config,
             rules,
             mouse_follows_focus,
+            hiding_support: hiding,
         };
         let now = Instant::now();
         let (tiler, effects) = Tiler::new(settings, &displays, &windows, &desktop, now);

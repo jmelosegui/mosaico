@@ -93,6 +93,15 @@ showing it again reports it restored (`HidingEvents`), or `None` when the
 platform does not have it. The daemon asks once, at startup, and keeps the
 answers in a `HidingSupport`.
 
+When the platform does not have the configured strategy, the tiler uses the
+first it has of cloak, hide and minimize instead, and logs a warning
+(`HidingSupport::choose`). It chooses at startup, and again only when a config
+reload changes `hiding`, so the warning is not repeated on every edit. A
+platform with no strategy at all keeps the configured one, also with a
+warning. The hide and show effects carry the strategy really used, so windows
+are shown again, their events recognized and the record of hidden windows
+written the way they were hidden.
+
 On Windows every strategy is available:
 
 | Strategy | Method | Events |

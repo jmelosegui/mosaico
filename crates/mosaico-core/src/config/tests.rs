@@ -117,6 +117,21 @@ fn hiding_values_already_in_config_files_still_parse() {
 }
 
 #[test]
+fn a_hiding_value_is_named_the_way_config_files_write_it() {
+    for how in [
+        HidingBehaviour::Cloak,
+        HidingBehaviour::Hide,
+        HidingBehaviour::Minimize,
+    ] {
+        // Act
+        let written = serde_json::to_string(&how).unwrap();
+
+        // Assert
+        assert_eq!(written, format!("\"{}\"", how.name()));
+    }
+}
+
+#[test]
 fn workspaces_layouts_parses_string_keys_as_u8() {
     // Arrange
     let toml_str = r#"

@@ -6,6 +6,9 @@ use serde::{Deserialize, Serialize};
 /// platform does it. Which of them a platform has, and what hiding a
 /// window each way reports back, is up to the platform: see
 /// [`WindowControl::hiding_events`](crate::WindowControl::hiding_events).
+/// When the platform does not have the one configured, the tiler uses
+/// another and says so in the log, see
+/// [`HidingSupport::choose`](crate::HidingSupport::choose).
 ///
 /// The names in `config.toml` (`"cloak"`, `"hide"` and `"minimize"`)
 /// are also how the record of hidden windows is written, so they must
@@ -26,4 +29,15 @@ pub enum HidingBehaviour {
     /// some react to, for example by pausing media. The desktop reports
     /// it minimized.
     Minimize,
+}
+
+impl HidingBehaviour {
+    /// The value as it is written in `config.toml`, such as `"cloak"`.
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Cloak => "cloak",
+            Self::Hide => "hide",
+            Self::Minimize => "minimize",
+        }
+    }
 }

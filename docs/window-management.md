@@ -74,7 +74,11 @@ The contract, in the trait's docs, spells out what callers rely on:
 - `hiding_events` says which ways of hiding the platform has, and whether
   hiding a window each way reports it hidden or minimized and showing it again
   reports it restored. `hide` and `show` return `Error::Unsupported` for a way
-  the platform does not have.
+  the platform does not have. The tiler hides windows only in ways the
+  platform has, unless it has none, and takes the hide and restore reports it
+  says to expect for its own. Focus reports for a window hidden moments ago
+  are dropped whatever it says (see
+  [workspaces.md](workspaces.md#hidden-window-tracking)).
 - Failures are returned as errors, never panics. Callers log them and carry on.
 
 `tiler::apply_window_effect` makes the decisions that are left until an effect

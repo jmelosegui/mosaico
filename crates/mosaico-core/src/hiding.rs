@@ -11,6 +11,15 @@
 
 use crate::config::HidingBehaviour;
 
+/// Every way of hiding, in the order one is chosen when the configured
+/// way is not available: the ways that make the window invisible before
+/// the one that leaves it minimized.
+const PREFERENCE: [HidingBehaviour; 3] = [
+    HidingBehaviour::Cloak,
+    HidingBehaviour::Hide,
+    HidingBehaviour::Minimize,
+];
+
 /// The window events a platform reports when it hides a window one way,
 /// and when it shows the window again. The default reports nothing.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -56,6 +65,37 @@ impl HidingSupport {
             HidingBehaviour::Hide => self.hide,
             HidingBehaviour::Minimize => self.minimize,
         }
+    }
+
+    /// The way to hide windows when the user configured `configured`.
+    ///
+    /// That way when the platform has it. Otherwise the first the
+    /// platform has of cloaking, hiding and minimizing, with a warning in
+    /// the log. A platform with no way at all keeps `configured`, also
+    /// with a warning, and its workspace switches leave windows on screen.
+    ///
+    /// Every call that cannot use `configured` warns, so ask again only
+    /// when `configured` changes.
+    pub fn choose(&self, configured: HidingBehaviour) -> HidingBehaviour {
+        if self.events(configured).is_some() {
+            return configured;
+        }
+        let available = PREFERENCE
+            .into_iter()
+            .find(|&how| self.events(how).is_some());
+        let Some(used) = available else {
+            crate::log_warn!(
+                "hiding = \"{}\" is not available, nor any other way to hide windows",
+                configured.name()
+            );
+            return configured;
+        };
+        crate::log_warn!(
+            "hiding = \"{}\" is not available here; hiding windows with \"{}\" instead",
+            configured.name(),
+            used.name()
+        );
+        used
     }
 }
 

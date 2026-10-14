@@ -38,8 +38,10 @@ use std::collections::HashSet;
 use std::time::Instant;
 
 use crate::action::MAX_WORKSPACES;
-use crate::config::{BorderConfig, LayoutConfig, WindowRule, WorkspaceMode, WorkspacesConfig};
-use crate::{LayoutKind, WindowId};
+use crate::config::{
+    BorderConfig, HidingBehaviour, LayoutConfig, WindowRule, WorkspaceMode, WorkspacesConfig,
+};
+use crate::{HidingSupport, LayoutKind, WindowId};
 
 pub use coalesce::Coalescer;
 pub use desktop::{Desktop, Display, WindowFacts};
@@ -67,6 +69,9 @@ pub struct Settings {
     pub rules: Vec<WindowRule>,
     /// Whether keyboard-driven focus moves the pointer.
     pub mouse_follows_focus: bool,
+    /// The ways the platform can hide windows. A `layout.hiding` it does
+    /// not have is swapped for one it has.
+    pub hiding_support: HidingSupport,
 }
 
 /// Tiled windows across all connected monitors.
@@ -77,7 +82,14 @@ pub struct Tiler {
     workspace_layouts: Vec<LayoutKind>,
     /// Monitors that disconnected and the windows displaced from them.
     reconnect: reconnect::ReconnectMemory,
+    /// Layout settings, with `hiding` the way windows are really hidden:
+    /// the configured one, or what the platform has instead.
     layout: LayoutConfig,
+    /// The hiding strategy the configuration asks for.
+    configured_hiding: HidingBehaviour,
+    /// The ways the platform can hide windows, to choose from again when
+    /// the configured strategy changes.
+    hiding_support: HidingSupport,
     /// Whether workspace switches affect one monitor or all monitors.
     workspace_mode: WorkspaceMode,
     rules: Vec<WindowRule>,
@@ -129,12 +141,17 @@ impl Tiler {
             .iter()
             .map(|d| MonitorState::new(d, &workspace_layouts))
             .collect();
+        let mut layout = settings.layout;
+        let configured_hiding = layout.hiding;
+        layout.hiding = settings.hiding_support.choose(configured_hiding);
 
         let mut tiler = Self {
             monitors,
             workspace_layouts,
             reconnect: reconnect::ReconnectMemory::default(),
-            layout: settings.layout,
+            layout,
+            configured_hiding,
+            hiding_support: settings.hiding_support,
             workspace_mode: settings.workspaces.mode,
             rules: settings.rules,
             border_config: settings.borders,
