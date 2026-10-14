@@ -6,15 +6,15 @@ mod color;
 mod hiding_behaviour;
 /// Keybinding definitions and defaults.
 pub mod keybinding;
-/// The config files of an instance: where they are, and loading,
-/// merging and migrating them.
-mod loader;
 /// Color palette definitions for themes.
 mod palette;
 /// Telling the user about their config while it loads.
 mod report;
 /// Window management rules.
 pub mod rules;
+/// The config files of an instance: where they are, and loading,
+/// merging and migrating them.
+mod store;
 /// Default configuration file templates.
 pub mod template;
 /// Theme resolution and color schemes.
@@ -28,8 +28,8 @@ pub use bar::{BarColors, BarConfig, WidgetConfig};
 pub use color::Color;
 pub use hiding_behaviour::HidingBehaviour;
 pub use keybinding::{Keybinding, Modifier};
-pub use loader::ConfigStore;
 pub use rules::{WindowRule, default_rules, matching_rule, should_manage, validate_rules};
+pub use store::ConfigStore;
 pub use theme::{CatppuccinFlavor, RosePineFlavor, Theme, ThemeConfig, TokyoNightFlavor};
 pub use types::*;
 
