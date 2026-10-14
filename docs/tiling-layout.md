@@ -189,12 +189,16 @@ events and user actions.
 
 `handle_event()` dispatches `WindowEvent` variants:
 
-- `Created` -- adds window to the focused monitor's workspace if tileable
+- `Created` -- moves a window that is not shown yet into the slot it will
+  get; adds a visible one to the focused monitor's workspace if tileable,
+  moving it ahead of the layout (see
+  [Where a new window first appears](#where-a-new-window-first-appears))
 - `Destroyed` -- removes window from whichever workspace contains it
 - `Focused` -- updates focus tracking, shows/hides border
 - `Moved` -- detects manual monitor reassignment (drag to different monitor)
 - `Minimized` -- removes window from workspace, re-tiles
-- `Restored` -- re-adds window to workspace
+- `Restored` -- re-adds window to workspace, moving it ahead of the layout
+  like a new one
 
 ### Action Handling
 
@@ -264,6 +268,12 @@ The `TilingManager` supports hot-reloading of configuration:
    skips windows that are already in place (unless they are maximized), to
    avoid unnecessary repaints, and places and repaints the rest through the
    platform's `WindowControl`.
+
+When a window that is already on screen is taken in (`add_and_focus`,
+`try_adopt`, or a window dropped onto a monitor), `move_before_layout` first
+posts it a move to its slot with `PrePlace`, which does not wait for its
+application. The layout pass then runs as usual, placing the windows in the
+layout's order, and usually finds the new window in place.
 
 A layout never sets off another one: `WindowEvent::Moved` is only reported
 when the user finishes dragging a window, never for the tiler's own
@@ -355,24 +365,42 @@ workspace**, not the OS-determined monitor. When moving a window to an
 adjacent monitor, `insert(0, window)` is used when entering from the right
 (leftmost BSP slot) and `add(window)` when entering from the left.
 
-#### Where a new window first appears
+### Where a new window first appears
 
 Most applications create a window hidden and show it afterwards. Such a
-window is moved into its slot before it is shown, so its first frame is
-already in place.
+window is moved into the slot it is going to get when it is created, before
+it is shown, so it is usually in place when it appears. The move is posted
+to the application and lands when its thread next reads its message queue,
+so an application that shows the window before then shows it where Windows
+put it first.
 
-A window that an application creates already visible (`WS_VISIBLE`) is on
-screen before Windows reports it, and mosaico can move it only once the
-application has finished creating it. It may appear briefly where Windows
-placed it: usually for a few milliseconds, and longer if it is activated as
-it opens.
+A window that is already visible by the time mosaico handles its creation,
+for example one an application creates with `WS_VISIBLE`, is on screen
+before mosaico can move it. When mosaico takes it in, it first posts the
+window a move to its slot, which does not wait for the application, and then
+lays the monitor out exactly as it otherwise would. The posted move lands
+once the application has finished creating the window and reads its
+messages, so the window no longer waits for the other windows to be moved
+and their borders drawn. How long it shows where Windows put it depends on
+the application:
 
-Hiding it across the move does not help. Explorer can cloak a window only
-once it has registered it, and it registers a new window a few milliseconds
-after it is shown, no earlier than the move lands. The other ways to hide
-another process's window wait for that application too, and only a hook
-injected into every process could act before the first frame. The
-measurements are in #28.
+- for a window that is not activated as it opens, usually a few
+  milliseconds;
+- for one that is activated as it opens, longer: about 30 ms on the
+  machine measured in #28.
+
+A window restored from minimized, or taken in later because its title or
+focus changed, is moved the same way. A maximized one is left to the
+layout, since only a placement takes a window out of maximized state.
+
+Hiding the window across the move does not help. Explorer can cloak a
+window only once it has registered it, a few milliseconds after the window
+is shown, and the cloak takes another millisecond or two. For a window that
+is not activated, the move has usually landed by then. For one that is
+activated, the cloak lands first, but in most runs the activation undoes it
+1 to 3 ms later. The other ways to hide another process's window are
+refused or wait for that application, and only a hook injected into every
+process runs before the window is shown. The measurements are in #28.
 
 ### Workspace Switching
 
@@ -393,8 +421,8 @@ and showing windows cause are kept from undoing a switch as described in
 - Layout cycling wraps around: `Bsp -> VerticalStack -> ThreeColumn -> Bsp`.
 - All three layouts share the same `gap` and `ratio` parameters; only the
   spatial algorithm differs.
-- Programmatic moves never report `Moved`, so a layout cannot set off
-  another one.
+- Programmatic moves never trigger `Moved`, which only reports the user
+  finishing a drag, so laying windows out cannot loop.
 - Stale handle pruning runs before every layout application to handle UWP apps
   that close without firing destroy events, and windows minimized without a
   report. It leaves alone a window the tiler itself hid with `hide` and is
