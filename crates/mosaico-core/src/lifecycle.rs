@@ -35,7 +35,11 @@ pub struct Startup<'a> {
     /// The platform's daemon loop. It runs until the daemon is told to
     /// stop, or can no longer be reached, and when it stops normally it
     /// puts every window back before it returns. When it cannot get going
-    /// at all, it returns the error instead.
+    /// at all, it returns the error instead. Before it starts, it must
+    /// fail with [`InstanceError::NotCurrent`](crate::instance::InstanceError::NotCurrent)
+    /// when it is given an instance other than the one
+    /// [`Instance::current`] returns, since it finds files of the instance
+    /// through that rather than through what it is given.
     pub serve: &'a dyn Fn(&Instance) -> Result<()>,
 }
 
@@ -62,8 +66,9 @@ pub struct Startup<'a> {
 /// behind instead, as a crash does, and the CLI takes it for stale.
 ///
 /// The daemon has no console, so it reports through the log, which the
-/// loop sets up. A failure before the loop, such as another daemon
-/// holding the lock, is only returned.
+/// loop sets up. A failure before the loop has set up the log, such as
+/// another daemon holding the lock, or an instance the loop refuses, is
+/// only returned.
 pub fn run(startup: Startup<'_>) -> Result<()> {
     if let Some(exe) = &startup.exe {
         let _ = startup.installer.remove_leftovers(exe);

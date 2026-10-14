@@ -77,8 +77,9 @@ order, it:
    config, the logs and the record of hidden windows through
    `Instance::current()`, and then runs `daemon_loop()` for the main logic
 6. Logs the error the loop returned, if any, since the daemon has no
-   console. Errors from the steps before it come before the logger is set up
-   and are only printed by the `daemon` subcommand
+   console. Errors from the steps before it, and an instance that `serve()`
+   refuses in step 5, come before the logger is set up and are only printed
+   by the `daemon` subcommand
 7. Removes the PID file, then releases the lock, so a daemon that starts next
    never has its PID file removed by this one. This also happens when a panic
    in the loop unwinds; release builds abort on a panic and leave the PID file
