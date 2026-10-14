@@ -12,7 +12,7 @@ use mosaico_core::Instance;
 use mosaico_core::ipc::{IpcClient, IpcConnection, IpcError, IpcServer, IpcStream};
 use windows::Win32::Foundation::{
     ERROR_FILE_NOT_FOUND, ERROR_PIPE_BUSY, ERROR_PIPE_CONNECTED, GetLastError, HANDLE,
-    INVALID_HANDLE_VALUE,
+    INVALID_HANDLE_VALUE, WIN32_ERROR,
 };
 use windows::Win32::Storage::FileSystem::{
     CreateFileW, FILE_SHARE_NONE, FlushFileBuffers, OPEN_EXISTING, PIPE_ACCESS_DUPLEX,
@@ -102,7 +102,9 @@ impl IpcClient for PipeClient {
             Err(e) if e.code() == ERROR_PIPE_BUSY.to_hresult() => {
                 // SAFETY: WaitNamedPipeW blocks for at most BUSY_WAIT_MS.
                 if !unsafe { WaitNamedPipeW(&self.name, BUSY_WAIT_MS) }.as_bool() {
-                    return Err(IpcError::TimedOut);
+                    // SAFETY: GetLastError reads the error of the call just above.
+                    let error = unsafe { GetLastError() };
+                    return Err(busy_wait_failure(error));
                 }
                 self.open().map_err(|e| IpcError::Io(io::Error::from(e)))?
             }
@@ -309,6 +311,12 @@ impl IpcConnection for PipeConnection {
             _ => disconnected,
         }
     }
+}
+
+/// What a failed wait for a busy pipe means for the client.
+fn busy_wait_failure(error: WIN32_ERROR) -> IpcError {
+    let _ = error;
+    IpcError::TimedOut
 }
 
 #[cfg(test)]
