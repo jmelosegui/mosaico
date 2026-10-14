@@ -155,10 +155,11 @@ point:
 
 One step often decides a window's border more than once: when the layout
 places the window, when `update_border()` runs after the layout, and again
-after focus moves. The step keeps only the last decision for each window,
-where it was, so each border is drawn at most once per step, never before
-its window's last placement in the step, and a hide or drop wins over an
-earlier draw.
+after focus moves. The step draws only the last decision for each window,
+once, in the place of its first border after the window's last placement.
+So each border lands right after its own window, never before the
+placement it was decided for, and a hide or drop wins over an earlier
+draw.
 
 While a burst of moves is held until input goes quiet, each window's
 border is held with its move: only the latest style, drawn around the slot
@@ -257,7 +258,8 @@ drawn in, including the fallback and `"none"`, and
 `tiler/tests/corner_tests.rs` checks which windows get their corners back.
 `tiler/tests/border_once_tests.rs` checks that opening a window, a retile,
 a focus change and a workspace switch decide each border once, after its
-window's last placement. `tiler/tests/plan_borders_tests.rs` and
+window's last placement, and `tiler/tests/border_order_tests.rs` that each
+border is drawn right after its own window. `tiler/tests/plan_borders_tests.rs` and
 `tiler/tests/coalesce_border_tests.rs` check which border is kept, in a
 step and while a burst of moves is held. `tiler/tests/held_border_tests.rs`
 checks that a focus change or a border refresh before a held move lands

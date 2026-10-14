@@ -46,7 +46,7 @@ fn drop_border(window: u64) -> Effect {
 }
 
 #[test]
-fn only_the_last_border_of_a_window_is_kept_where_it_was() {
+fn each_border_is_drawn_once_right_after_its_window_is_placed() {
     // Arrange -- as a layout, a border refresh and a focus change emit
     // them.
     let effects = vec![
@@ -62,7 +62,26 @@ fn only_the_last_border_of_a_window_is_kept_where_it_was() {
     let kept = keep_last_borders(effects);
 
     // Assert
-    assert_eq!(kept, [place(1, 0), place(2, 100), draw(2, 100), draw(1, 0)]);
+    assert_eq!(kept, [place(1, 0), draw(1, 0), place(2, 100), draw(2, 100)]);
+}
+
+#[test]
+fn the_last_style_is_drawn_where_the_first_border_after_the_placement_was() {
+    // Arrange -- the window loses focus later in the step.
+    let mut unfocused = draw(1, 0);
+    if let Effect::Border {
+        style: Some(style), ..
+    } = &mut unfocused
+    {
+        style.color.r = 0x99;
+    }
+    let effects = vec![place(1, 0), draw(1, 0), place(2, 100), unfocused.clone()];
+
+    // Act
+    let kept = keep_last_borders(effects);
+
+    // Assert
+    assert_eq!(kept, [place(1, 0), unfocused, place(2, 100)]);
 }
 
 #[test]
