@@ -156,3 +156,34 @@ fn removing_leftovers_when_there_are_none_succeeds() {
     // Assert
     assert!(result.is_ok(), "{result:?}");
 }
+
+#[test]
+fn an_executable_that_cannot_be_put_back_is_named_where_it_is() {
+    // Arrange -- the write fails and leaves a part of the new binary
+    // that cannot be replaced, so the old one cannot go back.
+    let exe = installed("rollback-fails");
+    let files = Flaky {
+        write_fails: true,
+        rename_onto_fails: Some(exe.clone()),
+    };
+
+    // Act
+    let error = replace(&files, &exe, b"new binary").unwrap_err();
+
+    // Assert
+    assert!(
+        matches!(
+            error,
+            Error::Platform {
+                operation: "put the old executable back",
+                ..
+            }
+        ),
+        "{error:?}"
+    );
+    let backup = exe.with_extension("exe.old");
+    let text = error.to_string();
+    assert!(text.contains(&backup.display().to_string()), "{text}");
+    assert!(text.contains("rename it to mosaico.exe"), "{text}");
+    assert_eq!(fs::read(&backup).unwrap(), b"old", "the old one is kept");
+}
