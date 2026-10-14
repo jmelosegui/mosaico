@@ -4,6 +4,8 @@ use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
 use std::io::{self, Cursor};
 use std::rc::Rc;
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use super::*;
 use crate::ipc::{PROTOCOL_VERSION, ResponseStatus};
@@ -315,4 +317,120 @@ fn the_client_reports_a_daemon_that_died_mid_request() {
 
     // Assert
     assert!(matches!(result, Err(IpcError::Closed)));
+}
+
+// -- a client that never sends --
+
+/// A connection for a server running on its own thread.
+enum ThreadedConnection {
+    /// A client that connected and never sends anything. Its reads wait
+    /// for the read timeout set on it, or for an hour if none is set.
+    Silent { timeout: Option<Duration> },
+    /// A client that sends `input` and collects the reply in `output`.
+    Talking {
+        input: Cursor<Vec<u8>>,
+        output: Arc<Mutex<Vec<u8>>>,
+    },
+}
+
+impl Read for ThreadedConnection {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        match self {
+            Self::Silent { timeout: Some(t) } => {
+                std::thread::sleep(*t);
+                Err(io::ErrorKind::TimedOut.into())
+            }
+            Self::Silent { timeout: None } => {
+                std::thread::sleep(Duration::from_secs(3600));
+                Ok(0)
+            }
+            Self::Talking { input, .. } => input.read(buf),
+        }
+    }
+}
+
+impl Write for ThreadedConnection {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        match self {
+            Self::Silent { .. } => Ok(buf.len()),
+            Self::Talking { output, .. } => output.lock().unwrap().write(buf),
+        }
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+impl IpcConnection for ThreadedConnection {
+    fn finish(self) -> Result<(), IpcError> {
+        Ok(())
+    }
+
+    fn set_read_timeout(&mut self, timeout: Duration) -> Result<(), IpcError> {
+        if let Self::Silent { timeout: slot } = self {
+            *slot = Some(timeout);
+        }
+        Ok(())
+    }
+}
+
+/// A server, safe to move to another thread, that hands out scripted
+/// connections and then fails.
+struct ThreadedServer {
+    pending: VecDeque<ThreadedConnection>,
+}
+
+impl IpcServer for ThreadedServer {
+    type Connection = ThreadedConnection;
+
+    fn accept(&mut self) -> Result<ThreadedConnection, IpcError> {
+        self.pending
+            .pop_front()
+            .ok_or_else(|| IpcError::Io(io::Error::other("listener gone")))
+    }
+}
+
+fn talking(command: Command) -> (ThreadedConnection, Arc<Mutex<Vec<u8>>>) {
+    let mut wire = Vec::new();
+    write_message(&mut wire, &Request::new(command)).unwrap();
+    let output = Arc::new(Mutex::new(Vec::new()));
+    let connection = ThreadedConnection::Talking {
+        input: Cursor::new(wire),
+        output: Arc::clone(&output),
+    };
+    (connection, output)
+}
+
+#[test]
+fn a_client_that_never_sends_does_not_block_the_next_one() {
+    // #83
+    // Arrange -- the first client connects and sends nothing; the next
+    // one asks for the daemon's status.
+    let (status, status_reply) = talking(Command::Status);
+    let (stop, _) = talking(Command::Stop);
+    let mut server = ThreadedServer {
+        pending: VecDeque::from([ThreadedConnection::Silent { timeout: None }, status, stop]),
+    };
+    let (done_tx, done_rx) = std::sync::mpsc::channel();
+
+    // Act
+    std::thread::spawn(move || {
+        let served = serve_with_timeout(&mut server, Duration::from_millis(50), |command| {
+            Some(Response::ok_with_message(format!("{command:?}")))
+        });
+        let _ = done_tx.send(served);
+    });
+
+    // Assert -- the silent client is given up on and the next one is
+    // answered, well within the time a person would wait.
+    let served = done_rx
+        .recv_timeout(Duration::from_secs(2))
+        .expect("the next client was never answered: serve is still waiting on the silent client");
+    assert!(matches!(served, Served::Stopped), "{served:?}");
+    let reply: Response = read_message(&mut BufReader::new(Cursor::new(
+        status_reply.lock().unwrap().clone(),
+    )))
+    .unwrap();
+    assert_eq!(reply, Response::ok_with_message("Status"));
 }
