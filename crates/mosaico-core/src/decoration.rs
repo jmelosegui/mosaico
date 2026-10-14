@@ -1,0 +1,61 @@
+//! The contract for drawing borders around windows and choosing how
+//! their corners look.
+
+use crate::config::CornerStyle;
+use crate::tiler::BorderStyle;
+use crate::{Result, WindowId};
+
+/// What the platform draws on and around managed windows: a border
+/// around each one, and the style of its corners.
+///
+/// The tiler decides which windows have a border, how it looks and which
+/// corners windows get. It returns those decisions as effects, and the
+/// ones that draw borders or change corners reach the platform through
+/// this trait. Changes to the windows themselves go through
+/// [`WindowControl`](crate::WindowControl).
+///
+/// # Contract for platform implementations
+///
+/// - A border surrounds the visible bounds of its window, the `rect` of
+///   its [`BorderStyle`], which follows the rule of
+///   [`WindowControl`](crate::WindowControl): no invisible resize
+///   borders or shadows. The stroke lies outside the rect, `width`
+///   pixels wide in the same pixels as the rect, and its outer corners
+///   are rounded by `radius`. A width of 0 draws nothing.
+/// - A border is only ever seen. It never takes focus or input, which
+///   goes to whatever is under it, never shows as a window of its own
+///   in the taskbar or the window switcher, and drawing, moving or
+///   hiding it never causes a [`WindowEvent`](crate::WindowEvent).
+/// - Each time it is drawn, a border goes directly behind its window,
+///   so it never covers that window or the windows in front of it.
+/// - A window has at most one border. Drawing it again moves, resizes
+///   and recolors the one it has.
+/// - Corner styles change only how a window's own corners are drawn.
+///   The window is not moved, resized, raised or focused.
+/// - Report a failure the platform can detect, such as a window that no
+///   longer exists, as an error. Never panic: callers log the error and
+///   carry on. A platform that cannot draw borders, or cannot change the
+///   corners of windows, returns
+///   [`Error::Unsupported`](crate::Error::Unsupported) from the methods
+///   that would.
+pub trait Decorations {
+    /// Draws the border around `window` the way `style` says, creating
+    /// it the first time.
+    fn show_border(&mut self, window: WindowId, style: &BorderStyle) -> Result<()>;
+
+    /// Hides the border around `window`, keeping it to draw again. Does
+    /// nothing for a window that has no border.
+    fn hide_border(&mut self, window: WindowId) -> Result<()>;
+
+    /// Removes the border around `window` for good, releasing what it
+    /// holds. Does nothing for a window that has no border. The tiler
+    /// drops the border of a window that leaves the screen.
+    fn drop_border(&mut self, window: WindowId) -> Result<()>;
+
+    /// Draws the corners of `window` the way `corners` says, see
+    /// [`CornerStyle`].
+    fn set_corners(&mut self, window: WindowId, corners: CornerStyle) -> Result<()>;
+
+    /// Gives `window` back the corners the system draws by default.
+    fn reset_corners(&mut self, window: WindowId) -> Result<()>;
+}

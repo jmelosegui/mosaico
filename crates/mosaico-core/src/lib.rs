@@ -6,6 +6,8 @@
 pub mod action;
 /// Configuration loading and types.
 pub mod config;
+/// The contract for drawing borders and corners on windows.
+pub mod decoration;
 /// The error type shared by core and the platform contracts.
 pub mod error;
 /// Window lifecycle events from the platform.
@@ -43,6 +45,7 @@ pub mod workspace;
 
 pub use action::{Action, Direction};
 pub use config::{BarConfig, Config};
+pub use decoration::Decorations;
 pub use error::{Error, Result};
 pub use event::WindowEvent;
 pub use hiding::{HidingEvents, HidingSupport};
