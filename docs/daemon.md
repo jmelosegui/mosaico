@@ -44,7 +44,7 @@ from separate `mpsc` channels into the unified `DaemonMsg` channel.
 | `crates/mosaico-windows/src/message_thread.rs` | `MessageThread` -- a thread with a message queue, stopped with `WM_QUIT` |
 | `crates/mosaico-core/src/config/reload/` | `ConfigReloader`, `ConfigReload`, `ConfigWatch` -- which config files reload and how, and the watch loop |
 | `crates/mosaico-windows/src/directory_watcher.rs` | `WindowsDirectoryWatcher` -- change notifications on the config directory |
-| `crates/mosaico-windows/src/bar_manager.rs` | `BarManager` -- manages status bar windows across monitors |
+| `crates/mosaico-core/src/bar/manager.rs` | `BarManager` -- manages the status bars across monitors, see [status-bar.md](status-bar.md) |
 
 ### Key Types
 
@@ -101,7 +101,8 @@ order, it:
 2. Initialize the logger, which then writes what was logged before it,
    such as problems found in the config (see [logging.md](logging.md))
 3. Resolve the current theme from `config.theme`
-4. Load `bar.toml` and create `BarManager` with monitor rects and theme
+4. Load `bar.toml` and create `BarManager` with `Win32BarRenderer`,
+   `Win32SystemInfo`, the monitor rects and the theme
 5. Create `TilingManager` with layout, rules, and border config
 6. Adjust work areas for bar height on monitors that display a bar
 7. Perform initial bar render with `bar_mgr.update(&manager.bar_states())`
