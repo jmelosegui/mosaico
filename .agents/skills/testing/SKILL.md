@@ -25,8 +25,12 @@ cargo test -p mosaico --bins
 cargo test --doc
 cargo test -p mosaico-core --test '*'
 cargo test -p mosaico --test cli -- help_exits_successfully version_exits_successfully debug_list_subcommand_runs \
-  an_invalid_instance_name_is_refused a_test_instance_does_not_see_other_daemons --exact
+  an_invalid_instance_name_is_refused a_test_instance_does_not_see_other_daemons \
+  doctor_and_debug_list_show_monitors_as_the_daemon_sees_them --exact
 ```
+
+`doctor_and_debug_list_show_monitors_as_the_daemon_sees_them` runs `mosaico doctor`, which only reads in a fresh test
+instance (no config to migrate, no PID file to clean up); the test checks that it changes no file there.
 
 `mosaico` is a binary crate, so `--lib` skips it. Its command unit tests (in `src/main.rs` and `commands/`) only
 run with `--bins`. The `mosaico-core` integration tests in `crates/mosaico-core/tests/` each get a process of
