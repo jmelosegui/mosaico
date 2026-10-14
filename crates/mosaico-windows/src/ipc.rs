@@ -6,6 +6,7 @@
 use std::fs::File;
 use std::io::{self, Read, Write};
 use std::os::windows::io::{AsRawHandle, FromRawHandle};
+use std::time::{Duration, Instant};
 
 use mosaico_core::Instance;
 use mosaico_core::ipc::{IpcClient, IpcConnection, IpcError, IpcServer};
@@ -21,6 +22,11 @@ use windows::Win32::System::Pipes::{
     PIPE_UNLIMITED_INSTANCES, PIPE_WAIT, WaitNamedPipeW,
 };
 use windows::core::HSTRING;
+
+use watchdog::Watchdog;
+
+#[path = "ipc_watchdog.rs"]
+mod watchdog;
 
 /// The pipe an instance's daemon listens on: `\\.\pipe\mosaico` for the
 /// default instance, `\\.\pipe\mosaico-<name>` for a named one.
@@ -190,18 +196,43 @@ impl IpcServer for PipeServer {
             Ok(spare) => self.spare = Some(spare),
             Err(e) => mosaico_core::log_warn!("IPC: could not prepare the next pipe instance: {e}"),
         }
-        Ok(PipeConnection { file })
+        Ok(PipeConnection {
+            file,
+            deadline: None,
+        })
     }
 }
 
 /// One client connection on the daemon side.
 pub struct PipeConnection {
     file: File,
+    /// When reads stop waiting for the client, if a timeout was set.
+    deadline: Option<Instant>,
 }
 
 impl Read for PipeConnection {
+    /// Reads from the client, failing with `TimedOut` once the deadline
+    /// set by `set_read_timeout` has passed. The deadline covers the
+    /// whole request, so a client sending a byte at a time cannot keep
+    /// the connection alive past it.
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.file.read(buf)
+        let Some(deadline) = self.deadline else {
+            return self.file.read(buf);
+        };
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            return Err(io::ErrorKind::TimedOut.into());
+        }
+        let watchdog = Watchdog::arm(remaining)?;
+        let result = self.file.read(buf);
+        let timed_out = watchdog.disarm();
+        match result {
+            Err(_) if timed_out => Err(io::Error::new(
+                io::ErrorKind::TimedOut,
+                "the client did not send its request in time",
+            )),
+            other => other,
+        }
     }
 }
 
@@ -216,6 +247,11 @@ impl Write for PipeConnection {
 }
 
 impl IpcConnection for PipeConnection {
+    fn set_read_timeout(&mut self, timeout: Duration) -> Result<(), IpcError> {
+        self.deadline = Some(Instant::now() + timeout);
+        Ok(())
+    }
+
     fn finish(mut self) -> Result<(), IpcError> {
         self.file.flush()?;
         let handle = HANDLE(self.file.as_raw_handle());

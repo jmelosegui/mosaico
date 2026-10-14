@@ -87,8 +87,12 @@ pub trait IpcConnection: Read + Write {
     /// Limits how long reading the request may take, counted from now.
     ///
     /// Once `timeout` has passed, reads fail with
-    /// [`io::ErrorKind::TimedOut`](std::io::ErrorKind::TimedOut). The
-    /// default does nothing.
+    /// [`io::ErrorKind::TimedOut`](std::io::ErrorKind::TimedOut), however
+    /// little or much the client has sent. [`serve`] sets it on every
+    /// connection, so a client that connects and never sends cannot hold
+    /// up the clients after it. A transport whose reads can block must
+    /// implement it; the default, which does nothing, only suits
+    /// connections that never block.
     fn set_read_timeout(&mut self, timeout: Duration) -> Result<(), IpcError> {
         let _ = timeout;
         Ok(())
@@ -131,7 +135,6 @@ pub fn serve_with_timeout<S: IpcServer>(
     timeout: Duration,
     mut handle: impl FnMut(Command) -> Option<Response>,
 ) -> Served {
-    let _ = timeout;
     loop {
         let mut connection = match server.accept() {
             Ok(connection) => connection,
@@ -144,6 +147,12 @@ pub fn serve_with_timeout<S: IpcServer>(
             Err(e) => return Served::Failed(e),
         };
 
+        // The connections are answered one at a time, so a client that
+        // connects and never sends would hold up every client after it.
+        if let Err(e) = connection.set_read_timeout(timeout) {
+            crate::log_warn!("IPC: could not limit how long a request may take: {e}");
+        }
+
         let request = read_message::<Value>(&mut BufReader::new(&mut connection))
             .map_err(|e| match e {
                 IpcError::TooLarge => Some(Response::error(
@@ -154,6 +163,10 @@ pub fn serve_with_timeout<S: IpcServer>(
                     ErrorCode::Malformed,
                     format!("malformed request: {e}"),
                 )),
+                IpcError::Io(e) if e.kind() == std::io::ErrorKind::TimedOut => {
+                    crate::log_debug!("IPC: dropped a client that sent nothing within {timeout:?}");
+                    None
+                }
                 // The client is gone; there is nobody to answer.
                 _ => None,
             })

@@ -112,6 +112,13 @@ other.
   `IpcError::Closed`: that client is lost, the server keeps listening and
   `serve()` waits for the next one. Any other `accept` error is fatal
 - `finish` must not return until the client can read the whole reply
+- `set_read_timeout` makes reads fail with `TimedOut` once the timeout has
+  passed, for the whole request. A transport whose reads can block must
+  implement it
+
+`serve()` gives every client `REQUEST_TIMEOUT` (5 seconds) to send its
+request, so a client that connects and never sends is dropped instead of
+holding up everyone after it. Connections are answered one at a time.
 
 `serve()` runs the loop: accept, read, refuse or hand the command to the
 daemon, reply, repeat. It returns `Served::Stopped` after answering `Stop`,
@@ -132,6 +139,10 @@ stop it.
   a client that connected and closed its end first, concerns that client
   only: a fresh instance takes the failed one's place and `accept` returns
   `IpcError::Closed`. Only a failure of `CreateNamedPipeW` is fatal.
+- Pipe handles are synchronous and have no read timeout of their own.
+  `PipeConnection` enforces `set_read_timeout` with a watchdog thread
+  (`ipc_watchdog.rs`) that calls `CancelSynchronousIo` on the reading thread
+  if a read is still pending when the deadline passes.
 - `PipeConnection::finish` calls `FlushFileBuffers` before
   `DisconnectNamedPipe`. Disconnecting first throws away the unread reply and
   the client gets error 233.
