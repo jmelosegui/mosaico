@@ -4,76 +4,74 @@
 use std::time::Instant;
 
 use mosaico_core::bar::BarState;
-use mosaico_core::config::{BorderConfig, LayoutConfig, WindowRule, WorkspacesConfig};
-use mosaico_core::snapshot::DesktopSnapshot;
-use mosaico_core::tiler::{Enumerator, HiddenFile, Input, Settings, Tiler};
-use mosaico_core::{Action, HidingSupport, Instance, Result, WindowControl, WindowEvent};
-
-use crate::enumerate::WindowsEnumerator;
-use crate::window_control::Win32WindowControl;
+use mosaico_core::config::{Config, WindowRule};
+use mosaico_core::tiler::{HiddenFile, Input, Platform, Settings, Tiler};
+use mosaico_core::{Action, HidingSupport, Result, WindowEvent};
 
 use super::applier::Applier;
-use super::desktop::Win32Desktop;
-use super::inspect;
 
 #[path = "manager_inputs.rs"]
 mod inputs;
 
 /// Manages tiled windows across all connected monitors.
-pub struct TilingManager {
+///
+/// Runs a [`Tiler`] on the desktop of the platform `P`: hands it the
+/// daemon's input, applies the effects it returns through the platform,
+/// holds back the ones that may wait while input keeps arriving, and
+/// drops the events its own effects cause.
+pub struct TilingManager<P> {
     tiler: Tiler,
     applier: Applier,
-    desktop: Win32Desktop,
-    control: Win32WindowControl,
+    platform: P,
 }
 
-impl TilingManager {
-    /// Creates a new tiling manager with the given layout, rules, and borders.
+impl<P: Platform> TilingManager<P> {
+    /// Starts tiling the windows on the desktop of `platform` that
+    /// `rules` accept, laid out, bordered and hidden the way `config`
+    /// says.
+    ///
+    /// `hidden` is where the record of the windows hidden by workspace
+    /// switching is kept, so that the next daemon can show them again if
+    /// this one is killed. `None` keeps no record. Fails when the
+    /// platform cannot list the monitors or the windows.
     pub fn new(
-        layout_config: &LayoutConfig,
-        workspaces_config: &WorkspacesConfig,
+        mut platform: P,
+        hidden: Option<HiddenFile>,
+        config: &Config,
         rules: Vec<WindowRule>,
-        border_config: BorderConfig,
-        mouse_follows_focus: bool,
     ) -> Result<Self> {
         // Show what a killed or crashed daemon left hidden before looking
         // at the windows, so they are found and adopted like any other.
-        let desktop = Win32Desktop::new();
-        let control = Win32WindowControl;
-        let hiding = HidingSupport::new(|how| control.hiding_events(how));
-        let hidden = Instance::current().map(HiddenFile::for_instance);
+        let hiding = HidingSupport::new(|how| platform.control().hiding_events(how));
         let mut applier = Applier::new(hidden, hiding);
-        applier.restore_previous(&desktop, &control, Instant::now());
+        let now = platform.now();
+        applier.restore_previous(&mut platform, now);
 
-        let displays = WindowsEnumerator.monitors()?;
-        let windows = WindowsEnumerator.windows()?;
+        let displays = platform.enumerator().monitors()?;
+        let windows = platform.enumerator().windows()?;
         let settings = Settings {
-            layout: layout_config.clone(),
-            workspaces: workspaces_config.clone(),
-            borders: border_config,
+            layout: config.layout.clone(),
+            workspaces: config.workspaces.clone(),
+            borders: config.borders.clone(),
             rules,
-            mouse_follows_focus,
+            mouse_follows_focus: config.mouse.follows_focus,
             hiding_support: hiding,
         };
-        let now = Instant::now();
-        let (tiler, effects) = Tiler::new(settings, &displays, &windows, &desktop, now);
+        let now = platform.now();
+        let (tiler, effects) = Tiler::new(settings, &displays, &windows, platform.desktop(), now);
         let mut manager = Self {
             tiler,
             applier,
-            desktop,
-            control,
+            platform,
         };
-        manager
-            .applier
-            .apply(effects, &manager.desktop, &manager.control, now);
+        manager.applier.apply(effects, &mut manager.platform, now);
         Ok(manager)
     }
 
     fn step(&mut self, input: Input) {
-        let now = Instant::now();
-        let effects = self.tiler.step(input, &self.desktop, now);
-        self.applier
-            .apply(effects, &self.desktop, &self.control, now);
+        let now = self.platform.now();
+        let effects = self.tiler.step(input, self.platform.desktop(), now);
+        self.applier.apply(effects, &mut self.platform, now);
     }
 
     /// Executes a user-triggered action.
@@ -86,7 +84,7 @@ impl TilingManager {
         if let WindowEvent::Destroyed { window } = *event {
             self.applier.forget(window);
         }
-        if let Some(reason) = self.applier.echo(event, Instant::now()) {
+        if let Some(reason) = self.applier.echo(event, self.platform.now()) {
             mosaico_core::log_debug!("{} suppressed ({})", event, reason);
             return;
         }
@@ -103,8 +101,8 @@ impl TilingManager {
     /// Applies everything held back. The daemon calls this when the
     /// scheduler says it is due.
     pub fn flush_pending(&mut self) {
-        self.applier
-            .flush(&self.desktop, &self.control, Instant::now());
+        let now = self.platform.now();
+        self.applier.flush(&mut self.platform, now);
     }
 
     /// Returns the total number of managed windows.
@@ -112,13 +110,19 @@ impl TilingManager {
         self.tiler.window_count()
     }
 
-    /// Returns the daemon's internal workspace state, for `debug state`.
-    pub fn snapshot(&self) -> DesktopSnapshot {
-        inspect::snapshot(&self.tiler, self.desktop.self_elevated())
-    }
-
     /// Returns a snapshot of bar state for each monitor.
     pub fn bar_states(&self, update_text: &str, paused: bool) -> Vec<BarState> {
         self.tiler.bar_states(update_text, paused)
+    }
+
+    /// The tiler's model of the desktop: the monitors, their workspaces
+    /// and windows, and what has focus.
+    pub fn tiler(&self) -> &Tiler {
+        &self.tiler
+    }
+
+    /// The platform the manager runs on.
+    pub fn platform(&self) -> &P {
+        &self.platform
     }
 }

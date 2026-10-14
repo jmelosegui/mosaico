@@ -1,15 +1,14 @@
-//! Applies the tiler's effects on the Windows desktop.
+//! Applies the tiler's effects through the platform.
 //!
 //! Effects that change a window or move the pointer are carried out by
-//! [`apply_window_effect`] through the [`WindowControl`] it is given,
-//! and borders and window corners by [`apply_decoration_effect`]
-//! through the applier's own [`Win32Decorations`]. Most effects are
-//! applied as they arrive. Two kinds are held back while the user is
-//! still pressing keys, and only the latest of each is applied once
-//! input goes quiet:
+//! [`apply_window_effect`] through the platform's window control, and
+//! borders and window corners by [`apply_decoration_effect`] through its
+//! decorations. Most effects are applied as they arrive. Two kinds are
+//! held back while the user is still pressing keys, and only the latest
+//! of each is applied once input goes quiet:
 //!
-//! - focus changes, because `SetForegroundWindow` is a cross-process
-//!   call that often takes 50-150 ms;
+//! - focus changes, because focusing another application's window is a
+//!   cross-process call that often takes 50-150 ms;
 //! - coalesced placements from moves, so a burst of moves repaints each
 //!   window once. A window's border and cursor moves wait with it, so
 //!   the border never shows at a slot the window has not reached yet.
@@ -19,13 +18,11 @@
 
 use std::time::Instant;
 
+use mosaico_core::HidingSupport;
 use mosaico_core::tiler::{
-    Coalescer, Desktop, Effect, Expectations, HiddenFile, HiddenWindows, apply_decoration_effect,
+    Coalescer, Effect, Expectations, HiddenFile, HiddenWindows, Platform, apply_decoration_effect,
     apply_window_effect,
 };
-use mosaico_core::{HidingSupport, WindowControl};
-
-use crate::decorations::Win32Decorations;
 
 #[path = "applier_hidden.rs"]
 mod hidden;
@@ -33,8 +30,6 @@ mod hidden;
 /// Executes effects and remembers what the OS should report back.
 #[derive(Default)]
 pub(super) struct Applier {
-    /// The border overlays, and the corners of managed windows.
-    decorations: Win32Decorations,
     /// Effects held back until input goes quiet.
     held: Coalescer,
     expectations: Expectations,
@@ -66,8 +61,7 @@ impl Applier {
     pub(super) fn apply(
         &mut self,
         effects: Vec<Effect>,
-        desktop: &dyn Desktop,
-        control: &dyn WindowControl,
+        platform: &mut dyn Platform,
         now: Instant,
     ) {
         for effect in effects {
@@ -75,7 +69,7 @@ impl Applier {
                 self.expectations.held(&effect);
             }
             if let Some(effect) = self.held.admit(effect, now) {
-                self.run(&effect, desktop, control, now);
+                self.run(&effect, platform, now);
             }
         }
     }
@@ -86,14 +80,9 @@ impl Applier {
     }
 
     /// Applies everything held back.
-    pub(super) fn flush(
-        &mut self,
-        desktop: &dyn Desktop,
-        control: &dyn WindowControl,
-        now: Instant,
-    ) {
+    pub(super) fn flush(&mut self, platform: &mut dyn Platform, now: Instant) {
         for effect in self.held.take() {
-            self.run(&effect, desktop, control, now);
+            self.run(&effect, platform, now);
         }
     }
 
@@ -110,13 +99,7 @@ impl Applier {
         self.expectations.echo(event, now)
     }
 
-    fn run(
-        &mut self,
-        effect: &Effect,
-        desktop: &dyn Desktop,
-        control: &dyn WindowControl,
-        now: Instant,
-    ) {
+    fn run(&mut self, effect: &Effect, platform: &mut dyn Platform, now: Instant) {
         match effect {
             Effect::Place { .. }
             | Effect::PrePlace { .. }
@@ -128,14 +111,19 @@ impl Applier {
             | Effect::Close { .. }
             | Effect::Minimize { .. }
             | Effect::Repaint { .. }
-            | Effect::PutBehind { .. } => apply_window_effect(effect, desktop, control),
+            | Effect::PutBehind { .. } => {
+                apply_window_effect(effect, platform.desktop(), platform.control())
+            }
             Effect::Decorate { .. }
             | Effect::Undecorate { .. }
             | Effect::Border { .. }
-            | Effect::DropBorder { .. } => apply_decoration_effect(effect, &mut self.decorations),
+            | Effect::DropBorder { .. } => apply_decoration_effect(effect, platform.decorations()),
         }
         self.expectations.applied(effect, now);
-        if self.hidden.applied(effect, |w| desktop.identity(w)) {
+        if self
+            .hidden
+            .applied(effect, |w| platform.desktop().identity(w))
+        {
             self.save_hidden();
         }
     }

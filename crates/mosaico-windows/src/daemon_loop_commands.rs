@@ -4,7 +4,7 @@
 use mosaico_core::bar::BarManager;
 use mosaico_core::ipc::{Command, DAEMON_VERSION, DaemonStatus, PROTOCOL_VERSION, Response};
 
-use crate::tiling::TilingManager;
+use crate::tiling::{TilingManager, TilingViews};
 
 use super::daemon_inputs::Inputs;
 

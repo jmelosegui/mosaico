@@ -3,8 +3,8 @@
 
 use std::time::Instant;
 
-use mosaico_core::tiler::Desktop;
-use mosaico_core::{WindowControl, WindowId};
+use mosaico_core::WindowId;
+use mosaico_core::tiler::Platform;
 
 use super::Applier;
 
@@ -14,16 +14,11 @@ impl Applier {
     ///
     /// Run before the first windows are enumerated, so they are adopted
     /// like any other window.
-    pub(crate) fn restore_previous(
-        &mut self,
-        desktop: &dyn Desktop,
-        control: &dyn WindowControl,
-        now: Instant,
-    ) {
+    pub(crate) fn restore_previous(&mut self, platform: &mut dyn Platform, now: Instant) {
         let Some(file) = &self.hidden_file else {
             return;
         };
-        let effects = file.load().restore(|w| desktop.identity(w));
+        let effects = file.load().restore(|w| platform.desktop().identity(w));
         if !effects.is_empty() {
             mosaico_core::log_info!(
                 "showing {} window(s) a previous daemon left hidden",
@@ -31,7 +26,7 @@ impl Applier {
             );
         }
         for effect in &effects {
-            self.run(effect, desktop, control, now);
+            self.run(effect, platform, now);
         }
         self.save_hidden();
     }

@@ -3,13 +3,11 @@
 
 use mosaico_core::Result;
 use mosaico_core::config::{Config, WindowRule};
-use mosaico_core::tiler::{BarReservation, Display, Enumerator, Input};
-
-use crate::enumerate::WindowsEnumerator;
+use mosaico_core::tiler::{BarReservation, Display, Input, Platform};
 
 use super::TilingManager;
 
-impl TilingManager {
+impl<P: Platform> TilingManager<P> {
     /// Redraws every border to match the current window positions.
     pub fn refresh_border(&mut self) {
         self.step(Input::RefreshBorders);
@@ -39,7 +37,8 @@ impl TilingManager {
 
     /// Rebuilds the monitor state after a display configuration change.
     ///
-    /// `new_monitors` are left to right, as [`Enumerator::monitors`]
+    /// `new_monitors` are left to right, as
+    /// [`Enumerator::monitors`](mosaico_core::tiler::Enumerator::monitors)
     /// lists them.
     pub fn handle_display_change(
         &mut self,
@@ -69,7 +68,7 @@ impl TilingManager {
         bar_monitors: &[usize],
     ) -> Result<()> {
         // No monitors leaves every work area as it was.
-        let (monitors, read) = match WindowsEnumerator.monitors() {
+        let (monitors, read) = match self.platform.enumerator().monitors() {
             Ok(monitors) => (monitors, Ok(())),
             Err(e) => (Vec::new(), Err(e)),
         };
