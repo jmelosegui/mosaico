@@ -29,6 +29,18 @@ fn a_status_outside_200_to_299_names_the_url_and_the_status() {
 }
 
 #[test]
+fn a_timeout_under_a_millisecond_does_not_become_wait_forever() {
+    // Arrange -- WinHTTP takes a timeout of 0 as "no timeout at all".
+    let timeouts = [Duration::ZERO, Duration::from_micros(500)];
+
+    // Act
+    let ms = timeouts.map(timeout_ms);
+
+    // Assert
+    assert_eq!(ms, [1, 1]);
+}
+
+#[test]
 fn a_timeout_is_whole_milliseconds_capped_to_what_winhttp_takes() {
     // Act / Assert
     assert_eq!(timeout_ms(Duration::from_secs(5)), 5000);
