@@ -513,8 +513,8 @@ that changes them.
       jump; the final place lands after frames that land late; a window not
       seen to move for 50 ms finishes its step; each ending rule; monocle off
       shrinks the front window back to its tile
-- [ ] A metrics scenario for a swap with animations on
-- [ ] With animations off, the tiler and platform calls of every existing test
+- [x] A metrics scenario for a swap with animations on
+- [x] With animations off, the tiler and platform calls of every existing test
       are unchanged
 
 ### 34.4 Verification and docs

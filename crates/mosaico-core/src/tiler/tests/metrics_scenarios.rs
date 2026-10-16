@@ -10,7 +10,7 @@ use crate::config::Config;
 
 use super::fake_platform::FakePlatform;
 use super::manager_support::start;
-use super::metrics_support::{Manager, Measured, act, burst, four, on, taken, windows};
+use super::metrics_support::{Manager, Measured, act, animate, burst, four, on, taken, windows};
 use super::*;
 
 /// A scenario: its name, and how to run it.
@@ -26,6 +26,9 @@ pub(super) const SCENARIOS: &[Scenario] = &[
     ("focus_once", || act(&[Action::Focus(Direction::Right)])),
     ("focus_burst_of_9", || act(&burst(Action::Focus))),
     ("move_once", || act(&[Action::Move(Direction::Right)])),
+    ("move_once_animated", || {
+        animate(&[Action::Move(Direction::Right)])
+    }),
     ("move_burst_of_9", || act(&burst(Action::Move))),
     ("retile", || act(&[Action::Retile])),
     ("cycle_layout", || act(&[Action::CycleLayout])),
