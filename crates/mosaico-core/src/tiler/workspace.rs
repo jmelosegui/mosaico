@@ -35,7 +35,13 @@ impl Tiler {
     /// left. Hiding first would hide the window that holds focus, and
     /// the OS may show it again on its own during rapid switching if
     /// nothing else takes focus first. A no-op when already there.
-    fn goto_workspace_on(&mut self, plan: &mut Plan, mon_idx: usize, idx: usize, refocus: bool) {
+    pub(super) fn goto_workspace_on(
+        &mut self,
+        plan: &mut Plan,
+        mon_idx: usize,
+        idx: usize,
+        refocus: bool,
+    ) {
         let Some(mon) = self.monitors.get(mon_idx) else {
             return;
         };

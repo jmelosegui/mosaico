@@ -214,8 +214,12 @@ the split tiling modules:
 
 The `TilingManager` supports hot-reloading of configuration:
 
-- `reload_config(config)` -- updates the layout gap/ratio and
-  `BorderConfig`, then retiles all windows and updates the border
+- `reload_config(config)` -- updates the layout gap/ratio, the hiding
+  strategy and `BorderConfig`, then retiles every monitor and updates the
+  borders. A reload that turns global mode on switches every other monitor
+  to the focused monitor's workspace with `goto_workspace_on()`, once the
+  new settings are in place; a monitor that switches is laid out as it
+  switches, and is not retiled again.
 - `reload_rules(rules)` -- replaces the window rules and judges every managed
   window against them again, letting go of the ones they no longer manage. A
   window hidden on another workspace is judged by the rules alone and shown

@@ -325,7 +325,10 @@ same way.
   have is swapped for one it has, with a warning in the log, as at startup.
   Windows hidden before the change are shown again the way they were hidden.
   The workspace mode
-  (`workspaces.mode`) is reloaded live. Per-workspace layout overrides
+  (`workspaces.mode`) is reloaded live. Turning `"global"` on switches every
+  monitor to the focused monitor's workspace, hiding and showing windows as
+  a workspace switch does; turning it off leaves each monitor on the
+  workspace it shows. Per-workspace layout overrides
   (`[workspaces.layouts]` and `layout.default`) are applied at startup only;
   reloading does not override the active layout chosen via `cycle-layout`
   or `set-layout`; restart the daemon to pick up changes.
