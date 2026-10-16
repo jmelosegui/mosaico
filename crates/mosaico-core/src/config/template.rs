@@ -23,3 +23,7 @@ pub use template_rules::{generate_rules, generate_user_rules};
 #[cfg(test)]
 #[path = "template_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "template_animations_tests.rs"]
+mod animations_tests;

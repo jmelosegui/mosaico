@@ -11,8 +11,14 @@
 //! for its last placement to land, is dropped with its motion. The frame
 //! step also ends the waits by time for windows to land where a posted
 //! placement takes them (`applier_landing.rs`).
+//!
+//! The log hears of a window that falls behind, of each motion that ends
+//! and of each step whose last motion ended, never of a frame on its own
+//! (see `motion::Journal`).
 
 use std::time::Instant;
+
+use crate::motion::Ending;
 
 use super::super::Platform;
 use super::Applier;
@@ -32,17 +38,28 @@ impl Applier {
     /// platform found, places the windows whose motions are over, and ends
     /// the waits by time that are due.
     pub(in crate::tiler) fn frame(&mut self, platform: &mut dyn Platform, now: Instant) {
+        self.log_step();
         let mut tick = self.transitions.motions.frame(now);
+        // The motions whose end time has come. Those `take` adds after them
+        // end as their step fell behind.
+        let on_time = tick.finished.len();
         if !tick.in_flight.is_empty() {
             let transitions = &mut self.transitions;
             let outcomes = &mut transitions.outcomes;
             match platform.control().place_frames(&tick.in_flight, outcomes) {
                 Ok(()) => {
                     transitions.frames_failing = false;
+                    let ended = transitions.journal.framed(&tick.in_flight, outcomes, now);
                     transitions.motions.take(&mut tick, outcomes, now);
                     self.posted.frames_sent(&tick.in_flight, outcomes);
+                    ended.into_iter().for_each(|line| self.log(line));
+                    for &window in &tick.behind {
+                        if let Some(line) = self.transitions.journal.fell_behind(window) {
+                            self.log(line);
+                        }
+                    }
                 }
-                Err(error) => self.frames_failed(&error, &tick, platform),
+                Err(error) => self.frames_failed(&error, &tick, platform, now),
             }
         }
         self.follow_reached(&tick.reached, platform.decorations());
@@ -50,8 +67,14 @@ impl Applier {
             self.forget_kept_border(window);
             self.forget_landing(window);
         }
-        for &(window, target) in &tick.finished {
-            self.in_place(window, target, platform);
+        for (i, &(window, target)) in tick.finished.iter().enumerate() {
+            let ending = if i < on_time {
+                Ending::AtTarget
+            } else {
+                Ending::FellBehind
+            };
+            let placed = self.in_place(window, target, platform);
+            self.log_end(window, ending, Some(placed), now);
         }
         self.land_overdue(platform, now);
     }

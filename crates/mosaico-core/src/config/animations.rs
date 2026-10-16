@@ -18,8 +18,9 @@ pub(super) const MAX_DURATION_MS: i32 = 1000;
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct AnimationConfig {
-    /// Whether windows move to their new place in a transition. Off by
-    /// default until transitions have been verified on the live desktop.
+    /// Whether windows move to their new place in a transition. On by
+    /// default; with `follow_system`, windows still snap while the
+    /// system's own setting turns animations off.
     pub enabled: bool,
     /// How long a transition lasts, in milliseconds, from 0 to 1000.
     pub duration: i32,
@@ -35,7 +36,7 @@ pub struct AnimationConfig {
 impl Default for AnimationConfig {
     fn default() -> Self {
         Self {
-            enabled: false,
+            enabled: true,
             duration: 180,
             easing: Easing::default(),
             follow_system: true,

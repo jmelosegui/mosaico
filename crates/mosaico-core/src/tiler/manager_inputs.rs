@@ -23,17 +23,21 @@ impl<P: Platform> TilingManager<P> {
     /// in their slots first, behind the frames on their way to them, and
     /// have no border drawn there: the tiler hides them all.
     pub fn restore_all_windows(&mut self) {
-        self.applier.finish_motions(&mut self.platform);
+        let now = self.platform.now();
+        self.applier.finish_motions(&mut self.platform, now);
         self.step(Input::Shutdown);
     }
 
     /// Applies a new layout, border, mouse and animation config, then
     /// retiles. A window already moving keeps its duration and easing
     /// while its target stays; one the retile sends elsewhere turns with
-    /// the new ones, and with transitions off it snaps there.
+    /// the new ones, and with transitions off it snaps there. A session
+    /// that has no frames keeps them off.
     pub fn reload_config(&mut self, config: &Config) {
         self.applier.set_animations(&config.animations);
-        self.step(Input::Config(Box::new(config.clone())));
+        let mut config = config.clone();
+        config.animations.enabled &= self.applier.has_frames();
+        self.step(Input::Config(Box::new(config)));
     }
 
     /// Replaces the window rules and lets go of windows they no longer
@@ -50,14 +54,16 @@ impl<P: Platform> TilingManager<P> {
     /// when there is none ([`display_change_skipped`](Self::display_change_skipped)),
     /// unless something placed them or took them out of view meanwhile.
     pub fn display_changing(&mut self) {
-        self.applier.display_changing();
+        let now = self.platform.now();
+        self.applier.display_changing(now);
     }
 
     /// Ends a display change the daemon does not rebuild for, as when it
     /// cannot read the monitors: the windows it stopped are placed at their
     /// targets, and placements may animate again.
     pub fn display_change_skipped(&mut self) {
-        self.applier.display_changed(&mut self.platform);
+        let now = self.platform.now();
+        self.applier.display_changed(&mut self.platform, now);
     }
 
     /// Rebuilds the monitor state after a display configuration change.
@@ -79,7 +85,8 @@ impl<P: Platform> TilingManager<P> {
             monitors: new_monitors,
             bar: bar(bar_height, bar_monitor_indices),
         });
-        self.applier.display_changed(&mut self.platform);
+        let now = self.platform.now();
+        self.applier.display_changed(&mut self.platform, now);
     }
 
     /// Reserves the bar height at the top of each bar monitor, then

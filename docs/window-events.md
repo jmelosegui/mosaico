@@ -104,9 +104,10 @@ Windows hides a window as it destroys it, so a window that closes while
 shown reports `EVENT_OBJECT_HIDE` and then `EVENT_OBJECT_DESTROY`: `Hidden`,
 then `Destroyed`.
 
-Both functions are pure. `event_tests.rs` checks them with the values Windows
-reports in each of these cases, including the hide and show a
-GPU-accelerated application reports while it recreates its drawing surface.
+Both functions are pure. `event_tests.rs` and, for the start of a drag,
+`event_drag_tests.rs` check them with the values Windows reports in each of
+these cases, including the hide and show a GPU-accelerated application
+reports while it recreates its drawing surface.
 
 ## Event Hook Configuration
 
@@ -164,13 +165,13 @@ pointer is read with `GetCursorPos`, `WindowFromPoint` and
 | `Destroyed` | Remove window from workspace, re-tile |
 | `Hidden` | Remove the window, if it is really no longer visible, and stop its transition then |
 | `Focused` | Update focus tracking, show/reposition border |
-| `MouseHover` | Focus the window, if it is managed and on the active workspace; dropped while windows move. That rarely matters: a report takes 3 polls, at least 200 ms, longer than a default 180 ms transition, so a window sliding under a pointer at rest is usually reported only once it stops |
+| `MouseHover` | Focus the window, if it is managed and on the active workspace; dropped while windows move, and not repeated until the pointer moves to another window. That rarely matters: a report takes 3 polls, at least 200 ms, longer than a default 180 ms transition, so a window sliding under a pointer at rest is usually reported only once it stops |
 | `MoveStarted` | Stop the window's transition, if it is moving; the layout changes when the drag ends, with `Moved` |
 | `Moved` | Detect monitor reassignment, re-tile if needed |
 | `Minimized` | Remove from workspace, re-tile, and stop the window's transition, if it is really minimized |
 | `Restored` | Re-add to workspace, re-tile |
 | `TitleChanged` | Adopt a window that only became recognizable once it had a title |
-| `LocationChanged` | Notice the focused window entering or leaving maximized state |
+| `LocationChanged` | Notice the focused window entering or leaving maximized state; once a window still to land where a posted placement takes it reports being there, or being anywhere once the wait for it by time is over, repaint it again and draw its border there (`applier_landing.rs`) |
 
 ## Design Decisions
 

@@ -38,6 +38,8 @@ mod landed_tests;
 mod landing_tests;
 #[path = "motion_late_tests.rs"]
 mod late_tests;
+#[path = "motion_log_tests.rs"]
+mod log_tests;
 #[path = "motion_off_tests.rs"]
 mod off_tests;
 #[path = "motion_posted_tests.rs"]

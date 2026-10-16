@@ -4,11 +4,11 @@
 //! its own, and a window a display change brings into view is placed
 //! before it is shown.
 
-use crate::config::{Config, HidingBehaviour, WorkspaceMode};
+use crate::config::{HidingBehaviour, WorkspaceMode};
 use crate::id::wid;
 use crate::tiler::tests::displays;
 use crate::tiler::tests::fake_platform::Call;
-use crate::tiler::tests::manager_support::start;
+use crate::tiler::tests::manager_support::{start, still};
 use crate::{Action, WindowEvent};
 
 use super::{FakePlatform, two};
@@ -17,7 +17,7 @@ use super::{FakePlatform, two};
 fn the_restores_of_a_minimizing_round_trip_are_the_tilers_own_with_animations_off() {
     // Arrange -- workspaces hide windows by minimizing them, and window 1
     // has focus.
-    let mut config = Config::default();
+    let mut config = still();
     config.layout.hiding = HidingBehaviour::Minimize;
     let (platform, mut manager) = two(&config);
     manager.handle_event(&WindowEvent::Focused { window: wid(1) });
@@ -45,7 +45,7 @@ fn a_maximized_window_a_display_change_brings_into_view_is_placed_first_with_ani
     // Arrange -- windows 1 and 2 sit on monitor 1 of two, whose workspaces
     // hide windows by hiding them. Window 1 is maximized, and monitor 1
     // switches to workspace 2.
-    let mut config = Config::default();
+    let mut config = still();
     config.layout.hiding = HidingBehaviour::Hide;
     config.workspaces.mode = WorkspaceMode::PerMonitor;
     let platform = FakePlatform::new(2, &[(1, 1), (2, 1)]);

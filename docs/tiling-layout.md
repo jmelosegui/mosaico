@@ -28,8 +28,23 @@ contracts the manager runs on.
 | `crates/mosaico-core/src/tiler/layout.rs`, `layout_actions.rs` | `apply_layout_on()`, `retile_all()`, `toggle_monocle()`, `cycle_layout()` -- layout application |
 | `crates/mosaico-core/src/tiler/workspace.rs` | `goto_workspace()`, `send_to_workspace()` -- workspace switching |
 | `crates/mosaico-core/src/tiler/manager.rs`, `manager_inputs.rs` | `TilingManager` -- runs the tiler on a `Platform`, event/action dispatch |
+| `crates/mosaico-core/src/tiler/manager_frames.rs` | `wants_frames()`, `frame_due(after)`, `frame()`, `turn_off_transitions()` -- what the daemon drives transitions with |
 | `crates/mosaico-core/src/tiler/applier.rs` | Applies effects, holds focus changes and moves back, drops their echoes |
-| `crates/mosaico-core/src/tiler/applier_motion.rs` | Placements that animate: the motions they become, and their ends |
+| `crates/mosaico-core/src/tiler/applier_run.rs` | Carries out each effect the applier lets through, the ones that reach a moving window included |
+| `crates/mosaico-core/src/tiler/applier_motion.rs` | Placements that animate: the motions they become |
+| `crates/mosaico-core/src/tiler/applier_frames.rs` | The frame step: posting frames, acting on what the platform found, and placing the windows whose motions are over |
+| `crates/mosaico-core/src/tiler/applier_ends.rs` | What ends a motion, effect by effect and event by event, and where the pointer goes |
+| `crates/mosaico-core/src/tiler/applier_stop.rs` | Ending motions at once: every one as the tiler stops or transitions turn off, and those whose frames failed; and, while transitions are off, having the platform forget the windows it gave frames to |
+| `crates/mosaico-core/src/tiler/applier_display.rs` | What a display change does to moving windows: each stops where it is and keeps its target, where it is placed once the change is rebuilt for |
+| `crates/mosaico-core/src/tiler/applier_borders.rs` | The borders of moving windows |
+| `crates/mosaico-core/src/tiler/applier_posted.rs`, `applier_reports.rs` | What may still be on its way to a window, which the applier does not read back as done, and what a report of the window says of it, its echoes included (`Applier::echo`) |
+| `crates/mosaico-core/src/tiler/applier_landing.rs` | The windows a posted placement is taking somewhere, until they land: on a report, or at `LANDING_WAIT` |
+| `crates/mosaico-core/src/tiler/applier_shows.rs`, `applier_view.rs` | The changes of show state on their way to windows, and the tiler's view of the desktop with each window as the change leaves it |
+| `crates/mosaico-core/src/tiler/plan_maximized.rs` | Whether a window placed in a step is still maximized after it, with its changes posted |
+| `crates/mosaico-core/src/tiler/applier_transitions.rs` | What the applier keeps for transitions, and the lines it logs of them |
+| `crates/mosaico-core/src/motion/policy.rs` | `step_animates()`, `still_animates()` -- which placements animate; `step_snap()`, `apply_snap()` in `policy_snap.rs` -- why the others snap |
+| `crates/mosaico-core/src/motion/motions.rs` | `Motions` -- the table of moving windows; each frame and what it found in `motions_frame.rs` |
+| `crates/mosaico-core/src/motion/journal.rs` | `Journal` -- what the log is told of each motion |
 | `crates/mosaico-core/src/tiler/platform.rs` | `Platform` -- what the tiling manager needs from the OS |
 | `crates/mosaico-windows/src/tiling/platform.rs` | `Win32Platform` -- the Win32 implementation of each of those contracts |
 
@@ -244,11 +259,12 @@ dedicated methods in the split tiler modules:
 The `TilingManager` supports hot-reloading of configuration:
 
 - `reload_config(config)` -- updates the layout gap/ratio, the hiding
-  strategy and `BorderConfig`, then retiles every monitor and updates the
-  borders. A reload that turns global mode on switches every other monitor
-  to the focused monitor's workspace with `goto_workspace_on()`, once the
-  new settings are in place; a monitor that switches is laid out as it
-  switches, and is not retiled again.
+  strategy, `BorderConfig`, whether the mouse follows focus and the
+  `[animations]` settings, which the applier gets too, then retiles every
+  monitor and updates the borders. A reload that turns global mode on
+  switches every other monitor to the focused monitor's workspace with
+  `goto_workspace_on()`, once the new settings are in place; a monitor that
+  switches is laid out as it switches, and is not retiled again.
 - `reload_rules(rules)` -- replaces the window rules and judges every managed
   window against them again, letting go of the ones they no longer manage. A
   window hidden on another workspace is judged by the rules alone and shown
@@ -260,8 +276,9 @@ The `TilingManager` supports hot-reloading of configuration:
 - `bar_states()` -- returns per-monitor `BarState` from `Tiler::bar_states()`:
   workspace count, active workspace, layout, monocle and the focused window
 - `restore_all_windows()` -- shows all windows across every workspace and
-  monitor; called on shutdown so windows hidden by workspace switching are
-  not left invisible
+  monitor, once the windows still moving have been placed at their targets
+  (see [Placements That Animate](#placements-that-animate)); called on
+  shutdown so windows hidden by workspace switching are not left invisible
 
 ### Layout Application
 
@@ -303,13 +320,15 @@ Every `Effect::Place` carries a `transition`: `Snap`, the window is put in
 place at once, or `Animate`, it may move there over a short time. The layout
 passes place windows through `Plan::place`, which records the monitor each
 placement lays its window out on, and every placement starts as `Snap`. As
-the step finishes, `Plan::finish` (`plan_transitions.rs`) runs the step
-decision, `motion::step_animates`, over the placements of the step and marks
-the ones it allows `Animate`. It needs facts only the step has:
+the step finishes, `Plan::finish` (`plan.rs`) runs the step decision,
+`motion::step_animates`, over the placements of the step (`mark` in
+`plan_transitions.rs`) and marks the ones it allows `Animate`. It needs facts
+only the step has:
 
 - whether transitions are on (`[animations]` enabled, with a duration above
   zero), which the tiler takes from `Settings` at start and from every
-  config reload;
+  config reload, and which stay off in a session without frames, whatever
+  the config says (see below);
 - whether the step shows the window, moves it ahead of the layout
   (`PrePlace`) or takes it in (`Plan::take_in`, from `add_and_focus`,
   `try_adopt` and a window dropped onto a monitor): such a window appears
@@ -317,8 +336,9 @@ the ones it allows `Animate`. It needs facts only the step has:
 - whether the window is put behind another before its placement, as the
   windows waiting behind a monocle window are;
 - whether the step is a display change, the tiler's start, or the bar
-  reservation right after it (`Tiler::step` in `step.rs`): everything snaps
-  while monitors and work areas are in flux;
+  reservation right after it (`Tiler::new` for the start, `Tiler::step` in
+  `step.rs` for the others): everything snaps while monitors and work areas
+  are in flux;
 - whether the monitor the placement lays the window out on is the one the
   desktop has it on: a window that changes monitors snaps;
 - how many windows the step's placements move from where the desktop has
@@ -332,16 +352,22 @@ The applier checks a marked placement again as it applies it
 (`applier_motion.rs`), against what the desktop says then, with
 `motion::still_animates`: the system allows animations (while `follow_system`
 is on), the window is neither minimized nor maximized, some edge of it travels
-more than 4 pixels, and the platform can move windows through frames. A
-placement that passes becomes a motion in the applier's `Motions` table,
-starting from where the window is as far as its motion knows if it is moving,
-otherwise from where the desktop has it, with the duration and easing
+more than 4 pixels, and the platform can move windows through frames. No
+placement animates while a display change settles (see below). A
+placement that passes becomes a motion in the applier's `Motions` table. A
+window at rest starts from where it was last sent while that may still be on
+its way, as to a busy window, and otherwise from where the desktop has it,
+along the easing, with the duration configured then. A target the window
+already has changes nothing while its placement still animates, and a new
+one mid-flight continues from where the motion has the window, keeping as
+much of its speed as does not carry it past the target, over the duration
 configured then. The applier takes the `[animations]` settings at start and
 from every reload. A motion in flight keeps the duration and easing it
 started with while its target stays; one that a reload's retile sends
-elsewhere turns towards its new target with the new ones, and with
-transitions off it snaps there. Any other placement of a moving window ends
-its motion and places it at once, in full.
+elsewhere turns towards its new target over the new duration. A reload that
+turns transitions off snaps every moving window its retile places, whether
+its target changed or not. Any other placement of a moving window, one that
+no longer animates included, ends its motion and places it at once, in full.
 
 The windows an `apply` or a `flush` sets moving form a step
 (`Motions::begin_step`).
@@ -353,28 +379,33 @@ each window (`motion/motions_frame.rs`):
 - A window that handled the frame before moves on, and its border is moved
   to where the frame found it, or, when it took the frame posted at the step
   before exactly, to the frame now posted: the border neither trails a
-  window that keeps up nor runs ahead of a slow one. One still to handle its
-  frame stays, and so does its border.
+  window that keeps up nor runs ahead of a slow one. A window that changes
+  size on its way has its border hidden until it is in place instead (see
+  [focus-border.md](focus-border.md#borders-of-moving-windows)). One still to
+  handle its frame stays, and so does its border.
 - A window found still to handle its frame and not seen to move for 50 ms
-  (`MAX_LAG`) since it handled its first frame has fallen behind: every
-  motion of its step, and no other, ends at once with a full placement at
-  its target. The limit is a time, so it is the same at any refresh rate,
-  and it starts at the first frame, so what ran before the first frame
-  step does not count.
+  (`MAX_LAG`), since its motion started or since it handled its first
+  frame, has fallen behind: every motion of its step, and no other, ends at
+  once with a full placement at its target. The limit is a time, so it is
+  the same at any refresh rate. A window that handled its first frame
+  counts from then, so a first frame step that came late does not make it
+  fall behind; one still to handle its first frame counts from the start of
+  its motion.
 - A window maximized or minimized meanwhile stops where it is, and one that
   is gone is forgotten. What its motion kept for its border is dropped.
 - A motion ends at its end time with a full placement at its exact target,
-  as a placement without a transition is, and its border is drawn once
+  made even when the window is there already, and its border is drawn once
   there: at once, as the last frames usually took the window there, or once
   the window lands, as below.
 
 No placement waits for a frame to land: the platform orders a placement,
-and a change of how a window is shown, behind what was posted to the window
-before, so a placement made while a frame is on its way lands after it. A
+a repaint, `put_behind` and a change of how a window is shown other than
+cloaking, behind what was posted to the window before, so a placement made
+while a frame is on its way lands after it; `focus` is never posted. A
 window whose application stopped responding after it was given frames
 needs nothing of its own: its placement is posted like its frames. One that
 had stopped before any was gets nothing posted, and is placed as it is
-without transitions.
+without transitions: the call is made at once, and waits for it.
 
 While something posted to a window may still be on its way
 (`FrameControl::posts_behind`), the desktop may not show it yet, so the
@@ -440,9 +471,11 @@ time for a window to land ends, after `after`, the last frame step.
 When `place_frames` returns `Unsupported`, the applier logs it once, places
 every moving window at its target at once, and lets nothing animate from
 then on; `TilingManager::turn_off_transitions()` does the same for a daemon
-that cannot have display frames. Any other error is logged once until
-frames work again, and places the windows the frames were for at their
-targets, as placements that snap do.
+that cannot have display frames. Either way the tiler then has transitions
+off in the step decision (`Tiler::turn_off_transitions`), whatever a reload
+says, so every placement is marked to snap. Any other error is logged once
+until frames work again, and places the windows the frames were for at
+their targets, as placements that snap do.
 
 While transitions are off, by the config, by the system's setting it
 follows, or because the platform cannot move windows frame by frame, the
@@ -454,7 +487,9 @@ those windows is still posted to, as it is within the grace or while its
 application does not respond (`applier_stop.rs`). So a step decides as it
 would from startup once the windows have settled.
 
-Other effects that reach a moving window (`applier_ends.rs`):
+Other effects that reach a moving window (`applier_run.rs`, with the events in
+`Applier::echo`, in `applier_reports.rs`, and the endings in
+`applier_ends.rs`):
 
 - `Hide`, `Minimize`, and the window's `Destroyed` and `MoveStarted`
   events, which `Applier::echo` sees first, stop the motion where the window
@@ -484,10 +519,25 @@ Other effects that reach a moving window (`applier_ends.rs`):
   the border its motion kept is drawn there.
 - `Focus { move_cursor: true }` and `CenterCursor` put the pointer at the
   center of the window's target, not where it is on its way there.
-- `MouseHover` is dropped while windows move. That rarely matters: a report
-  takes three polls of the pointer, at least 200 ms, longer than a default
-  180 ms transition, so a window sliding under a pointer at rest is usually
+- `MouseHover` is dropped while windows move, and is not repeated until the
+  pointer moves to another window. That rarely matters: a report takes three
+  polls of the pointer, at least 200 ms, longer than a default 180 ms
+  transition, so a window sliding under a pointer at rest is usually
   reported only once it has stopped.
+
+With debug logging, the step decision logs why a step or a placement that
+moves its window snaps, from `motion::step_snap` (`plan_transitions_log.rs`),
+and the applier logs the windows each step sets moving or turns, why a
+placement snaps as it is applied (`motion::apply_snap`), or because a display
+change settles, a window that falls behind, as the frame step decided
+(`Tick::behind`), how each motion ends and how the placement that ended it
+was made, each step once its last motion has ended or a later step has
+turned it, with its slowest window, each window a display change stopped as
+it is placed at the target it kept, and each window a transition placed
+behind what was on its way as it lands, on a report or once the wait for it
+by time is over: from the `motion::Journal` it keeps of each motion and its
+record of what was posted, never a line per frame (see
+[animations.md](animations.md#log-lines)).
 
 ### Window Tileability
 
@@ -643,11 +693,11 @@ and showing windows cause are kept from undoing a switch as described in
 - The core layout module is split into sub-files (`mod.rs`, `bsp.rs`,
   `vertical_stack.rs`, `three_column.rs`, `tests.rs`) with one layout per
   file. The tiler in `crates/mosaico-core/src/tiler/` is split the same way,
-  one concern per file: the state machine and `step` in `mod.rs`, startup in
-  `startup.rs`, actions in `actions.rs`, window events in `events.rs`,
-  layout in `layout.rs` and `layout_actions.rs`, workspaces in
-  `workspace.rs`, navigation in `navigation.rs`, and the tiling manager
-  that runs it in `manager.rs`.
+  one concern per file: the state machine in `mod.rs`, `step` in `step.rs`,
+  startup in `startup.rs`, actions in `actions.rs`, window events in
+  `events.rs`, layout in `layout.rs` and `layout_actions.rs`, workspaces in
+  `workspace.rs`, navigation in `navigation.rs`, and the tiling manager that
+  runs it in `manager.rs`.
 - `restore_all_windows()` iterates all workspaces on all monitors to ensure
   no window remains invisible after daemon shutdown.
 
@@ -655,18 +705,29 @@ and showing windows cause are kept from undoing a switch as described in
 
 - 5 unit tests for `BspLayout`: single window, two windows, three windows,
   empty input, large gap safety
-- 5 unit tests for `VerticalStackLayout`: single window, two windows, three
-  windows, five windows, empty input
-- 5 unit tests for `ThreeColumnLayout`: single window, two windows, three
-  windows (center master), five windows (alternating sides), empty input
+- 6 unit tests for `VerticalStackLayout`: single window, two windows, three
+  windows, five windows, empty input, inner gaps that match the outer padding
+- 6 unit tests for `ThreeColumnLayout`: single window, two windows, three
+  windows (center master), five windows (alternating sides), empty input,
+  inner gaps that match the outer padding
 - 2 unit tests for `LayoutKind`: cycle order, display names
 - 3 unit tests for `Workspace`: add/remove, insert at position, layout
-  delegation
+  delegation, and 8 for its monocle state in `workspace/monocle_tests.rs`
 - Tiler tests in `crates/mosaico-core/src/tiler/tests/`, against a fake
   desktop: event handling, action dispatch, workspace switching, config
   reload, window restore
 - Tiling manager tests in the same place, against a fake platform: what is
   held back until it is flushed, echoes of its own effects, the hidden-window
   record, and a restart after the daemon was killed
+- Transition tests in the same place: the step decision, on made-up steps
+  and on a `Tiler`, against the fake desktop of `Harness`
+  (`plan_transitions*_tests.rs`, `step_transition*_tests.rs`); held
+  placements keeping their mark, on the `Coalescer` alone
+  (`coalesce_transition_tests.rs`); and motions, frames, endings, display
+  changes, borders, posted placements and their landing, changes of show
+  state, transitions turned off while windows are still posted to, the
+  pointer, hover and reloads, on the tiling manager, the fake platform and
+  its clock (`motion_*_tests.rs`). The motion model is tested on its own
+  in `motion/tests/` (see [animations.md](animations.md#tests))
 - Extensive spatial navigation tests in `spatial.rs` (see
   [monitor-management.md](monitor-management.md))

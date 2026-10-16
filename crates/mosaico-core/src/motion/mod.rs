@@ -9,11 +9,13 @@
 //! each display frame asks where the windows are.
 //! [`step_animates`](crate::motion::step_animates) and
 //! [`still_animates`](crate::motion::still_animates) decide which
-//! placements move that way.
+//! placements move that way, and [`Journal`](crate::motion::Journal)
+//! keeps what the log is told of them.
 
 mod bezier;
 mod easing;
 mod easing_names;
+mod journal;
 mod motions;
 mod policy;
 mod segment;
@@ -27,10 +29,14 @@ mod test_support;
 
 pub use bezier::CubicBezier;
 pub use easing::Easing;
+pub use journal::{
+    BehindLine, EndLine, Ending, EndingLine, Journal, Kept, KeptLine, Landed, LandedLine, Placed,
+    SnapLine, StepDoneLine, StepLine, StepSnapLine, Stop,
+};
 pub use motions::{MAX_LAG, Motions, Tick};
 pub use policy::{
-    ApplyFacts, MAX_ANIMATED_WINDOWS, MIN_TRAVEL, StepFacts, hardly_apart, step_animates,
-    still_animates,
+    ApplyFacts, ApplySnap, MAX_ANIMATED_WINDOWS, MIN_TRAVEL, StepFacts, StepSnap, apply_snap,
+    hardly_apart, step_animates, step_snap, still_animates,
 };
 pub use segment::Segment;
 pub use spec::MotionSpec;

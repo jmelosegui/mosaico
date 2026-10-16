@@ -3,16 +3,25 @@
 
 use std::collections::HashSet;
 
-use crate::motion::{StepFacts, step_animates};
+use crate::motion::{SnapLine, StepFacts, StepSnapLine, step_animates};
 use crate::{MonitorId, Rect, WindowId};
 
 use super::super::{Desktop, Effect, Timing, Transition};
 use super::Plan;
 
+#[path = "plan_transitions_facts.rs"]
+mod facts;
+#[path = "plan_transitions_log.rs"]
+mod said;
+
+use facts::{appearing, moved, waits_behind};
+pub(super) use said::{Said, mark_logged};
+
 /// What the step decision needs to know of a step as a whole.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(in crate::tiler) struct StepKind {
-    /// Whether transitions are on: enabled, with a duration above zero.
+    /// Whether transitions are on: enabled, with a duration above zero, in
+    /// a session that has frames.
     pub(in crate::tiler) enabled: bool,
     /// Whether the step lays the windows out from scratch: a display
     /// change, the tiler's start, or the bar reservation right after it.
@@ -59,69 +68,62 @@ impl Plan<'_> {
 }
 
 /// Marks each placement of a layout pass that [`step_animates`] lets
-/// animate. Every other placement snaps.
+/// animate. Every other placement snaps. Returns what the log is told of
+/// it, from the decision itself: why the step as a whole snaps, or why
+/// each placement that moves its window does.
 pub(super) fn mark(
     effects: &mut [Effect],
     placements: &Placements,
     step: &StepKind,
     desktop: &dyn Desktop,
-) {
+) -> Vec<Said> {
+    let count = placements.monitors.len();
     // Nothing animates then, whatever else holds, so the desktop is not
     // asked about any window.
     if !step.enabled || step.rebuild {
-        return;
+        let line = StepSnapLine::of_step(&of_step(step, 0), count);
+        return line.map(Said::Step).into_iter().collect();
     }
     let appearing = appearing(effects, &placements.taken_in);
-    let windows_moved = windows_moved(effects, desktop);
+    let moved = moved(effects, desktop);
+    let whole = of_step(step, moved.len());
+    let mut said: Vec<Said> = StepSnapLine::of_step(&whole, count)
+        .map(Said::Step)
+        .into_iter()
+        .collect();
     for &(at, monitor) in &placements.monitors {
         let Effect::Place { window, .. } = effects[at] else {
             continue;
         };
         let facts = StepFacts {
-            enabled: step.enabled,
             appears: appearing.contains(&window),
             behind_monocle: waits_behind(&effects[..at], window),
-            rebuild: step.rebuild,
             same_monitor: desktop.monitor_of(window) == monitor,
-            windows_moved,
+            ..whole
         };
-        if step_animates(&facts)
-            && let Effect::Place { transition, .. } = &mut effects[at]
-        {
-            *transition = Transition::Animate;
+        if step_animates(&facts) {
+            if let Effect::Place { transition, .. } = &mut effects[at] {
+                *transition = Transition::Animate;
+            }
+        } else {
+            let line = SnapLine::stepped(window, &facts, moved.contains(&window));
+            said.extend(line.map(Said::Placement));
         }
     }
+    said
 }
 
-/// The windows the step shows, moves ahead of the layout or takes in.
-fn appearing(effects: &[Effect], taken_in: &HashSet<WindowId>) -> HashSet<WindowId> {
-    let shown = effects.iter().filter_map(|effect| match *effect {
-        Effect::Show { window, .. } | Effect::Reveal { window } => Some(window),
-        Effect::PrePlace { window, .. } => Some(window),
-        _ => None,
-    });
-    taken_in.iter().copied().chain(shown).collect()
-}
-
-/// Whether `window` is put behind another in `earlier`, the effects
-/// before its placement: it waits behind the window in monocle.
-fn waits_behind(earlier: &[Effect], window: WindowId) -> bool {
-    let put_behind = |e: &Effect| matches!(*e, Effect::PutBehind { window: w, .. } if w == window);
-    earlier.iter().any(put_behind)
-}
-
-/// How many windows the step's placements move from where the desktop
-/// has them: a placement that leaves its window where it is moves none.
-fn windows_moved(effects: &[Effect], desktop: &dyn Desktop) -> usize {
-    let mut moved = HashSet::new();
-    for effect in effects {
-        if let Effect::Place { window, rect, .. } = *effect
-            && desktop.rect(window) != Some(rect)
-        {
-            moved.insert(window);
-        }
+/// The facts of `step`, which moves `windows_moved` windows, for a
+/// placement of a window with no reason of its own to snap.
+fn of_step(step: &StepKind, windows_moved: usize) -> StepFacts {
+    StepFacts {
+        enabled: step.enabled,
+        appears: false,
+        behind_monocle: false,
+        rebuild: step.rebuild,
+        same_monitor: true,
+        windows_moved,
     }
-    moved.len()
 }
 
 #[cfg(test)]

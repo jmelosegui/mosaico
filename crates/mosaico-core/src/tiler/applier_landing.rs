@@ -24,7 +24,7 @@
 use std::time::{Duration, Instant};
 
 use crate::frames::PENDING_LIMIT;
-use crate::motion::hardly_apart;
+use crate::motion::{Landed, hardly_apart};
 use crate::{Rect, WindowId};
 
 use super::super::window_effects::report;
@@ -57,19 +57,22 @@ pub(super) struct Landing {
     /// When the wait by time ends, or `None` once it ended with the window
     /// where it was: it then lands on its next report.
     pub(super) until: Option<Instant>,
+    /// When it was posted, if it ended a transition: the log hears it land.
+    pub(super) logged: Option<Instant>,
 }
 
 impl Applier {
-    /// Lands `window`, which reports where it is, if a posted placement is
-    /// taking it somewhere and it is there, nothing sent to it may still be
-    /// on its way, or it is no longer waited for by time.
-    pub(super) fn landed(&mut self, window: WindowId, platform: &mut dyn Platform) {
+    /// Lands `window`, which reports at `now` where it is, if a posted
+    /// placement is taking it somewhere and it is there, nothing sent to it
+    /// may still be on its way, or it is no longer waited for by time.
+    pub(super) fn landed(&mut self, window: WindowId, platform: &mut dyn Platform, now: Instant) {
         let Some(landing) = self.posted.placed.get(&window) else {
             return;
         };
         let there = is_there(platform.desktop(), window, landing.rect);
-        if there || landing.until.is_none() || !platform.control().posts_behind(window) {
-            self.land(window, platform);
+        let late = landing.until.is_none();
+        if there || late || !platform.control().posts_behind(window) {
+            self.land(window, platform, Landed::reported(there, late), now);
         }
     }
 
@@ -90,7 +93,7 @@ impl Applier {
             };
             let moved = desktop.rect(window) != landing.from;
             if moved || is_there(desktop, window, landing.rect) {
-                self.land(window, platform);
+                self.land(window, platform, Landed::Overdue, now);
             } else {
                 landing.until = None;
             }
@@ -127,12 +130,13 @@ impl Applier {
         self.posted.placed.remove(&window);
     }
 
-    /// Ends the wait for `window`: repaints it again, and draws the border
-    /// kept for it around where it was placed.
-    fn land(&mut self, window: WindowId, platform: &mut dyn Platform) {
-        if let Some(Landing { rect, border, .. }) = self.posted.placed.remove(&window) {
+    /// Ends the wait for `window` at `now`, as it landed `how`: repaints it
+    /// again, and draws the border kept for it around where it was placed.
+    fn land(&mut self, window: WindowId, platform: &mut dyn Platform, how: Landed, now: Instant) {
+        if let Some(landing) = self.posted.placed.remove(&window) {
             report("repaint", window, platform.control().repaint(window));
-            draw_border(window, border, rect, platform.decorations());
+            draw_border(window, landing.border, landing.rect, platform.decorations());
+            self.log_landed(window, landing.logged, how, now);
         }
     }
 }

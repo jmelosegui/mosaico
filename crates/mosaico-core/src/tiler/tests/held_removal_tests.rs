@@ -5,17 +5,28 @@ use crate::Direction;
 use crate::config::{Config, WindowRule};
 
 use super::fake_platform::{Call, FakePlatform};
-use super::manager_support::start;
+use super::manager_support::{start, still};
 use super::*;
+
+#[path = "held_removal_tiled_tests.rs"]
+mod tiled_tests;
 
 /// Windows on `monitors` monitors, the first one focused, with no border
 /// around the windows without focus: the others have never had one. The
-/// pointer does not follow focus.
+/// pointer does not follow focus, and transitions are off.
 fn without_unfocused_borders(
     monitors: usize,
     windows: &[(u64, usize)],
 ) -> (FakePlatform, TilingManager<FakePlatform>) {
-    let mut config = Config::default();
+    without_unfocused_borders_in(still(), monitors, windows)
+}
+
+/// The same, managed with `config` otherwise.
+fn without_unfocused_borders_in(
+    mut config: Config,
+    monitors: usize,
+    windows: &[(u64, usize)],
+) -> (FakePlatform, TilingManager<FakePlatform>) {
     config.borders.colors.unfocused = "none".into();
     config.mouse.follows_focus = false;
     let platform = FakePlatform::new(monitors, windows);
@@ -201,26 +212,4 @@ fn a_window_destroyed_while_its_move_is_held_is_left_alone() {
 
     // Assert
     assert_eq!(calls, [Call::Focus(wid(1))]);
-}
-
-#[test]
-fn a_window_that_stays_tiled_still_gets_its_held_move() {
-    // Arrange -- window 3, alone on the second monitor, has never had a
-    // border either.
-    let (platform, mut manager) = without_unfocused_borders(2, &[(1, 0), (2, 0), (3, 1)]);
-    let left = platform.window(1).rect;
-    hold_a_swap(&mut manager);
-
-    // Act -- the window minimized is the one on the other monitor.
-    platform.edit(3, |w| w.minimized = true);
-    manager.handle_event(&WindowEvent::Minimized { window: wid(3) });
-    let calls = flush(&platform, &mut manager);
-
-    // Assert -- window 2 lands in the left slot.
-    let window_2: Vec<Call> = calls
-        .into_iter()
-        .filter(|c| matches!(c, Call::Place(w, _) | Call::Repaint(w) if *w == wid(2)))
-        .collect();
-    assert_eq!(window_2, [Call::Place(wid(2), left), Call::Repaint(wid(2))]);
-    assert_eq!(platform.window(2).rect, left);
 }

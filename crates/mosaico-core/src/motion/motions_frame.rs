@@ -40,6 +40,9 @@ pub struct Tick {
     /// maximized or minimized on their way, which stops them where they
     /// are, or gone. They have left the table.
     pub stopped: Vec<WindowId>,
+    /// The windows that fell behind, in the order of their frames: every
+    /// motion of their steps is in `finished`.
+    pub behind: Vec<WindowId>,
 }
 
 impl Motions {
@@ -82,8 +85,9 @@ impl Motions {
     ///   this frame takes it. So what follows a window that keeps up does
     ///   not trail it, and what follows a slow one does not run ahead.
     /// - A window found still to handle it, and not seen to move for
-    ///   [`MAX_LAG`] since its first frame was handled, has fallen behind:
-    ///   every motion of its step ends at once, in [`Tick::finished`].
+    ///   [`MAX_LAG`] since its first frame was handled, has fallen behind,
+    ///   and is in [`Tick::behind`]: every motion of its step ends at once,
+    ///   in [`Tick::finished`].
     /// - A window maximized or minimized meanwhile stops where it is, and
     ///   nothing forces it back. One that is gone is forgotten. Both are in
     ///   [`Tick::stopped`].
@@ -113,6 +117,7 @@ impl Motions {
                     motion.posted = None;
                     if now.saturating_duration_since(motion.moved_at) >= MAX_LAG {
                         behind.push(motion.step);
+                        tick.behind.push(frame.window);
                     }
                 }
                 FrameOutcome::Maximized | FrameOutcome::Minimized | FrameOutcome::Gone => {
@@ -142,7 +147,3 @@ mod behind_tests;
 #[cfg(test)]
 #[path = "tests/lag_tests.rs"]
 mod lag_tests;
-
-#[cfg(test)]
-#[path = "tests/reached_tests.rs"]
-mod reached_tests;

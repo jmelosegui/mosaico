@@ -12,6 +12,8 @@ use super::*;
 
 #[path = "plan_transitions_count_tests.rs"]
 mod count_tests;
+#[path = "plan_transitions_log_tests.rs"]
+mod log_tests;
 
 /// Transitions on, in a step that does not lay out from scratch.
 const ON: StepKind = StepKind {

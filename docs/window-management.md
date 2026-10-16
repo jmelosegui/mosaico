@@ -121,10 +121,11 @@ pub trait FrameControl {
 }
 ```
 
-Every `WindowControl` is a `FrameControl` too (`frames.rs`), so the frames of
-transitions reach the platform through the same object, and a platform that
-cannot move windows frame by frame keeps the default. The caller keeps the
-`outcomes` buffer from one frame to the next, so a frame allocates nothing.
+Every `WindowControl` is a `FrameControl` too (`frames/control.rs`), so the
+frames of transitions reach the platform through the same object, and a
+platform that cannot move windows frame by frame keeps the default. The
+caller keeps the `outcomes` buffer from one frame to the next, so the
+outcomes are not allocated again for every frame.
 
 What each frame does is decided in core, by a `FrameTable` the platform keeps,
 so every platform decides the same way. The platform only reads its windows
@@ -202,21 +203,23 @@ The contract, in the traits' docs, spells out what callers rely on:
   window was given a frame, while its application does not respond, since a
   change made at once would wait for it. A window never given a frame is
   changed at once, responding or not, as it always was, so with animations
-  off from startup every change is. Once they are turned off,
-  `FrameControl::settle_responding`, which the tiler calls while they stay
-  off, forgets every window something was last posted to more than
-  `ASYNC_GRACE` before and whose application responds, which is then
-  changed at once again; one whose application hangs stays posted to while
-  it does. A change applied at once, a move or a resize alike,
-  would be overtaken by a frame still queued. So callers never wait for a
-  frame before placing, hiding or showing a window: a motion ends with
-  `place` and `repaint` at its target, which land after its frames. A caller
-  stops sending a window frames before hiding or minimizing it, since a frame
-  posted after lands after the change. Past the grace, any move of the
-  window, whoever made it, ends the order, and a change made at once then
-  lands before anything still queued: the later of two frames queued, when
-  the application took the earlier and stopped before it was reported not
-  responding, or what was queued when something else moved the window.
+  off from startup every change is, and the calls made to one whose
+  application does not respond wait for it, as they always did. Once they
+  are turned off, `FrameControl::settle_responding`, which the tiler calls
+  while they stay off, forgets every window something was last posted to
+  more than `ASYNC_GRACE` before and whose application responds, which is
+  then changed at once again; one whose application hangs stays posted to
+  while it does. Hiding that does not go through the window's own queue, as
+  cloaking does not, is never posted. A change applied at once, a move or a
+  resize alike, would be overtaken by a frame still queued. So callers never
+  wait for a frame before placing, hiding or showing a window: a motion ends
+  with `place` and `repaint` at its target, which land after its frames. A
+  caller stops sending a window frames before hiding or minimizing it, since
+  a frame posted after lands after the change. Past the grace, any move of
+  the window, whoever made it, ends the order, and a change made at once
+  then lands before anything still queued: the later of two frames queued,
+  when the application took the earlier and stopped before it was reported
+  not responding, or what was queued when something else moved the window.
 - `FrameControl::posts_behind` tells the caller whether a change made to a
   window now is posted. Asked right before the change, its answer can only go
   from posted to made at once by the time the change is made, as time passes,
@@ -311,7 +314,7 @@ to implement the core contracts.
 |--------|-------|
 | `place` | `set_rect()`: clears `WS_MAXIMIZE`, then `SetWindowPos` with frame compensation (see below); while something posted to the window may be queued, `post_placement()`: the same move posted with `SWP_ASYNCWINDOWPOS`, behind it, after a restore posted for a maximized window in view, or a minimized one a show queued ahead brings back in view (see [Frames of a Transition](#frames-of-a-transition)) |
 | `pre_place` | `move_async()`: the same move with `SWP_ASYNCWINDOWPOS`, which posts the request instead of sending it |
-| `place_frames` (`FrameControl`) | The core `FrameTable` decides, reading windows through `IsWindow`, `IsIconic`, `IsZoomed`, `IsHungAppWindow`, `GetWindowRect` and `GetWindowThreadProcessId`; a frame is posted with `SWP_ASYNCWINDOWPOS` (see [Frames of a Transition](#frames-of-a-transition)) |
+| `place_frames` (`FrameControl`) | The core `FrameTable` decides, reading windows through `IsWindow`, `IsIconic`, `IsZoomed`, `IsHungAppWindow`, `GetWindowRect` and `GetWindowThreadProcessId`, and with the first frame of a motion the invisible borders (`DwmGetWindowAttribute` with `DWMWA_EXTENDED_FRAME_BOUNDS`), the DPI of the display they are drawn at (`GetDpiForMonitor`), and whether the window follows the display's scale (the DPI awareness contexts of the window and of the thread); every frame of a window that does not follow it also reads its scale and its display's (`GetDpiForWindow`, `GetDpiForMonitor`); a frame is posted with `SWP_ASYNCWINDOWPOS` (see [Frames of a Transition](#frames-of-a-transition)) |
 | `repaint` | `redraw()`: `RedrawWindow` with aggressive flags, then realigns a Chromium window's GPU surface; without `RDW_UPDATENOW` while something posted to the window may be queued, so it paints after it |
 | `focus` | `SetForegroundWindow`, never posted |
 | `put_behind` | `SetWindowPos` with `other` as the window to insert after and `SWP_NOMOVE`, `SWP_NOSIZE` and `SWP_NOACTIVATE`, only when both or neither are `WS_EX_TOPMOST`: inserted after a window of the other band, a window moves into that band; with `SWP_ASYNCWINDOWPOS` too while something posted to the window may be queued, behind it |
@@ -471,18 +474,20 @@ The tiling manager keeps every moving window in `motion::Motions`, and takes a
 frame step on every display frame while windows move (see
 [tiling-layout.md](tiling-layout.md#placements-that-animate)):
 
-- It posts every frame due in one `place_frames` call, and moves each moving
-  window's border to where the outcome found the window, or to the frame now
-  posted when the window took the one before exactly.
+- It posts every frame due in one `place_frames` call, and moves the border
+  of each moving window that keeps its size to where the outcome found the
+  window, or to the frame now posted when the window took the one before
+  exactly; one that changes size has its border hidden until it is in place.
 - A motion ends at its end time with `place` and `repaint` at its exact
-  target, as a placement without a transition is. It does not wait for its
+  target, even when the window is there already. It does not wait for its
   last frames to land: the platform orders the placement behind them.
-- A window found `Pending` and not seen to move for 50 ms since it handled
-  its first frame ends every motion of its step at once, through the same
-  `place`. One whose application stopped responding after it was given
-  frames needs nothing more: its placement is posted behind them. One that
-  had stopped before any was gets nothing posted, its placement included,
-  which is made at once, as it is without transitions.
+- A window found `Pending` and not seen to move for 50 ms (`MAX_LAG`), since
+  its motion started or since it handled its first frame, ends every motion
+  of its step at once, through the same `place`. One whose application
+  stopped responding after it was given frames needs nothing more: its
+  placement is posted behind them. One that had stopped before any was gets
+  nothing posted, its placement included, which is made at once, as it is
+  without transitions, and waits for it.
 - A window found `Maximized`, `Minimized` or `Gone` is left alone: its motion
   stops where the window is, and nothing forces it back.
 - Hiding or minimizing a moving window stops its frames first: a frame
@@ -490,10 +495,10 @@ frame step on every display frame while windows move (see
 - Only the first frame of a motion is marked `first`. A new target mid-flight
   goes on with the same motion, so the platform keeps what it knows of the
   frame on its way.
-- `Unsupported` turns transitions off: the windows in flight are placed at
-  their targets at once, and every later placement snaps. Any other error
-  places the windows the frames were for at their targets, and transitions
-  stay on.
+- `Unsupported` turns transitions off for the rest of the session: the
+  windows in flight are placed at their targets at once, with their borders,
+  and every later placement snaps. Any other error places the windows the
+  frames were for at their targets, and transitions stay on.
 - While `posts_behind` holds for a window, the tiler does not read what it
   sent back as done (`applier_posted.rs`), and it asks right after each
   change it keeps a record of. A placement is not skipped because the

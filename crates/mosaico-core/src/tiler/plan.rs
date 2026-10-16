@@ -97,7 +97,7 @@ impl<'a> Plan<'a> {
     /// most one border per window: the last one decided, see
     /// [`keep_last_borders`](borders::keep_last_borders).
     pub(super) fn finish(mut self, step: &StepKind) -> Vec<Effect> {
-        transitions::mark(&mut self.effects, &self.placements, step, self.desktop);
+        transitions::mark_logged(&mut self.effects, &self.placements, step, self.desktop);
         borders::keep_last_borders(self.effects)
     }
 

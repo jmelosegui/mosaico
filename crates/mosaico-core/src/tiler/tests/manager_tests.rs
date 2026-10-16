@@ -4,7 +4,7 @@
 use crate::config::{Config, HidingBehaviour};
 
 use super::fake_platform::{Call, FakePlatform};
-use super::manager_support::{start, tiled};
+use super::manager_support::{start, still, tiled};
 use super::*;
 
 #[test]
@@ -92,7 +92,7 @@ fn a_window_a_display_change_brings_onto_monocle_is_put_behind_it() {
 fn the_work_areas_are_read_again_from_the_platform() {
     // Arrange -- the taskbar grew after the manager started.
     let platform = FakePlatform::new(1, &[(1, 0)]);
-    let mut manager = start(&platform, None, &Config::default());
+    let mut manager = start(&platform, None, &still());
     let smaller = Rect::new(0, 0, MON_W, MON_H - 48);
     platform.set_work_area(0, smaller);
 
@@ -109,7 +109,7 @@ fn the_work_areas_are_read_again_from_the_platform() {
 fn the_work_areas_stay_when_the_monitors_cannot_be_read_again() {
     // Arrange
     let platform = FakePlatform::new(1, &[(1, 0)]);
-    let mut manager = start(&platform, None, &Config::default());
+    let mut manager = start(&platform, None, &still());
     let before = manager.tiler().monitors()[0].work_area();
     platform.fail_monitors();
 

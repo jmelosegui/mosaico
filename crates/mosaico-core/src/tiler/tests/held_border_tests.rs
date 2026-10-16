@@ -1,5 +1,6 @@
 //! Borders held behind a window's move, when a step that does not move
-//! the window decides them again before the move lands (#133).
+//! the window decides them again before the move lands (#133), with
+//! transitions off, and again with them on, once the windows have settled.
 
 use std::collections::HashMap;
 
@@ -7,7 +8,7 @@ use crate::Direction;
 use crate::config::{Color, Config};
 
 use super::fake_platform::{Call, FakePlatform};
-use super::manager_support::start;
+use super::manager_support::{animated, settle, start, still};
 use super::*;
 
 const FOCUSED: Color = Color {
@@ -22,9 +23,8 @@ const UNFOCUSED: Color = Color {
 };
 
 /// Two windows side by side, the left one focused, with focused and
-/// unfocused borders in different colors.
-fn side_by_side() -> (FakePlatform, TilingManager<FakePlatform>) {
-    let mut config = Config::default();
+/// unfocused borders in different colors, managed with `config` otherwise.
+fn side_by_side(mut config: Config) -> (FakePlatform, TilingManager<FakePlatform>) {
     config.borders.colors.focused = "#111111".into();
     config.borders.colors.unfocused = "#222222".into();
     let platform = FakePlatform::new(1, &[(1, 0), (2, 0)]);
@@ -67,11 +67,9 @@ fn assert_border_around(platform: &FakePlatform, window: u64, color: Color) {
     assert_eq!(style.color, color, "border of {window} in the wrong color");
 }
 
-#[test]
-fn a_focus_change_before_a_held_move_lands_draws_the_borders_around_the_new_slots() {
-    // #133
+fn a_focus_change_before_a_held_move_lands(config: Config) {
     // Arrange
-    let (platform, mut manager) = side_by_side();
+    let (platform, mut manager) = side_by_side(config);
     let (left, right) = (platform.window(1).rect, platform.window(2).rect);
 
     // Act -- the move is held until input goes quiet, and focus moves
@@ -79,6 +77,7 @@ fn a_focus_change_before_a_held_move_lands_draws_the_borders_around_the_new_slot
     manager.handle_action(&Action::Move(Direction::Right));
     manager.handle_action(&Action::Focus(Direction::Left));
     manager.flush_pending();
+    settle(&platform, &mut manager);
 
     // Assert
     assert_swapped(&platform, left, right);
@@ -87,19 +86,38 @@ fn a_focus_change_before_a_held_move_lands_draws_the_borders_around_the_new_slot
 }
 
 #[test]
-fn a_border_refresh_before_a_held_move_lands_draws_the_borders_around_the_new_slots() {
-    // #133
+fn a_focus_change_before_a_held_move_lands_draws_the_borders_around_the_new_slots() {
+    a_focus_change_before_a_held_move_lands(still());
+}
+
+#[test]
+fn a_focus_change_before_a_held_move_lands_draws_the_borders_with_transitions_on() {
+    a_focus_change_before_a_held_move_lands(animated());
+}
+
+fn a_border_refresh_before_a_held_move_lands(config: Config) {
     // Arrange
-    let (platform, mut manager) = side_by_side();
+    let (platform, mut manager) = side_by_side(config);
     let (left, right) = (platform.window(1).rect, platform.window(2).rect);
 
     // Act
     manager.handle_action(&Action::Move(Direction::Right));
     manager.refresh_border();
     manager.flush_pending();
+    settle(&platform, &mut manager);
 
     // Assert -- window 1 keeps focus.
     assert_swapped(&platform, left, right);
     assert_border_around(&platform, 1, FOCUSED);
     assert_border_around(&platform, 2, UNFOCUSED);
+}
+
+#[test]
+fn a_border_refresh_before_a_held_move_lands_draws_the_borders_around_the_new_slots() {
+    a_border_refresh_before_a_held_move_lands(still());
+}
+
+#[test]
+fn a_border_refresh_before_a_held_move_lands_draws_the_borders_with_transitions_on() {
+    a_border_refresh_before_a_held_move_lands(animated());
 }

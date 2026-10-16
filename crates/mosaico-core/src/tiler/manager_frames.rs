@@ -30,12 +30,25 @@ impl<P: Platform> TilingManager<P> {
     pub fn frame(&mut self) {
         let now = self.platform.now();
         self.applier.frame(&mut self.platform, now);
+        if !self.applier.has_frames() {
+            self.tiler.turn_off_transitions();
+        }
     }
 
     /// Turns transitions off for the rest of the session, as on a platform
     /// that cannot move windows frame by frame: every window is placed at
-    /// once from then on. For a daemon that cannot have display frames.
+    /// once from then on, and no step marks a placement to animate. For a
+    /// daemon that cannot have display frames.
     pub fn turn_off_transitions(&mut self) {
-        self.applier.turn_off_transitions(&mut self.platform);
+        self.tiler.turn_off_transitions();
+        let now = self.platform.now();
+        self.applier.turn_off_transitions(&mut self.platform, now);
+    }
+
+    /// The lines the applier logged about transitions since the last time
+    /// this was asked, for the tests to read.
+    #[cfg(test)]
+    pub(in crate::tiler) fn transition_lines(&mut self) -> Vec<String> {
+        self.applier.take_transition_lines()
     }
 }

@@ -64,6 +64,11 @@ Checks performed:
     settings, fails when the program it starts no longer exists
 11. Daemon status (IPC pipe, PID file, process liveness)
 12. Monitor enumeration and dimensions
+13. Window transitions: the `[animations]` settings (the defaults when
+    `config.toml` is invalid, and it says so), whether Windows allows
+    animations right now ("Animation effects", and not a remote session),
+    and whether windows can move frame by frame; warns when transitions are
+    enabled but windows would snap into place anyway, and says why
 
 ## `mosaico autostart`
 

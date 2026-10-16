@@ -62,9 +62,10 @@ jobs:
   desktop:
     name: Desktop tests
     # tests/window_management.rs drives a live daemon, launches notepad and
-    # asserts on real DWM geometry, borders and cursor position. A hosted
-    # runner has no interactive desktop to do that against, so it runs on
-    # demand rather than on every pull request.
+    # asserts on real DWM geometry, borders and cursor position, and
+    # tests/window_transitions.rs samples where windows are while they
+    # swap. A hosted runner has no interactive desktop to do that against,
+    # so they run on demand rather than on every pull request.
     if: github.event_name == 'workflow_dispatch'
     runs-on: windows-latest
     timeout-minutes: 30
@@ -77,3 +78,9 @@ jobs:
 
       - name: Window management tests
         run: cargo test -p mosaico --test window_management
+
+      - name: Window transition tests
+        # Runs even when the window management tests failed, so both
+        # suites report.
+        if: '!cancelled()'
+        run: cargo test -p mosaico --test window_transitions

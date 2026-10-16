@@ -77,7 +77,7 @@ The work splits into four steps, one PR each (see Tasks).
 
 ```toml
 [animations]
-enabled = false          # opt-in until verified on the live desktop
+enabled = true           # on by default
 duration = 180           # milliseconds, 0 to 1000
 easing = "ease-out-cubic"
 # linear, ease-out-quad, ease-out-cubic, ease-in-out-cubic, ease-out-expo,
@@ -519,22 +519,26 @@ that changes them.
 
 ### 34.4 Verification and docs
 
-- [ ] The `[animations]` section in the config template, and the hint for
+- [x] The `[animations]` section in the config template, and the hint for
       existing configs
-- [ ] A debug log line per transition: windows, frames posted, pending and
+- [x] A debug log line per transition: windows, frames sent, pending and
       handled, and the slowest window (no log line per frame)
-- [ ] `mosaico doctor` shows the animation settings and whether Windows allows
+- [x] `mosaico doctor` shows the animation settings and whether Windows allows
       animations
-- [ ] `docs/animations.md`, and the changes in `docs/daemon.md`,
+- [x] `docs/animations.md`, and the changes in `docs/daemon.md`,
       `docs/window-management.md` and `docs/window-events.md`
-- [ ] Run `cargo fmt --all -- --check`
-- [ ] Run `cargo clippy --all-targets -- -D warnings`
-- [ ] Run the safe test suites from the testing skill, and `cargo xtask metrics`
+- [x] A desktop integration test, `crates/mosaico/tests/window_transitions.rs`,
+      run on demand with the desktop suites: a swap with transitions on is
+      seen between the slots, within their box, and ends exactly in them;
+      with transitions off it is never seen between them
+- [x] Run `cargo fmt --all -- --check`
+- [x] Run `cargo clippy --all-targets -- -D warnings`
+- [x] Run the safe test suites from the testing skill, and `cargo xtask metrics`
 - [ ] Manual test: swap, move, cycle layouts and toggle monocle with 2 to 6
       windows, including a browser (resize frames) and an Electron app
 - [ ] Manual test: a 144 Hz monitor next to a 60 Hz one
 - [ ] Manual test: an application that stops responding mid-transition
 - [ ] Manual test: Windows "Animation effects" off disables transitions
 - [ ] Manual test: CPU use while animating and when idle
-- [ ] Decide whether `enabled` defaults to true
+- [x] Decide whether `enabled` defaults to true: it does
 - [ ] Update `.plans/plan.md`

@@ -1,12 +1,15 @@
-//! Starting tiling managers on a fake platform, and the files they keep
-//! their record of hidden windows in.
+//! Starting tiling managers on a fake platform, with transitions off or
+//! on, letting their windows settle, and the files they keep their record
+//! of hidden windows in.
 
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
+use crate::WindowEvent;
 use crate::config::Config;
 
-use super::super::{HiddenFile, TilingManager};
+use super::super::{HiddenFile, Platform, TilingManager};
 use super::fake_platform::FakePlatform;
 
 /// Starts a tiling manager on `platform` with `config` and no window
@@ -17,6 +20,47 @@ pub(in crate::tiler) fn start(
     config: &Config,
 ) -> TilingManager<FakePlatform> {
     TilingManager::new(platform.clone(), hidden, config, Vec::new()).expect("the manager starts")
+}
+
+/// The default config with transitions turned off, so that every
+/// placement is made at once, as the tests of the tiling pipeline
+/// itself expect.
+pub(in crate::tiler) fn still() -> Config {
+    let mut config = Config::default();
+    config.animations.enabled = false;
+    config
+}
+
+/// The default config with transitions on, so that the placements of a
+/// step that may animate do.
+pub(in crate::tiler) fn animated() -> Config {
+    let mut config = Config::default();
+    config.animations.enabled = true;
+    config
+}
+
+/// Takes frames as the daemon does until no window moves, a display
+/// refresh apart. Then the applications get to what is queued for them,
+/// and the platform reports the windows that moved, as Windows does. A
+/// window still to land after that is waited for, until the frame step
+/// that ends the wait by time. With transitions off, there is nothing to
+/// wait for.
+pub(in crate::tiler) fn settle(platform: &FakePlatform, manager: &mut TilingManager<FakePlatform>) {
+    for _ in 0..64 {
+        if manager.wants_frames() {
+            platform.advance(Duration::from_millis(16));
+        } else {
+            for window in platform.catch_up_prompt() {
+                manager.handle_event(&WindowEvent::LocationChanged { window });
+            }
+            let Some(due) = manager.frame_due(Some(platform.now())) else {
+                return;
+            };
+            platform.advance(due.saturating_duration_since(platform.now()));
+        }
+        manager.frame();
+    }
+    panic!("windows still moving after 64 frame steps");
 }
 
 /// Windows the manager tiles on the active workspace of monitor `mon`.

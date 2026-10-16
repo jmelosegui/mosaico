@@ -1,6 +1,6 @@
 # Configuration System & Window Rules
 
-Mosaico uses four TOML configuration files stored in `~/.config/mosaico/`.
+Mosaico uses five TOML configuration files stored in `~/.config/mosaico/`.
 All settings have sensible defaults, so configuration files are optional.
 
 ## Architecture
@@ -9,24 +9,33 @@ All settings have sensible defaults, so configuration files are optional.
 
 | File | Purpose |
 |------|---------|
-| `crates/mosaico-core/src/config/mod.rs` | `Config`, `LayoutConfig`, `BorderConfig`, `ThemeConfig`, `WindowRule`, `should_manage()` |
+| `crates/mosaico-core/src/config/mod.rs` | `Config`, `Config::validate()` |
+| `crates/mosaico-core/src/config/types.rs` | `LayoutConfig`, `WorkspacesConfig`, `BorderConfig`, `BorderColors`, `MouseConfig`, `CornerStyle`, `WorkspaceMode` |
+| `crates/mosaico-core/src/config/rules.rs` | `WindowRule`, `should_manage()`, `matching_rule()`, `default_rules()` |
 | `crates/mosaico-core/src/config/hiding_behaviour.rs` | `HidingBehaviour`, how windows are hidden on a workspace switch |
 | `crates/mosaico-core/src/config/animations.rs` | `AnimationConfig`, the `[animations]` section: window transitions |
+| `crates/mosaico-core/src/motion/easing.rs`, `easing_names.rs`, `bezier.rs` | `Easing`, the curves transitions follow, and the names `config.toml` writes them with |
 | `crates/mosaico-core/src/config/store/` | `ConfigStore`: the paths of the config files (`mod.rs`), loading them (`load.rs`), each migration (`migrate*.rs`) and each merge of new defaults (`merge_*.rs`) |
 | `crates/mosaico-core/src/config/reload/` | `ConfigReloader`, `ConfigReload`: which files hot-reload and how (`mod.rs`); `ConfigWatch`: opening the watcher after the files are recorded, and the watch loop (`run.rs`) |
 | `crates/mosaico-core/src/config/keybinding.rs` | `Keybinding`, `Modifier`, `defaults()`, `Keybinding::combo()` |
 | `crates/mosaico-core/src/config/bar.rs` | `BarConfig`, `BarColors`, `WidgetConfig` |
-| `crates/mosaico-core/src/config/theme.rs` | `ThemeConfig`, `Theme` enum |
-| `crates/mosaico-core/src/config/palette.rs` | Catppuccin color palettes (hardcoded named color data) |
-| `crates/mosaico-core/src/config/template.rs` | Template generators for `mosaico init` |
+| `crates/mosaico-core/src/log.rs` | `LogConfig`, the `[logging]` section, and the logger |
+| `crates/mosaico-core/src/config/theme_config.rs` | `ThemeConfig`, the `[theme]` section |
+| `crates/mosaico-core/src/config/theme.rs` | `Theme` enum |
+| `crates/mosaico-core/src/config/palette/` | The color palettes of each theme (hardcoded named color data) |
+| `crates/mosaico-core/src/config/template.rs` | Template generators for `mosaico init`, `config.toml`'s in `template_config.rs` |
 
 ### Key Types
 
-- `Config` -- top-level config: `layout: LayoutConfig`, `borders: BorderConfig`,
-  `animations: AnimationConfig`, `logging: LogConfig`, `theme: ThemeConfig`
-- `LayoutConfig` -- `default: String` (default `"bsp"`), `gap: i32` (default 8),
-  `ratio: f64` (default 0.5), `hiding: HidingBehaviour` (default `Cloak`),
-  `workspaces: HashMap<u32, String>` (per-workspace layout overrides)
+- `Config` -- top-level config: `theme: ThemeConfig`, `layout: LayoutConfig`,
+  `workspaces: WorkspacesConfig`, `borders: BorderConfig`,
+  `mouse: MouseConfig`, `animations: AnimationConfig`, `logging: LogConfig`
+- `LayoutConfig` -- `default: LayoutKind` (default `bsp`), `gap: i32` (default
+  8), `ratio: f64` (default 0.5), `hiding: HidingBehaviour` (default `Cloak`)
+- `WorkspacesConfig` -- `mode: WorkspaceMode` (default `per-monitor`),
+  `layouts: HashMap<u8, LayoutKind>` (per-workspace layout overrides)
+- `MouseConfig` -- `follows_focus: bool` (default true),
+  `focus_follows_mouse: bool` (default false)
 - `HidingBehaviour` (enum) -- `Cloak`, `Hide`, `Minimize`, each described by
   what the user sees. One the platform does not have falls back to one it
   has (see [workspaces.md](workspaces.md#hiding-behaviour))
@@ -38,11 +47,13 @@ All settings have sensible defaults, so configuration files are optional.
   muted gray). The literal `"none"` on `unfocused` disables borders
   for unfocused windows entirely; `BorderColors::unfocused_enabled()`
   reports the toggle state
-- `AnimationConfig` -- `enabled: bool` (default false), `duration: i32` in
+- `AnimationConfig` -- `enabled: bool` (default true), `duration: i32` in
   milliseconds (default 180), `easing: Easing` (default `ease-out-cubic`),
-  `follow_system: bool` (default true). `is_on()` says whether transitions
-  are on: enabled, with a duration above zero. `spec()` gives the duration
-  and easing a transition follows (`motion::MotionSpec`)
+  `follow_system: bool` (default true: no transitions while the system's
+  settings turn animations off, or in a remote session). `is_on()` says
+  whether transitions are on: enabled, with a duration above zero. `spec()`
+  gives the duration and easing a transition follows (`motion::MotionSpec`).
+  What animates, and why the rest snaps, is in [animations.md](animations.md)
 - `Easing` (in `mosaico_core::motion`) -- `linear`, `ease-out-quad`,
   `ease-out-cubic`, `ease-in-out-cubic`, `ease-out-expo`, or
   `cubic-bezier(x1, y1, x2, y2)` as CSS writes it, with all four numbers
@@ -51,12 +62,16 @@ All settings have sensible defaults, so configuration files are optional.
   `"info"`), `max_file_mb: u64` (default 10)
 - `WindowRule` -- `match_class: Option<String>`, `match_title: Option<String>`,
   `match_path: Option<String>`, `manage: bool`
-- `ThemeConfig` -- `flavor: Option<String>` (default `None`, resolves to
-  `Theme::Mocha`)
-- `Theme` (enum) -- `Latte`, `Frappe`, `Macchiato`, `Mocha`
-- `BarConfig` -- `enabled: bool`, `height: i32`, `monitor: String`,
-  `left/center/right: Vec<WidgetConfig>`, `colors: BarColors`
-- `BarColors` -- `background`, `foreground`, `accent` (support named colors)
+- `ThemeConfig` -- `name: String` (default `"catppuccin"`) and
+  `flavor: String` (default `"mocha"`; empty stands for the default flavor
+  of the family)
+- `Theme` (enum) -- `Catppuccin(CatppuccinFlavor)`, `RosePine(RosePineFlavor)`,
+  `TokyoNight(TokyoNightFlavor)`
+- `BarConfig` -- `enabled: bool`, `height: i32`, `monitors: Vec<usize>`
+  (empty for every monitor), `left/right: Vec<WidgetConfig>`,
+  `colors: BarColors`, and the font, padding and pill settings
+- `BarColors` -- `background`, `foreground`, `accent`, the workspace,
+  separator, widget and pill colors (support named colors)
 - `KeybindingsFile` -- wrapper for TOML deserialization of `[[keybinding]]`
   arrays
 - `RulesFile` -- wrapper for TOML deserialization of `[[rule]]` arrays
@@ -65,7 +80,7 @@ All settings have sensible defaults, so configuration files are optional.
 
 ### `config.toml`
 
-Controls layout, borders, logging, and theme:
+Controls layout, borders, window transitions, logging, and theme:
 
 ```toml
 [layout]
@@ -92,6 +107,14 @@ monocle = "#2d6a4f"    # Color of the focused window in monocle mode
 unfocused = "#6c7086"  # Color drawn around unfocused tiled windows
                        # (set to "none" to disable unfocused borders)
 
+[animations]
+enabled = true            # Move windows to their new place over time (on by default)
+duration = 180            # How long a transition takes, in milliseconds (0-1000)
+easing = "ease-out-cubic" # linear, ease-out-quad, ease-out-cubic, ease-in-out-cubic,
+                          # ease-out-expo, or "cubic-bezier(x1, y1, x2, y2)"
+follow_system = true      # Snap while the system's settings turn animations off,
+                          # and in a remote session
+
 [theme]
 name = "catppuccin"  # catppuccin, rose-pine, tokyo-night
 flavor = "mocha"     # catppuccin: mocha | macchiato | frappe | latte
@@ -104,9 +127,11 @@ level = "info"     # Log level: debug, info, warn, error
 max_file_mb = 10   # Max log file size before rotation
 ```
 
-The `[theme]` section selects the Catppuccin color palette used for resolving
-named colors in border and bar configurations. See
-[theming.md](theming.md) for details.
+The `[theme]` section selects the theme, a family and one of its flavors,
+whose palette resolves named colors in border and bar configurations. See
+[theming.md](theming.md) for details. The `[animations]` section turns on
+window transitions; see [animations.md](animations.md) for what moves, what
+snaps and why.
 
 ### `keybindings.toml`
 
@@ -126,17 +151,17 @@ Configures the status bar (see [status-bar.md](status-bar.md)):
 ```toml
 enabled = true
 height = 28
-monitor = "all"      # "all", "primary", or 0-based index
+monitors = []        # 0-based monitor indices; empty for all of them
 
 [colors]
-background = "base"      # Named Catppuccin color
-foreground = "text"
-accent = "blue"
+background = "#1e1e2e"   # Hex, or empty for the theme's own
+foreground = "#cdd6f4"
+accent = "blue"          # A color the theme names, here catppuccin's
 
 [[left]]
 type = "workspaces"
 
-[[center]]
+[[right]]
 type = "clock"
 format = "%H:%M"
 
@@ -228,7 +253,13 @@ A missing file is never created. Files that exist change in two ways:
     already mentions the option. That rewrites the file in place (through
     `toml_edit`, so comments and formatting survive) without a backup.
     Otherwise it appends a comment block about the option, unless the file
-    already mentions `unfocused` anywhere.
+    already mentions `unfocused` anywhere. Last, it appends a comment block
+    about window transitions, unless the file has an `animations` table, as
+    the template writes it, or an `[animations]` header line commented out,
+    as the block itself has. A line that only mentions the section does not
+    count. The block is all comments and names no default value, so the file
+    keeps the defaults until the user writes the section, and says nothing
+    wrong about them when they change.
   - `merge_missing_keybindings()` and `merge_missing_bar_widgets()` append the
     default bindings and bar widgets the files lack; see
     [keyboard-bindings.md](keyboard-bindings.md) and
@@ -277,9 +308,11 @@ by default.
 
 ### Default Rules
 
-`default_rules()` excludes:
-
-- `ApplicationFrameWindow` class -- UWP apps like Settings and Microsoft Store
+`default_rules()` is empty: the rules come from the community `rules.toml`,
+which the daemon downloads, and the user's `user-rules.toml`. The
+`rules.toml` that `mosaico init` writes until the first download leaves out
+the untitled `ApplicationFrameWindow` frames UWP apps leave behind, and GPG's
+`pinentry` prompt.
 
 ### Evaluation
 
@@ -332,11 +365,17 @@ modification time changed. `ConfigReloader` and `ConfigWatch`
 (`mosaico_core::config`) make these decisions, so every platform reloads the
 same way.
 
-- **config.toml**: gap/ratio, hiding behaviour, border settings, and theme
-  are reloaded. The tiling manager calls `reload_config()` which updates the
-  layout gap/ratio, hiding strategy, and `BorderConfig`, then retiles all
-  windows. Bar colors, the `[colors]` table and each widget's `color`, are
-  resolved again against the theme, so they follow a theme change. Hiding changes
+- **config.toml**: gap/ratio, hiding behaviour, border settings, the
+  `[mouse]` settings, `[animations]` and theme are reloaded. The tiling
+  manager calls `reload_config()` which updates the layout gap/ratio, hiding
+  strategy, `BorderConfig`, whether the mouse follows focus and the
+  `[animations]` settings, then retiles all windows; the daemon starts or
+  stops focus-follows-mouse. Transitions that start after the reload use the
+  new settings. A motion in flight goes on as it is while its target stays the
+  same, a reload that moves its target turns it there with the new duration,
+  and one that turns transitions off ends it with a placement that snaps.
+  Bar colors, the `[colors]` table and each widget's `color`, are resolved
+  again against the theme, so they follow a theme change. Hiding changes
   take effect on the next workspace switch; a strategy the platform does not
   have is swapped for one it has, with a warning in the log, as at startup.
   Windows hidden before the change are shown again the way they were hidden.
@@ -391,10 +430,17 @@ apply alone until it is fixed.
 
 ## Tests
 
-- 11 unit tests covering: defaults, partial TOML parsing, rule matching
-  (by class, by title, first-match wins, no-rules default), validation
-  clamping
-- 6 template tests: roundtrip parsing, template-matches-defaults verification
+- 29 unit tests in `config/tests.rs` covering: defaults, partial TOML
+  parsing, rule matching (by class, by title, by path, first-match wins,
+  no-rules default), validation clamping
+- 8 tests of `[animations]` in `config/animations_tests.rs`: the defaults,
+  parsing, the duration clamped, `spec()` and `is_on()`, and an unknown
+  easing or a `cubic-bezier` that would overshoot making `config.toml`
+  invalid; the easing names in `motion/tests/easing_names_tests.rs`
+- Template tests (`template_tests.rs`, `template_animations_tests.rs`):
+  roundtrip parsing, template-matches-defaults verification, and that the
+  `[animations]` section writes out every key and names only easings the
+  config takes
 - `ConfigStore` tests in `config/store/tests/`. The tests of the migration
   and merge helpers work on single files in the system temp directory. The
   tests of the store's operations each get a directory of their own, deleted

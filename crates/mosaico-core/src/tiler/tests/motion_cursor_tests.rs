@@ -1,10 +1,10 @@
 //! Where the pointer goes when it follows a window that is moving, or
 //! that the user moved, and where it goes without transitions.
 
-use crate::config::Config;
 use crate::id::wid;
 use crate::tiler::tests::fake_desktop::Queued;
 use crate::tiler::tests::fake_platform::Call;
+use crate::tiler::tests::manager_support::still;
 use crate::{Action, Direction, Rect, WindowEvent};
 
 use super::{REFRESH, animated, settle, swap, two};
@@ -52,7 +52,7 @@ fn focusing_a_moving_window_puts_the_pointer_on_its_target() {
 fn without_transitions_the_pointer_follows_focus_to_where_the_desktop_has_the_window() {
     // Arrange -- the windows swap at once; then window 2's application
     // moves it a little.
-    let (platform, mut manager) = two(&Config::default());
+    let (platform, mut manager) = two(&still());
     swap(&mut manager);
     platform.edit(2, |w| w.rect.x += 40);
     let at = platform.window(2).rect;

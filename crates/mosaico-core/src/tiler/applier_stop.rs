@@ -5,35 +5,53 @@
 //! asked to forget the windows it posts to as soon as it can, so that
 //! changes to them are made at once again.
 
+use std::time::Instant;
+
 use crate::Error;
-use crate::motion::Tick;
+use crate::motion::{Ending, Kept, Tick};
 
 use super::super::{Desktop, Platform};
 use super::Applier;
 
 impl Applier {
-    /// Ends every motion at its target as the tiler stops, before any
-    /// window is revealed, and places the windows a display change stopped
-    /// at theirs. No border is drawn: the tiler hides them all.
-    pub(in crate::tiler) fn finish_motions(&mut self, platform: &mut dyn Platform) {
+    /// Ends every motion at its target as the tiler stops, at `now`, before
+    /// any window is revealed, and places the windows a display change
+    /// stopped at theirs. No border is drawn: the tiler hides them all.
+    pub(in crate::tiler) fn finish_motions(&mut self, platform: &mut dyn Platform, now: Instant) {
         self.transitions.borders.clear();
         let stopped = self.take_stopped();
-        for (window, target) in self.transitions.motions.clear().into_iter().chain(stopped) {
-            self.send_to(window, target, platform);
+        for (window, target) in self.transitions.motions.clear() {
+            let placed = self.send_to(window, target, platform);
+            self.log_end(window, Ending::Shutdown, Some(placed), now);
+        }
+        for (window, target) in stopped {
+            let placed = self.send_to(window, target, platform);
+            self.log_kept(window, Kept::Shutdown, placed, now);
         }
     }
 
-    /// Turns transitions off for the rest of the session, as on a platform
-    /// that cannot move windows frame by frame: nothing animates from then
-    /// on, and every moving window is placed at its target, with the border
-    /// it kept for its motion drawn there. Then the platform forgets the
-    /// windows it no longer needs to post to.
-    pub(in crate::tiler) fn turn_off_transitions(&mut self, platform: &mut dyn Platform) {
+    /// Turns transitions off for the rest of the session, at `now`, as on a
+    /// platform that cannot move windows frame by frame: nothing animates
+    /// from then on, and every moving window is placed at its target, with
+    /// the border it kept for its motion drawn there. Then the platform
+    /// forgets the windows it no longer needs to post to.
+    pub(in crate::tiler) fn turn_off_transitions(
+        &mut self,
+        platform: &mut dyn Platform,
+        now: Instant,
+    ) {
         self.transitions.frames_supported = false;
         for (window, target) in self.transitions.motions.clear() {
-            self.in_place(window, target, platform);
+            let placed = self.in_place(window, target, platform);
+            self.log_end(window, Ending::TransitionsOff, Some(placed), now);
         }
         self.settle_while_off(platform);
+    }
+
+    /// Whether windows can still be moved frame by frame this session: not
+    /// once transitions were turned off for it.
+    pub(in crate::tiler) fn has_frames(&self) -> bool {
+        self.transitions.frames_supported
     }
 
     /// Has the platform forget the windows given frames that it no longer
@@ -64,27 +82,28 @@ impl Applier {
             && (!animations.follow_system || desktop.animations_allowed())
     }
 
-    /// Acts on `place_frames` failing for the frames of `tick`. A platform
-    /// that cannot move windows frame by frame turns transitions off, logged
-    /// once. Any other failure is logged once until frames work again, and
-    /// the windows the frames were for are placed at their targets, as for
-    /// placements that snap. Transitions stay on.
+    /// Acts on `place_frames` failing at `now` for the frames of `tick`. A
+    /// platform that cannot move windows frame by frame turns transitions
+    /// off, logged once. Any other failure is logged once until frames work
+    /// again, and the windows the frames were for are placed at their
+    /// targets, as for placements that snap. Transitions stay on.
     pub(super) fn frames_failed(
         &mut self,
         error: &Error,
         tick: &Tick,
         platform: &mut dyn Platform,
+        now: Instant,
     ) {
         if let Error::Unsupported(_) = error {
             crate::log_info!("Transitions are off: windows cannot move frame by frame ({error})");
-            self.turn_off_transitions(platform);
+            self.turn_off_transitions(platform, now);
             return;
         }
         if !std::mem::replace(&mut self.transitions.frames_failing, true) {
             crate::log_warn!("Windows went straight to their places: {error}");
         }
         for frame in &tick.in_flight {
-            self.finish_motion(frame.window, platform);
+            self.finish_motion(frame.window, Ending::FramesFailed, platform, now);
         }
     }
 }
