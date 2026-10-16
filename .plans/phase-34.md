@@ -48,8 +48,8 @@ The work splits into four steps, one PR each (see Tasks).
 - While a window moves, its motion is the tiler's record of where it is going.
   The only reads mid-flight are the frame outcomes the platform reports.
 - A window's position reports never count as input activity, whoever moved it.
-- Borders follow the window, not the frame posted to it, and are never
-  rendered again on a frame.
+- Borders follow the window, never ahead of a slow one nor a frame behind one
+  that keeps up, and are never rendered again on a frame.
 - The Windows "Animation effects" setting is honoured.
 - Turning animations off at runtime, by a reload or the system's setting,
   does not undo what was posted: the tiler settles windows while they stay
@@ -151,8 +151,8 @@ Scheduler frame step  -> Applier::frame(now)                        on a frame, 
   the target.
 - `Motions`: the table of moving windows. `retarget` is a no-op when the target
   is unchanged; `frame(now)` returns the frames to post and the motions that
-  are due to finish; the table remembers each window's outcome, counts the
-  frames it has been pending, and gives the earliest deadline. The last frame
+  are due to finish; the table remembers each window's outcome and when it
+  was last seen to move, and gives the earliest deadline. The last frame
   of a motion is exactly its target.
 - `policy`: the rules in "What Animates", as two pure functions over plain
   facts: the step decision and the apply-time check.
@@ -175,9 +175,11 @@ Scheduler frame step  -> Applier::frame(now)                        on a frame, 
   first (below), then places as today.
 - The frame step posts every frame due in one `place_frames` call and acts on
   each outcome:
-  - handled: the border moves to the rect the window reached;
-  - pending: the border stays; a window pending for 3 frames in a row makes
-    every motion of its step finish at once;
+  - handled: the border moves to the rect the window reached, or, if it took
+    the frame posted before exactly, to the frame now posted;
+  - pending: the border stays; a window not seen to move for 50 ms
+    (`MAX_LAG`) since it handled its first frame makes every motion of its
+    step finish at once;
   - maximized or minimized: the motion stops, and nothing forces the window
     back;
   - gone: the motion is dropped.
@@ -227,7 +229,8 @@ Scheduler frame step  -> Applier::frame(now)                        on a frame, 
 ### Borders
 
 `LastDrawn::needs_render` already ignores position, so moving a border is not a
-render. During a motion a border moves to the rect its window reached, with a
+render. During a motion a border moves to the rect its window reached, or to
+the frame now posted once the window took the one before exactly, with a
 position-only move, and stays put while the window is pending. A window that
 resizes hides its border at the start and gets it back, drawn once, at the
 final rect: rendering is a CPU loop that takes about 30 ms for half a 4K
@@ -319,9 +322,9 @@ screen, too slow for every frame.
 1. Rapid input: a target that changes mid-flight retargets from the window's
    rect and speed without overshooting; the same target again is a no-op.
 2. Slow or hung applications: frames never block, and a slow application gets
-   at most one frame per `PENDING_LIMIT`. A window pending for 3 frames makes
-   its step finish at once, and its final placement is posted behind its
-   frames, so it lands after them.
+   at most one frame per `PENDING_LIMIT`. A window not seen to move for 50 ms
+   makes its step finish at once, at any refresh rate, and its final
+   placement is posted behind its frames, so it lands after them.
 3. Minimum sizes: frames and the final `place` skip the application's minimum
    size alike, so nothing stops short and jumps at the end.
 4. The user grabs a moving window: `MoveStarted` stops its motion.
@@ -450,7 +453,7 @@ that changes them.
 
 - [x] `[animations]` in `Settings` and reload (left out of 34.1, where nothing
       read it yet)
-- [ ] `Motions` gives its earliest deadline and takes the frame outcomes of
+- [x] `Motions` gives its earliest deadline and takes the frame outcomes of
       34.2
 - [x] `Place { transition }`, set by the step decision in `Plan::finish` and kept
       by the coalescer
@@ -469,9 +472,9 @@ that changes them.
       step on frames and deadlines
 - [ ] Tiler tests on the fake clock: a swap moves both windows in lockstep and
       ends with exact placements; a second swap mid-flight retargets without a
-      jump; frames that land late delay the final place; a window pending for
-      3 frames finishes its step; each ending rule; monocle off shrinks the
-      front window back to its tile
+      jump; frames that land late delay the final place; a window not seen to
+      move for 50 ms finishes its step; each ending rule; monocle off shrinks
+      the front window back to its tile
 - [ ] A metrics scenario for a swap with animations on
 - [ ] With animations off, the tiler and platform calls of every existing test
       are unchanged

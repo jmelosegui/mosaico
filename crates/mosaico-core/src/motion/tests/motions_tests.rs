@@ -2,7 +2,7 @@ use std::time::Instant;
 
 use crate::Rect;
 use crate::id::wid;
-use crate::motion::test_support::{ms, spec};
+use crate::motion::test_support::{flights, ms, spec};
 use crate::motion::{Easing, Tick};
 
 use super::*;
@@ -21,7 +21,7 @@ fn a_window_that_is_not_moving_eases_from_where_it_is() {
 
     // Assert
     let path = Segment::eased(from, to, t0, quick);
-    assert_eq!(frame.in_flight, vec![(wid(1), path.rect_at(t0 + ms(60)))]);
+    assert_eq!(flights(&frame), vec![(wid(1), path.rect_at(t0 + ms(60)))]);
     assert!(frame.finished.is_empty());
     assert_eq!(motions.target(wid(1)), Some(to));
     assert!(motions.is_moving(wid(1)) && !motions.is_empty());
@@ -42,8 +42,8 @@ fn a_motion_ends_with_its_exact_target_and_leaves_the_table() {
 
     // Assert
     let ended = Tick {
-        in_flight: Vec::new(),
         finished: vec![(wid(1), to)],
+        ..Tick::default()
     };
     assert_eq!(frame, ended);
     assert!(motions.is_empty() && !motions.is_moving(wid(1)));
@@ -66,7 +66,7 @@ fn windows_moved_together_move_on_the_same_frames_and_end_together() {
 
     // Assert
     for frame in &frames[..3] {
-        let moved: Vec<_> = frame.in_flight.iter().map(|&(w, _)| w).collect();
+        let moved: Vec<_> = frame.in_flight.iter().map(|f| f.window).collect();
         assert_eq!(moved, [wid(1), wid(2)]);
     }
     assert_eq!(frames[3].finished, vec![(wid(1), right), (wid(2), left)]);

@@ -16,3 +16,8 @@ pub(super) fn spec(millis: u64, easing: Easing) -> MotionSpec {
         easing,
     }
 }
+
+/// The windows `tick` has frames for, each with the rect of its frame.
+pub(super) fn flights(tick: &super::Tick) -> Vec<(crate::WindowId, crate::Rect)> {
+    tick.in_flight.iter().map(|f| (f.window, f.rect)).collect()
+}

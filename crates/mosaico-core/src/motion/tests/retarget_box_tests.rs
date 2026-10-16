@@ -3,7 +3,7 @@ use std::time::Instant;
 use crate::Rect;
 use crate::id::wid;
 use crate::motion::Easing;
-use crate::motion::test_support::{ms, spec};
+use crate::motion::test_support::{flights, ms, spec};
 
 use super::super::Motions;
 use super::ANYWHERE;
@@ -35,7 +35,7 @@ fn a_new_target_never_takes_the_window_beyond_where_it_was_and_where_it_goes() {
         motions.retarget(wid(1), start, first, t0, quick);
         let mut sent = Vec::new();
         for i in 0..60 {
-            sent.extend(motions.frame(t0 + ms(i)).in_flight);
+            sent.extend(flights(&motions.frame(t0 + ms(i))));
         }
         let turning = motions.rect_at(wid(1), at).unwrap();
 
@@ -43,7 +43,7 @@ fn a_new_target_never_takes_the_window_beyond_where_it_was_and_where_it_goes() {
         motions.retarget(wid(1), ANYWHERE, target, at, quick);
         for i in 0..=180 {
             let frame = motions.frame(at + ms(i));
-            sent.extend(frame.in_flight.into_iter().chain(frame.finished));
+            sent.extend(flights(&frame).into_iter().chain(frame.finished));
         }
 
         // Assert -- frame by frame, edge by edge.
