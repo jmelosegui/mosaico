@@ -359,8 +359,7 @@ that changes them.
 - [x] `Motions` table, with tests for the no-op retarget, dropped frames and
       sizes never below 1
 - [x] The step decision and the apply-time check, with a test for every rule
-- [ ] `[animations]` config: types, defaults, validation and parsing, `Settings`
-      and reload
+- [x] `[animations]` config: types, defaults, validation and parsing
 
 ### 34.2 Platform contracts
 
@@ -379,6 +378,8 @@ that changes them.
 
 ### 34.3 Transitions in the tiler and the applier
 
+- [ ] `[animations]` in `Settings` and reload (left out of 34.1, where nothing
+      read it yet)
 - [ ] `Motions` gives its earliest deadline and takes the frame outcomes of
       34.2
 - [ ] `Place { transition }`, set by the step decision in `Plan::finish` and kept
