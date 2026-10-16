@@ -1,6 +1,7 @@
 use std::mem;
 
-use mosaico_core::{Error, MonitorId, MonitorKey, Rect, Result, WindowId};
+use mosaico_core::tiler::Display;
+use mosaico_core::{Error, MonitorId, Rect, Result, WindowId};
 use windows::Win32::Foundation::{LPARAM, RECT};
 use windows::Win32::Graphics::Gdi::{
     EnumDisplayMonitors, GetMonitorInfoW, HDC, HMONITOR, MONITOR_DEFAULTTOPRIMARY, MONITORINFO,
@@ -13,44 +14,27 @@ use crate::monitor_identity;
 /// `MONITORINFOF_PRIMARY` flag in `MONITORINFO::dwFlags`.
 const MONITORINFOF_PRIMARY: u32 = 1;
 
-/// Information about a connected monitor.
-pub struct MonitorInfo {
-    /// Runtime handle: the HMONITOR value.
-    ///
-    /// Only valid until the next display change: Windows hands out new
-    /// handles whenever the configuration changes. Use `key` to
-    /// recognise a monitor across changes.
-    pub id: MonitorId,
-    /// Identity that survives reconnects. See [`MonitorKey`].
-    pub key: MonitorKey,
-    /// Work area excluding the taskbar and docked toolbars.
-    pub work_area: Rect,
-    /// Whether this is the primary monitor.
-    pub primary: bool,
-}
-
-impl mosaico_core::Monitor for MonitorInfo {
-    fn key(&self) -> &MonitorKey {
-        &self.key
-    }
-
-    fn work_area(&self) -> Rect {
-        self.work_area
-    }
-
-    fn is_primary(&self) -> bool {
-        self.primary
-    }
-}
-
 /// Returns the monitor ID for the monitor containing the given window.
 ///
-/// Falls back to the primary monitor if the window handle is invalid.
-pub fn monitor_id_for_window(window: WindowId) -> MonitorId {
+/// `MonitorFromWindow` picks the monitor with the largest share of the
+/// window, uses the restored position of a minimized window, and falls
+/// back to the primary monitor for a window on no monitor. For a handle
+/// that is no longer valid it returns a null monitor handle, which comes
+/// out as an id that is in no monitor list.
+pub(crate) fn monitor_id_for_window(window: WindowId) -> MonitorId {
     let hwnd = crate::window::Window::from_id(window).hwnd();
     // SAFETY: MonitorFromWindow is a read-only query on a window handle.
     let hmonitor = unsafe { MonitorFromWindow(hwnd, MONITOR_DEFAULTTOPRIMARY) };
-    MonitorId::from_raw(hmonitor.0 as usize as u64)
+    monitor_id(hmonitor)
+}
+
+/// The core id of a monitor, which is its `HMONITOR` value.
+///
+/// Only valid until the next display change: Windows hands out new
+/// handles whenever the configuration changes, even for monitors that
+/// stayed connected. The monitor's key recognises it across changes.
+fn monitor_id(monitor: HMONITOR) -> MonitorId {
+    MonitorId::from_raw(monitor.0 as usize as u64)
 }
 
 /// A monitor as seen by `EnumDisplayMonitors`, before its key is known.
@@ -61,8 +45,11 @@ struct RawMonitor {
     gdi_name: String,
 }
 
-/// Enumerates all connected monitors, sorted left-to-right.
-pub fn enumerate_monitors() -> Result<Vec<MonitorInfo>> {
+/// Enumerates all connected monitors, in the order `EnumDisplayMonitors`
+/// reports them. [`Enumerator::monitors`] puts them left to right.
+///
+/// [`Enumerator::monitors`]: mosaico_core::tiler::Enumerator::monitors
+pub(crate) fn enumerate_monitors() -> Result<Vec<Display>> {
     let mut raw: Vec<RawMonitor> = Vec::new();
 
     // SAFETY: EnumDisplayMonitors calls our callback for each monitor.
@@ -85,20 +72,15 @@ pub fn enumerate_monitors() -> Result<Vec<MonitorInfo>> {
     }
 
     let mut identities = monitor_identity::display_identities();
-    let mut monitors: Vec<MonitorInfo> = raw
+    Ok(raw
         .into_iter()
-        .map(|m| MonitorInfo {
+        .map(|m| Display {
             id: m.id,
             key: identities.remove(&m.gdi_name).unwrap_or_default(),
             work_area: m.work_area,
             primary: m.primary,
         })
-        .collect();
-
-    // Sort left-to-right so "next" and "previous" are spatial.
-    monitors.sort_by_key(|m| m.work_area.x);
-
-    Ok(monitors)
+        .collect())
 }
 
 /// Callback invoked by `EnumDisplayMonitors` for each connected monitor.
@@ -152,7 +134,7 @@ fn query_monitor(monitor: HMONITOR) -> Result<RawMonitor> {
         .unwrap_or(info.szDevice.len());
 
     Ok(RawMonitor {
-        id: MonitorId::from_raw(monitor.0 as usize as u64),
+        id: monitor_id(monitor),
         work_area: rect_from_win32(&info.monitorInfo.rcWork),
         primary: info.monitorInfo.dwFlags & MONITORINFOF_PRIMARY != 0,
         gdi_name: String::from_utf16_lossy(&info.szDevice[..name_len]),

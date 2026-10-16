@@ -20,6 +20,7 @@ mod echo;
 mod echo_focus;
 mod effect;
 mod empty_focus;
+mod enumerator;
 mod events;
 mod events_focus;
 mod focus;
@@ -51,6 +52,7 @@ pub use desktop::{Desktop, Display, WindowFacts};
 pub use echo::{Expectations, HIDE_FOCUS_ECHO_TTL};
 pub use echo_focus::FOCUS_ECHO_TTL;
 pub use effect::{BorderStyle, Effect, Timing};
+pub use enumerator::{Enumerator, Insets, WindowDetails};
 pub use hidden::{HiddenWindows, WindowIdentity};
 pub use input::{BarReservation, Input};
 pub use state::MonitorState;
@@ -125,9 +127,10 @@ pub struct Tiler {
 impl Tiler {
     /// Starts tiling `windows` across `displays`.
     ///
-    /// `windows` are the windows that exist right now, in the platform's
-    /// order. The tiler keeps the ones the rules accept, each on the
-    /// monitor it is on, and returns the effects that lay them out.
+    /// `displays` and `windows` are what exists right now, in the order
+    /// [`Enumerator::monitors`] and [`Enumerator::windows`] list them. The
+    /// tiler keeps the windows the rules accept, each on the monitor it is
+    /// on, and returns the effects that lay them out.
     pub fn new(
         settings: Settings,
         displays: &[Display],
@@ -207,7 +210,9 @@ impl Tiler {
         plan.finish()
     }
 
-    /// Every monitor, in the platform's order.
+    /// Every monitor, in the order of the displays handed to
+    /// [`Tiler::new`] or in the latest [`Input::Displays`]: left to right
+    /// when they come from [`Enumerator::monitors`].
     pub fn monitors(&self) -> &[MonitorState] {
         &self.monitors
     }

@@ -15,7 +15,7 @@ use crate::error::OrPlatform;
 /// On Windows 10/11, windows have invisible drop-shadow borders that
 /// `GetWindowRect` includes but are not visually part of the window.
 /// Typical values are ~7px left/right/bottom and 0px top.
-pub struct BorderOffset {
+pub(crate) struct BorderOffset {
     pub left: i32,
     pub top: i32,
     pub right: i32,
@@ -47,7 +47,7 @@ pub(crate) fn visible_rect(hwnd: HWND) -> Result<RECT> {
 
 /// Computes the invisible border widths by comparing `GetWindowRect`
 /// (includes borders) with `DWMWA_EXTENDED_FRAME_BOUNDS` (visible area).
-pub fn border_offset(hwnd: HWND) -> Result<BorderOffset> {
+pub(crate) fn border_offset(hwnd: HWND) -> Result<BorderOffset> {
     let mut window_rect = RECT::default();
     // SAFETY: GetWindowRect retrieves the bounding rectangle of a valid HWND.
     unsafe { GetWindowRect(hwnd, &mut window_rect) }.or_platform("read the window bounds")?;

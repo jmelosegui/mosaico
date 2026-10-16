@@ -53,7 +53,7 @@ Any of these in a diff means a contract is missing or being bypassed:
 - `mosaico_windows::` used in `crates/mosaico/src/commands/` or `main.rs`
 - `windows::Win32` imported in tiling, daemon loop, bar widget logic or other decision code
 - `Window::from_raw(`, `.hwnd()` or a native handle passed around outside the module that wraps it
-- an inherent `pub fn` on a platform type (`Window`, `MonitorInfo`, `Border`, ...) called from the tiler while
+- an inherent `pub fn` on a platform type (`Window`, `Border`, ...) called from the tiler while
   the core trait lacks an equivalent
 - a core trait that is implemented but never used through the trait
 - `usize` window or monitor ids named `hwnd`/`hmonitor`, or `0` meaning "no window"

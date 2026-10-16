@@ -40,7 +40,7 @@ impl Window {
     }
 
     /// Returns the raw window handle.
-    pub fn hwnd(&self) -> HWND {
+    pub(crate) fn hwnd(&self) -> HWND {
         self.hwnd
     }
 

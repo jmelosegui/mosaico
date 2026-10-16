@@ -19,6 +19,7 @@ use mosaico_core::system::{Autostart, ProcessControl};
 use mosaico_core::{Error, Rect, Result, WindowId};
 
 use super::context::{Clock, Context, Daemon, Exit};
+use super::fake_desktop::FakeDesktop;
 
 /// How long a fake process stays alive.
 #[derive(Debug, Clone, Copy)]
@@ -214,9 +215,11 @@ impl Clock for World {
     }
 }
 
-/// Runs commands against a [`World`], capturing what they print.
+/// Runs commands against a [`World`] and a [`FakeDesktop`], capturing
+/// what they print.
 pub struct Harness {
     pub world: World,
+    pub desktop: FakeDesktop,
     pub pid_file: PidFile,
     out: Vec<u8>,
     err: Vec<u8>,
@@ -232,6 +235,7 @@ impl Harness {
         let _ = std::fs::remove_dir_all(&dir);
         Self {
             world: World::default(),
+            desktop: FakeDesktop::default(),
             pid_file: PidFile::new(dir.join("mosaico.pid")),
             out: Vec::new(),
             err: Vec::new(),
@@ -245,6 +249,7 @@ impl Harness {
             processes: &self.world,
             autostart: &self.world,
             windows: &self.world,
+            desktop: &self.desktop,
             pid_file: self.pid_file.clone(),
             config_dir: "C:\\config\\mosaico".into(),
             clock: &self.world,

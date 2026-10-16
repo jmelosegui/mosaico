@@ -1,7 +1,8 @@
 use mosaico_core::ipc::{Command, DAEMON_VERSION, DaemonStatus, PROTOCOL_VERSION, Response};
+use mosaico_core::tiler::Enumerator;
 
 use crate::bar_manager::BarManager;
-use crate::monitor;
+use crate::enumerate::WindowsEnumerator;
 use crate::tiling::TilingManager;
 
 /// Processes a single event. Returns `true` if the bar should be refreshed.
@@ -23,7 +24,7 @@ pub(super) fn handle_event(
             manager.reset_and_adjust_work_areas(bar_height, &indices);
             true
         }
-        mosaico_core::WindowEvent::DisplayChanged => match monitor::enumerate_monitors() {
+        mosaico_core::WindowEvent::DisplayChanged => match WindowsEnumerator.monitors() {
             Ok(new_monitors) => {
                 mosaico_core::log_info!("Display change detected, {} monitors", new_monitors.len());
                 // Rebuild the bars first: the tiler must reserve space on

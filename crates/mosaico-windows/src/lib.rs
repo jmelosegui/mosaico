@@ -34,14 +34,14 @@ mod decorations;
 /// DPI awareness setup.
 pub mod dpi;
 
-/// Win32 window enumeration.
+/// Window and monitor listing for the core `Enumerator` contract.
 pub mod enumerate;
 
 /// Wrapping native errors in the core error.
 mod error;
 
 /// Window frame and border offset helpers.
-pub mod frame;
+mod frame;
 
 /// Minimal HTTPS GET client using WinHTTP.
 pub mod http;
@@ -65,7 +65,7 @@ pub mod event_loop;
 pub mod ipc;
 
 /// Monitor work area queries.
-pub mod monitor;
+mod monitor;
 
 /// Workarounds for Chromium-based windows.
 mod chromium;
@@ -91,5 +91,4 @@ pub mod window;
 /// Moving, showing, hiding and focusing windows through Win32.
 pub mod window_control;
 
-pub use enumerate::enumerate_windows;
 pub use window::Window;

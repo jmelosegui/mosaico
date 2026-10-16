@@ -15,32 +15,51 @@ and monitors using vim-style H/J/K/L motions.
 | `crates/mosaico-core/src/monitor.rs` | `MonitorKey`, `EdidIdentity`, `Monitor` trait |
 | `crates/mosaico-core/src/monitor/matching.rs` | `match_monitors()` |
 | `crates/mosaico-core/src/monitor/edid.rs` | `EdidIdentity::from_edid()`, `pnp_manufacturer()` |
-| `crates/mosaico-windows/src/monitor.rs` | `MonitorInfo`, enumeration and query functions |
+| `crates/mosaico-core/src/tiler/enumerator.rs` | `Enumerator`, the contract for listing monitors and windows, and the left-to-right order |
+| `crates/mosaico-windows/src/enumerate.rs` | `WindowsEnumerator`, the Windows `Enumerator` |
+| `crates/mosaico-windows/src/monitor.rs` | Monitor enumeration and query functions |
 | `crates/mosaico-windows/src/monitor_identity.rs` | Builds a `MonitorKey` from the display configuration |
 | `crates/mosaico-windows/src/monitor_edid.rs` | Reads the EDID copy from the registry |
-| `crates/mosaico-windows/src/tiling/display.rs` | `handle_display_change()` |
-| `crates/mosaico-windows/src/tiling/display_rebuild.rs` | `rebuild_monitors()`, `pair_monitors()` (no Win32 calls, unit tested) |
-| `crates/mosaico-windows/src/tiling/mod.rs` | `TilingManager`, `MonitorState`, `SpatialTarget` |
-| `crates/mosaico-windows/src/tiling/navigation.rs` | Multi-monitor focus/move logic, spatial target resolution |
+| `crates/mosaico-core/src/tiler/display.rs` | `handle_display_change()` |
+| `crates/mosaico-core/src/tiler/display_rebuild.rs` | `rebuild_monitors()`, `pair_monitors()` (unit tested) |
+| `crates/mosaico-core/src/tiler/state.rs` | `MonitorState`, `SpatialTarget` |
+| `crates/mosaico-core/src/tiler/navigation.rs`, `navigation_helpers.rs` | Multi-monitor focus/move logic, spatial target resolution |
+| `crates/mosaico-windows/src/tiling/mod.rs` | `TilingManager`, which feeds the core tiler the monitor lists |
 
 ### Key Types
 
-- `MonitorInfo` -- fields: `id: usize` (HMONITOR cast), `key: MonitorKey`,
-  `work_area: Rect`, `primary: bool`. Implements `mosaico_core::Monitor`
+- `Display` -- a connected monitor (from `mosaico-core`): `id: MonitorId`
+  (the HMONITOR on Windows), `key: MonitorKey`, `work_area: Rect`,
+  `primary: bool`. Implements `mosaico_core::Monitor`
 - `MonitorKey` -- stable identity of a physical display (from `mosaico-core`)
 - `SpatialTarget` (enum) -- `Neighbor(window)` or `AdjacentMonitor(idx)`
 - `Direction` (enum) -- `Left`, `Right`, `Up`, `Down` (from `mosaico-core`)
 
 ## Monitor Enumeration
 
-`enumerate_monitors()` uses `EnumDisplayMonitors` to discover all connected
-monitors, returning them sorted left-to-right by `work_area.x`. Each one
-gets a `MonitorKey` from `monitor_identity::display_identities()`.
+Monitors are listed through the core `Enumerator` contract
+(`mosaico-core/src/tiler/enumerator.rs`). A platform implements
+`connected_monitors()`, which returns every monitor of the desktop in any
+order: mirrored monitors count once, exactly one is primary, and work areas
+leave out taskbars and docks, in the same coordinates as window bounds.
 
-Additional utility function:
+Callers use the provided `monitors()`, which sorts that list in core by the
+left edge of the work area. The sort is stable, so monitors that share a left
+edge (stacked vertically) stay in the order the platform found them in. This
+order is what a monitor number means everywhere: the bar's `monitors`
+setting, `mosaico debug list`, the tiler's monitor indices and the monitor
+that has focus at startup. The bar and the tiler both number monitors from
+this list.
 
-- `monitor_id_for_window(window)` -- returns the `MonitorId` (the HMONITOR) for a window's
-  monitor
+On Windows, `WindowsEnumerator` gets the monitors from `EnumDisplayMonitors`
+(`monitor::enumerate_monitors()`), and each one gets a `MonitorKey` from
+`monitor_identity::display_identities()`.
+
+Which monitor a window is on is a per-window query the tiler makes while it
+decides, so it lives on `Desktop::monitor_of`: the monitor that holds the
+largest part of the window, the one a minimized window will be restored to,
+or the primary monitor for a window on none. On Windows it is
+`MonitorFromWindow` (`monitor::monitor_id_for_window()`).
 
 ## Monitor Identity
 
@@ -103,7 +122,7 @@ time so a weak match can never take a display a stronger one would claim:
 Two known serials that differ never match. A key with every field `None`
 never matches anything.
 
-`pair_monitors()` in the Windows tiler runs `match_monitors` first. Only
+`pair_monitors()` in the core tiler runs `match_monitors` first. Only
 monitors whose key is unknown fall back to the same HMONITOR and then to
 the same work area origin. A monitor with a known key is never paired with
 another by position, so an office monitor that sits where the home monitor
@@ -114,8 +133,8 @@ was does not inherit the home monitor's workspaces.
 ## Disconnect and Reconnect
 
 `handle_display_change()` calls `rebuild_monitors()` (`display_rebuild.rs`),
-which keeps a `ReconnectMemory` (`tiling/reconnect.rs`) owned by the
-`TilingManager`:
+which keeps a `ReconnectMemory` (`tiler/reconnect.rs`) owned by the core
+`Tiler`:
 
 - **Paired monitors** keep their workspaces and active workspace.
 - **Removed monitors** are passed to `ReconnectMemory::park()`. Each window
@@ -283,16 +302,17 @@ This places the window at the entry side of the target monitor.
 
 At startup, `daemon_loop()`:
 
-1. Calls `enumerate_monitors()` to get all monitor info
+1. Lists the monitors, left to right, with `Enumerator::monitors()`
 2. Creates a `MonitorState` for each monitor with an empty `Workspace`
-3. Enumerates existing visible windows and assigns them to the correct
-   monitor's workspace
+3. Lists the existing windows with `Enumerator::windows()` and assigns them
+   to the correct monitor's workspace
 4. Applies the initial layout on all monitors
 
 ## Design Decisions
 
 - Monitors sorted left-to-right provides intuitive H/L navigation matching
-  physical monitor placement.
+  physical monitor placement. The sort lives in core (`Enumerator::monitors`)
+  so every platform numbers monitors the same way.
 - `SpatialTarget` enum cleanly separates "same monitor neighbor" from
   "cross-monitor jump", allowing the same logic to handle both focus and
   move operations.
