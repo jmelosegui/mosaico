@@ -32,6 +32,8 @@ pub(crate) struct FakeDesktop {
     pub(crate) stack: Vec<WindowId>,
     /// What the platform keeps about the frames posted to the windows.
     pub(crate) frames: FrameTable<()>,
+    /// Whether the user turned animations off in the system's settings.
+    pub(crate) animations_off: bool,
 }
 
 impl Desktop for FakeDesktop {
@@ -83,5 +85,9 @@ impl Desktop for FakeDesktop {
 
     fn facts(&self, window: WindowId) -> Option<WindowFacts> {
         self.windows.get(&window).and_then(|w| w.facts.clone())
+    }
+
+    fn animations_allowed(&self) -> bool {
+        !self.animations_off
     }
 }

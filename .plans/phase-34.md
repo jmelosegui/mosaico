@@ -427,11 +427,11 @@ that changes them.
       at once once transitions are off
 - [x] `FrameClock` contract and the Windows pacer, tested against an injected
       wait
-- [ ] `Desktop::animations_allowed` and its Windows implementation
+- [x] `Desktop::animations_allowed` and its Windows implementation
 - [ ] `WindowEvent::MoveStarted` from `EVENT_SYSTEM_MOVESIZESTART`
 - [x] Scheduler: position reports and frames are not activity, motion
       deadlines, one frame step per wake; tests at explicit times
-- [ ] Fakes record frames, can make frames land late, and can say whether
+- [x] Fakes record frames, can make frames land late, and can say whether
       animations are allowed
 
 ### 34.3 Transitions in the tiler and the applier

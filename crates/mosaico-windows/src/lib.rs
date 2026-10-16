@@ -97,6 +97,10 @@ pub mod setup;
 /// Machine readings for the bar's system widgets.
 pub mod system_info;
 
+/// The system settings that change what mosaico does, such as whether
+/// windows may be animated.
+mod system_settings;
+
 /// The Win32 platform the core tiling manager runs on.
 pub mod tiling;
 

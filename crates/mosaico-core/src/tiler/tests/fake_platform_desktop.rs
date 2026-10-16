@@ -48,6 +48,10 @@ impl Desktop for FakePlatform {
     fn facts(&self, window: WindowId) -> Option<WindowFacts> {
         self.shared.desktop.borrow().facts(window)
     }
+
+    fn animations_allowed(&self) -> bool {
+        self.shared.desktop.borrow().animations_allowed()
+    }
 }
 
 impl Enumerator for FakePlatform {
@@ -87,3 +91,6 @@ impl Enumerator for FakePlatform {
         }
     }
 }
+
+#[path = "fake_platform_desktop_tests.rs"]
+mod tests;

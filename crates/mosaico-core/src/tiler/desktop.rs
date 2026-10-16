@@ -76,6 +76,17 @@ pub trait Desktop {
     /// took in, and it could position them then. `None` only when the
     /// window no longer exists or is no longer an application window.
     fn facts(&self, window: WindowId) -> Option<WindowFacts>;
+
+    /// Whether windows may be animated on this desktop: the user allows
+    /// animations in the system's settings, and the session is not a
+    /// remote one, where every frame would travel over the network.
+    ///
+    /// Read each time it is asked, so a change of the setting applies to
+    /// the next transition. A platform without such a setting answers
+    /// `true`, which is the default.
+    fn animations_allowed(&self) -> bool {
+        true
+    }
 }
 
 /// Properties the window rules match against.

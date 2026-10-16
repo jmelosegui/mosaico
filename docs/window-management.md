@@ -39,6 +39,7 @@ which includes invisible frame compensation and DPI awareness.
 | `crates/mosaico-windows/src/window_control/hiding.rs` | Hiding, showing, revealing and minimizing windows for `Win32WindowControl` |
 | `crates/mosaico-windows/src/window_control/stacking.rs` | `put_behind` for `Win32WindowControl`, within each window's `WS_EX_TOPMOST` band |
 | `crates/mosaico-windows/src/frame.rs` | `visible_rect()`, `border_offset()`, `BorderOffset` |
+| `crates/mosaico-windows/src/system_settings.rs` | `animations_allowed()`: the Windows animation setting, and whether the session is remote |
 | `crates/mosaico-core/src/tiler/enumerator.rs` | `Enumerator`, the contract for listing windows and monitors |
 | `crates/mosaico-windows/src/enumerate.rs` | `WindowsEnumerator`, `enumerate_windows()` |
 | `crates/mosaico-core/src/system/setup.rs` | `ProcessSetup`, the setup every process runs first |
@@ -77,7 +78,8 @@ which includes invisible frame compensation and DPI awareness.
   hidden or minimized, and showing it again reports it restored
 - `HidingSupport` (struct, core) -- the platform's `HidingEvents` for every
   way of hiding, `None` for the ways it does not have
-- `Desktop` (trait, core) -- what the tiler reads about windows and monitors
+- `Desktop` (trait, core) -- what the tiler reads about windows and monitors,
+  and whether windows may be animated
 - `mosaico_core::Result<T>` -- `Result<T, mosaico_core::Error>`, the error
   type of every platform contract
 - `Window` (struct, windows) -- wraps `HWND`; private to `mosaico-windows`,
@@ -326,6 +328,18 @@ call worked, so `minimize`, `hide`, `show` and `reveal` first check with
 `IsWindow` that the window still exists. `ShowWindowAsync` does say whether it
 queued the change, and a failure comes back as an error, as does a cloak or
 uncloak that fails, for a window the shell has no view of for example.
+
+### Whether Windows Animate
+
+`Desktop::animations_allowed` says whether windows may be animated, and is
+read again each time it is asked, so a change of the setting applies to the
+next transition. A platform without such a setting answers `true`, the
+default. `Win32Desktop` answers from `system_settings.rs`:
+`SystemParametersInfoW(SPI_GETCLIENTAREAANIMATION)`, the setting behind both
+the Windows 11 "Animation effects" and the Windows 10 "Show animations in
+Windows" toggles, and `false` in a remote session
+(`GetSystemMetrics(SM_REMOTESESSION)`), where every frame would travel over
+the network. A setting that cannot be read allows animations.
 
 ## Window Positioning
 

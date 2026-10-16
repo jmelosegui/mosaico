@@ -105,6 +105,12 @@ impl FakePlatform {
         self.shared.pre_places_land.set(true);
     }
 
+    /// Turns animations on or off, as the user does in the system's
+    /// settings.
+    pub(crate) fn allow_animations(&self, allowed: bool) {
+        self.shared.desktop.borrow_mut().animations_off = !allowed;
+    }
+
     /// Moves the work area of monitor `index`.
     pub(crate) fn set_work_area(&self, index: usize, area: Rect) {
         self.shared.displays.borrow_mut()[index].work_area = area;
