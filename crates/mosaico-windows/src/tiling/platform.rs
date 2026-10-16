@@ -20,6 +20,7 @@ use super::desktop::Win32Desktop;
 /// system's monotonic clock.
 pub struct Win32Platform {
     desktop: Win32Desktop,
+    control: Win32WindowControl,
     decorations: Win32Decorations,
 }
 
@@ -30,6 +31,7 @@ impl Win32Platform {
     pub fn new() -> Self {
         Self {
             desktop: Win32Desktop::new(),
+            control: Win32WindowControl::default(),
             decorations: Win32Decorations::default(),
         }
     }
@@ -52,7 +54,7 @@ impl Platform for Win32Platform {
     }
 
     fn control(&self) -> &dyn WindowControl {
-        &Win32WindowControl
+        &self.control
     }
 
     fn decorations(&mut self) -> &mut dyn Decorations {

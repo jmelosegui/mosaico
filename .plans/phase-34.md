@@ -405,10 +405,15 @@ that changes them.
 
 ### 34.2 Platform contracts
 
-- [ ] `WindowControl::place_frames` with `Frame` and `FrameOutcome` in core and
+- [x] `FrameControl::place_frames` with `Frame` and `FrameOutcome` in core and
       the Windows implementation, tested on windows of threads that never pump
       and that pump late
-- [ ] A minimize queues behind a pending frame
+- [x] A window's other changes keep their order with its frames: `place`,
+      `repaint`, `put_behind`, `minimize`, `hide`, `show` and `reveal` are
+      posted behind them while `FrameTable::posts_behind` holds, which
+      `FrameControl::posts_behind` tells the caller; focus never is; and
+      `FrameControl::settle_responding` lets windows go back to changes made
+      at once once transitions are off
 - [ ] `FrameClock` contract and the Windows pacer, tested against an injected
       wait; `DaemonMsg::Frame`
 - [ ] `Desktop::animations_allowed` and its Windows implementation

@@ -1,7 +1,12 @@
 mod kind;
 mod place;
+mod posted_place;
 mod pre_place;
 mod process;
+#[cfg(test)]
+pub(crate) mod test_threads;
+#[cfg(test)]
+pub(crate) mod test_windows;
 
 use mosaico_core::{Rect, Result, WindowId};
 

@@ -1,10 +1,15 @@
 //! Changes to windows and the pointer, made through Win32.
 
+mod frames;
 mod hiding;
+mod ordered;
+mod posted_placement;
 mod stacking;
 
+use std::sync::{Mutex, MutexGuard, PoisonError};
+
 use mosaico_core::config::HidingBehaviour;
-use mosaico_core::frames::FrameControl;
+use mosaico_core::frames::FrameTable;
 use mosaico_core::{Error, HidingEvents, Rect, Result, WindowControl, WindowId};
 use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
 use windows::Win32::UI::WindowsAndMessaging::{
@@ -14,22 +19,37 @@ use windows::Win32::UI::WindowsAndMessaging::{
 use crate::error::OrPlatform;
 use crate::window::Window;
 
+use frames::Kept;
+
 /// [`WindowControl`] on the Win32 desktop.
 ///
-/// Holds no state: every call goes straight to the window's handle.
-/// `ShowWindow` does not say whether it worked, so the calls built on
-/// it first check that the window still exists. Hiding, showing and
-/// minimizing windows are in `window_control/hiding.rs`, and putting
-/// one behind another in `window_control/stacking.rs`.
-#[derive(Debug, Default, Clone, Copy)]
-pub struct Win32WindowControl;
+/// Every call goes straight to the window's handle, and only the frames
+/// of transitions leave something behind: the [`FrameTable`] that holds
+/// a frame back while the last one may be on its way, read through
+/// `window_control/frames.rs`, and says when a change is to be posted
+/// behind it (`window_control/ordered.rs`). `ShowWindow` does not say
+/// whether it worked, so the calls built on it first check that the
+/// window still exists. Hiding, showing and minimizing windows are in
+/// `window_control/hiding.rs`, and putting one behind another in
+/// `window_control/stacking.rs`.
+#[derive(Debug, Default)]
+pub struct Win32WindowControl {
+    frames: Mutex<FrameTable<Kept>>,
+}
 
-/// Windows are not moved frame by frame yet.
-impl FrameControl for Win32WindowControl {}
+impl Win32WindowControl {
+    /// What is kept about the frames posted. A panic while it was held
+    /// leaves nothing half done that matters, so the lock is taken back.
+    fn frames(&self) -> MutexGuard<'_, FrameTable<Kept>> {
+        self.frames.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+}
 
 impl WindowControl for Win32WindowControl {
+    /// Made at once, unless something may be queued for the window: then
+    /// posted behind it, as the frame table says, to land after it.
     fn place(&self, window: WindowId, rect: Rect) -> Result<()> {
-        Window::from_id(window).set_rect(&rect)
+        self.ordered(window, |posted| self.move_into_place(window, &rect, posted))
     }
 
     /// Posts the move instead of sending it (see `Window::move_async`),
@@ -39,10 +59,13 @@ impl WindowControl for Win32WindowControl {
         Window::from_id(window).move_async(&rect)
     }
 
+    /// Without waiting for the application when something may be queued
+    /// for the window, so the paint comes after what was posted.
     fn repaint(&self, window: WindowId) -> Result<()> {
-        Window::from_id(window).invalidate()
+        Window::from_id(window).redraw(self.repaint_flags(window))
     }
 
+    /// Never posted, so it may reach a window before a show posted to it.
     fn focus(&self, window: WindowId) -> Result<()> {
         // SAFETY: SetForegroundWindow is safe to call with a valid HWND;
         // an invalid one makes it fail without side effects.
@@ -56,8 +79,10 @@ impl WindowControl for Win32WindowControl {
         Ok(())
     }
 
+    /// Posted behind what may be queued for `window`, as a placement is.
     fn put_behind(&self, window: WindowId, other: WindowId) -> Result<()> {
-        stacking::put_behind(existing(window)?, existing(other)?)
+        let (win, other) = (existing(window)?, existing(other)?);
+        self.ordered(window, |posted| stacking::put_behind(win, other, posted))
     }
 
     /// Posts `WM_CLOSE`, the message the window's close button leads
@@ -70,16 +95,24 @@ impl WindowControl for Win32WindowControl {
     }
 
     fn minimize(&self, window: WindowId) -> Result<()> {
-        hiding::minimize(existing(window)?);
-        Ok(())
+        let win = existing(window)?;
+        self.ordered_show_state(window, false, |posted| hiding::minimize(win, posted))
     }
 
     fn hide(&self, window: WindowId, how: HidingBehaviour) -> Result<()> {
-        hiding::hide(existing(window)?, how)
+        let win = existing(window)?;
+        if !hiding::sets_show_state(how) {
+            return hiding::hide(win, how, false);
+        }
+        self.ordered_show_state(window, false, |posted| hiding::hide(win, how, posted))
     }
 
     fn show(&self, window: WindowId, how: HidingBehaviour) -> Result<()> {
-        hiding::show(existing(window)?, how)
+        let win = existing(window)?;
+        if !hiding::sets_show_state(how) {
+            return hiding::show(win, how, false);
+        }
+        self.ordered_show_state(window, true, |posted| hiding::show(win, how, posted))
     }
 
     fn hiding_events(&self, how: HidingBehaviour) -> Option<HidingEvents> {
@@ -87,7 +120,9 @@ impl WindowControl for Win32WindowControl {
     }
 
     fn reveal(&self, window: WindowId) -> Result<()> {
-        hiding::reveal(existing(window)?)
+        let win = existing(window)?;
+        let uncloaked = hiding::uncloak(win);
+        self.show_revealed(window, win).and(uncloaked)
     }
 
     fn move_cursor(&self, x: i32, y: i32) -> Result<()> {

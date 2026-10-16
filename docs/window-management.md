@@ -24,11 +24,18 @@ which includes invisible frame compensation and DPI awareness.
 | `crates/mosaico-core/src/tiler/desktop.rs` | `Desktop` trait, the read side |
 | `crates/mosaico-core/src/tiler/window_effects.rs` | `apply_window_effect()`, which carries out window effects |
 | `crates/mosaico-windows/src/window.rs` | Win32 `Window` struct wrapping an `HWND`, and its basic queries |
-| `crates/mosaico-windows/src/window/place.rs` | `set_rect()` and `invalidate()`: placing a window and repainting it |
+| `crates/mosaico-windows/src/window/place.rs` | `set_rect()` and `redraw()`: placing a window and repainting it |
+| `crates/mosaico-windows/src/window/posted_place.rs` | What a posted placement reads of a window and does to it: `is_shown()`, `post_restore()`, `post_move()` |
 | `crates/mosaico-windows/src/window/pre_place.rs` | `move_async()`: moving a window that has not been shown yet |
 | `crates/mosaico-windows/src/window/process.rs` | The owning process: `process_id()`, `is_elevated()`, `exe_path()` |
 | `crates/mosaico-windows/src/window/kind.rs` | `app_window_caption()`: whether a window is an application window |
 | `crates/mosaico-windows/src/window_control.rs` | `Win32WindowControl`, the Win32 `WindowControl` |
+| `crates/mosaico-windows/src/window_control/frames.rs` | `FrameControl` for `Win32WindowControl`, and the `FrameProbe` its `FrameTable` reads and moves windows through |
+| `crates/mosaico-windows/src/window_control/ordered.rs` | Making a window's other changes in order with its frames, as the `FrameTable` says, and noting what was posted |
+| `crates/mosaico-windows/src/window_control/posted_placement.rs` | How a placement posted behind what was posted to a window ends a maximized state, and the borders it moves the window with |
+| `crates/mosaico-windows/src/window_control/frames_post.rs` | Where `GetWindowRect` reads a window, `IsHungAppWindow`, and the `SetWindowPos` that posts a frame |
+| `crates/mosaico-windows/src/window_control/frames_dpi.rs` | Where a window that is not per-monitor DPI aware can be put: frames mapped to its own pixels and back; the frame widths at a DPI |
+| `crates/mosaico-windows/src/window_control/frames_kept.rs` | What is kept about a window with its frames, and its borders at the DPI of its display now |
 | `crates/mosaico-windows/src/window_control/hiding.rs` | Hiding, showing, revealing and minimizing windows for `Win32WindowControl` |
 | `crates/mosaico-windows/src/window_control/stacking.rs` | `put_behind` for `Win32WindowControl`, within each window's `WS_EX_TOPMOST` band |
 | `crates/mosaico-windows/src/frame.rs` | `visible_rect()`, `border_offset()`, `BorderOffset` |
@@ -75,7 +82,9 @@ which includes invisible frame compensation and DPI awareness.
   type of every platform contract
 - `Window` (struct, windows) -- wraps `HWND`; private to `mosaico-windows`,
   so other crates reach windows only through the core contracts
-- `Win32WindowControl` (struct, windows) -- implements `WindowControl`
+- `Win32WindowControl` (struct, windows) -- implements `WindowControl` and
+  `FrameControl`; the `FrameTable` of the frames of transitions is the only
+  thing it keeps between calls
 - `BorderOffset` -- `left`, `top`, `right`, `bottom` offsets for frame
   compensation
 
@@ -298,23 +307,25 @@ to implement the core contracts.
 
 | Method | Win32 |
 |--------|-------|
-| `place` | `set_rect()`: clears `WS_MAXIMIZE`, then `SetWindowPos` with frame compensation (see below) |
+| `place` | `set_rect()`: clears `WS_MAXIMIZE`, then `SetWindowPos` with frame compensation (see below); while something posted to the window may be queued, `post_placement()`: the same move posted with `SWP_ASYNCWINDOWPOS`, behind it, after a restore posted for a maximized window in view, or a minimized one a show queued ahead brings back in view (see [Frames of a Transition](#frames-of-a-transition)) |
 | `pre_place` | `move_async()`: the same move with `SWP_ASYNCWINDOWPOS`, which posts the request instead of sending it |
-| `repaint` | `invalidate()`: `RedrawWindow` with aggressive flags, then realigns a Chromium window's GPU surface |
-| `focus` | `SetForegroundWindow` |
-| `put_behind` | `SetWindowPos` with `other` as the window to insert after and `SWP_NOMOVE`, `SWP_NOSIZE` and `SWP_NOACTIVATE`, only when both or neither are `WS_EX_TOPMOST`: inserted after a window of the other band, a window moves into that band |
+| `place_frames` (`FrameControl`) | The core `FrameTable` decides, reading windows through `IsWindow`, `IsIconic`, `IsZoomed`, `IsHungAppWindow`, `GetWindowRect` and `GetWindowThreadProcessId`; a frame is posted with `SWP_ASYNCWINDOWPOS` (see [Frames of a Transition](#frames-of-a-transition)) |
+| `repaint` | `redraw()`: `RedrawWindow` with aggressive flags, then realigns a Chromium window's GPU surface; without `RDW_UPDATENOW` while something posted to the window may be queued, so it paints after it |
+| `focus` | `SetForegroundWindow`, never posted |
+| `put_behind` | `SetWindowPos` with `other` as the window to insert after and `SWP_NOMOVE`, `SWP_NOSIZE` and `SWP_NOACTIVATE`, only when both or neither are `WS_EX_TOPMOST`: inserted after a window of the other band, a window moves into that band; with `SWP_ASYNCWINDOWPOS` too while something posted to the window may be queued, behind it |
 | `close` | `PostMessageW` with `WM_CLOSE` |
-| `minimize` | `ShowWindow(SW_MINIMIZE)` |
-| `hide` | `Cloak`: ImmersiveShell cloak; `Hide`: `ShowWindow(SW_HIDE)`; `Minimize`: `ShowWindow(SW_MINIMIZE)` |
-| `show` | `Cloak`: uncloak; otherwise `ShowWindow(SW_SHOWNOACTIVATE)` |
+| `minimize` | `ShowWindow(SW_MINIMIZE)`, or `ShowWindowAsync(SW_MINIMIZE)` while something posted to the window may be queued, behind it |
+| `hide` | `Cloak`: ImmersiveShell cloak, never posted; `Hide`: `ShowWindow(SW_HIDE)`, or `ShowWindowAsync` as for `minimize`; `Minimize`: as `minimize` |
+| `show` | `Cloak`: uncloak, never posted; otherwise `ShowWindow(SW_SHOWNOACTIVATE)`, or `ShowWindowAsync` as for `minimize` |
 | `hiding_events` | Every way. Cloaking fires no hide or minimize event; `SW_HIDE` fires `EVENT_OBJECT_HIDE`; `SW_MINIMIZE` fires `EVENT_SYSTEM_MINIMIZESTART`, and showing the window again `EVENT_SYSTEM_MINIMIZEEND` |
-| `reveal` | uncloak, then `ShowWindow(SW_SHOW)` |
+| `reveal` | uncloak, then `ShowWindow(SW_SHOW)`, or `ShowWindowAsync` as for `minimize` |
 | `move_cursor` | `SetCursorPos` |
 
 `ShowWindow` reports whether the window was visible before, not whether the
 call worked, so `minimize`, `hide`, `show` and `reveal` first check with
-`IsWindow` that the window still exists. A cloak or uncloak that fails, for a
-window the shell has no view of for example, comes back as an error.
+`IsWindow` that the window still exists. `ShowWindowAsync` does say whether it
+queued the change, and a failure comes back as an error, as does a cloak or
+uncloak that fails, for a window the shell has no view of for example.
 
 ## Window Positioning
 
@@ -326,6 +337,119 @@ window the shell has no view of for example, comes back as an error.
   reject the resize
 - `SWP_NOCOPYBITS` -- do not copy client area bits (prevents visual artifacts)
 - `SWP_FRAMECHANGED` -- conditionally added for Chromium/Firefox windows
+
+### Frames of a Transition
+
+`place_frames` (`window_control/frames.rs` and `frames_post.rs`) posts each
+frame with `SetWindowPos` and these flags:
+
+- `SWP_ASYNCWINDOWPOS` -- post the move to the window's thread instead of
+  sending it, so a frame never waits for the application
+- `SWP_NOZORDER`, `SWP_NOACTIVATE` -- leave the stacking order and focus alone
+- `SWP_NOSENDCHANGING` -- as `set_rect()`, so the minimum size an application
+  asks for clamps no frame that the final placement would not
+
+`SWP_NOCOPYBITS` is never used: it would discard the client area and make the
+application repaint all of it on every frame of a plain move. Resize frames
+do not add `SWP_FRAMECHANGED` for Chromium windows either: Windows sends
+`WM_NCCALCSIZE` whenever the size changes, as it does while the user resizes a
+window, and the final `place` still adds it and `repaint` realigns the GPU
+surface.
+
+`Win32WindowControl` keeps a core `FrameTable`, which makes every decision, and
+reads and moves windows for it through a `FrameProbe` (`Probe` in
+`window_control/frames.rs`), on `Instant::now()`. Where a window is comes from
+`GetWindowRect`, in outer bounds, and the table compares it with where the
+window was when its last frame was posted: a frame posted less than
+`PENDING_LIMIT` ago to a window not seen anywhere else since holds the next
+one back. A window whose application is not responding (`IsHungAppWindow`)
+gets nothing posted. With the first frame of a motion, the probe reads the
+window's invisible borders, the DPI of its display they are drawn at, and
+whether Windows maps the moves made to it to pixels of its own. On every
+lookup it reads the window's owner, the thread and
+process `GetWindowThreadProcessId` gives, so a new window given the handle of
+an old one is told apart. When a frame lands, Windows reports
+`EVENT_OBJECT_LOCATIONCHANGE`, which arrives as `LocationChanged`. No frame is
+logged.
+
+The daemon is per-monitor DPI aware. A window that is not has pixels of its
+own, and on a display scaled up Windows maps every move made to it to them and
+back, rounding its position and its size each on their own, halves away from
+zero, as `MulDiv` does. A move of less than one of those pixels leaves the
+window where it is. So the probe maps such a window's frames the same way
+(`window_control/frames_dpi.rs`), with the window's DPI (`GetDpiForWindow`)
+and its display's (`GetDpiForMonitor`), and a frame that maps to where the
+window is is not posted. `PhysicalToLogicalPointForPerMonitorDPI` maps only
+points within the window, so it does not do here. The mapping has been
+checked on displays at 125% and 200% (120 and 192 DPI); 150 and 175%, a
+monitor whose origin is not a multiple of its scale, and monitors at
+different scales have not been tried. A miss holds the next frame back for
+one limit at most.
+
+A thread handles what is posted to it in order, so a window's other changes
+keep their order with its frames by being posted too
+(`window_control/ordered.rs`). While something posted to a window may still
+be queued, as the table's `posts_behind` says, and
+`FrameControl::posts_behind` tells the caller:
+
+- `place` posts its move with `SWP_ASYNCWINDOWPOS`, with the flags and the
+  Chromium rule of `set_rect()` (`post_placement()` in
+  `window_control/posted_placement.rs`, whose decisions are plain functions
+  tested on their own). A move made at once, a resize as well as a plain move,
+  would be overtaken by a frame still queued. A minimized or maximized window
+  is moved with the invisible borders read with its frames, in its normal
+  state, which it is in once the move lands after a restore
+  (`window_control/frames_kept.rs`). Once its display's DPI is no longer the
+  one they were read at, a window Windows stretches has them scaled by the
+  ratio, and any other, whose frame Windows draws at its own DPI, has each
+  side moved by the change in `SM_CXSIZEFRAME` and `SM_CXPADDEDBORDER`
+  (`SM_CYSIZEFRAME` at the bottom) from `GetSystemMetricsForDpi`. That holds
+  for a window per-monitor aware of the second version, and is assumed for
+  one of the first, whose frame Windows scales only when its application asks
+  it to. A maximized window is restored first, with
+  `ShowWindowAsync(SW_SHOWNOACTIVATE)` posted ahead of the move, when it is to
+  be in view once what was posted lands: as the last change of its show state
+  posted says, until the window is seen as that change leaves it after being
+  seen otherwise, or as its own `WS_VISIBLE` does, which a cloaked window
+  keeps. So is any minimized window a show queued ahead brings back in view:
+  behind that show, the restore ends the maximized state it may come back in,
+  and does nothing to one it brings back in its normal state. A window out of
+  view would be shown by a restore, so it has `WS_MAXIMIZE` cleared at once
+  instead, as `set_rect()` does, which waits as long as the application takes
+  to handle the change of style, but only once the window no longer has
+  `WS_VISIBLE`. While the hide or minimize that takes it out of view is still
+  queued, that change could land between the read of the style and its
+  write, which would undo it, so the clear is skipped, as it is while
+  `IsHungAppWindow` says the application does not respond. The window then
+  stays maximized, and a later show brings it back as if it had not been
+  placed: a hidden one to the normal bounds it had before it was maximized,
+  where `rcNormalPosition` still has it.
+- `repaint` invalidates without `RDW_UPDATENOW`, which would wait for the
+  application to paint; it paints once it gets to its messages, after the
+  move. A Chromium window's GPU surface is still realigned: that never waits,
+  as it reads where the surface and the client area are now and posts the
+  surface's move, but it only repairs a drift that is there before what was
+  posted lands.
+- `put_behind` posts its change of the stacking order with
+  `SWP_ASYNCWINDOWPOS` too.
+- `minimize`, `hide` and `show` without cloaking, and `reveal` use
+  `ShowWindowAsync`: a minimize made at once would have a frame landing after
+  it move the minimized window's caption on screen, and a show made at once
+  ahead of a minimize still queued would leave the window minimized. Cloaking
+  goes through the shell, outside the window's queue, and is never posted.
+- `focus` is never posted: given right after a posted show, it may reach the
+  window before the window is shown.
+
+Each posted change but a repaint, which is never noted, is noted with the
+table, with where the window was, so the ones after it are posted behind it
+too, and a change of show state with whether it leaves the window in view,
+made at once or not; a reveal of a minimized window leaves it out of view, as
+`SW_SHOW` keeps it minimized. A change that fails is not noted. Once
+transitions are off, `settle_responding` forgets the windows past the grace
+whose application responds. A window never given a frame gets every change
+at once, as it always did, whether its application responds or not; one that
+was gets its changes posted while its application does not respond, as a
+change made at once would wait for it.
 
 ### Invisible Frame Compensation
 

@@ -15,6 +15,7 @@ use crate::error::OrPlatform;
 /// On Windows 10/11, windows have invisible drop-shadow borders that
 /// `GetWindowRect` includes but are not visually part of the window.
 /// Typical values are ~7px left/right/bottom and 0px top.
+#[derive(Debug, Clone, Copy)]
 pub(crate) struct BorderOffset {
     pub left: i32,
     pub top: i32,
