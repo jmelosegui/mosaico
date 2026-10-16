@@ -34,7 +34,7 @@ pub mod system;
 pub mod tiler;
 /// Build-time version information.
 pub mod version;
-/// Platform-agnostic window abstraction.
+/// The contract for changing windows through the platform.
 pub mod window;
 /// Workspace state and operations.
 pub mod workspace;
@@ -49,5 +49,5 @@ pub use ipc::{Command, Response};
 pub use layout::{BspLayout, Layout, LayoutKind, ThreeColumnLayout, VerticalStackLayout};
 pub use monitor::{EdidIdentity, Monitor, MonitorKey, match_monitors, pnp_manufacturer};
 pub use rect::Rect;
-pub use window::Window;
+pub use window::WindowControl;
 pub use workspace::Workspace;

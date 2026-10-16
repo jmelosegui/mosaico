@@ -105,8 +105,7 @@ impl std::fmt::Display for MonitorKey {
 
 /// A connected display, as reported by a platform.
 ///
-/// Each platform crate implements this for its own monitor type, the
-/// same way it implements [`crate::Window`].
+/// Each platform crate implements this for its own monitor type.
 pub trait Monitor {
     /// Stable identity of the display. See [`MonitorKey`] for the rules.
     fn key(&self) -> &MonitorKey;

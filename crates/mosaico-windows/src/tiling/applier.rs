@@ -1,8 +1,11 @@
-//! Applies the tiler's effects through Win32.
+//! Applies the tiler's effects on the Windows desktop.
 //!
-//! Most effects are applied as they arrive. Two kinds are held back
-//! while the user is still pressing keys, and only the latest of each
-//! is applied once input goes quiet:
+//! Effects that change a window or move the pointer are carried out by
+//! [`apply_window_effect`] through the [`WindowControl`] it is given;
+//! borders and window corners are drawn here. Most effects are applied
+//! as they arrive. Two kinds are held back while the user is still
+//! pressing keys, and only the latest of each is applied once input
+//! goes quiet:
 //!
 //! - focus changes, because `SetForegroundWindow` is a cross-process
 //!   call that often takes 50-150 ms;
@@ -16,18 +19,17 @@
 use std::collections::HashMap;
 use std::time::Instant;
 
-use mosaico_core::config::{BorderColors, HidingBehaviour};
-use mosaico_core::tiler::{BorderStyle, Coalescer, Effect, Expectations, HiddenWindows};
-use mosaico_core::window::Window as _;
-use mosaico_core::{Rect, WindowId};
-use windows::Win32::Foundation::{LPARAM, WPARAM};
-use windows::Win32::UI::WindowsAndMessaging::{PostMessageW, SetCursorPos, WM_CLOSE};
+use mosaico_core::config::BorderColors;
+use mosaico_core::tiler::{
+    BorderStyle, Coalescer, Desktop, Effect, Expectations, HiddenWindows, apply_window_effect,
+};
+use mosaico_core::{WindowControl, WindowId};
 
 use crate::border::{Border, Color};
 use crate::frame;
 use crate::window::Window;
 
-use super::hidden_file::{self, HiddenFile};
+use super::hidden_file::HiddenFile;
 
 /// Border color used when a configured value does not parse. Matches
 /// the historical default focused color.
@@ -66,11 +68,16 @@ impl Applier {
     ///
     /// Run before the first windows are enumerated, so they are adopted
     /// like any other window.
-    pub(super) fn restore_previous(&mut self, now: Instant) {
+    pub(super) fn restore_previous(
+        &mut self,
+        desktop: &dyn Desktop,
+        control: &dyn WindowControl,
+        now: Instant,
+    ) {
         let Some(file) = &self.hidden_file else {
             return;
         };
-        let effects = file.load().restore(hidden_file::identity);
+        let effects = file.load().restore(|w| desktop.identity(w));
         if !effects.is_empty() {
             mosaico_core::log_info!(
                 "showing {} window(s) a previous daemon left hidden",
@@ -78,7 +85,7 @@ impl Applier {
             );
         }
         for effect in &effects {
-            self.run(effect, now);
+            self.run(effect, desktop, control, now);
         }
         self.save_hidden();
     }
@@ -97,13 +104,19 @@ impl Applier {
     }
 
     /// Applies effects in order, holding back the ones that may wait.
-    pub(super) fn apply(&mut self, effects: Vec<Effect>, now: Instant) {
+    pub(super) fn apply(
+        &mut self,
+        effects: Vec<Effect>,
+        desktop: &dyn Desktop,
+        control: &dyn WindowControl,
+        now: Instant,
+    ) {
         for effect in effects {
             if matches!(effect, Effect::Focus { .. }) {
                 self.expectations.held(&effect);
             }
             if let Some(effect) = self.held.admit(effect) {
-                self.run(&effect, now);
+                self.run(&effect, desktop, control, now);
             }
         }
     }
@@ -114,9 +127,14 @@ impl Applier {
     }
 
     /// Applies everything held back.
-    pub(super) fn flush(&mut self, now: Instant) {
+    pub(super) fn flush(
+        &mut self,
+        desktop: &dyn Desktop,
+        control: &dyn WindowControl,
+        now: Instant,
+    ) {
         for effect in self.held.take() {
-            self.run(&effect, now);
+            self.run(&effect, desktop, control, now);
         }
     }
 
@@ -133,43 +151,24 @@ impl Applier {
         self.expectations.echo(event, now)
     }
 
-    fn run(&mut self, effect: &Effect, now: Instant) {
+    fn run(
+        &mut self,
+        effect: &Effect,
+        desktop: &dyn Desktop,
+        control: &dyn WindowControl,
+        now: Instant,
+    ) {
         match effect {
-            Effect::Place { window, rect, .. } => place(*window, rect),
-            Effect::PrePlace { window, rect } => pre_place(*window, rect),
-            Effect::Hide { window, how } => {
-                let win = Window::from_id(*window);
-                match how {
-                    HidingBehaviour::Cloak => win.cloak(),
-                    HidingBehaviour::Hide => win.hide(),
-                    HidingBehaviour::Minimize => win.minimize(),
-                }
-            }
-            Effect::Show { window, how } => {
-                let win = Window::from_id(*window);
-                match how {
-                    HidingBehaviour::Cloak => win.uncloak(),
-                    HidingBehaviour::Hide | HidingBehaviour::Minimize => win.show(),
-                }
-            }
-            Effect::Reveal { window } => {
-                let win = Window::from_id(*window);
-                win.uncloak();
-                win.force_show();
-            }
-            Effect::Focus {
-                window,
-                move_cursor,
-            } => {
-                Window::from_id(*window).set_foreground();
-                if *move_cursor {
-                    center_cursor(*window);
-                }
-            }
-            Effect::CenterCursor { window } => center_cursor(*window),
-            Effect::Close { window } => close(*window),
-            Effect::Minimize { window } => Window::from_id(*window).minimize(),
-            Effect::Repaint { window } => Window::from_id(*window).invalidate(),
+            Effect::Place { .. }
+            | Effect::PrePlace { .. }
+            | Effect::Hide { .. }
+            | Effect::Show { .. }
+            | Effect::Reveal { .. }
+            | Effect::Focus { .. }
+            | Effect::CenterCursor { .. }
+            | Effect::Close { .. }
+            | Effect::Minimize { .. }
+            | Effect::Repaint { .. } => apply_window_effect(effect, desktop, control),
             Effect::Decorate { window, corners } => {
                 frame::set_corner_preference(Window::from_id(*window).hwnd(), *corners);
             }
@@ -183,7 +182,7 @@ impl Applier {
             }
         }
         self.expectations.applied(effect, now);
-        if self.hidden.applied(effect, hidden_file::identity) {
+        if self.hidden.applied(effect, |w| desktop.identity(w)) {
             self.save_hidden();
         }
     }
@@ -211,57 +210,6 @@ impl Applier {
             style.width,
             style.radius,
             Window::from_id(window).hwnd(),
-        );
-    }
-}
-
-/// Moves a window into its slot, unless it is already there.
-///
-/// Maximized windows are always moved: positioning one clears its
-/// maximized state, which moving it alone does not.
-fn place(window: WindowId, rect: &Rect) {
-    let win = Window::from_id(window);
-    if !win.is_maximized() && win.rect().ok().as_ref() == Some(rect) {
-        return;
-    }
-    if let Err(e) = win.set_rect(rect) {
-        mosaico_core::log_warn!("Failed to position window {}: {}", window, e);
-    }
-    win.invalidate();
-}
-
-/// Moves a window that has not been shown yet, without blocking.
-///
-/// These windows have been created but not shown, and some belong to
-/// threads that never pump messages, so a synchronous `SetWindowPos`
-/// would never return and would take the daemon down with it.
-fn pre_place(window: WindowId, rect: &Rect) {
-    if let Err(e) = Window::from_id(window).move_async(rect) {
-        mosaico_core::log_debug!("~pre {} move failed: {}", window, e);
-    }
-}
-
-/// Puts the cursor at the center of the window.
-fn center_cursor(window: WindowId) {
-    let Ok(rect) = Window::from_id(window).rect() else {
-        return;
-    };
-    // SAFETY: SetCursorPos only takes screen coordinates.
-    unsafe {
-        let _ = SetCursorPos(rect.x + rect.width / 2, rect.y + rect.height / 2);
-    }
-}
-
-/// Sends `WM_CLOSE` so the window can shut down gracefully.
-fn close(window: WindowId) {
-    // SAFETY: PostMessageW only queues a message; an invalid handle makes
-    // it fail without side effects.
-    unsafe {
-        let _ = PostMessageW(
-            Some(Window::from_id(window).hwnd()),
-            WM_CLOSE,
-            WPARAM(0),
-            LPARAM(0),
         );
     }
 }

@@ -36,20 +36,24 @@ Commands do not reach for the OS themselves. They take a
 `commands::context::Context` holding everything they use: the daemon (through
 `mosaico_core::ipc::IpcClient`), process control
 (`mosaico_core::system::ProcessControl`), start at login
-(`mosaico_core::system::Autostart`), the instance's `PidFile`, a clock, the
+(`mosaico_core::system::Autostart`), window control
+(`mosaico_core::WindowControl`), the instance's `PidFile`, a clock, the
 update check, the logo, and the output and error streams. They return an
 `Exit` (`Success` or `Failure`), and only `main` calls `std::process::exit`.
 
 `crates/mosaico/src/platform.rs` builds the real context; it is the one place
-in the CLI that picks a platform implementation. The unit tests build one from
+in the CLI that picks a platform implementation. Commands that move windows
+run through `platform::run_on_desktop`, which first makes the process
+DPI aware so coordinates match the daemon's. The unit tests build one from
 `commands/test_support.rs`, a fake `World` standing in for the daemon,
-processes, registry and clock, so `start`, `stop`, `status`, `autostart`,
-`action`, `pause` and `doctor`'s daemon check are tested without a daemon or a
-desktop.
+processes, registry, desktop and clock, so `start`, `stop`, `status`,
+`autostart`, `action`, `pause`, `debug move` and `doctor`'s daemon check are
+tested without a daemon or a desktop.
 
 Still calling the platform crate directly: `daemon` (it is the daemon),
-the `debug` tools, `doctor`'s monitor check and `update`'s download, which
-wait for the enumeration (#46) and HTTP (#54) contracts.
+`debug list`, `debug events`, `doctor`'s monitor check and `update`'s
+download, which wait for the enumeration (#46), event source (#44) and HTTP
+(#54) contracts.
 
 ### Key Types
 
@@ -209,10 +213,14 @@ Streams real-time window events to stdout. Starts the Win32 event loop without
 hotkeys, prints each event as it arrives. Ctrl+C gracefully stops the event
 loop.
 
-### `mosaico debug move <hwnd> <x> <y> <width> <height>`
+### `mosaico debug move --window <id> --x <x> --y <y> --w <width> --h <height>`
 
-Moves a specific window by its HWND to exact pixel coordinates. Accepts HWND
-in decimal or `0x` hex format.
+Moves a specific window to exact pixel coordinates with the same placement
+call the daemon uses, but without skipping a window that is already in place
+or repainting it afterwards. Takes the window id `debug list` shows (`0x`
+hex), or the same number in decimal; `--hwnd` is still accepted for
+`--window`. Exits with status 1 when the id is not a window id or the window
+cannot be moved.
 
 ## Instances
 

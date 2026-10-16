@@ -1,27 +1,16 @@
+mod kind;
+mod place;
+mod pre_place;
+mod process;
+
 use mosaico_core::{Rect, Result, WindowId};
 
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::{
     GetWindowTextLengthW, GetWindowTextW, IsWindow, IsWindowVisible, RealGetWindowClassW,
-    SET_WINDOW_POS_FLAGS, SWP_ASYNCWINDOWPOS, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOCOPYBITS,
-    SWP_NOSENDCHANGING, SWP_NOZORDER, SetWindowPos,
 };
 
-use crate::error::OrPlatform;
 use crate::frame;
-
-/// Flags used when moving a window that has been created but not shown.
-///
-/// `SWP_ASYNCWINDOWPOS` is the load bearing one: without it the call is
-/// delivered to the owning thread synchronously and blocks until that
-/// thread pumps its message queue, which some of these windows never do.
-const PRE_PLACE_FLAGS: SET_WINDOW_POS_FLAGS = SET_WINDOW_POS_FLAGS(
-    SWP_NOZORDER.0
-        | SWP_NOACTIVATE.0
-        | SWP_NOSENDCHANGING.0
-        | SWP_NOCOPYBITS.0
-        | SWP_ASYNCWINDOWPOS.0,
-);
 
 /// A window on the Windows platform, wrapping a Win32 `HWND`.
 ///
@@ -34,7 +23,7 @@ pub struct Window {
 
 impl Window {
     /// Creates a new `Window` from a raw `HWND`.
-    pub fn new(hwnd: HWND) -> Self {
+    pub(crate) fn new(hwnd: HWND) -> Self {
         Self { hwnd }
     }
 
@@ -55,124 +44,6 @@ impl Window {
         self.hwnd
     }
 
-    /// Sets this window as the foreground (focused) window.
-    pub fn set_foreground(&self) {
-        use windows::Win32::UI::WindowsAndMessaging::SetForegroundWindow;
-
-        // SAFETY: SetForegroundWindow is safe to call with a valid HWND.
-        unsafe {
-            let _ = SetForegroundWindow(self.hwnd);
-        }
-    }
-
-    /// Moves the window without waiting for the thread that owns it.
-    ///
-    /// `SetWindowPos` delivers WM_WINDOWPOSCHANGED, WM_MOVE and WM_SIZE to
-    /// the owning thread and does not return until that thread has handled
-    /// them, so it blocks for as long as that thread refuses to pump. That
-    /// is fine for the windows we tile, which are real application windows
-    /// that pump, but pre placement runs against windows that have been
-    /// created and not yet shown, and some of those belong to threads that
-    /// never pump at all. Crash handler watchers and similar helper windows
-    /// are the common case. Blocking on one of those wedges the daemon
-    /// permanently: no tiling, no hotkeys, no IPC.
-    ///
-    /// `SWP_ASYNCWINDOWPOS` makes the system post the request to the owning
-    /// thread instead of sending it, so this returns immediately. The move
-    /// is applied whenever that thread gets around to it, which is exactly
-    /// the semantics pre placement wants, since nothing depends on the new
-    /// position having landed before the window is shown.
-    pub fn move_async(&self, rect: &Rect) -> Result<()> {
-        // Compensate for invisible borders so the visible portion lands
-        // exactly at the requested position and size, as set_rect does.
-        let border = frame::border_offset(self.hwnd)?;
-        let x = rect.x - border.left;
-        let y = rect.y - border.top;
-        let cx = rect.width + border.left + border.right;
-        let cy = rect.height + border.top + border.bottom;
-
-        mosaico_core::log_debug!(
-            "move_async 0x{:X}: target({},{} {}x{})",
-            self.hwnd.0 as usize,
-            rect.x,
-            rect.y,
-            rect.width,
-            rect.height
-        );
-
-        // SAFETY: SetWindowPos is safe to call with a valid HWND.
-        // SWP_ASYNCWINDOWPOS posts the request rather than sending it, so
-        // this cannot block on an unresponsive owning thread.
-        unsafe { SetWindowPos(self.hwnd, None, x, y, cx, cy, PRE_PLACE_FLAGS) }
-            .or_platform("move the window")
-    }
-
-    /// Returns whether this window needs `SWP_FRAMECHANGED` to update
-    /// its rendering surface after a programmatic resize.
-    ///
-    /// Chromium-based apps (Chrome, Edge, Electron) use a GPU compositor
-    /// that only repaints when `WM_NCCALCSIZE` fires. Without
-    /// `SWP_FRAMECHANGED`, they render a blank/stale surface.
-    fn needs_frame_changed(&self) -> bool {
-        let class = mosaico_core::Window::class(self).unwrap_or_default();
-        class == "Chrome_WidgetWin_1" || class == "MozillaWindowClass"
-    }
-
-    /// Cloaks the window via the ImmersiveShell COM interface.
-    ///
-    /// Makes the window invisible without removing its taskbar icon or
-    /// firing `EVENT_OBJECT_HIDE`. This is the same mechanism Windows
-    /// uses for its built-in virtual desktop feature.
-    pub fn cloak(&self) {
-        crate::com::cloak_window(self.hwnd);
-    }
-
-    /// Uncloaks a previously cloaked window.
-    ///
-    /// No-op if the window is not cloaked.
-    pub fn uncloak(&self) {
-        crate::com::uncloak_window(self.hwnd);
-    }
-
-    /// Hides the window without destroying it.
-    pub fn hide(&self) {
-        use windows::Win32::UI::WindowsAndMessaging::{SW_HIDE, ShowWindow};
-        // SAFETY: ShowWindow is safe to call with a valid HWND.
-        unsafe {
-            let _ = ShowWindow(self.hwnd, SW_HIDE);
-        }
-    }
-
-    /// Shows a previously hidden window.
-    pub fn show(&self) {
-        use windows::Win32::UI::WindowsAndMessaging::{SW_SHOWNOACTIVATE, ShowWindow};
-        // SAFETY: ShowWindow is safe to call with a valid HWND.
-        unsafe {
-            let _ = ShowWindow(self.hwnd, SW_SHOWNOACTIVATE);
-        }
-    }
-
-    /// Minimizes the window.
-    pub fn minimize(&self) {
-        use windows::Win32::UI::WindowsAndMessaging::{SW_MINIMIZE, ShowWindow};
-        // SAFETY: ShowWindow is safe to call with a valid HWND.
-        unsafe {
-            let _ = ShowWindow(self.hwnd, SW_MINIMIZE);
-        }
-    }
-
-    /// Forcibly shows a hidden window, used during daemon shutdown.
-    ///
-    /// Uses `SW_SHOW` for stronger activation than `SW_SHOWNOACTIVATE`,
-    /// ensuring Windows fully restores the window's visibility state.
-    pub fn force_show(&self) {
-        use windows::Win32::UI::WindowsAndMessaging::{SW_SHOW, ShowWindow};
-        // SAFETY: ShowWindow is safe to call with a valid HWND.
-        unsafe {
-            let _ = ShowWindow(self.hwnd, SW_SHOW);
-        }
-    }
-
     /// Returns whether the window handle is still valid (the window exists).
     pub fn is_valid(&self) -> bool {
         // SAFETY: IsWindow is a read-only query on a valid HWND.
@@ -191,18 +62,6 @@ impl Window {
         use windows::Win32::UI::WindowsAndMessaging::IsIconic;
         // SAFETY: IsIconic is a read-only query on a valid HWND.
         unsafe { IsIconic(self.hwnd).as_bool() }
-    }
-
-    /// The process that owns the window, or `None` when the window no
-    /// longer exists.
-    pub fn process_id(&self) -> Option<u32> {
-        use windows::Win32::UI::WindowsAndMessaging::GetWindowThreadProcessId;
-        let mut pid = 0u32;
-        // SAFETY: GetWindowThreadProcessId only reads the owner of a
-        // window handle into a caller-owned u32; it returns 0 for a handle
-        // that is no longer valid.
-        unsafe { GetWindowThreadProcessId(self.hwnd, Some(&mut pid)) };
-        (pid != 0).then_some(pid)
     }
 
     /// Returns the owner window handle, or `None` if the window has no owner.
@@ -241,146 +100,8 @@ impl Window {
         result.is_ok() && cloaked != 0
     }
 
-    /// Returns whether the process owning this window is running elevated (Administrator).
-    ///
-    /// Used to skip windows that mosaico cannot reposition due to UIPI
-    /// when running as a regular user. When `OpenProcessToken` fails
-    /// (access denied across the UIPI boundary), assumes elevated —
-    /// if we can't query the token we can't control the window either.
-    pub fn is_elevated(&self) -> bool {
-        use windows::Win32::Foundation::CloseHandle;
-        use windows::Win32::Security::{
-            GetTokenInformation, TOKEN_ELEVATION, TOKEN_QUERY, TokenElevation,
-        };
-        use windows::Win32::System::Threading::{
-            OpenProcess, OpenProcessToken, PROCESS_QUERY_LIMITED_INFORMATION,
-        };
-        use windows::Win32::UI::WindowsAndMessaging::GetWindowThreadProcessId;
-
-        // SAFETY: Queries the process token elevation via standard Win32 APIs.
-        // All handles (process, token) are closed before returning.
-        unsafe {
-            let mut pid = 0u32;
-            GetWindowThreadProcessId(self.hwnd, Some(&mut pid));
-            if pid == 0 {
-                return false;
-            }
-
-            let Ok(process) = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) else {
-                // Cannot open the process — assume elevated so we don't
-                // add an uncontrollable window to the tiling layout.
-                return true;
-            };
-
-            let mut token = windows::Win32::Foundation::HANDLE::default();
-            let token_ok = OpenProcessToken(process, TOKEN_QUERY, &mut token);
-            let _ = CloseHandle(process);
-            if token_ok.is_err() {
-                // Can open the process but not its token → elevation
-                // mismatch. We can't control this window either.
-                return true;
-            }
-
-            let mut elevation = TOKEN_ELEVATION::default();
-            let mut returned = 0u32;
-            let info_ok = GetTokenInformation(
-                token,
-                TokenElevation,
-                Some(&mut elevation as *mut _ as *mut _),
-                std::mem::size_of::<TOKEN_ELEVATION>() as u32,
-                &mut returned,
-            );
-            let _ = CloseHandle(token);
-
-            info_ok.is_ok() && elevation.TokenIsElevated != 0
-        }
-    }
-
-    /// Returns the full path of the executable that owns this window,
-    /// or an empty string if it cannot be queried.
-    pub fn exe_path(&self) -> String {
-        use windows::Win32::Foundation::CloseHandle;
-        use windows::Win32::System::Threading::{
-            OpenProcess, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION,
-            QueryFullProcessImageNameW,
-        };
-        use windows::Win32::UI::WindowsAndMessaging::GetWindowThreadProcessId;
-        use windows::core::PWSTR;
-
-        // SAFETY: Reads the image name into a caller-owned buffer. The
-        // process handle is closed before returning.
-        unsafe {
-            let mut pid = 0u32;
-            GetWindowThreadProcessId(self.hwnd, Some(&mut pid));
-            if pid == 0 {
-                return String::new();
-            }
-            let Ok(process) = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) else {
-                return String::new();
-            };
-
-            let mut buffer = [0u16; 1024];
-            let mut len = buffer.len() as u32;
-            let result = QueryFullProcessImageNameW(
-                process,
-                PROCESS_NAME_WIN32,
-                PWSTR(buffer.as_mut_ptr()),
-                &mut len,
-            );
-            let _ = CloseHandle(process);
-
-            if result.is_err() {
-                return String::new();
-            }
-            String::from_utf16_lossy(&buffer[..len as usize])
-        }
-    }
-
-    /// Returns whether this looks like a real application window.
-    ///
-    /// Checks for a caption bar (`WS_CAPTION`), rejects tool windows
-    /// (`WS_EX_TOOLWINDOW`), rejects owned windows, and rejects modal
-    /// dialog frames (`WS_EX_DLGMODALFRAME`).
-    ///
-    /// The modal-frame check is important because when a dialog is
-    /// created on a different thread from its owner, the owner
-    /// relationship may not be queryable at the time
-    /// `EVENT_OBJECT_CREATE` fires. `WS_EX_DLGMODALFRAME` is set
-    /// during `CreateWindowEx` itself, so it's always available.
-    pub fn is_app_window(&self) -> bool {
-        self.app_window_caption() == Some(true)
-    }
-
-    /// Like [`Self::is_app_window`], but without requiring `WS_CAPTION`.
-    ///
-    /// Returns `None` for tool windows, owned windows, and modal
-    /// dialogs. Otherwise returns `Some(has_caption)`. Apps that draw
-    /// their own title bar (e.g. winit or frameless windows) have no
-    /// `WS_CAPTION` and come back as `Some(false)`; those are only
-    /// tiled when a window rule explicitly opts them in.
-    pub fn app_window_caption(&self) -> Option<bool> {
-        use windows::Win32::UI::WindowsAndMessaging::{
-            GW_OWNER, GWL_EXSTYLE, GWL_STYLE, GetWindow, GetWindowLongPtrW, WS_CAPTION,
-            WS_EX_DLGMODALFRAME, WS_EX_TOOLWINDOW,
-        };
-
-        // SAFETY: GetWindowLongPtrW and GetWindow are read-only queries on a valid HWND.
-        unsafe {
-            let style = GetWindowLongPtrW(self.hwnd, GWL_STYLE) as u32;
-            let ex_style = GetWindowLongPtrW(self.hwnd, GWL_EXSTYLE) as u32;
-
-            let has_caption = (style & WS_CAPTION.0) == WS_CAPTION.0;
-            let is_tool = (ex_style & WS_EX_TOOLWINDOW.0) == WS_EX_TOOLWINDOW.0;
-            let is_dialog = (ex_style & WS_EX_DLGMODALFRAME.0) != 0;
-            let has_owner = GetWindow(self.hwnd, GW_OWNER).is_ok_and(|owner| !owner.is_invalid());
-
-            (!is_tool && !has_owner && !is_dialog).then_some(has_caption)
-        }
-    }
-}
-
-impl mosaico_core::Window for Window {
-    fn title(&self) -> Result<String> {
+    /// Returns the window title.
+    pub fn title(&self) -> Result<String> {
         // SAFETY: GetWindowTextLengthW and GetWindowTextW are safe to call
         // with a valid HWND. They read window text without modifying state.
         unsafe {
@@ -396,7 +117,8 @@ impl mosaico_core::Window for Window {
         }
     }
 
-    fn class(&self) -> Result<String> {
+    /// Returns the window class name.
+    pub fn class(&self) -> Result<String> {
         // SAFETY: RealGetWindowClassW reads the window class name.
         // 256 is the maximum class name length in Win32.
         unsafe {
@@ -406,226 +128,16 @@ impl mosaico_core::Window for Window {
         }
     }
 
-    fn rect(&self) -> Result<Rect> {
+    /// Returns the window's visible bounds, without the invisible resize
+    /// borders.
+    pub fn rect(&self) -> Result<Rect> {
         let frame = frame::visible_rect(self.hwnd)?;
         Ok(crate::monitor::rect_from_win32(&frame))
     }
 
-    fn set_rect(&self, rect: &mosaico_core::Rect) -> Result<()> {
-        // If the window is maximized, clear the WS_MAXIMIZE style first.
-        // SetWindowPos alone doesn't remove the style, leaving the window
-        // in a "maximized but tiled-sized" ghost state with wrong frame
-        // metrics (e.g. extra top border offset).
-        if self.is_maximized() {
-            use windows::Win32::UI::WindowsAndMessaging::{
-                GWL_STYLE, GetWindowLongW, SetWindowLongW, WS_MAXIMIZE,
-            };
-            // SAFETY: GetWindowLongW/SetWindowLongW clear WS_MAXIMIZE on a valid HWND.
-            unsafe {
-                let style = GetWindowLongW(self.hwnd, GWL_STYLE);
-                SetWindowLongW(self.hwnd, GWL_STYLE, style & !(WS_MAXIMIZE.0 as i32));
-            }
-        }
-
-        // Compensate for invisible borders so the visible portion
-        // lands exactly at the requested position and size.
-        let border = frame::border_offset(self.hwnd)?;
-
-        let x = rect.x - border.left;
-        let y = rect.y - border.top;
-        let cx = rect.width + border.left + border.right;
-        let cy = rect.height + border.top + border.bottom;
-
-        // SWP_NOSENDCHANGING suppresses WM_WINDOWPOSCHANGING so the
-        // window cannot reject or modify the requested dimensions.
-        //
-        // SWP_NOCOPYBITS discards old client-area contents instead
-        // of blitting them, avoiding stale surfaces.
-        let mut flags = SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOSENDCHANGING | SWP_NOCOPYBITS;
-
-        // GPU-composited apps (Chrome, Electron) need SWP_FRAMECHANGED
-        // to trigger WM_NCCALCSIZE, which makes them recalculate their
-        // client area and update the rendering surface. However,
-        // SWP_FRAMECHANGED also lets windows enforce size constraints
-        // via WM_NCCALCSIZE, so we only add it for Chromium-based
-        // windows that are known to need it.
-        let frame_changed = self.needs_frame_changed();
-        if frame_changed {
-            flags |= SWP_FRAMECHANGED;
-        }
-
-        let hwnd_val = self.hwnd.0 as usize;
-        mosaico_core::log_debug!(
-            "set_rect 0x{:X}: target({},{} {}x{}) border(L:{} T:{} R:{} B:{}) frame_changed={}",
-            hwnd_val,
-            rect.x,
-            rect.y,
-            rect.width,
-            rect.height,
-            border.left,
-            border.top,
-            border.right,
-            border.bottom,
-            frame_changed
-        );
-
-        // SAFETY: SetWindowPos with a valid HWND is safe.
-        unsafe { SetWindowPos(self.hwnd, None, x, y, cx, cy, flags) }.or_platform("move the window")
-    }
-
-    fn invalidate(&self) {
-        use windows::Win32::Graphics::Gdi::{
-            RDW_ALLCHILDREN, RDW_ERASE, RDW_FRAME, RDW_INVALIDATE, RDW_UPDATENOW, RedrawWindow,
-        };
-
-        // SAFETY: RedrawWindow forces a complete repaint of the window,
-        // its frame, and all child windows. The aggressive flag
-        // combination ensures GPU-composited apps (Chrome, Electron)
-        // refresh their rendering surface after a programmatic resize.
-        unsafe {
-            let _ = RedrawWindow(
-                Some(self.hwnd),
-                None,
-                None,
-                RDW_INVALIDATE | RDW_UPDATENOW | RDW_FRAME | RDW_ERASE | RDW_ALLCHILDREN,
-            );
-        }
-        if self.needs_frame_changed() {
-            crate::chromium::realign_gpu_child(self.hwnd);
-        }
-    }
-
-    fn is_visible(&self) -> bool {
+    /// Returns whether the window is currently visible.
+    pub fn is_visible(&self) -> bool {
         // SAFETY: IsWindowVisible is a simple query that returns a BOOL.
         unsafe { IsWindowVisible(self.hwnd).as_bool() }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::sync::mpsc;
-    use std::time::Duration;
-    use windows::Win32::Foundation::{LPARAM, LRESULT, WPARAM};
-    use windows::Win32::UI::WindowsAndMessaging::{
-        CreateWindowExW, DefWindowProcW, DestroyWindow, RegisterClassW, WNDCLASSW,
-        WS_EX_TOOLWINDOW, WS_POPUP, WS_VISIBLE,
-    };
-    use windows::core::PCWSTR;
-
-    /// Default handler, required because `WNDCLASSW` wants a
-    /// `extern "system"` function pointer rather than the raw import.
-    unsafe extern "system" fn test_wnd_proc(
-        hwnd: HWND,
-        msg: u32,
-        wparam: WPARAM,
-        lparam: LPARAM,
-    ) -> LRESULT {
-        // SAFETY: DefWindowProcW is the default handler required by WNDPROC.
-        unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) }
-    }
-
-    #[test]
-    fn pre_place_flags_post_instead_of_sending() {
-        // Arrange / Act / Assert -- the asynchronous flag is the whole
-        // point of the pre placement move. Without it the call is
-        // delivered synchronously and a window whose thread never pumps
-        // blocks the daemon for good.
-        assert_ne!(PRE_PLACE_FLAGS.0 & SWP_ASYNCWINDOWPOS.0, 0);
-    }
-
-    /// Creates a window on a thread that never pumps messages, which is
-    /// what hidden helper windows from Qt, Electron and WinForms do.
-    ///
-    /// Returns the handle plus a sender that tells the thread to destroy
-    /// the window, which has to happen on the thread that created it.
-    /// Returns `None` when a window cannot be created at all, so the test
-    /// skips rather than fails on a machine with no interactive desktop.
-    fn window_owned_by_a_thread_that_never_pumps()
-    -> Option<(usize, mpsc::Sender<()>, std::thread::JoinHandle<()>)> {
-        let class: Vec<u16> = "MosaicoNeverPumpsTestWindow\0".encode_utf16().collect();
-        let (ready_tx, ready_rx) = mpsc::channel::<usize>();
-        let (stop_tx, stop_rx) = mpsc::channel::<()>();
-
-        let handle = std::thread::spawn(move || {
-            // SAFETY: registers a class and creates one window, both with
-            // valid arguments. The window is destroyed on this same thread
-            // below, which is the only thread allowed to destroy it.
-            let hwnd = unsafe {
-                let wc = WNDCLASSW {
-                    lpfnWndProc: Some(test_wnd_proc),
-                    lpszClassName: PCWSTR(class.as_ptr()),
-                    ..Default::default()
-                };
-                RegisterClassW(&wc);
-                CreateWindowExW(
-                    WS_EX_TOOLWINDOW,
-                    PCWSTR(class.as_ptr()),
-                    PCWSTR::null(),
-                    WS_POPUP | WS_VISIBLE,
-                    0,
-                    0,
-                    1,
-                    1,
-                    None,
-                    None,
-                    None,
-                    None,
-                )
-            };
-            let hwnd = hwnd.unwrap_or_default();
-            let _ = ready_tx.send(hwnd.0 as usize);
-            // Park without ever calling GetMessage or PeekMessage. This is
-            // the condition the fix exists for.
-            let _ = stop_rx.recv();
-            if !hwnd.0.is_null() {
-                // SAFETY: destroying a window this thread created.
-                unsafe {
-                    let _ = DestroyWindow(hwnd);
-                }
-            }
-        });
-
-        match ready_rx.recv_timeout(Duration::from_secs(5)) {
-            Ok(raw) if raw != 0 => Some((raw, stop_tx, handle)),
-            _ => {
-                let _ = stop_tx.send(());
-                let _ = handle.join();
-                None
-            }
-        }
-    }
-
-    #[test]
-    fn move_async_returns_even_when_the_owner_never_pumps() {
-        // Arrange -- a window whose thread will never process messages.
-        let Some((raw, stop_tx, handle)) = window_owned_by_a_thread_that_never_pumps() else {
-            // No interactive desktop available, nothing to assert.
-            return;
-        };
-        // Act -- run the move on its own thread so that a regression
-        // fails this test instead of hanging it forever. A synchronous
-        // SetWindowPos against this window never returns at all.
-        let (done_tx, done_rx) = mpsc::channel::<()>();
-        let mover = std::thread::spawn(move || {
-            let window = Window::from_id(WindowId::from_raw(raw as u64));
-            let _ = window.move_async(&Rect::new(20, 20, 200, 200));
-            let _ = done_tx.send(());
-        });
-        let returned = done_rx.recv_timeout(Duration::from_secs(2)).is_ok();
-
-        // Cleanup before asserting so a failure cannot leak the window.
-        let _ = stop_tx.send(());
-        let _ = handle.join();
-        if returned {
-            let _ = mover.join();
-        }
-
-        // Assert
-        assert!(
-            returned,
-            "move_async did not return within 2s against a window whose thread never pumps, \
-             which means the move was sent synchronously instead of posted"
-        );
     }
 }

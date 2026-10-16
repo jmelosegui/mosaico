@@ -1,9 +1,9 @@
 # Window Management
 
-Mosaico uses a two-layer window abstraction: `mosaico-core` defines a
-platform-agnostic `Window` trait, and `mosaico-windows` implements it for
-Win32 `HWND` handles. This layer also handles invisible frame compensation
-and DPI awareness.
+Mosaico changes windows through a platform contract in `mosaico-core`,
+`WindowControl`, and reads them through `tiler::Desktop`. Both identify windows
+by `WindowId`. `mosaico-windows` implements them for Win32 `HWND` handles,
+which includes invisible frame compensation and DPI awareness.
 
 ## Architecture
 
@@ -11,38 +11,73 @@ and DPI awareness.
 
 | File | Purpose |
 |------|---------|
-| `crates/mosaico-core/src/window.rs` | `Window` trait |
-| `crates/mosaico-windows/src/window.rs` | Win32 `Window` struct implementing the trait |
+| `crates/mosaico-core/src/window.rs` | `WindowControl` trait |
+| `crates/mosaico-core/src/tiler/desktop.rs` | `Desktop` trait, the read side |
+| `crates/mosaico-core/src/tiler/window_effects.rs` | `apply_window_effect()`, which carries out window effects |
+| `crates/mosaico-windows/src/window.rs` | Win32 `Window` struct wrapping an `HWND`, and its basic queries |
+| `crates/mosaico-windows/src/window/place.rs` | `set_rect()` and `invalidate()`: placing a window and repainting it |
+| `crates/mosaico-windows/src/window/pre_place.rs` | `move_async()`: moving a window that has not been shown yet |
+| `crates/mosaico-windows/src/window/process.rs` | The owning process: `process_id()`, `is_elevated()`, `exe_path()` |
+| `crates/mosaico-windows/src/window/kind.rs` | `app_window_caption()`: whether a window is an application window |
+| `crates/mosaico-windows/src/window_control.rs` | `Win32WindowControl`, the Win32 `WindowControl` |
 | `crates/mosaico-windows/src/frame.rs` | `visible_rect()`, `border_offset()`, `BorderOffset` |
 | `crates/mosaico-windows/src/enumerate.rs` | `enumerate_windows()` |
 | `crates/mosaico-windows/src/dpi.rs` | `enable_dpi_awareness()` |
 
 ### Key Types
 
-- `Window` (trait, core) -- platform-agnostic window interface
+- `WindowControl` (trait, core) -- changes the platform makes on request
+- `Desktop` (trait, core) -- what the tiler reads about windows and monitors
 - `mosaico_core::Result<T>` -- `Result<T, mosaico_core::Error>`, the error
   type of every platform contract
 - `Window` (struct, windows) -- wraps `HWND`
+- `Win32WindowControl` (struct, windows) -- implements `WindowControl`
 - `BorderOffset` -- `left`, `top`, `right`, `bottom` offsets for frame
   compensation
 
-## Window Trait
+## Window Control
 
-The `Window` trait in `mosaico-core` defines the platform-agnostic interface:
+The tiler never changes a window itself. It returns effects, and the ones that
+change a window or move the pointer reach the platform through `WindowControl`:
 
 ```rust
-pub trait Window {
-    fn title(&self) -> Result<String>;
-    fn class(&self) -> Result<String>;
-    fn rect(&self) -> Result<Rect>;
-    fn set_rect(&self, rect: &Rect) -> Result<()>;
-    fn invalidate(&self);
-    fn is_visible(&self) -> bool;
+pub trait WindowControl {
+    fn place(&self, window: WindowId, rect: Rect) -> Result<()>;
+    fn pre_place(&self, window: WindowId, rect: Rect) -> Result<()>;
+    fn repaint(&self, window: WindowId) -> Result<()>;
+    fn focus(&self, window: WindowId) -> Result<()>;
+    fn close(&self, window: WindowId) -> Result<()>;
+    fn minimize(&self, window: WindowId) -> Result<()>;
+    fn hide(&self, window: WindowId, how: HidingBehaviour) -> Result<()>;
+    fn show(&self, window: WindowId, how: HidingBehaviour) -> Result<()>;
+    fn reveal(&self, window: WindowId) -> Result<()>;
+    fn move_cursor(&self, x: i32, y: i32) -> Result<()>;
 }
 ```
 
-Note: `set_rect()` takes `&self` (not `&mut self`) because mutation happens
-on the OS side via the window handle.
+The contract, in the trait's docs, spells out what callers rely on:
+
+- Rects are a window's visible bounds in desktop coordinates, without invisible
+  resize borders or shadows.
+- Placing a maximized window takes it out of maximized state, and a placement
+  is never reported as the user moving the window.
+- Pre-placement, for windows that exist but are not shown yet, never waits for
+  the application, even one that never handles its messages.
+- A minimize is reported back as a `Minimized` event, which is what takes the
+  window out of the layout. Hiding with `Cloak` is not reported as a hide.
+- Failures are returned as errors, never panics. Callers log them and carry on.
+
+`tiler::apply_window_effect` makes the decisions that are left until an effect
+is applied, against the `Desktop` as it is then: a window already in place is
+left alone unless it is maximized, a placement is followed by a repaint even
+when the move fails, and when the pointer follows focus it goes to the center
+of the window. Borders and window corners are not window changes and stay with
+the platform's applier. `debug move` places windows through
+`WindowControl::place` as well.
+
+Window ids typed by the user, such as the `--window` of `debug move`, are read
+with `WindowId::parse`, which takes the `0x` hex form ids are printed in, or
+decimal.
 
 A failed OS call comes back as `Error::Platform`, which names what was being
 done and keeps the native error as its source. `mosaico-windows` cannot
@@ -52,32 +87,46 @@ helper in `crates/mosaico-windows/src/error.rs`.
 
 ## Win32 Implementation
 
-The `Window` struct in `mosaico-windows` wraps an `HWND` and implements the
-trait plus additional Windows-specific methods.
+The `Window` struct in `mosaico-windows` wraps an `HWND` and queries the OS
+lazily. `Win32WindowControl` and the tiling module's `Win32Desktop` build on it
+to implement the core contracts.
 
 ### Constructors
 
-- `Window::new(hwnd: HWND)` -- wraps an existing `HWND`
-- `Window::from_raw(handle: usize)` -- creates from a raw handle value
+- `Window::new(hwnd: HWND)` -- wraps an existing `HWND` (inside the crate)
+- `Window::from_id(id: WindowId)` -- the window a core id refers to
 
-### Trait Methods
+### Methods
 
 - `title()` -- `GetWindowTextW` to retrieve the window title
-- `class()` -- `GetClassNameW` to retrieve the window class name
+- `class()` -- `RealGetWindowClassW` to retrieve the window class name
 - `rect()` -- delegates to `frame::visible_rect()` for the DWM-aware
   bounding box
-- `set_rect()` -- positions the window with frame compensation (see below)
-- `invalidate()` -- `RedrawWindow` with aggressive flags for GPU-composited
-  apps
 - `is_visible()` -- `IsWindowVisible`
-
-### Additional Methods
-
+- `is_maximized()`, `is_minimized()`, `is_cloaked()`, `owner()`,
+  `process_id()`, `is_elevated()`, `exe_path()`, `app_window_caption()` --
+  the queries behind `Win32Desktop`
 - `hwnd()` -- returns the underlying `HWND`
-- `set_foreground()` -- `SetForegroundWindow` to bring the window to front
-- `is_app_window()` -- checks `WS_CAPTION` and rejects `WS_EX_TOOLWINDOW`
-- `needs_frame_changed()` -- detects Chromium (`Chrome_WidgetWin_1`) and
-  Firefox (`MozillaWindowClass`) windows that need `SWP_FRAMECHANGED`
+
+### Window Control on Win32
+
+| Method | Win32 |
+|--------|-------|
+| `place` | `set_rect()`: clears `WS_MAXIMIZE`, then `SetWindowPos` with frame compensation (see below) |
+| `pre_place` | `move_async()`: the same move with `SWP_ASYNCWINDOWPOS`, which posts the request instead of sending it |
+| `repaint` | `invalidate()`: `RedrawWindow` with aggressive flags, then realigns a Chromium window's GPU surface |
+| `focus` | `SetForegroundWindow` |
+| `close` | `PostMessageW` with `WM_CLOSE` |
+| `minimize` | `ShowWindow(SW_MINIMIZE)` |
+| `hide` | `Cloak`: ImmersiveShell cloak; `Hide`: `ShowWindow(SW_HIDE)`; `Minimize`: `ShowWindow(SW_MINIMIZE)` |
+| `show` | `Cloak`: uncloak; otherwise `ShowWindow(SW_SHOWNOACTIVATE)` |
+| `reveal` | uncloak, then `ShowWindow(SW_SHOW)` |
+| `move_cursor` | `SetCursorPos` |
+
+`ShowWindow` reports whether the window was visible before, not whether the
+call worked, so `minimize`, `hide`, `show` and `reveal` first check with
+`IsWindow` that the window still exists. A cloak or uncloak that fails, for a
+window the shell has no view of for example, comes back as an error.
 
 ## Window Positioning
 
@@ -134,8 +183,11 @@ window positioning on high-DPI monitors.
 
 ## Design Decisions
 
-- `Window` trait uses `&self` for `set_rect()` because the OS owns window
-  state -- Rust mutability semantics don't apply to external resource handles.
+- `WindowControl` and `Desktop` take window ids rather than window objects, so
+  the tiler, its tests and the CLI never hold a platform type, and a fake
+  desktop needs no handles.
+- Their methods take `&self` because the OS owns window state -- Rust
+  mutability semantics don't apply to external resource handles.
 - Invisible frame compensation is essential for Windows 10/11 where DWM adds
   invisible shadow borders to all windows.
 - `SWP_NOSENDCHANGING` prevents windows from overriding the requested size,

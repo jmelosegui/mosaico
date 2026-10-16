@@ -33,6 +33,10 @@ mod pipeline_tests;
 mod pre_place_tests;
 #[path = "tests/session_tests.rs"]
 mod session_tests;
+#[path = "tests/window_effects_tests.rs"]
+mod window_effects_tests;
+#[path = "tests/window_recorder.rs"]
+mod window_recorder;
 #[path = "tests/work_area_tests.rs"]
 mod work_area_tests;
 #[path = "tests/workspace_tests.rs"]
@@ -112,6 +116,17 @@ impl Desktop for FakeDesktop {
         self.windows.get(&window).and_then(|w| w.owner)
     }
 
+    fn identity(&self, window: WindowId) -> Option<WindowIdentity> {
+        self.windows.get(&window).map(|w| WindowIdentity {
+            process: w.process,
+            class: w
+                .facts
+                .as_ref()
+                .map(|f| f.class.clone())
+                .unwrap_or_default(),
+        })
+    }
+
     fn monitor_of(&self, window: WindowId) -> MonitorId {
         MonitorId::from_raw(self.windows.get(&window).map_or(0, |w| w.monitor as u64))
     }
@@ -129,18 +144,6 @@ impl Desktop for FakeDesktop {
 }
 
 impl FakeDesktop {
-    /// What the platform would check to recognise a window again.
-    pub(super) fn identity(&self, window: WindowId) -> Option<WindowIdentity> {
-        self.windows.get(&window).map(|w| WindowIdentity {
-            process: w.process,
-            class: w
-                .facts
-                .as_ref()
-                .map(|f| f.class.clone())
-                .unwrap_or_default(),
-        })
-    }
-
     /// Applies an effect the way a platform would.
     fn apply(&mut self, effect: &Effect) {
         match *effect {

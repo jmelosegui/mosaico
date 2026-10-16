@@ -1,9 +1,12 @@
 //! Fakes for testing commands without a daemon, processes or registry.
 //!
 //! [`World`] stands in for everything outside the CLI at once (the
-//! daemon, the process table, the autostart registration and the clock)
-//! so a test can describe a situation, such as "the daemon stopped
-//! answering but its process is still alive", in a few fields.
+//! daemon, the process table, the autostart registration, the desktop
+//! and the clock) so a test can describe a situation, such as "the
+//! daemon stopped answering but its process is still alive", in a few
+//! fields.
+
+mod windows;
 
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, VecDeque};
@@ -13,7 +16,7 @@ use std::time::{Duration, Instant};
 use mosaico_core::ipc::{Command, IpcError, Response};
 use mosaico_core::pid::PidFile;
 use mosaico_core::system::{Autostart, ProcessControl};
-use mosaico_core::{Error, Result};
+use mosaico_core::{Error, Rect, Result, WindowId};
 
 use super::context::{Clock, Context, Daemon, Exit};
 
@@ -62,6 +65,10 @@ pub struct World {
     pub autostart: Cell<bool>,
     /// Error the autostart registration fails with, if any.
     pub autostart_error: RefCell<Option<String>>,
+    /// Windows placed, and where, in order.
+    pub placed: RefCell<Vec<(WindowId, Rect)>>,
+    /// Error placing a window fails with, if any.
+    pub place_error: RefCell<Option<String>>,
     /// The fake time.
     pub now: Cell<Instant>,
 }
@@ -78,6 +85,8 @@ impl Default for World {
             launch: RefCell::new(Launch::Answers(4321)),
             autostart: Cell::new(false),
             autostart_error: RefCell::default(),
+            placed: RefCell::default(),
+            place_error: RefCell::default(),
             now: Cell::new(Instant::now()),
         }
     }
@@ -235,6 +244,7 @@ impl Harness {
             daemon: &self.world,
             processes: &self.world,
             autostart: &self.world,
+            windows: &self.world,
             pid_file: self.pid_file.clone(),
             config_dir: "C:\\config\\mosaico".into(),
             clock: &self.world,

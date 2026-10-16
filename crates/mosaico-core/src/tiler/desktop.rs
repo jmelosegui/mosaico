@@ -1,5 +1,7 @@
 use crate::{MonitorId, MonitorKey, Rect, WindowId};
 
+use super::WindowIdentity;
+
 /// Read-only view of the desktop the tiler decides against.
 ///
 /// The tiler never changes the desktop itself: every change it wants is
@@ -15,7 +17,7 @@ use crate::{MonitorId, MonitorKey, Rect, WindowId};
 ///   own effects that have not been applied yet, so a platform must not
 ///   try to predict them.
 /// - A window that no longer exists answers like an invisible one:
-///   `is_visible` false, `rect` and `owner` `None`.
+///   `is_visible` false, `rect`, `owner` and `identity` `None`.
 pub trait Desktop {
     /// Whether the window is shown. A window that is only hidden by the
     /// system's own desktop switching still counts as shown.
@@ -32,6 +34,10 @@ pub trait Desktop {
 
     /// The window that owns this one, for dialogs and property sheets.
     fn owner(&self, window: WindowId) -> Option<WindowId>;
+
+    /// Who the window belongs to: what tells it apart from a later
+    /// window that is given the same id.
+    fn identity(&self, window: WindowId) -> Option<WindowIdentity>;
 
     /// Session id of the monitor the window is on.
     ///

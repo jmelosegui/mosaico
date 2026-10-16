@@ -24,6 +24,27 @@ impl WindowId {
     pub const fn raw(self) -> u64 {
         self.0
     }
+
+    /// Reads an id back the way [`Display`](fmt::Display) prints it,
+    /// such as `0x4014E` (prefix and digits in either case), or written
+    /// in decimal. Anything else, a sign or spaces included, is refused.
+    ///
+    /// This is for ids a user types, such as one copied from `debug
+    /// list`. Besides the platform's [`WindowId::from_raw`], it is the
+    /// only way to build an id. It only reads the text: whether a window
+    /// has that id is for the platform to find out.
+    pub fn parse(text: &str) -> Option<Self> {
+        let (digits, radix) = match text.strip_prefix("0x").or_else(|| text.strip_prefix("0X")) {
+            Some(hex) => (hex, 16),
+            None => (text, 10),
+        };
+        // The integer parser takes a leading `+`, which `Display` never
+        // prints.
+        if digits.starts_with('+') {
+            return None;
+        }
+        u64::from_str_radix(digits, radix).ok().map(Self)
+    }
 }
 
 /// Printed in hexadecimal, the usual way window handles are shown.
@@ -89,6 +110,30 @@ mod tests {
         // Act / Assert
         assert_eq!(id.raw(), 0x4014E);
         assert_eq!(id.to_string(), "0x4014E");
+    }
+
+    #[test]
+    fn window_id_parses_what_it_prints_and_decimal() {
+        // Arrange
+        let id = WindowId::from_raw(0x4014E);
+
+        // Act / Assert
+        assert_eq!(WindowId::parse(&id.to_string()), Some(id));
+        assert_eq!(WindowId::parse("0X4014e"), Some(id));
+        assert_eq!(WindowId::parse("262478"), Some(id));
+    }
+
+    #[test]
+    fn window_id_refuses_what_it_never_prints() {
+        // Arrange -- including the signs the integer parser would take.
+        let texts = [
+            "", "0x", "0x4014G", "-1", "+262478", "0x+4014E", "notepad", " 0x4014E",
+        ];
+
+        // Act / Assert
+        for text in texts {
+            assert_eq!(WindowId::parse(text), None, "{text:?}");
+        }
     }
 
     #[test]

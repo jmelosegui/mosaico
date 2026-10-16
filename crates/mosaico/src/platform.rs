@@ -18,8 +18,8 @@ pub fn instance() -> &'static Instance {
     Instance::current().expect("the instance is validated at startup")
 }
 
-/// Runs `command` with the real daemon, processes, registry, clock and
-/// terminal.
+/// Runs `command` with the real daemon, processes, registry, desktop,
+/// clock and terminal.
 #[cfg(target_os = "windows")]
 pub fn run(command: impl FnOnce(&mut Context) -> Exit) -> Exit {
     let instance = instance();
@@ -30,6 +30,7 @@ pub fn run(command: impl FnOnce(&mut Context) -> Exit) -> Exit {
         daemon: &daemon,
         processes: &mosaico_windows::process::WindowsProcesses,
         autostart: &mosaico_windows::autostart::RegistryAutostart,
+        windows: &mosaico_windows::window_control::Win32WindowControl,
         pid_file: PidFile::new(instance.pid_path()),
         config_dir: instance.config_dir().to_path_buf(),
         clock: &SystemClock,
@@ -39,4 +40,17 @@ pub fn run(command: impl FnOnce(&mut Context) -> Exit) -> Exit {
         err: &mut err,
     };
     command(&mut cx)
+}
+
+/// Runs `command` like [`run`], for commands that move windows, after
+/// making this process see the desktop in the physical pixels the
+/// daemon uses.
+///
+/// Without per-monitor DPI awareness Windows scales the coordinates of
+/// this process on high-DPI monitors, so a window would not land where
+/// the daemon would put it.
+#[cfg(target_os = "windows")]
+pub fn run_on_desktop(command: impl FnOnce(&mut Context) -> Exit) -> Exit {
+    mosaico_windows::dpi::enable_dpi_awareness();
+    run(command)
 }

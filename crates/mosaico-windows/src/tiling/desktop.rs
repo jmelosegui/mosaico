@@ -1,7 +1,6 @@
 //! The desktop as the tiler reads it, through Win32 queries.
 
-use mosaico_core::tiler::{Desktop, WindowFacts};
-use mosaico_core::window::Window as _;
+use mosaico_core::tiler::{Desktop, WindowFacts, WindowIdentity};
 use mosaico_core::{MonitorId, Rect, WindowId};
 use windows::Win32::Foundation::POINT;
 use windows::Win32::UI::WindowsAndMessaging::GetCursorPos;
@@ -50,6 +49,14 @@ impl Desktop for Win32Desktop {
 
     fn owner(&self, window: WindowId) -> Option<WindowId> {
         Window::from_id(window).owner()
+    }
+
+    /// The process that owns the window, and its class.
+    fn identity(&self, window: WindowId) -> Option<WindowIdentity> {
+        let win = Window::from_id(window);
+        let process = win.process_id()?;
+        let class = win.class().ok()?;
+        Some(WindowIdentity { process, class })
     }
 
     fn monitor_of(&self, window: WindowId) -> MonitorId {
