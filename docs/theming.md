@@ -121,7 +121,8 @@ Recognized name + flavor combinations:
 Both name and flavor are case-insensitive. Unknown values fall back
 to the family default (e.g. `name = "rose-pine"` with an unknown
 flavor resolves to Main); unknown family names fall back to Catppuccin
-Mocha.
+Mocha. A flavor left out, or empty, is the family default as well, so
+`name = "tokyo-night"` alone is Tokyo Night Night.
 
 ## Color Precedence
 
@@ -160,7 +161,11 @@ The daemon tracks `current_theme`. On `ConfigReload::Config`:
 ### Doctor Integration
 
 `mosaico doctor` validates that the theme section parses correctly as part
-of the `config.toml` validation check.
+of the `config.toml` validation check. It then reports the theme in use
+(`[ok] Theme: rose-pine moon`), or warns when the name or the flavor is
+unknown and says what it falls back to. It asks `ThemeConfig::check()`, which
+`ThemeConfig::resolve()` is built on, so doctor and the daemon agree on every
+name and flavor in the table above.
 
 ## Design Decisions
 

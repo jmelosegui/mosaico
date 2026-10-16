@@ -30,7 +30,9 @@ pub use hiding_behaviour::HidingBehaviour;
 pub use keybinding::{Keybinding, Modifier};
 pub use rules::{WindowRule, default_rules, matching_rule, should_manage, validate_rules};
 pub use store::ConfigStore;
-pub use theme::{CatppuccinFlavor, RosePineFlavor, Theme, ThemeConfig, TokyoNightFlavor};
+pub use theme::{
+    CatppuccinFlavor, RosePineFlavor, Theme, ThemeCheck, ThemeConfig, TokyoNightFlavor,
+};
 pub use types::*;
 
 /// Top-level configuration for Mosaico.
