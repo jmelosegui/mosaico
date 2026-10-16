@@ -527,6 +527,10 @@ that changes them.
       animations
 - [x] `docs/animations.md`, and the changes in `docs/daemon.md`,
       `docs/window-management.md` and `docs/window-events.md`
+- [x] A desktop integration test, `crates/mosaico/tests/window_transitions.rs`,
+      run on demand with the desktop suites: a swap with transitions on is
+      seen between the slots, within their box, and ends exactly in them;
+      with transitions off it is never seen between them
 - [ ] Run `cargo fmt --all -- --check`
 - [ ] Run `cargo clippy --all-targets -- -D warnings`
 - [ ] Run the safe test suites from the testing skill, and `cargo xtask metrics`

@@ -418,3 +418,16 @@ hidden windows of threads that pump late or never. `mosaico doctor`'s report
 is tested against the fake `World` in
 `crates/mosaico/src/commands/tests/doctor_animations_tests.rs` and
 `doctor_animations_check_tests.rs`.
+
+`crates/mosaico/tests/window_transitions.rs` checks transitions on the live
+desktop, like `window_management.rs`, so it starts a daemon of its own,
+launches notepad and runs only on demand, with the desktop suites, never with
+the safe ones. It swaps two notepads with `mosaico action move` and samples
+both windows every few milliseconds for 1.2 s. Before the swap, it checks
+that `debug state` shows the two notepads alone on workspace 8, on one
+monitor, at the same y and height and different x, and otherwise fails
+saying its setup is wrong, not transitions. With transitions on, taking
+400 ms along `linear`, and with `follow_system = false`, each is seen at
+several places between its slots, never outside the box of its two slots,
+and ends exactly in the other's slot. With transitions off, each is only ever
+seen in one slot or the other.
