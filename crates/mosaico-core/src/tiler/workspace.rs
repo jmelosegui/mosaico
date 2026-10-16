@@ -4,7 +4,7 @@ use crate::config::WorkspaceMode;
 
 use crate::WindowId;
 
-use super::{Effect, Plan, Tiler};
+use super::{Plan, Tiler};
 
 impl Tiler {
     /// Switches to workspace `n` (1-indexed).
@@ -54,7 +54,7 @@ impl Tiler {
 
         let how = self.layout.hiding;
         for &window in self.monitors[mon_idx].active_ws().windows() {
-            plan.emit(Effect::Show { window, how });
+            self.hidden_how.show(plan, window, how);
         }
 
         self.apply_layout_on(plan, mon_idx);
@@ -81,7 +81,7 @@ impl Tiler {
         }
 
         for window in leaving {
-            plan.emit(Effect::Hide { window, how });
+            self.hidden_how.hide(plan, window, how);
         }
 
         // An empty workspace has nothing able to hold focus, so pin the
@@ -125,11 +125,11 @@ impl Tiler {
         mon.active_ws_mut().remove(window);
         mon.workspaces[target_ws].add(window);
         for &other in mon.active_ws().windows() {
-            plan.emit(Effect::Hide { window: other, how });
+            self.hidden_how.hide(plan, other, how);
         }
         mon.active_workspace = target_ws;
         for &shown in self.monitors[mon_idx].active_ws().windows() {
-            plan.emit(Effect::Show { window: shown, how });
+            self.hidden_how.show(plan, shown, how);
         }
 
         crate::log_info!(

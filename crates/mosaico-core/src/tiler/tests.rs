@@ -33,6 +33,10 @@ mod event_tests;
 mod fallback_tests;
 #[path = "tests/focus_tests.rs"]
 mod focus_tests;
+#[path = "tests/hidden_how_tests.rs"]
+mod hidden_how_tests;
+#[path = "tests/hiding_change_tests.rs"]
+mod hiding_change_tests;
 #[path = "tests/layout_tests.rs"]
 mod layout_tests;
 #[path = "tests/move_tests.rs"]

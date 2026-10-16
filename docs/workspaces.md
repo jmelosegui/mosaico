@@ -25,6 +25,7 @@ monitors:
 | `crates/mosaico-core/src/tiler/state.rs` | `MonitorState` with `Vec<Workspace>` and `active_workspace` |
 | `crates/mosaico-core/src/tiler/mod.rs` | `Tiler.workspace_mode` |
 | `crates/mosaico-core/src/tiler/workspace.rs` | `goto_workspace()`, `goto_workspace_on()`, `send_to_workspace()` |
+| `crates/mosaico-core/src/tiler/hidden_how.rs` | `HiddenHow`: how each window the tiler hid was hidden, to show it the same way |
 | `crates/mosaico-core/src/config/types.rs` | `WorkspacesConfig`, `WorkspaceMode` |
 
 ### Key Types
@@ -62,8 +63,8 @@ Actions use 1-based indexing in the user-facing interface (config, CLI) and
 2. Remembers the focused window as the left workspace's `last_focused`
    (nothing when `refocus` is false)
 3. Sets `active_workspace` to `idx`
-4. Shows all windows in the target workspace, undoing the configured hiding
-   strategy (see below)
+4. Shows all windows in the target workspace, each the way it was hidden
+   (see below)
 5. Retiles the monitor
 6. When `refocus` is true, focuses the monocle window, the remembered
    `last_focused` or the first window of the new workspace; otherwise leaves
@@ -101,6 +102,16 @@ platform with no strategy at all keeps the configured one, also with a
 warning. The hide and show effects carry the strategy really used, so windows
 are shown again, their events recognized and the record of hidden windows
 written the way they were hidden.
+
+The tiler remembers how it hid each window
+(`crates/mosaico-core/src/tiler/hidden_how.rs`) and shows it again that way,
+so changing `hiding` while windows sit on other workspaces only affects the
+windows hidden after the change. A window a display change moves while it is
+hidden stays hidden the way it was. A window the tiler did not hide, such as
+one sent to another workspace and followed there, is shown with the
+configured strategy. A window that leaves the layout, whether it closes, is
+let go by the rules or is taken out for any other reason, is forgotten, so a
+new window that gets its id is hidden the configured way.
 
 On Windows every strategy is available:
 
