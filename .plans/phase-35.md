@@ -4,8 +4,8 @@
 
 **Goal:** Let the mouse drive the tiler: click the bar to change workspaces,
 scroll it to step through them, click its widgets, drag a tiled window onto
-another to swap them or onto a workspace to send it there, and drag the edge
-between two tiles to resize them.
+another to swap them or onto another monitor to move it there, and drag the
+edge between two tiles to resize them.
 
 ## Overview
 
@@ -20,60 +20,73 @@ as the drag ends, by the same snap back.
 This phase makes the bar take pointer input, without ever taking focus, and
 turns the window drags the user already makes into layout changes. As in
 phase 34, the platform only reports what the pointer does and draws; every
-decision (what was clicked, what a scroll is worth, where a dropped window
-goes, which split an edge belongs to) is a pure function in core with tests.
+decision (what was clicked, which monitor it acts on, what a scroll is worth,
+what a drag is, where a dropped window goes, which split an edge belongs to)
+is a pure function in core with tests.
 
-The work splits into five steps, one PR each (see Tasks). Steps 35.3 and 35.4
-use `WindowEvent::MoveStarted` from phase 34 (34.2), and drops and resizes
-animate when transitions are on.
+The work splits into four steps, one PR each, plus the docs and checks that
+come with each of them (see Tasks). 35.3 builds on `WindowEvent::MoveStarted`
+from phase 34 (34.2), and drops and resizes animate when transitions are on.
 
 ## Design Goals
 
-- The bar runs inside the daemon, so a click becomes an input to the tiler on
-  the same loop, against the state the bar is showing. Nothing crosses a
-  process boundary, and the bar cannot fall out of sync with the tiler.
-- A click names what was clicked by identity (this workspace, this widget),
-  never by its position in the drawn row, so hidden or reordered labels can
-  never map to the wrong workspace.
-- The bar takes pointer input but never focus: clicking it leaves the focused
-  window focused. An action that comes from the pointer never moves the
-  pointer, without any setting being switched off and on around it.
-- Clicks run the same actions as the keyboard, so they honour the workspace
-  mode: in global mode, clicking a workspace switches every monitor.
+- The bar runs inside the daemon, so a click becomes an input on the daemon's
+  own loop, against the state the bar is showing. Nothing crosses a process
+  boundary, and the bar cannot fall out of sync with the tiler.
+- A click names what was clicked by identity (this bar, this workspace, this
+  widget), never by its position in the drawn row, so hidden or reordered items
+  can never map to the wrong workspace, and a click that arrives after the bars
+  were rebuilt is dropped instead of landing on something else.
+- The bar takes pointer input but never focus. A click acts on the monitor of
+  the bar that was clicked, whichever monitor has focus, and an action that
+  comes from the pointer never moves the pointer, without any setting being
+  switched off and on around it.
+- The bar never takes a click meant for a window under it: over a maximized or
+  fullscreen window on its monitor it is click-through, as it is today.
+- Clicks run the same actions as the keyboard, through the same path, so they
+  honour the workspace mode (in global mode, clicking a workspace switches every
+  monitor) and pausing.
 - A drag is about the window the platform reports being dragged, never
-  whichever window has focus. Windows the tiler does not manage are left
-  alone, and so are the tiled windows under them.
-- Whether a drag moves or resizes a window is known from its first position
-  change, not guessed when it ends, and the edges that moved say which split
-  changes. All four edges and the corners work.
-- While a window is dragged, a preview shows where it will land.
-- With the new options at their defaults for existing configs, nothing
-  changes for keyboard users, and every existing test passes unchanged.
+  whichever window has focus. What a drag is (a move or a resize, and of which
+  edges) is known when it starts, from where the pointer grabbed the window, and
+  where it was dropped is read when it ended, not when the daemon got to it.
+- While a window is dragged, a preview shows where it will land, and nothing
+  else moves the window, its border or the pointer.
+- Every new kind of work the tiler does has a metrics scenario, recorded with
+  the change.
 
 ## Configuration
 
+`bar.toml`:
+
 ```toml
-[bar.mouse]
+[mouse]
 enabled = true           # false keeps the bar click-through, as before
 scroll = "workspaces"    # what scrolling over the bar does: "workspaces" or "none"
-wrap = false             # scrolling past the last workspace goes back to the first
 
 # Clicks on widgets run actions, named as in keybindings. These are the
-# defaults; a click entry for the same widget and button replaces one.
-[[bar.mouse.click]]
+# defaults; an entry for the same widget and button replaces one.
+[[mouse.click]]
 widget = "layout"
 button = "left"          # left, right or middle
 action = "cycle-layout"
 
-[[bar.mouse.click]]
+[[mouse.click]]
 widget = "layout"
 button = "right"
 action = "toggle-monocle"
 
-[[bar.mouse.click]]
+[[mouse.click]]
 widget = "paused"
 button = "left"
 action = "toggle-pause"
+```
+
+`config.toml`:
+
+```toml
+[workspaces]
+wrap = false             # stepping past the last workspace goes back to the first
 
 [mouse]
 follows_focus = true     # existing
@@ -82,9 +95,14 @@ drag_to_swap = true      # dropping a tiled window on another swaps them
 resize_splits = true     # dragging the edge between two tiles resizes the split
 ```
 
-A left click on a workspace label always goes to that workspace; it is not a
-binding. Scrolling one notch steps one workspace. Touchpads report fractions
-of a notch, which add up until they make one.
+The bar takes input by default. A left click on a workspace label always goes
+to that workspace; it is not a binding. Click bindings may only name actions
+that act on a monitor (`cycle-layout`, `toggle-monocle`, `goto-workspace-N`,
+`goto-workspace-next`, `goto-workspace-prev`) or on the whole daemon
+(`toggle-pause`, `retile`). Actions about the focused window (`close-focused`,
+`minimize-focused`, `send-to-workspace-N`, `focus-*`, `move-*`) would act on a
+window of another monitor when clicked there, so a binding that names one is
+reported as invalid and ignored.
 
 ## What the Mouse Does
 
@@ -92,117 +110,186 @@ of a notch, which add up until they make one.
 
 | Where | What | Result |
 |-------|------|--------|
-| A workspace label | left click | Go to that workspace on the bar's monitor (every monitor in global mode) |
-| Anywhere on the bar | scroll | Previous or next workspace on the bar's monitor, with `scroll = "workspaces"` |
-| The layout widget | left / right click | Cycle the layout / toggle monocle (defaults) |
+| A workspace label (left side) | left click | Go to that workspace on the bar's monitor (every monitor in global mode) |
+| Anywhere on the bar | wheel | Previous (up, left) or next (down, right) workspace on the bar's monitor, with `scroll = "workspaces"` |
+| The layout widget | left / right click | Cycle the layout / toggle monocle on the bar's monitor (defaults) |
 | The paused widget | left click | Resume the hotkeys (default) |
-| A clickable item | hover | The pointer shows a hand |
-| A workspace label, while dragging a window | drop | Send the window to that workspace (35.3) |
+| A clickable item | hover | The pointer shows a hand; elsewhere on the bar, the arrow |
 
-A press and a release on the same item is a click. A press on one item and a
-release elsewhere does nothing, the way buttons work.
+- A press and a release on the same item is a click. The bar captures the
+  pointer from the press to the release, and a release on another item or off
+  the bar does nothing.
+- Wheel steps add up, and the switch happens once, to the workspace they add up
+  to, when the wheel goes quiet. Touchpads report fractions of a notch, which
+  add up until they make one.
+- Focus: a click on the focused monitor's bar behaves like the key (the
+  workspace's last focused window takes focus, or focus parks there if it is
+  empty). A click on another monitor's bar moves focus to that monitor first,
+  then behaves the same. In global mode every monitor switches, and focus goes
+  to the clicked monitor. The pointer stays where it is in every case.
+- Pausing pauses the hotkeys only: bar clicks keep working, and the paused
+  widget is how the mouse resumes them.
+- The right-side workspaces pill takes no clicks. A click on a bar whose monitor
+  the tiler has no state for does nothing, in global mode too.
 
 ### On windows
 
 | Drag | Drop | Result |
 |------|------|--------|
 | A tiled window by its title bar | on another tile of the same monitor | The two swap places |
-| A tiled window by its title bar | on another monitor | It joins that monitor at the slot under the pointer, not at the end |
-| A tiled window by its title bar | on a bar's workspace label | It goes to that workspace |
-| A tiled window by its title bar | on its own slot, in a gap, or cancelled with Esc | It goes back to its slot |
-| An edge of a tiled window that borders another tile | anywhere | The split between them follows the edge |
-| An edge on the outside of the layout | anywhere | It goes back, as today |
-| A window the tiler does not manage | anywhere | Nothing, and the tiles under it stay put |
+| A tiled window by its title bar | on another monitor | It joins that monitor's workspace before the tile under the pointer, or at the end, instead of always at the end |
+| A tiled window by its title bar | on its own slot, in a gap, cancelled with Esc, or snapped or maximized by the system | It goes back to its slot, as today |
+| A tiled window by an edge that borders another split | anywhere | The split follows the edge (35.4) |
+| A tiled window by an outer edge, or an edge 35.4 does not resize | anywhere | It goes back, as today |
+| A window the tiler does not manage but would tile | onto a monitor | It is taken in there, as today |
+| A window the tiler leaves alone | anywhere | Nothing, and the tiles under it stay put |
+
+- A drop on a workspace in monocle keeps today's rule for windows dragged onto
+  one: only the monocle window is placed, and nothing is put behind it.
+- A `Moved` the tiler did not see start, or one without a pointer position, is
+  handled as today (`reassign_monitor`).
 
 ## Architecture
 
 ### Bar pointer input
 
 ```
-bar window procedure (platform)   -> BarPointer { bar, x, y, kind }     pointer events in bar coordinates
-daemon loop                       -> Task::BarPointer                   ordered with hotkeys and commands
-core: bar::hit(regions, x, y)     -> Hit::Workspace(index) | Hit::Widget(kind) | Hit::Nothing
-core: bar::Scroll accumulator     -> whole notches
-tiler input                       -> goto_workspace_on(bar's monitor, n), or the bound action
+bar window procedure (platform) -> PointerSink(BarId, event)      press, release, wheel, leave; bar coordinates
+daemon loop                     -> Task::BarPointer               ordered with hotkeys and commands, counts as activity
+core: BarId generation check    -> stale events dropped           bars are rebuilt on reload and display change
+core: bar::hit(regions, x, y)   -> Hit::Workspace(i) | Hit::Widget(index) | Hit::Nothing
+core: scroll accumulator        -> whole steps, applied once the wheel goes quiet
+daemon action path (carry_out)  -> action with an origin          { monitor, from_pointer }
 ```
 
-- `BarSurface::draw` returns where it drew each item: the item, a workspace
-  index for each workspace label, and its rect in bar coordinates. Fonts and
-  text widths stay in the platform, and core hit-tests against what was really
-  drawn, so a click can only name something on screen.
-- Pointer events carry the bar they came from, which belongs to one monitor,
-  so a click acts on that monitor without looking at where focus is.
-- Actions from the pointer are marked as such, the way hover focus is today
-  (`take_focus` already leaves the pointer alone for focus that came from the
-  mouse), so mouse follows focus never pulls the pointer off the bar.
-- New actions for stepping through workspaces, also bindable to keys:
-  `goto-workspace-next` and `goto-workspace-prev`, with the `wrap` rule.
+- `BarRenderer::create` is given a `BarId` (monitor and generation, assigned by
+  core) and a `PointerSink` that core defines. `BarSurface::draw` returns where
+  it drew each item: the item, a workspace index for each workspace label, its
+  widget's index in the config list, and its rect in bar coordinates. Fonts and
+  text widths stay in the platform. The regions are empty after a failed draw
+  and after `hide`, and hit testing follows paint order (the right side last,
+  so it wins where the sides overlap).
+- The content says which items are clickable, and the platform answers the
+  pointer shape synchronously by calling core's `hit` on the regions it last
+  returned.
+- While input is on, the bar paints its background at an alpha of at least 1,
+  invisible but enough for the whole strip to take input, since a layered
+  window passes input through fully transparent pixels.
+- The bar is click-through while a maximized or fullscreen window is on its
+  monitor: core decides from `Desktop` on each bar update, and the platform
+  switches.
+- Only press, release, wheel and leave are forwarded; pointer moves are not, so
+  hovering never counts as activity. The bar's window procedure runs when the
+  daemon pumps its messages, at the top of each loop iteration, so a click can
+  wait up to `PUMP_INTERVAL` (50 ms) and can run after a key pressed just after
+  it. That is accepted in this phase; waiting on the window message queue too is
+  listed under Later.
+- Actions carry an origin: the monitor they act on and whether they came from
+  the pointer. Monitor-scoped actions (`cycle_layout`, `toggle_monocle`,
+  `goto_workspace_on`) use it instead of `focused_monitor`, and pointer-origin
+  work emits no `CenterCursor` and no `move_cursor` (`take_focus` and
+  `center_cursor_on_focused`). `monitor_at_point` counts the bar strip as part
+  of its monitor.
+- New actions for stepping through workspaces, also bindable to keys and usable
+  from the CLI: `goto-workspace-next` and `goto-workspace-prev`, with the `wrap`
+  rule. `Action::from_str` matches them before parsing a number.
 
 ### Drags (`mosaico-core/src/tiler/drag.rs`)
 
-- `MoveStarted` for a tiled window starts a drag for that window, with the rect
-  it had in the layout.
-- Its first `LocationChanged` says whether it is a move (the size stayed) or a
-  resize (it changed), and for a resize which edges moved.
-- While a move goes on, each position change reads the pointer and works out
-  the drop target: a tile, another monitor's slot, a bar's workspace label, or
-  its own slot. The preview follows the target.
-- `Moved` ends the drag and applies the drop: a swap, an insert on another
-  monitor, a send to a workspace, a split resize, or a snap back.
-- A window that is not tiled starts no drag, so nothing it is dropped on moves.
+- `MoveStarted` gains what the pointer grabbed (the title bar, or which frame
+  edges), the window's rect then, and the pointer position, all read when the
+  platform saw the drag start. `Moved` gains the pointer position read when the
+  drag ended. `MoveStarted` and `Moved` are barriers in `daemon/dedup.rs`, so
+  position reports are never merged across them.
+- `MoveStarted` for a tiled window starts a drag for it: what was held for the
+  window is dropped (as `Untile` does), its border is hidden, and pointer moves
+  from the tiler wait until the drag ends. A drag that started on a maximized
+  window is a move. When the platform cannot say what was grabbed, comparing the
+  window's size at the start and at the end tells a move from a resize.
+- While a move goes on, each position change works out the drop target from the
+  pointer, and the preview follows it. Without position changes during the drag
+  (window contents not shown while dragging), `Moved` decides from the final
+  rect and pointer alone, without a preview.
+- `Moved` ends the drag and applies the drop. A final rect equal to the rect at
+  the start is a cancel or a click on the title bar, and changes nothing. A drop
+  the system turned into a snap or a maximize goes back to its slot.
+- A workspace switch, a close or minimize of the dragged window, a monocle
+  toggle, or a display change while a drag goes on ends the drag: the preview is
+  hidden, and the `Moved` that follows is handled as today.
+- The insert position on another monitor is before the tile under the pointer,
+  or at the end; the preview shows the slot the window gets in that monitor's
+  layout once it is inserted, which in BSP is not the tile under the pointer.
 
 ### Split resizing
 
-- An edge that moved maps to the split it borders, for each of the four edges,
-  and corners move two splits.
+- 35.4 resizes the splits that have a ratio today or get one here: each split of
+  the BSP chain (split `k` divides windows `k..` into window `k` and the rest),
+  the master edge of the vertical stack, and the master edges of the three
+  columns. Other edges (between windows of a stack, or of a side column) go back.
+- The ratios live with each workspace, one set per layout, and start from
+  `layout.ratio`. A swap keeps them (the slots keep their sizes, the windows
+  trade places); inserting a window at `k` inserts the default ratio at split
+  `k`, and removing one removes its split; cycling layouts keeps each layout's
+  own; monocle and retile leave them.
 - The new ratio is where the edge was dropped, as a fraction of the split's
-  extent, clamped to the ratio limits `validate` uses today (0.1 to 0.9).
-- This needs a ratio per split. Phase 25 plans one for keyboard resizing. If it
-  has not landed, 35.4 adds the per-split ratio model, built so phase 25's
-  keyboard actions can use it unchanged.
+  extent, clamped to 0.1 to 0.9 (core has no minimum-size contract).
+- Phase 25's keyboard resizing is rewritten against this model.
 
 ### Platform contracts
 
+Core states every contract in behaviour terms; the platform's API names stay in
+the platform's docs (the `os_names` metric counts them in core).
+
 - `BarRenderer` / `BarSurface`: a bar takes pointer input but never focus or
   activation, is still never reported to the tiler as a window to manage, and
-  reports pointer events on itself: presses and releases with the button,
-  wheel steps as fractions of a notch, the pointer leaving it, and positions in
-  bar coordinates. `draw` returns the item regions. Windows: no
-  `WS_EX_TRANSPARENT`, `WS_EX_NOACTIVATE` and `MA_NOACTIVATE`, the mouse
-  messages in the bar's window procedure, `WM_SETCURSOR` for the hand, and
-  `TrackMouseEvent` for leaving.
-- `Decorations::show_preview(rect, style)` and `hide_preview()`: a translucent
-  outline of where a dragged window will land, drawn like a border. Windows: a
-  layered overlay, as for borders.
-- `Desktop::cursor` already gives the pointer position during a drag.
+  reports press, release (with the button), wheel steps (as fractions of a
+  notch) and leaving, with positions in bar coordinates, to its `PointerSink`.
+  It can be switched to click-through. A platform that cannot take pointer input
+  stays click-through and reports nothing. `draw` returns the item regions.
+  Windows: no `WS_EX_TRANSPARENT` while input is on, `WS_EX_NOACTIVATE` and
+  `MA_NOACTIVATE`, `SetCapture` from press to release, `WM_SETCURSOR`,
+  `TrackMouseEvent`, and wheel positions converted from screen coordinates.
+- `Decorations::show_preview(rect, style)` and `hide_preview()`, applied as an
+  effect pair through `apply_decoration_effect`: an outline with a translucent
+  fill, in its own style, drawn above every window except the dragged one, never
+  taking input, and rendered again only when its rect changes.
+- `WindowEvent::MoveStarted` and `WindowEvent::Moved` carry the facts above.
 
 ## Edge Cases
 
-1. Global workspace mode: a click or a scroll switches every monitor, as the
-   keyboard does.
+1. Global workspace mode: a click or a scroll switches every monitor, and focus
+   goes to the clicked monitor.
 2. A click while windows are moving (phase 34): the action retargets them.
-3. Clicking the bar of a monitor whose workspace is empty: the switch happens,
+3. A click on the bar of a monitor whose workspace is empty: the switch happens,
    and the empty-workspace focus claim (`empty_focus.rs`) is kept.
-4. Scrolling fast with a touchpad: fractions add up, and one input never steps
-   more than the notches it carried.
+4. A burst of wheel steps: they add up, and one switch is made once the wheel
+   goes quiet.
 5. Pressing on one label and releasing on another: nothing happens.
-6. The bar is redrawn between a press and its release: the release is
-   hit-tested against the new regions, and a click needs both to name the same
-   item.
-7. Dragging across monitors with different scale factors: the drop target
-   comes from the pointer, not from the window's rect, which the system
-   rescales on the way.
-8. Dropping onto a workspace in monocle: the window waits behind the monocle
-   window, the rule for windows arriving there.
-9. A drag the user cancels with Esc: the system puts the window back and ends
-   the drag, and the drop is a snap back.
-10. A neighbour with a minimum size: the ratio is clamped, and the retile
-    places both windows as today.
-11. The tiler moving a window while the user drags it: no placement is applied
-    to a window being dragged; the drop decides.
+6. The bars are rebuilt between a press and its release: the release names a
+   stale bar and is dropped, and press state is reset.
+7. A maximized or fullscreen window on the bar's monitor: the bar is
+   click-through until it is gone.
+8. Dragging across monitors with different scale factors: the drop target comes
+   from the pointer, not from the window's rect, which the system rescales on
+   the way.
+9. Esc during a drag: the system puts the window back, the final rect equals the
+   start, and nothing changes, even with the pointer over another tile.
+10. A hotkey during a drag (Alt+2, say): the drag ends, and its `Moved` is
+    handled as today.
+11. A window opening during a drag: it is tiled, but its focus does not move the
+    pointer until the drag ends.
+12. A neighbour with a minimum size: the ratio is clamped to 0.1 to 0.9, and the
+    retile places both windows as today.
+13. Wheel input with "Scroll inactive windows when I hover over them" off: the
+    bar may get none. 35.1 checks it, and documents the dependency if so.
 
 ## Later
 
+- Dropping a window on a bar's workspace label to send it there. It needs the
+  item regions in the tiler in screen coordinates, the label drawn above the
+  dragged window, and an answer for the system's snapping at the top edge.
+- Waiting on the window message queue as well as the channel, so bar clicks
+  are not delayed by `PUMP_INTERVAL`.
 - Modifier + drag anywhere in a window (Alt + drag to move, Alt + right drag to
   resize), which needs a system-wide pointer hook and its latency cost.
 - Media controls on the media widget, once phase 19 lands.
@@ -212,85 +299,120 @@ tiler input                       -> goto_workspace_on(bar's monitor, n), or the
 
 ## New and Modified Files
 
+New code goes in new files where the file it belongs next to is already near or
+over the 150-line limit (`bar/window.rs`, `bar/render.rs`, `bar/manager.rs`,
+`action.rs`, `config/bar.rs`, `config/types.rs`, `tiler/workspace.rs`,
+`daemon_loop_run.rs`).
+
 ```
 crates/
   mosaico-core/src/
-    bar/renderer.rs            # pointer input and item regions in the contract
+    bar/renderer.rs            # pointer input, BarId, PointerSink, item regions
     bar/pointer.rs             # NEW: pointer events, hit testing, scroll accumulation
-    bar/content.rs             # item identities for hit testing
-    action.rs                  # goto-workspace-next, goto-workspace-prev
+    bar/content.rs             # clickable items and their identities
+    bar/manager.rs             # BarIds and generations, click-through decisions
+    action.rs                  # goto-workspace-next, goto-workspace-prev, origins
+    tiler/input.rs             # actions with an origin
     tiler/workspace.rs         # stepping through workspaces, from a bar's monitor
+    tiler/layout_actions.rs    # monitor-scoped actions use the origin
+    tiler/navigation.rs        # no CenterCursor for pointer-origin work
+    tiler/empty_focus.rs       # the bar strip is part of its monitor
     tiler/drag.rs              # NEW: drag tracking and drop targets
     tiler/adopt.rs             # the drop decides instead of reassign_monitor's snap back
-    layout/                    # per-split ratios (with phase 25)
+    tiler/applier.rs, tiler/coalesce.rs  # what a drag start drops
+    daemon/dedup.rs            # MoveStarted and Moved are barriers
+    event.rs                   # what MoveStarted and Moved carry
+    layout/, workspace.rs      # split ratios per workspace and layout
     decoration.rs              # show_preview, hide_preview
-    config/bar.rs              # [bar.mouse]
-    config/types.rs            # [mouse] drag_to_swap, resize_splits
+    config/bar.rs              # [mouse] in bar.toml
+    config/types.rs            # [workspaces] wrap, [mouse] drag_to_swap, resize_splits
+    config/template_bar.rs, config/template_config.rs, config/store/  # templates and hints
+    tiler/tests/               # fakes, metrics scenarios
   mosaico-windows/src/
     bar/window.rs              # pointer input without activation, window procedure
-    bar/render.rs              # item regions
+    bar/render.rs              # item regions, minimum alpha
+    event.rs                   # what MoveStarted and Moved carry
     daemon_types.rs            # DaemonMsg::BarPointer
+    daemon_loop.rs, daemon_loop_task.rs, daemon_loop_run.rs, daemon_loop_commands.rs
     decorations.rs, border/    # the drop preview overlay
+  mosaico/src/main.rs          # the new actions in the CLI
+  mosaico/tests/               # integration tests for a bar click and a drop
+metrics/                       # baselines recorded with each step
 docs/
-  status-bar.md, configuration.md, window-management.md, actions.md
+  status-bar.md, configuration.md, window-management.md, actions.md, daemon.md,
+  workspaces.md, tiling-layout.md, keyboard-bindings.md, cli.md
 website/src/guide/
-  status-bar.md, configuration.md
+  status-bar.md, configuration.md, keybindings.md, workspaces.md, tiling-layout.md, cheatsheet.md
 ```
 
 ## Tasks
 
+Every step runs fmt, clippy, the safe test suites and `cargo xtask metrics`,
+records its metrics and scenarios with `cargo xtask metrics --bless`, and brings
+its docs, templates and config hints, so it can merge on its own. 35.1 and 35.2
+need nothing from phase 34; 35.3 needs `MoveStarted` (34.2); 35.4 needs 35.3.
+
 ### 35.1 Bar clicks and scrolling
 
-- [ ] Bar contract: pointer input without focus or activation, pointer events,
-      item regions returned by `draw`
+- [ ] `BarId`, `PointerSink` and item regions in the bar contracts, and
+      click-through over maximized or fullscreen windows
 - [ ] Hit testing in core against the drawn regions, with tests for every item
-      kind, the gaps between items, and a redraw between press and release
-- [ ] Scroll accumulation in core, with tests for notches, fractions and
-      direction changes
-- [ ] Workspace click and scroll reach the tiler for the bar's monitor; global
-      mode switches every monitor; the pointer does not move
-- [ ] `goto-workspace-next` and `goto-workspace-prev` actions, with `wrap`
-- [ ] Windows: the bar window takes pointer input without activating, reports
-      the events, and draws the hand over clickable items; tests on hidden bar
-      windows of the test's own
-- [ ] `[bar.mouse]` `enabled`, `scroll` and `wrap`
+      kind, the gaps, paint order, duplicate widgets, stale bars and a redraw
+      between press and release
+- [ ] Wheel steps added up and applied once the wheel goes quiet, with tests for
+      notches, fractions, direction changes and bursts
+- [ ] Actions with an origin: workspace clicks and scrolls act on the bar's
+      monitor, focus per the rules above, no pointer moves; global mode
+- [ ] `goto-workspace-next` and `goto-workspace-prev`, with `[workspaces] wrap`,
+      in keybindings and the CLI
+- [ ] Windows: input without activation, capture, the cursor, minimum alpha,
+      click-through switching; tests on hidden bar windows of the test's own
+- [ ] `[mouse] enabled` and `scroll` in bar.toml, templates and hints
+- [ ] Metrics scenarios: a click on the focused and on another monitor's bar, and
+      a scroll burst
+- [ ] Check wheel input with "Scroll inactive windows when I hover over them"
+      off, and document what it needs
 
 ### 35.2 Widget clicks
 
-- [ ] `[[bar.mouse.click]]` bindings with the defaults above, merged per widget
-      and button, and validated against the action names
+- [ ] `[[mouse.click]]` bindings with the defaults above, merged per widget and
+      button, and validated against the actions a bar may run
 - [ ] Clicks on the layout and paused widgets, and on any widget a binding
-      names
-- [ ] Tests for the defaults, overrides, unknown widgets and actions
+      names, through the daemon's action path
+- [ ] Tests for the defaults, overrides, unknown widgets, rejected actions and
+      clicks on another monitor's bar; a metrics scenario for a widget click
 
 ### 35.3 Drag and drop
 
-- [ ] Drag tracking from `MoveStarted` to `Moved`, keyed on the dragged window,
-      with move or resize known from the first position change
-- [ ] Drop targets: swap, insert at the slot under the pointer on another
-      monitor, send to a bar's workspace label, snap back
-- [ ] The drop preview contract and its Windows overlay
-- [ ] No placement applied to a window while it is dragged
-- [ ] Tests: each drop target, an unmanaged window dragged over tiles, Esc,
-      a monocle workspace, global mode
+- [ ] What `MoveStarted` and `Moved` carry, and the dedup barriers
+- [ ] Drag tracking keyed on the dragged window, with what a drag start drops and
+      holds, and what ends a drag
+- [ ] Drop targets: swap, insert before the tile under the pointer on another
+      monitor, snap back; cancels and system snaps
+- [ ] The drop preview contract, effects and Windows overlay
+- [ ] `[mouse] drag_to_swap`, templates and hints
+- [ ] Tests: each drop target, Esc with the pointer over another tile, a drag
+      without position reports, an unmanaged window dragged over tiles,
+      adoption on drop, a monocle workspace, global mode, a hotkey and a display
+      change mid-drag; metrics scenarios for a swap and a drop on another monitor
+- [ ] Integration test for a drop
 
 ### 35.4 Split resizing
 
-- [ ] Per-split ratios (with phase 25, or added here)
-- [ ] An edge that moved maps to its split; corners move two
-- [ ] Tests for all four edges and the corners, outer edges, clamping, and
-      every layout
+- [ ] Split ratios per workspace and layout, with what swap, insert, remove,
+      layout cycling, monocle and retile do to them
+- [ ] Edges that resize map to their split; corners move two; the others go back
+- [ ] `[mouse] resize_splits`, templates and hints
+- [ ] Tests for every resizable edge and corner in every layout, outer edges,
+      clamping, and the operations above; a metrics scenario for a resize
+- [ ] Rewrite phase 25 against the model
 
-### 35.5 Verification and docs
+### Verification
 
-- [ ] Docs: `docs/status-bar.md`, `docs/configuration.md`,
-      `docs/window-management.md`, `docs/actions.md`, and the website guide
-- [ ] Run `cargo fmt --all -- --check`
-- [ ] Run `cargo clippy --all-targets -- -D warnings`
-- [ ] Run the safe test suites from the testing skill
 - [ ] Manual test: click and scroll the bar on every monitor, in both workspace
-      modes, and check that focus stays where it was
-- [ ] Manual test: drag to swap, to another monitor, onto a bar label, and
-      cancel with Esc
-- [ ] Manual test: resize splits from every edge in every layout
+      modes, over a maximized window, and with the bar background transparent
+- [ ] Manual test: drag to swap, to another monitor, cancel with Esc, drop at the
+      top edge with Snap on, and with window contents hidden while dragging
+- [ ] Manual test: resize splits from every resizable edge in every layout
+- [ ] Integration test for a bar click
 - [ ] Update `.plans/plan.md`
