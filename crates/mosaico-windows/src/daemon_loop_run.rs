@@ -2,10 +2,10 @@
 //! scheduler decides.
 //!
 //! [`Scheduler`] makes every timing decision: what runs first, which
-//! window events are repeats, when a display change has settled and when
-//! the effects the tiling manager holds back are flushed. This loop only
-//! waits, keeps the thread's windows pumped, reads the clock and carries
-//! out the steps it gets back.
+//! window events are repeats, when a display change has settled, and when
+//! held effects are flushed and moving windows step on. This loop only
+//! waits, keeps the thread's windows pumped, asks for frames while windows
+//! move, reads the clock and carries out the steps it gets back.
 
 use std::sync::mpsc;
 use std::time::Instant;
@@ -13,7 +13,7 @@ use std::time::Instant;
 use mosaico_core::WindowEvent;
 use mosaico_core::bar::BarManager;
 use mosaico_core::config::Theme;
-use mosaico_core::daemon::{Scheduler, Step, Wake};
+use mosaico_core::daemon::{FrameClock, Scheduler, Step, Wake};
 use mosaico_core::ipc::Command;
 
 use crate::tiling::TilingManager;
@@ -33,6 +33,7 @@ pub(super) fn run(
     bar_mgr: &mut BarManager,
     current_theme: &mut Theme,
     inputs: &mut Inputs,
+    frames: &dyn FrameClock,
     get_update: &dyn Fn() -> String,
 ) {
     let mut scheduler = Scheduler::default();
@@ -48,10 +49,11 @@ pub(super) fn run(
         // blocking forever, so the message queue is drained on a regular
         // cadence. The thread is parked inside `recv_timeout` between
         // wakeups, so an idle daemon costs one wakeup per `PUMP_INTERVAL`
-        // and never spins. Nothing moves yet, so no motion is due to end.
-        let wait = scheduler
-            .begin_wait(manager.held_since(), None, Instant::now())
-            .map_or(PUMP_INTERVAL, |left| left.min(PUMP_INTERVAL));
+        // and never spins. Display frames come while windows move.
+        frames.want_frames(manager.wants_frames());
+        let due = manager.frame_due(scheduler.last_frame_step());
+        let wait = scheduler.begin_wait(manager.held_since(), due, Instant::now());
+        let wait = wait.map_or(PUMP_INTERVAL, |left| left.min(PUMP_INTERVAL));
         let wake = match rx.recv_timeout(wait) {
             Ok(first) => Wake::Received(
                 std::iter::once(first)
@@ -141,9 +143,7 @@ pub(super) fn run(
                         bar_mgr.update(&manager.bar_states(&get_update(), hotkeys_paused));
                     }
                 }
-                // No frames are asked for and no motion is due to end, so
-                // this never comes yet.
-                Step::Frame => {}
+                Step::Frame => manager.frame(),
             }
         }
     }

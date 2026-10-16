@@ -115,3 +115,20 @@ fn a_placement_made_at_once_ends_the_motion_of_its_window() {
     assert!(!manager.wants_frames());
     assert_eq!(settle(&platform, &mut manager), 0);
 }
+
+#[test]
+fn a_manager_with_its_transitions_turned_off_places_every_window_at_once() {
+    // Arrange -- as when the daemon cannot have display frames.
+    let (platform, mut manager) = two(&animated());
+    let (left, right) = (platform.window(1).rect, platform.window(2).rect);
+    manager.turn_off_transitions();
+
+    // Act
+    swap(&mut manager);
+
+    // Assert
+    let mut placed = placements(&platform.take_calls());
+    placed.sort_by_key(|&(window, _)| window);
+    assert_eq!(placed, [(1, right), (2, left)]);
+    assert!(!manager.wants_frames());
+}

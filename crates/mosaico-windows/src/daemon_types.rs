@@ -2,12 +2,17 @@ use std::sync::mpsc;
 
 use mosaico_core::Action;
 use mosaico_core::config::ConfigReload;
+use mosaico_core::daemon::FrameToken;
 use mosaico_core::ipc::{Command, Response};
 
 /// Internal message type for the main daemon thread.
 pub(super) enum DaemonMsg {
     /// A window event from the event loop.
     Event(mosaico_core::WindowEvent),
+    /// A display frame from the frame pacer, while windows move. No other
+    /// is sent until the token is dropped, which the loop does as it takes
+    /// the frame out of the queue.
+    Frame(FrameToken),
     /// A user action from hotkeys or IPC.
     Action(Action),
     /// A CLI command with a callback to send the response.

@@ -451,9 +451,9 @@ that changes them.
 - [ ] Borders follow the reached rect, hide during resizes and are drawn once at
       the end
 - [ ] `MouseHover` dropped while windows move
-- [ ] The daemon loop starts the pacer and takes `DaemonMsg::Frame` (left out
+- [x] The daemon loop starts the pacer and takes `DaemonMsg::Frame` (left out
       of 34.2, where nothing asked for frames yet)
-- [ ] The daemon loop asks for frames while anything moves and runs the frame
+- [x] The daemon loop asks for frames while anything moves and runs the frame
       step on frames and deadlines
 - [ ] Tiler tests on the fake clock: a swap moves both windows in lockstep and
       ends with exact placements; a second swap mid-flight retargets without a

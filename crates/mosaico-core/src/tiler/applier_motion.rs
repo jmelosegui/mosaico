@@ -60,6 +60,14 @@ impl Applier {
         due.filter(|&due| after.is_none_or(|after| due > after))
     }
 
+    /// Turns transitions off for the rest of the session, as on a platform
+    /// that cannot move windows frame by frame: nothing animates from then
+    /// on, and every moving window is placed at its target at once.
+    pub(in crate::tiler) fn turn_off_transitions(&mut self, platform: &mut dyn Platform) {
+        self.transitions.frames_supported = false;
+        self.frame(platform);
+    }
+
     /// The frame step: ends every motion at its target, placing each
     /// window there in full.
     pub(in crate::tiler) fn frame(&mut self, platform: &mut dyn Platform) {

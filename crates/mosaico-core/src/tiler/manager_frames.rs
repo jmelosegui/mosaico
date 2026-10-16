@@ -27,4 +27,11 @@ impl<P: Platform> TilingManager<P> {
     pub fn frame(&mut self) {
         self.applier.frame(&mut self.platform);
     }
+
+    /// Turns transitions off for the rest of the session, as on a platform
+    /// that cannot move windows frame by frame: every window is placed at
+    /// once from then on. For a daemon that cannot have display frames.
+    pub fn turn_off_transitions(&mut self) {
+        self.applier.turn_off_transitions(&mut self.platform);
+    }
 }
