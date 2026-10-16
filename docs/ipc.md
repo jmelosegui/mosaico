@@ -24,6 +24,7 @@ The protocol lives in core and the platform only supplies byte streams:
 | `crates/mosaico-core/src/ipc/mod.rs` | `Command`, `PROTOCOL_VERSION`, `DAEMON_VERSION` |
 | `crates/mosaico-core/src/ipc/request.rs` | `Request` envelope and `decode_request()` |
 | `crates/mosaico-core/src/ipc/response.rs` | `Response`, `ErrorCode`, `DaemonStatus` |
+| `crates/mosaico-core/src/snapshot.rs` | `DesktopSnapshot`, what `Inspect` returns (re-exported from `ipc`), and its `debug state` text |
 | `crates/mosaico-core/src/ipc/framing.rs` | `read_message()`, `write_message()`, `MAX_MESSAGE_BYTES` |
 | `crates/mosaico-core/src/ipc/transport.rs` | `IpcClient`, `IpcServer`, `IpcConnection`, `serve()` |
 | `crates/mosaico-windows/src/ipc.rs` | `PipeClient`, `PipeServer`, `PipeConnection`, `DEFAULT_PIPE_NAME` |
@@ -64,6 +65,7 @@ The daemon checks every request before running it, and always answers:
 | `Stop` from any version | carried out, so a mismatched daemon can always be stopped |
 | an unknown command | `unknown-command` |
 | a known command with bad fields | `malformed` |
+| carried out, but the reply is larger than the limit | `too-large`, in place of the reply |
 
 Bump `PROTOCOL_VERSION` whenever a change would make one side misread the
 other.
@@ -83,9 +85,21 @@ other.
 - `code` -- an `ErrorCode` for programs, on errors. Codes a build does not
   know read as `Other`.
 - `data` -- a typed result, read with `Response::data::<T>()`. `Status`
-  returns a `DaemonStatus`.
+  returns a `DaemonStatus`. `Inspect` returns a `DesktopSnapshot`: every
+  monitor, workspace and managed window, the disconnected monitors and what
+  has focus. Its `message` holds the same state as text, which `mosaico debug
+  state` prints as the daemon wrote it; the CLI renders the payload itself
+  only when a daemon sends no text.
 
 `code` and `data` are optional, so replies from older daemons still parse.
+
+A command the daemon understood but could not carry out is answered
+`failed`, built with `Response::failed()` from the error, so `message` says
+what went wrong. Today that is a `retile` whose monitors could not be read. A
+command with nothing to act on, such as focusing left at the left edge, is not
+a failure: it does nothing and answers `ok`. Window moves and focus changes go
+through the applier, which may hold them back past the reply, so their
+failures are logged rather than reported.
 
 ## Transport Contract
 

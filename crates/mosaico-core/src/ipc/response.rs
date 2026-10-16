@@ -36,14 +36,18 @@ pub enum ResponseStatus {
 pub enum ErrorCode {
     /// The request was not a valid JSON object.
     Malformed,
-    /// The request was larger than the daemon accepts.
+    /// The request, or the reply to it, was larger than one message may
+    /// be.
     TooLarge,
     /// The daemon does not know this command.
     UnknownCommand,
     /// The request came from another protocol version. `data` holds the
     /// daemon's [`DaemonStatus`].
     VersionMismatch,
-    /// The command was understood but could not be carried out.
+    /// The command was understood, but something it needed failed, so it
+    /// was not carried out as asked; `message` says what. A command with
+    /// nothing to act on, such as focusing left at the left edge, is not
+    /// a failure: it does nothing and answers ok.
     Failed,
     /// A code from a newer daemon that this build does not know.
     #[serde(other)]
@@ -89,6 +93,12 @@ impl Response {
             code: Some(code),
             data: None,
         }
+    }
+
+    /// Creates the reply to a command that was understood but could not
+    /// be carried out, with [`ErrorCode::Failed`] and the reason.
+    pub fn failed(error: &crate::Error) -> Self {
+        Self::error(ErrorCode::Failed, error.to_string())
     }
 
     /// Attaches a typed result to the response.

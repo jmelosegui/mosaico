@@ -84,7 +84,17 @@ mosaico action focus left -> Command::Action { action } -> named pipe
   -> ipc_loop -> DaemonMsg::Command -> TilingManager::handle_action()
 ```
 
-Both paths converge at `TilingManager::handle_action()`.
+Both paths go through `carry_out()` in `daemon_loop_commands.rs`, so an
+action does the same from a hotkey and from the CLI. `toggle-pause` is handled
+there, `retile` re-reads the work areas there before retiling, and every
+other action converges at `TilingManager::handle_action()`.
+
+An action fails only when something it needed reported an error, such as a
+`retile` that could not read the monitors (it still retiles with the work
+areas it last saw). The daemon logs the failure whoever sent the action, and
+the CLI also exits with status 1 and prints why. An action with nothing to act
+on, such as focusing left at the left edge or closing with nothing focused,
+does nothing and succeeds.
 
 ## Execution
 

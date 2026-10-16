@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use super::*;
-use crate::ipc::{PROTOCOL_VERSION, ResponseStatus};
+use crate::ipc::{MAX_MESSAGE_BYTES, PROTOCOL_VERSION, ResponseStatus};
 
 /// One scripted connection: what the client sends, and what it got.
 struct FakeConnection {
@@ -175,6 +175,31 @@ fn a_request_from_another_version_is_answered_with_a_mismatch() {
         old.reply().and_then(|r| r.code),
         Some(ErrorCode::VersionMismatch)
     );
+}
+
+#[test]
+fn a_reply_too_large_to_send_is_answered_with_too_large() {
+    // #74
+    // Arrange -- the answer to the first client does not fit in one
+    // message; the next client asks the daemon to stop.
+    let mut server = FakeServer::default();
+    let big = server.client_requests(Command::Inspect);
+    server.client_requests(Command::Stop);
+
+    // Act
+    let served = serve(&mut server, |command| {
+        Some(match command {
+            Command::Inspect => Response::ok_with_message("a".repeat(MAX_MESSAGE_BYTES)),
+            _ => Response::ok(),
+        })
+    });
+
+    // Assert -- the client is told why, and the daemon carries on.
+    let reply = big.reply().expect("the client gets an answer");
+    assert_eq!(reply.status, ResponseStatus::Error);
+    assert_eq!(reply.code, Some(ErrorCode::TooLarge));
+    assert!(big.finished.get(), "the connection is finished");
+    assert!(matches!(served, Served::Stopped), "{served:?}");
 }
 
 #[test]

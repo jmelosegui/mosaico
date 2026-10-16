@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::Action;
 
+pub use crate::snapshot::{DesktopSnapshot, MonitorSnapshot, WindowSnapshot, WorkspaceSnapshot};
 pub use error::IpcError;
 pub use framing::{MAX_MESSAGE_BYTES, read_message, write_message};
 pub use request::{Request, decode_request};
@@ -48,10 +49,28 @@ pub enum Command {
         /// The action to execute.
         action: Action,
     },
-    /// Dump the daemon's internal workspace state for debugging.
+    /// Dump the daemon's internal workspace state for debugging. The
+    /// reply carries it as text in `message`, which `debug state` prints,
+    /// and as a [`DesktopSnapshot`] in `data`, for programs.
     Inspect,
     /// Pause all hotkeys (unregister all except toggle-pause).
     PauseHotkeys,
     /// Re-register all hotkeys that were paused.
     UnpauseHotkeys,
 }
+
+/// The name of every [`Command`], as it travels in a request's `command`
+/// field.
+///
+/// When a request does not decode, the daemon looks its name up here to
+/// tell a command it does not know from one it knows but cannot read.
+/// Keep it in step with `Command`; a test compares it with the names
+/// serde reports and fails when they disagree.
+const COMMAND_NAMES: &[&str] = &[
+    "Stop",
+    "Status",
+    "Action",
+    "Inspect",
+    "PauseHotkeys",
+    "UnpauseHotkeys",
+];

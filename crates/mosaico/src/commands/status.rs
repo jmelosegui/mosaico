@@ -16,6 +16,8 @@ pub fn execute(cx: &mut Context) -> Exit {
             say!(cx, "{}", request::NOT_RESPONDING);
             return Exit::Success;
         }
+        // Every daemon, however old, can read a status request, so a
+        // connection that closes here means the daemon went away.
         Err(e) => {
             say!(cx, "Mosaico is running, but did not answer: {e}");
             return Exit::Success;
@@ -58,8 +60,12 @@ fn describe_running(response: &Response) -> String {
             "Mosaico {} is running, managing {} windows.",
             status.version, status.windows
         ),
-        // A daemon from before the status payload.
-        None => "Mosaico is running.".to_string(),
+        // Only daemons from before the protocol was versioned answer
+        // without a status.
+        None => format!(
+            "Mosaico is running, but it is older than this CLI, which is version \
+             {DAEMON_VERSION}. Restart it with `mosaico stop` and `mosaico start`."
+        ),
     }
 }
 
@@ -121,12 +127,36 @@ mod tests {
     }
 
     #[test]
-    fn copes_with_a_daemon_that_sends_no_status() {
-        // Arrange -- a daemon from before the status payload.
+    fn suggests_a_restart_to_a_daemon_that_sends_no_status() {
+        // Arrange -- a daemon from before the protocol was versioned.
         let response = Response::ok_with_message("Daemon is running");
 
-        // Act / Assert
-        assert_eq!(describe_running(&response), "Mosaico is running.");
+        // Act
+        let text = describe_running(&response);
+
+        // Assert
+        assert!(text.starts_with("Mosaico is running"), "{text}");
+        assert!(text.contains("older than this CLI"), "{text}");
+        assert!(text.contains("mosaico stop"), "{text}");
+    }
+
+    #[test]
+    fn a_daemon_that_goes_away_mid_request_did_not_answer() {
+        // Arrange -- the daemon exits while answering, as when `status`
+        // races `stop`. No daemon refuses a status request.
+        let mut h = Harness::new("status-closed");
+        h.world.daemon_up(5);
+        h.world.reply(Err(IpcError::Closed));
+
+        // Act
+        let exit = h.run(execute);
+
+        // Assert
+        assert_eq!(exit, Exit::Success);
+        assert_eq!(
+            h.out(),
+            "Mosaico is running, but did not answer: the connection closed before a reply arrived\n"
+        );
     }
 
     #[test]

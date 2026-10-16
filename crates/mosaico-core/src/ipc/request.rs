@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use super::{Command, DAEMON_VERSION, DaemonStatus, ErrorCode, PROTOCOL_VERSION, Response};
+use super::{
+    COMMAND_NAMES, Command, DAEMON_VERSION, DaemonStatus, ErrorCode, PROTOCOL_VERSION, Response,
+};
 
 /// A command as it travels to the daemon, tagged with the protocol
 /// version of the client that sent it.
@@ -41,7 +43,7 @@ pub fn decode_request(value: Value) -> Result<Command, Response> {
         ));
     }
     let version = value.get("version").and_then(Value::as_u64);
-    let command = serde_json::from_value::<Command>(value);
+    let command = Command::deserialize(&value);
 
     if version != Some(u64::from(PROTOCOL_VERSION)) {
         if let Ok(Command::Stop) = command {
@@ -50,12 +52,15 @@ pub fn decode_request(value: Value) -> Result<Command, Response> {
         return Err(version_mismatch(version));
     }
 
-    command.map_err(|e| {
-        if e.to_string().starts_with("unknown variant") {
-            Response::error(ErrorCode::UnknownCommand, format!("unknown command: {e}"))
-        } else {
-            Response::error(ErrorCode::Malformed, format!("malformed request: {e}"))
-        }
+    command.map_err(|e| match value.get("command").and_then(Value::as_str) {
+        // A name this build does not know is an unknown command. Anything
+        // else that does not decode, such as a known command with bad
+        // fields, is malformed.
+        Some(name) if !COMMAND_NAMES.contains(&name) => Response::error(
+            ErrorCode::UnknownCommand,
+            format!("unknown command `{name}`"),
+        ),
+        _ => Response::error(ErrorCode::Malformed, format!("malformed request: {e}")),
     })
 }
 

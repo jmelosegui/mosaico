@@ -12,6 +12,7 @@ mod inspect;
 use std::time::Instant;
 
 use mosaico_core::config::{BorderConfig, Config, LayoutConfig, WindowRule, WorkspacesConfig};
+use mosaico_core::snapshot::DesktopSnapshot;
 use mosaico_core::tiler::{BarReservation, Display, Enumerator, Input, Settings, Tiler};
 use mosaico_core::{Action, HidingSupport, Result, WindowControl, WindowEvent};
 
@@ -160,12 +161,24 @@ impl TilingManager {
     }
 
     /// Re-reads the OS work areas, then re-reserves the bar and retiles.
-    pub fn reset_and_adjust_work_areas(&mut self, bar_height: i32, bar_monitors: &[usize]) {
-        let monitors = WindowsEnumerator.monitors().unwrap_or_default();
+    ///
+    /// When the monitors cannot be read, it still re-reserves the bar and
+    /// retiles with the work areas it last saw, and returns why.
+    pub fn reset_and_adjust_work_areas(
+        &mut self,
+        bar_height: i32,
+        bar_monitors: &[usize],
+    ) -> Result<()> {
+        // No monitors leaves every work area as it was.
+        let (monitors, read) = match WindowsEnumerator.monitors() {
+            Ok(monitors) => (monitors, Ok(())),
+            Err(e) => (Vec::new(), Err(e)),
+        };
         self.step(Input::WorkAreas {
             monitors,
             bar: bar(bar_height, bar_monitors),
         });
+        read
     }
 
     /// Returns the total number of managed windows.
@@ -173,9 +186,9 @@ impl TilingManager {
         self.tiler.window_count()
     }
 
-    /// Returns a formatted dump of the daemon's internal workspace state.
-    pub fn inspect_state(&self) -> String {
-        inspect::describe(&self.tiler, self.desktop.self_elevated())
+    /// Returns the daemon's internal workspace state, for `debug state`.
+    pub fn snapshot(&self) -> DesktopSnapshot {
+        inspect::snapshot(&self.tiler, self.desktop.self_elevated())
     }
 
     /// Returns a snapshot of bar state for each monitor.

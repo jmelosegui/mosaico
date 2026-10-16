@@ -33,6 +33,7 @@ mod navigation_helpers;
 mod plan;
 mod reconnect;
 mod release;
+mod snapshot;
 mod state;
 mod window_effects;
 mod work_area;
@@ -236,11 +237,6 @@ impl Tiler {
             .flat_map(|m| &m.workspaces)
             .map(|ws| ws.len())
             .sum()
-    }
-
-    /// Short summary of the disconnected monitors, for `debug state`.
-    pub fn describe_reconnect(&self) -> String {
-        self.reconnect.describe()
     }
 }
 

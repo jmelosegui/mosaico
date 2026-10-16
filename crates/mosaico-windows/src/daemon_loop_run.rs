@@ -19,6 +19,7 @@ use crate::bar_manager::BarManager;
 use crate::tiling::TilingManager;
 
 use super::daemon_inputs::Inputs;
+use super::daemon_loop_commands;
 use super::daemon_loop_handlers;
 use super::daemon_loop_pump::{PUMP_INTERVAL, pump_thread_messages};
 use super::daemon_loop_task::{Task, message};
@@ -78,7 +79,7 @@ pub(super) fn run(
                 }
                 Step::Run(task) => match task {
                     Task::Action(action) => {
-                        daemon_loop_handlers::handle_action(
+                        daemon_loop_commands::handle_action(
                             action,
                             manager,
                             bar_mgr,
@@ -88,7 +89,7 @@ pub(super) fn run(
                         );
                     }
                     Task::Command(command, reply_tx) => {
-                        if let Some(response) = daemon_loop_handlers::handle_command(
+                        if let Some(response) = daemon_loop_commands::handle_command(
                             &command,
                             manager,
                             bar_mgr,

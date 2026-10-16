@@ -93,8 +93,8 @@ impl HiddenWindows {
             hidden: self
                 .entries
                 .iter()
-                .map(|(window, (how, who))| Entry {
-                    window: window.raw(),
+                .map(|(&window, (how, who))| Entry {
+                    window,
                     how: *how,
                     process: who.process,
                     class: who.class.clone(),
@@ -123,7 +123,7 @@ impl HiddenWindows {
                     process: e.process,
                     class: e.class,
                 };
-                (WindowId::from_raw(e.window), (e.how, who))
+                (e.window, (e.how, who))
             })
             .collect();
         Ok(Self { entries })
@@ -144,7 +144,7 @@ struct FileFormat {
 
 #[derive(Serialize, Deserialize)]
 struct Entry {
-    window: u64,
+    window: WindowId,
     how: HidingBehaviour,
     process: u32,
     class: String,

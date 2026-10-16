@@ -10,6 +10,12 @@ use super::context::{Context, Exit, complain, say};
 pub const NOT_RESPONDING: &str = "Mosaico is running but not responding. Run `mosaico stop` to end it, \
      then `mosaico start`.";
 
+/// What to tell the user when the daemon closes the connection without
+/// replying, as daemons from before the protocol was versioned do with a
+/// request they cannot read.
+pub const CLOSED_WITHOUT_REPLY: &str = "Mosaico is running but closed the connection without \
+     replying; it may be older than this CLI. Restart it with `mosaico stop` and `mosaico start`.";
+
 /// Sends `command` to the running daemon and returns its successful
 /// reply. Otherwise writes why to the error stream and returns the
 /// failure to exit with.
@@ -29,6 +35,10 @@ pub fn send(cx: &mut Context, command: &Command) -> Result<Response, Exit> {
         }
         Err(IpcError::TimedOut) => {
             complain!(cx, "{NOT_RESPONDING}");
+            Err(Exit::Failure)
+        }
+        Err(IpcError::Closed) => {
+            complain!(cx, "{CLOSED_WITHOUT_REPLY}");
             Err(Exit::Failure)
         }
         Err(e) => {

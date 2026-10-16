@@ -7,6 +7,8 @@ mod daemon_inputs;
 mod daemon_ipc;
 #[path = "daemon_loop.rs"]
 mod daemon_loop;
+#[path = "daemon_loop_commands.rs"]
+mod daemon_loop_commands;
 #[path = "daemon_loop_handlers.rs"]
 mod daemon_loop_handlers;
 #[path = "daemon_loop_pump.rs"]

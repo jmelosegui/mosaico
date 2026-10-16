@@ -117,13 +117,19 @@ success or failure.
 
 ### `mosaico status`
 
-Checks whether the daemon is running by:
+Asks the daemon for its status and reports its version and how many windows
+it manages. It suggests restarting with `mosaico stop` and `mosaico start`
+when the daemon is another release, and when it answers without a status
+(only daemons from before the protocol was versioned do). A daemon that is
+listening but does not reply is reported as not responding.
 
-1. Reading the PID file
-2. Verifying the process is alive via `OpenProcess`
-3. Checking if the IPC pipe exists
+Other commands suggest the same restart when the daemon closes the
+connection without replying, which is what a daemon from before the
+protocol was versioned does with a request it cannot read.
 
-Reports one of: running (with PID), stale PID (dead process), or not running.
+When no daemon answers, it reads the PID file: a process that is still alive
+is reported as not responding, and a PID file left by a dead process is
+removed.
 
 ### `mosaico doctor`
 
@@ -188,6 +194,12 @@ mosaico action close-focused
 mosaico action goto-workspace 3
 mosaico action send-to-workspace 5
 ```
+
+It exits with status 0 when the daemon carried the action out, and also when
+there was nothing to act on (focusing left at the left edge, closing with
+nothing focused), so scripts can send actions without checking the desktop
+first. It exits with status 1 and prints why when the daemon could not carry
+the action out, such as a `retile` that could not read the monitors.
 
 ### `mosaico update [--force]`
 

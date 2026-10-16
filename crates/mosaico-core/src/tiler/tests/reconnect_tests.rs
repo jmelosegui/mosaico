@@ -161,7 +161,7 @@ fn window_closed_while_away_is_forgotten() {
     // Assert -- order kept, monocle on the closed window turned off.
     assert_eq!(back[1].workspaces[0].windows(), wids(&[1, 3]));
     assert!(!back[1].workspaces[0].monocle());
-    assert!(memory.describe().ends_with("displaced windows: 0"));
+    assert_eq!(memory.displaced_count(), 0);
 }
 
 #[test]
@@ -298,8 +298,6 @@ fn unidentified_monitor_is_not_remembered() {
 
     // Assert -- the window still moves, but nothing waits to bring it back.
     assert!(away[0].workspaces[0].contains(wid(1)));
-    assert_eq!(
-        memory.describe(),
-        "Disconnected monitors: none, displaced windows: 0"
-    );
+    assert!(memory.disconnected().is_empty());
+    assert_eq!(memory.displaced_count(), 0);
 }
