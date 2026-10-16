@@ -39,6 +39,8 @@ mod hidden_how_tests;
 mod hiding_change_tests;
 #[path = "tests/layout_tests.rs"]
 mod layout_tests;
+#[path = "tests/monitor_return_tests.rs"]
+mod monitor_return_tests;
 #[path = "tests/move_tests.rs"]
 mod move_tests;
 #[path = "tests/pipeline_tests.rs"]
@@ -170,10 +172,11 @@ impl FakeDesktop {
     fn apply(&mut self, effect: &Effect) {
         match *effect {
             Effect::Place { window, rect, .. } => {
+                // As `WindowControl::place` promises: no longer maximized,
+                // but a minimized window stays minimized.
                 if let Some(w) = self.windows.get_mut(&window) {
                     w.rect = rect;
                     w.maximized = false;
-                    w.minimized = false;
                 }
             }
             Effect::Hide { window, how } => {

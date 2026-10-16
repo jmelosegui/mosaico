@@ -45,6 +45,20 @@ impl HiddenHow {
         self.ways.contains_key(&window)
     }
 
+    /// How the tiler hid the window, while the window still exists and is
+    /// still out of view the way the tiler left it. A window that closed,
+    /// or that was shown or minimized by something else, gives `None`.
+    pub(super) fn still_hidden(&self, plan: &Plan, window: WindowId) -> Option<HidingBehaviour> {
+        let how = self.ways.get(&window).copied()?;
+        plan.facts(window)?;
+        let as_left = match how {
+            HidingBehaviour::Cloak => plan.is_visible(window) && !plan.is_minimized(window),
+            HidingBehaviour::Hide => !plan.is_visible(window) && !plan.is_minimized(window),
+            HidingBehaviour::Minimize => plan.is_minimized(window),
+        };
+        as_left.then_some(how)
+    }
+
     /// Shows a window the tiler is letting go of, the way it hid it, so
     /// it is not left out of view with nothing to bring it back. Does
     /// nothing for a window the tiler did not hide.

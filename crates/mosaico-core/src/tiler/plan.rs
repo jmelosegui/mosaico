@@ -52,11 +52,11 @@ impl<'a> Plan<'a> {
     pub(super) fn emit(&mut self, effect: Effect) {
         match effect {
             Effect::Place { window, rect, .. } => {
-                let p = self.planned.entry(window).or_default();
-                p.rect = Some(rect);
-                // Positioning a window takes it out of maximized and
-                // minimized state.
-                p.minimized = Some(false);
+                // Positioning a window takes it out of maximized state
+                // (see `is_maximized`), but a minimized one stays
+                // minimized: the tiler restores a window before it places
+                // it (see `WindowControl::place`).
+                self.planned.entry(window).or_default().rect = Some(rect);
             }
             Effect::Show { window, .. } | Effect::Reveal { window } => {
                 let p = self.planned.entry(window).or_default();

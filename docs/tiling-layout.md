@@ -234,7 +234,10 @@ The `TilingManager` supports hot-reloading of configuration:
 
 `apply_layout_on(monitor_idx)`:
 
-1. Prunes stale handles (windows that closed without firing destroy events)
+1. Prunes stale handles: windows that closed, hid or minimized themselves
+   without a report. A window the tiler hid with `hide` is kept while it still
+   exists and is still hidden, since a display change bringing it into view
+   shows it right after the retile.
 2. In **monocle mode**: positions only the monocle window to fill the work area
 3. In **normal mode**: reads the workspace's `layout_kind` and instantiates
    the corresponding layout (`BspLayout`, `VerticalStackLayout`, or
@@ -313,7 +316,9 @@ and showing windows cause are kept from undoing a switch as described in
 - `applying_layout` flag prevents infinite loops from programmatic window
   moves triggering `Moved` events.
 - Stale handle pruning runs before every layout application to handle UWP apps
-  that close without firing destroy events.
+  that close without firing destroy events, and windows minimized without a
+  report. It leaves alone a window the tiler itself hid with `hide` and is
+  about to show, which is out of view by the tiler's doing, not stale.
 - `Workspace` stores a `layout_kind` alongside its `Vec<usize>` handle list
   -- the layout algorithm determines spatial positioning, not insertion order.
 - The core layout module is split into sub-files (`mod.rs`, `bsp.rs`,
