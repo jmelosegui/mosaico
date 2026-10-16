@@ -221,10 +221,10 @@ switched too: the windows of the workspace it leaves are hidden and those
 of the one it switches to tiled and shown, along with the windows that
 moved, and a warning is logged.
 
-After the retile, `refresh_visible_windows()` calls `invalidate()` on every
+After the retile, `refresh_visible_windows()` calls `redraw()` on every
 window of an active workspace, including those the layout skipped because
 they were already in place; a user retile does the same. On Windows,
-`invalidate()` also repairs Chromium windows (`chromium.rs`): Chromium
+`redraw()` also repairs Chromium windows (`chromium.rs`): Chromium
 presents through an `Intermediate D3D Window` child owned by its GPU
 process, which can be left at a stale offset after the window moves across
 displays with different DPI, such as the emulated display a KVM leaves

@@ -6,7 +6,8 @@ use crate::tiler::{MAX_HOLD, QUIET};
 use super::*;
 
 /// Waits with the effects held since `held`, from `from` until `until`,
-/// with every wait ended early by a message 10 ms in.
+/// with every wait ended early by a message 10 ms in: a title that keeps
+/// changing.
 fn interrupted_waits(
     scheduler: &mut Scheduler,
     held: Option<Instant>,
@@ -15,9 +16,9 @@ fn interrupted_waits(
 ) {
     let mut now = from;
     while now < until {
-        scheduler.begin_wait(held, now);
+        scheduler.begin_wait(held, None, now);
         now += ms(10);
-        scheduler.step(received(vec![event(moved(1))]), now);
+        scheduler.step(received(vec![event(titled(1))]), now);
     }
 }
 
@@ -32,7 +33,7 @@ fn once_the_max_hold_has_passed_the_flush_runs_before_the_next_batch() {
     interrupted_waits(&mut scheduler, held, t0, t0 + MAX_HOLD);
 
     // Act
-    let wait = scheduler.begin_wait(held, t0 + MAX_HOLD);
+    let wait = scheduler.begin_wait(held, None, t0 + MAX_HOLD);
     let batch = received(vec![task("stop"), event(moved(1))]);
     let steps = scheduler.step(batch, t0 + MAX_HOLD);
 
@@ -54,7 +55,7 @@ fn the_wait_never_outlasts_the_max_hold() {
     interrupted_waits(&mut scheduler, held, t0, t0 + ms(90));
 
     // Act
-    let wait = scheduler.begin_wait(held, t0 + ms(90));
+    let wait = scheduler.begin_wait(held, None, t0 + ms(90));
     let steps = scheduler.step(timed_out(), t0 + MAX_HOLD);
 
     // Assert -- shorter than the quiet window would have been.
@@ -72,7 +73,7 @@ fn the_cap_counts_from_the_first_wait_with_the_hold() {
     interrupted_waits(&mut scheduler, held, t0 + ms(60), t0 + ms(140));
 
     // Act
-    let wait = scheduler.begin_wait(held, t0 + ms(140));
+    let wait = scheduler.begin_wait(held, None, t0 + ms(140));
 
     // Assert -- 100 ms after the first wait, not after the hold began.
     assert_eq!(wait, Some(ms(20)));
@@ -88,7 +89,7 @@ fn a_batch_slower_than_the_cap_keeps_its_quiet_window() {
     let held = Some(t0 + ms(1));
 
     // Act
-    let wait = scheduler.begin_wait(held, t0 + ms(120));
+    let wait = scheduler.begin_wait(held, None, t0 + ms(120));
     let steps = scheduler.step(received(vec![task("switch to 3")]), t0 + ms(120));
 
     // Assert -- the queued switch runs and replaces the held focus
@@ -106,7 +107,7 @@ fn a_slow_startup_keeps_its_quiet_window() {
     let held = Some(t0);
 
     // Act
-    let wait = scheduler.begin_wait(held, t0 + ms(200));
+    let wait = scheduler.begin_wait(held, None, t0 + ms(200));
     let steps = scheduler.step(timed_out(), t0 + ms(200) + QUIET);
 
     // Assert
@@ -124,12 +125,12 @@ fn a_hold_started_by_the_batch_that_ends_a_wait_gets_its_own_quiet_window() {
     let mut scheduler = Scheduler::default();
     let held = Some(t0);
     interrupted_waits(&mut scheduler, held, t0, t0 + ms(90));
-    scheduler.begin_wait(held, t0 + ms(90));
+    scheduler.begin_wait(held, None, t0 + ms(90));
 
     // Act
     let steps = scheduler.step(received(vec![task("close")]), t0 + MAX_HOLD);
     let new_hold = Some(t0 + MAX_HOLD + ms(1));
-    let wait = scheduler.begin_wait(new_hold, t0 + MAX_HOLD + ms(2));
+    let wait = scheduler.begin_wait(new_hold, None, t0 + MAX_HOLD + ms(2));
 
     // Assert -- nothing flushes the new focus change at once.
     assert_eq!(steps, vec![Step::Run("close")]);

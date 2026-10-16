@@ -5,7 +5,7 @@ use std::collections::hash_map::Entry;
 
 use mosaico_core::config::CornerStyle;
 use mosaico_core::tiler::{BorderStyle, LastDrawn};
-use mosaico_core::{Decorations, Result, WindowId};
+use mosaico_core::{Decorations, Rect, Result, WindowId};
 
 use crate::border::Border;
 use crate::frame;
@@ -33,10 +33,12 @@ pub(crate) struct Win32Decorations {
     borders: HashMap<WindowId, Overlay>,
 }
 
-/// A border overlay and what its bitmap shows.
+/// A border overlay, what its bitmap shows, and how wide its stroke was
+/// when it was last put in place, which moving it keeps.
 struct Overlay {
     border: Border,
     drawn: LastDrawn,
+    width: i32,
 }
 
 impl Decorations for Win32Decorations {
@@ -48,13 +50,19 @@ impl Decorations for Win32Decorations {
     /// drops it. A bitmap that cannot be rendered is logged for
     /// debugging, and rendered again the next time.
     fn show_border(&mut self, window: WindowId, style: &BorderStyle) -> Result<()> {
-        let Overlay { border, drawn } = match self.borders.entry(window) {
+        let Overlay {
+            border,
+            drawn,
+            width,
+        } = match self.borders.entry(window) {
             Entry::Occupied(entry) => entry.into_mut(),
             Entry::Vacant(entry) => entry.insert(Overlay {
                 border: Border::new()?,
                 drawn: LastDrawn::default(),
+                width: style.width,
             }),
         };
+        *width = style.width;
         let target = Window::from_id(window).hwnd();
         if drawn.needs_render(style) {
             let rendered = border.show(&style.rect, style.color, style.width, style.radius, target);
@@ -73,6 +81,15 @@ impl Decorations for Win32Decorations {
     fn hide_border(&mut self, window: WindowId) -> Result<()> {
         if let Some(overlay) = self.borders.get(&window) {
             overlay.border.hide();
+        }
+        Ok(())
+    }
+
+    /// Only moves the overlay, which keeps its bitmap, its size, its place
+    /// in the z-order and whether it shows.
+    fn move_border(&mut self, window: WindowId, rect: Rect) -> Result<()> {
+        if let Some(overlay) = self.borders.get(&window) {
+            overlay.border.move_to(&rect, overlay.width);
         }
         Ok(())
     }

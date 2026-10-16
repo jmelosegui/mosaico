@@ -9,14 +9,18 @@ use std::time::Instant;
 
 use crate::{Rect, WindowId};
 
-use super::{Effect, Timing};
+use super::{Effect, Timing, Transition};
+
+#[path = "coalesce_release.rs"]
+mod release;
 
 /// Effects held back until input goes quiet. [`release_at`](super::release_at)
 /// says when that is.
 #[derive(Debug, Default)]
 pub struct Coalescer {
-    /// Coalesced placements, latest per window, in arrival order.
-    places: Vec<(WindowId, Rect)>,
+    /// Coalesced placements, latest per window, in arrival order, each
+    /// with whether it may animate.
+    places: Vec<(WindowId, Rect, Transition)>,
     /// Effects that must wait for a held placement of their window:
     /// its border, the latest one only, and the cursor moving onto it.
     after: Vec<Effect>,
@@ -36,11 +40,13 @@ impl Coalescer {
                 window,
                 rect,
                 timing: Timing::Coalesced,
+                transition,
             } => {
                 self.hold(now);
-                match self.places.iter_mut().find(|(w, _)| *w == window) {
-                    Some(held) => held.1 = rect,
-                    None => self.places.push((window, rect)),
+                let place = (window, rect, transition);
+                match self.places.iter_mut().find(|(w, ..)| *w == window) {
+                    Some(held) => *held = place,
+                    None => self.places.push(place),
                 }
                 None
             }
@@ -69,7 +75,7 @@ impl Coalescer {
                 None
             }
             _ => match waits_for(&effect) {
-                Some(window) if self.places.iter().any(|&(w, _)| w == window) => {
+                Some(window) if self.places.iter().any(|&(w, ..)| w == window) => {
                     self.hold_until_placed(effect);
                     None
                 }
@@ -111,7 +117,7 @@ impl Coalescer {
     /// Drops the held placement of `window` and everything waiting for
     /// it.
     fn forget_placement(&mut self, window: WindowId) {
-        self.places.retain(|&(w, _)| w != window);
+        self.places.retain(|&(w, ..)| w != window);
         self.after.retain(|e| waits_for(e) != Some(window));
     }
 
@@ -137,37 +143,6 @@ impl Coalescer {
         if self.is_empty() {
             self.since = Some(now);
         }
-    }
-
-    /// Releases everything held, in the order to apply it: placements,
-    /// then what waited for them, then the focus change.
-    ///
-    /// A border is drawn around its window's held placement. A step that
-    /// did not move the window works the rect out from the desktop, where
-    /// the move has not happened yet (#133).
-    pub fn take(&mut self) -> Vec<Effect> {
-        let places = std::mem::take(&mut self.places);
-        let mut out: Vec<Effect> = places
-            .iter()
-            .map(|&(window, rect)| Effect::Place {
-                window,
-                rect,
-                timing: Timing::Now,
-            })
-            .collect();
-        for mut effect in self.after.drain(..) {
-            if let Effect::Border {
-                window,
-                style: Some(ref mut style),
-            } = effect
-                && let Some(&(_, rect)) = places.iter().find(|&&(w, _)| w == window)
-            {
-                style.rect = rect;
-            }
-            out.push(effect);
-        }
-        out.extend(self.focus.take());
-        out
     }
 }
 

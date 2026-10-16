@@ -161,9 +161,18 @@ of the strategy used, and drops the matching events before the tiler sees
 them:
 
 - a `Hidden` or `Minimized` event for a window hidden a way that reports one,
-  until the window is shown again;
-- one `Restored` event for a window shown again a way that reports one, within
-  `FOCUS_ECHO_TTL` of the show;
+  until the window is shown again, and once more after that if none came by
+  then: the report of a hide can come after the show, when the user goes
+  away and straight back before it arrives, or when the platform posted the
+  hide behind frames on their way to the window. That late report is
+  expected until it comes, until the window is hidden or shown again or
+  destroyed, and for at most `ASYNC_GRACE` (5 s) after the show;
+- one `Restored` event for a window shown again a way that reports one,
+  within `ASYNC_GRACE` of the show, as a show posted behind frames lands late
+  too, when the show restores the window: its hide is still to be reported,
+  or the desktop has it minimized at the show. A window the user restored
+  first, as from the taskbar, reports nothing for the show, so no restore is
+  expected and the user's next one reaches the tiler;
 - a `Focused` event for a window hidden less than `HIDE_FOCUS_ECHO_TTL` ago,
   whatever the strategy.
 

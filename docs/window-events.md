@@ -31,6 +31,7 @@ WinEvent hooks and a hidden window that receives broadcasts.
 | `Hidden { window }` | A window is hidden, but not necessarily closed: it stops being shown without being minimized, including a window that closes while shown (just before `Destroyed`). May be reported for a window that stays on screen |
 | `Focused { window }` | A window becomes the active one, including when the tiler focused it |
 | `MouseHover { window }` | The pointer came to rest on a window (focus-follows-mouse only) |
+| `MoveStarted { window }` | The user starts dragging a window to a new place or size; `Moved` follows when the drag ends |
 | `Moved { window }` | The user finishes dragging a window to a new place or size |
 | `Minimized { window }` | A window is minimized |
 | `Restored { window }` | A minimized window is shown again |
@@ -79,6 +80,7 @@ The details of each variant are in the docs of `WindowEvent`.
 | `EVENT_OBJECT_DESTROY` | `Destroyed` |
 | `EVENT_OBJECT_HIDE` | `Hidden` |
 | `EVENT_SYSTEM_FOREGROUND` | `Focused` |
+| `EVENT_SYSTEM_MOVESIZESTART` | `MoveStarted` |
 | `EVENT_SYSTEM_MOVESIZEEND` | `Moved` |
 | `EVENT_SYSTEM_MINIMIZESTART` | `Minimized` |
 | `EVENT_SYSTEM_MINIMIZEEND` | `Restored` |
@@ -102,9 +104,10 @@ Windows hides a window as it destroys it, so a window that closes while
 shown reports `EVENT_OBJECT_HIDE` and then `EVENT_OBJECT_DESTROY`: `Hidden`,
 then `Destroyed`.
 
-Both functions are pure. `event_tests.rs` checks them with the values Windows
-reports in each of these cases, including the hide and show a
-GPU-accelerated application reports while it recreates its drawing surface.
+Both functions are pure. `event_tests.rs` and, for the start of a drag,
+`event_drag_tests.rs` check them with the values Windows reports in each of
+these cases, including the hide and show a GPU-accelerated application
+reports while it recreates its drawing surface.
 
 ## Event Hook Configuration
 
@@ -160,14 +163,15 @@ pointer is read with `GetCursorPos`, `WindowFromPoint` and
 |-------|-----------------|
 | `Created` | Place a window that is not shown yet; adopt a visible one into the focused monitor's workspace |
 | `Destroyed` | Remove window from workspace, re-tile |
-| `Hidden` | Remove the window, if it is really no longer visible |
+| `Hidden` | Remove the window, if it is really no longer visible, and stop its transition then |
 | `Focused` | Update focus tracking, show/reposition border |
-| `MouseHover` | Focus the window, if it is managed and on the active workspace |
+| `MouseHover` | Focus the window, if it is managed and on the active workspace; dropped while windows move, and not repeated until the pointer moves to another window. That rarely matters: a report takes 3 polls, at least 200 ms, longer than a default 180 ms transition, so a window sliding under a pointer at rest is usually reported only once it stops |
+| `MoveStarted` | Stop the window's transition, if it is moving; the layout changes when the drag ends, with `Moved` |
 | `Moved` | Detect monitor reassignment, re-tile if needed |
-| `Minimized` | Remove from workspace, re-tile |
+| `Minimized` | Remove from workspace, re-tile, and stop the window's transition, if it is really minimized |
 | `Restored` | Re-add to workspace, re-tile |
 | `TitleChanged` | Adopt a window that only became recognizable once it had a title |
-| `LocationChanged` | Notice the focused window entering or leaving maximized state |
+| `LocationChanged` | Notice the focused window entering or leaving maximized state; once a window still to land where a posted placement takes it reports being there, or being anywhere once the wait for it by time is over, repaint it again and draw its border there (`applier_landing.rs`) |
 
 ## Design Decisions
 
@@ -179,9 +183,10 @@ pointer is read with `GetCursorPos`, `WindowFromPoint` and
 - **`WINEVENT_SKIPOWNPROCESS`** prevents the border overlay window from
   creating recursive event loops (border created -> `Created` event -> tiling
   tries to manage border -> ...).
-- **`EVENT_SYSTEM_MOVESIZEEND`** (not `MOVESTART` or continuous move events)
-  ensures we only react once after the user finishes dragging a window,
-  avoiding constant re-tiling during the drag operation.
+- **The layout reacts to `EVENT_SYSTEM_MOVESIZEEND`** (`Moved`), not to
+  `EVENT_SYSTEM_MOVESIZESTART` (`MoveStarted`) or the position reports in
+  between, so it retiles once after the user finishes dragging a window,
+  not throughout the drag.
 - **`EVENT_OBJECT_HIDE` is `Hidden`, not `Destroyed`**, because
   GPU-accelerated applications report a hide while they recreate their
   surface and stay on screen. The tiler checks visibility before it removes

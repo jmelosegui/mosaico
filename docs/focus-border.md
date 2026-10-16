@@ -20,19 +20,21 @@ Unfocused borders can be turned off entirely (see
 | `crates/mosaico-core/src/tiler/decoration_effects.rs` | `apply_decoration_effect`, which carries out border and corner effects |
 | `crates/mosaico-core/src/tiler/plan_borders.rs` | Keeping one border per window in a step, and where it goes |
 | `crates/mosaico-core/src/tiler/last_drawn.rs` | `LastDrawn`, the style a border was last drawn with |
+| `crates/mosaico-core/src/tiler/applier_borders.rs` | The borders of moving windows, drawn once each window is in place |
 | `crates/mosaico-core/src/config/color.rs` | `Color` struct and its hex parser |
-| `crates/mosaico-core/src/config/mod.rs` | `BorderConfig` for color and width settings |
+| `crates/mosaico-core/src/config/types.rs` | `BorderConfig` for color and width settings |
 | `crates/mosaico-windows/src/decorations.rs` | `Win32Decorations`, the Win32 implementation |
 | `crates/mosaico-windows/src/border.rs` | `Border` struct: creating, placing and hiding the overlay |
 | `crates/mosaico-windows/src/border/render.rs` | Painting the border bitmap |
-| `crates/mosaico-windows/src/border/stack.rs` | Putting the overlay just behind its window |
+| `crates/mosaico-windows/src/border/stack.rs` | Putting the overlay just behind its window, or only moving it (`Border::move_to`) |
 | `crates/mosaico-windows/src/border/class.rs` | The `MosaicoBorder` window class and its window procedure |
 
 ### Key Types
 
 - `Decorations` -- the core trait the tiler's border and corner effects go through
-- `Win32Decorations` -- one overlay per bordered window, a `Border` and the
-  `LastDrawn` style its bitmap shows, plus the DWM corner preference
+- `Win32Decorations` -- one overlay per bordered window: a `Border`, the
+  `LastDrawn` style its bitmap shows and the stroke width it was last shown
+  with, plus the DWM corner preference
 - `LastDrawn` -- in `mosaico-core`, decides whether a border needs drawing
   again or only putting back in place
 - `Border` -- wraps a layered `HWND` overlay window
@@ -47,6 +49,7 @@ trait in `mosaico-core`:
 pub trait Decorations {
     fn show_border(&mut self, window: WindowId, style: &BorderStyle) -> Result<()>;
     fn hide_border(&mut self, window: WindowId) -> Result<()>;
+    fn move_border(&mut self, window: WindowId, rect: Rect) -> Result<()>; // Unsupported by default
     fn drop_border(&mut self, window: WindowId) -> Result<()>;
     fn forget_drawn(&mut self);
     fn set_corners(&mut self, window: WindowId, corners: CornerStyle) -> Result<()>;
@@ -67,6 +70,15 @@ The contract, in the trait's docs, spells out what the tiler relies on:
 - A platform may keep what it drew of a border, and only move it when
   the border is drawn again the same way. After `forget_drawn`, the next
   drawing of each border starts from scratch.
+- `move_border` only moves a border, as it was last drawn, to surround
+  another rect: it keeps its picture, its size and its place in the
+  stacking order, and a hidden border stays hidden. It does nothing for a
+  window that has no border. It is for the border of a window that keeps
+  its size on its way through a transition, which is drawn with
+  `show_border` once the window is in place. A platform that cannot move a
+  border without drawing it again keeps the default, which returns
+  `Error::Unsupported`: the border then stays where it is until it is drawn
+  again.
 - A platform that cannot draw borders, or cannot change the corners of
   windows, returns `Error::Unsupported`.
 
@@ -83,14 +95,17 @@ The border is a Win32 window with special styles:
 - `WS_POPUP` -- no title bar or frame
 - `WS_EX_LAYERED` -- supports per-pixel alpha transparency
 - `WS_EX_TOOLWINDOW` -- hidden from taskbar and Alt+Tab
-- `WS_EX_TOPMOST` -- always on top of other windows
 - `WS_EX_TRANSPARENT` -- click-through (mouse events pass to windows below)
+
+It is not created always on top: each time it is drawn it joins its window's
+band, topmost or not, just behind the window (`border/stack.rs`).
 
 Window class `MosaicoBorder` is registered once via `std::sync::Once`.
 
 ## Rendering
 
-`Border::render(rect, color, width)`:
+`Border::render(x, y, w, h, color, bw, r)`, for the rect, the color, the
+stroke width and the corner radius:
 
 1. Creates a DIB section (device-independent bitmap) matching the border
    dimensions
@@ -111,14 +126,19 @@ a stale bitmap from the previous size would briefly appear at the new position.
 ## Methods
 
 - `Border::new()` -- creates the overlay window (initially hidden)
-- `Border::show(rect, color, width)` -- renders the border bitmap and
-  positions the overlay window over the target rectangle; it fails when
-  the bitmap does not reach the overlay, which keeps the one it had and
-  is still put in place
+- `Border::show(rect, color, width, radius, target)` -- renders the border
+  bitmap and positions the overlay window over the target rectangle, just
+  behind `target`; it fails when the bitmap does not reach the overlay,
+  which keeps the one it had and is still put in place
 - `Border::restack(rect, width, target)` -- puts the overlay in its
   window's topmost band, then just behind its window at `rect`, and only
   then shows it, with the bitmap it already has, so a hidden border never
   shows where it was hidden
+- `Border::move_to(rect, width)` -- only moves the overlay around `rect`,
+  with `SetWindowPos` and `SWP_NOZORDER | SWP_NOSIZE | SWP_NOACTIVATE`: its
+  bitmap, size, place in the z-order and visibility stay as they are.
+  `Win32Decorations::move_border` uses it with the stroke width the border
+  was last shown with
 - `Border::hide()` -- hides the overlay window via `ShowWindow(SW_HIDE)`
 
 `Win32Decorations` remembers the style each overlay was last rendered with,
@@ -160,8 +180,9 @@ The tiler decides every border and emits it as an effect; in
 `mosaico-windows`, the `Win32Decorations` that `Win32Platform` hands the
 tiling manager keeps a
 `HashMap<WindowId, Overlay>` keyed by window id, with one entry per
-visible tiled window: its `Border` and the `LastDrawn` style its bitmap
-shows. The lifecycle is unified through a single entry point:
+visible tiled window: its `Border`, the `LastDrawn` style its bitmap
+shows, and the stroke width it was last shown with, which moving it keeps.
+The lifecycle is unified through a single entry point:
 
 - `update_border()` -- called after every layout, focus, workspace, or
   display event. It snapshots the active workspace on every monitor,
@@ -175,10 +196,9 @@ One step often decides a window's border more than once: when the layout
 places the window, when `update_border()` runs after the layout, and again
 after focus moves. The step draws only the last decision for each window,
 once, in the place of its first border after the last `Place` or
-`DropBorder` of that window that comes before that decision. So each
-border lands right after its own window, never before the
-placement it was decided for, and a hide or drop wins over an earlier
-draw.
+`DropBorder` of that window, or `RedrawBorders`, that comes before that
+decision. So each border lands right after its own window, never before the
+placement it was decided for, and a hide or drop wins over an earlier draw.
 
 The user's retile and a display change that changes anything draw every
 border from scratch. They start with `RedrawBorders`, which has the
@@ -204,6 +224,48 @@ Color selection per window:
   (in which case unfocused windows have no border).
 - Maximized focused windows skip rendering, and on the focused monitor
   only the monocle window renders while monocle mode is active.
+
+### Borders of Moving Windows
+
+Drawing a border can take tens of milliseconds for a large window, too long
+for a frame of a transition, so a border is never drawn while its window
+moves (`tiler/applier_borders.rs`). A `Border` effect for a moving window
+only replaces the style that is drawn once the window is in place, around
+the rect it ends at; a hide happens at once, since it costs nothing. On the
+way, the border follows the window: each frame step moves it with
+`move_border` to where the platform found the window, or, when the window
+took the frame posted at the step before exactly, to the frame now posted.
+So it neither trails a window that keeps up nor runs ahead of a slow
+application, and it stays where it is while the window is still to handle
+its frame. A window sent to a rect of another size, as its motion starts or
+on its way, has its border hidden when the step's `Border` effect for it
+comes, since the border could not follow it, and drawn once at the end. The
+placement that ends a motion usually finds the window there already, as its
+last frame took it to its target, and the border is drawn at once. When the
+placement is posted behind what is still on its way to the window, and the
+window is not there yet, within 4 pixels on every edge, or its last frame
+took it elsewhere, if only a pixel short, the border is drawn once the
+window reports being there (`tiler/applier_landing.rs`). As a placement that
+moves nothing reports nothing, the border of a window that has not reported
+half a second after the placement is drawn then, if the window has moved
+since or is there. One that has not moved, as its application has not got
+to the placement, has its border drawn once it reports where it is next.
+Until then the border stays where the window was last found, so it never
+runs ahead of a window that fell behind. A `Border` effect for a window
+still to land that way, after any placement posted behind frames, one that
+snaps too, replaces the style drawn then, around where the window was
+placed; a hide happens at once. A new motion of the window, or the user
+grabbing it, ends the wait. A window whose motion stops on the way, as when
+it is hidden, maximized or minimized, or the user grabs it, gets no border
+drawn for that motion, and what its motion kept for the border is dropped
+with it: what the tiler decides for it next is drawn as it comes. Nor does
+one the tiler lets go of while it moves: it is placed where it was going,
+and the step drops its border. One a display change stops keeps the style
+until it is placed at its target, after the rebuild, and has it drawn there,
+unless the tiler placed it or took it out of view meanwhile; a `Border`
+effect for it meanwhile replaces the style, as for a moving window.
+`DropBorder` forgets the style a motion kept, or one kept for a window still
+to land, so a border dropped meanwhile is not drawn again.
 
 ## Configuration
 
@@ -293,6 +355,25 @@ border is drawn right after its own window. `tiler/tests/plan_borders_tests.rs` 
 step and while a burst of moves is held. `tiler/tests/held_border_tests.rs`
 checks that a focus change or a border refresh before a held move lands
 still draws each border around its window's new slot, in the right color.
+`tiler/tests/motion_border_tests.rs` checks the borders of moving windows:
+drawn once each window is in place, hidden while a window changes size and
+at once when they are to be hidden, not drawn for a motion that stops on the
+way, and drawn for one a display change stopped once the window is placed.
+`tiler/tests/motion_landed_tests.rs` checks that the border of a window
+whose final placement is posted is drawn once the window reports being
+there, and that a window maximized on its way starts its next motion with a
+fresh border; `tiler/tests/motion_landing_tests.rs` that a window its
+frames took into place has its border drawn at once, and one that moved but
+never reports being there has it drawn at its slot once the wait is over;
+`tiler/tests/motion_landing_wait_tests.rs` that one that has not moved by
+then keeps its border where it was until it reports, and that one the user
+grabs is no longer waited for; `tiler/tests/motion_landing_order_tests.rs`
+that one its last frame left short of its slot, by as little as a pixel, is
+waited for, and that a border dropped meanwhile is not drawn as it lands;
+and `tiler/tests/motion_kept_border_tests.rs` that a border the tiler
+decided meanwhile is drawn instead, and none when it hid, minimized or moved
+the window on. `tiler/tests/motion_frame_tests.rs` checks that a moving
+window's border follows where each frame finds the window.
 
 `tiler/tests/last_drawn_tests.rs` checks when a border needs drawing
 again. `tiler/tests/border_redraw_tests.rs` runs the tiling manager on a
@@ -303,6 +384,7 @@ reserving the bar and a display change that changes nothing draw none
 again, and a focus change draws only the borders that change. In
 `mosaico-windows`, `border/show_tests.rs` checks that restacking a hidden
 border, as drawing it again the same way does, shows it again, and only
-once it is at its new rect, with overlays of its own off screen, and
-`decorations_tests.rs` that
-forgetting how the borders were drawn renders every one again.
+once it is at its new rect, with overlays of its own off screen, and that
+moving a border changes where it is and nothing else, and
+`decorations_tests.rs` that forgetting how the borders were drawn renders
+every one again, and that moving a border keeps what it was drawn with.

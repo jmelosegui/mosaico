@@ -14,7 +14,7 @@ fn the_quiet_window_starts_once_the_loop_is_waiting_again() {
     let held = Some(t0 + ms(1));
 
     // Act
-    let wait = scheduler.begin_wait(held, t0 + ms(30));
+    let wait = scheduler.begin_wait(held, None, t0 + ms(30));
     let steps = scheduler.step(timed_out(), t0 + ms(30) + QUIET);
 
     // Assert -- running the hotkey did not count as quiet.
@@ -28,14 +28,14 @@ fn a_message_ends_the_wait_without_a_flush() {
     let t0 = Instant::now();
     let mut scheduler = Scheduler::default();
     let held = Some(t0);
-    scheduler.begin_wait(held, t0);
+    scheduler.begin_wait(held, None, t0);
 
     // Act -- the message arrives 20 ms into the quiet window.
-    let steps = scheduler.step(received(vec![event(moved(1))]), t0 + ms(20));
-    let wait = scheduler.begin_wait(held, t0 + ms(21));
+    let steps = scheduler.step(received(vec![event(focused(2))]), t0 + ms(20));
+    let wait = scheduler.begin_wait(held, None, t0 + ms(21));
 
     // Assert -- the next wait starts the window over.
-    assert_eq!(steps, vec![Step::Events(vec![moved(1)])]);
+    assert_eq!(steps, vec![Step::Events(vec![focused(2)])]);
     assert_eq!(wait, Some(QUIET));
 }
 
@@ -47,7 +47,7 @@ fn nothing_is_flushed_while_nothing_is_held() {
     scheduler.step(received(vec![task("tick")]), t0);
 
     // Act
-    let wait = scheduler.begin_wait(None, t0 + ms(1));
+    let wait = scheduler.begin_wait(None, None, t0 + ms(1));
     let steps = scheduler.step(timed_out(), t0 + QUIET * 4);
 
     // Assert
@@ -64,7 +64,7 @@ fn a_hold_made_at_startup_waits_until_the_loop_has_waited_quietly() {
     let held = Some(t0);
 
     // Act
-    let wait = scheduler.begin_wait(held, t0 + ms(30));
+    let wait = scheduler.begin_wait(held, None, t0 + ms(30));
     let steps = scheduler.step(timed_out(), t0 + ms(30) + QUIET);
 
     // Assert
@@ -79,13 +79,13 @@ fn a_hold_made_by_a_rebuild_waits_until_the_loop_has_waited_quietly() {
     let t0 = Instant::now();
     let mut scheduler = Scheduler::default();
     scheduler.step(display_changed(), t0);
-    scheduler.begin_wait(None, t0 + SETTLE);
+    scheduler.begin_wait(None, None, t0 + SETTLE);
     let rebuild = scheduler.step(timed_out(), t0 + SETTLE);
     let done = t0 + SETTLE + ms(30);
     let held = Some(t0 + SETTLE + ms(5));
 
     // Act
-    let wait = scheduler.begin_wait(held, done);
+    let wait = scheduler.begin_wait(held, None, done);
     let steps = scheduler.step(timed_out(), done + QUIET);
 
     // Assert

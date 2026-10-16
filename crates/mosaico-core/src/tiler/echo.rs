@@ -10,33 +10,31 @@
 //! [`HidingSupport`]. Focus changes are tracked in `echo_focus`.
 
 use std::collections::HashMap;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use crate::{HidingEvents, HidingSupport, WindowEvent, WindowId};
 
 use super::Effect;
-use super::echo_focus::{FOCUS_ECHO_TTL, FocusEchoes};
+use super::echo_focus::FocusEchoes;
 
-/// How long after hiding a window a focus report for it is taken as
-/// ours rather than the user's.
-///
-/// Hiding the window that held focus makes the OS report focus changes
-/// for it after the switch. Acting on one would switch straight back to
-/// the workspace it is on, and the switch would cause another. This is
-/// long enough to absorb those reports without being noticeable when
-/// the user really does pick a hidden window, from the taskbar say.
-pub const HIDE_FOCUS_ECHO_TTL: Duration = Duration::from_millis(500);
+#[path = "echo_hiding.rs"]
+mod hiding;
+
+pub use hiding::HIDE_FOCUS_ECHO_TTL;
+use hiding::ShowReports;
 
 /// What the applier has done that the OS has yet to report back.
 #[derive(Debug, Default)]
 pub struct Expectations {
     /// What hiding a window each way reports on this platform.
     hiding: HidingSupport,
-    /// Windows hidden by a workspace switch, until shown again, and what
-    /// hiding them reports.
-    hidden: HashMap<WindowId, (HidingEvents, Instant)>,
-    /// Windows shown by a workspace switch that report being restored.
-    restored: HashMap<WindowId, Instant>,
+    /// Windows hidden by a workspace switch, until shown again, what hiding
+    /// them reports, whether the hide was reported, and whether each was
+    /// minimized as it was to be shown again.
+    hidden: HashMap<WindowId, (HidingEvents, Instant, bool, bool)>,
+    /// What the windows a workspace switch showed again are still to
+    /// report.
+    shown: ShowReports,
     /// Focus changes applied or held back.
     focus: FocusEchoes,
 }
@@ -57,15 +55,12 @@ impl Expectations {
             Effect::Hide { window, how } => {
                 // A way the platform lacks hid nothing, so reports nothing.
                 let events = self.hiding.events(how).unwrap_or_default();
-                self.hidden.insert(window, (events, now));
-                self.restored.remove(&window);
+                self.hidden.insert(window, (events, now, false, false));
+                self.shown.forget(window);
             }
             Effect::Show { window, .. } => {
-                // Only a window hidden a way that reports a restore when
-                // it is shown again, such as minimizing, reports one.
-                let hidden = self.hidden.remove(&window);
-                if hidden.is_some_and(|(events, _)| events.reports_restored) {
-                    self.restored.insert(window, now);
+                if let Some((events, _, reported, minimized)) = self.hidden.remove(&window) {
+                    self.shown.shown(window, events, (reported, minimized), now);
                 }
             }
             Effect::Reveal { window } => {
@@ -105,16 +100,15 @@ impl Expectations {
             WindowEvent::Hidden { window } | WindowEvent::Minimized { window } => {
                 // Hiding a window a way that reports nothing, such as
                 // cloaking, did not cause this: the application did.
-                self.hidden
-                    .get(&window)
-                    .filter(|(events, _)| events.reports_hidden)
-                    .map(|_| "hidden by a workspace switch")
+                match self.hidden.get_mut(&window) {
+                    Some((events, _, reported, _)) if events.reports_hidden => {
+                        *reported = true;
+                        Some("hidden by a workspace switch")
+                    }
+                    _ => self.shown.hide_echo(window, now),
+                }
             }
-            WindowEvent::Restored { window } => {
-                let at = self.restored.remove(&window)?;
-                (now.duration_since(at) < FOCUS_ECHO_TTL)
-                    .then_some("restored by a workspace switch")
-            }
+            WindowEvent::Restored { window } => self.shown.restore_echo(window, now),
             WindowEvent::Focused { window } => self.focus_echo(window, now),
             _ => None,
         }
@@ -126,14 +120,14 @@ impl Expectations {
         }
         self.hidden
             .get(&window)
-            .is_some_and(|&(_, at)| now.duration_since(at) < HIDE_FOCUS_ECHO_TTL)
+            .is_some_and(|&(_, at, ..)| now.duration_since(at) < HIDE_FOCUS_ECHO_TTL)
             .then_some("hidden by a recent workspace switch")
     }
 
     /// Drops everything recorded about a window.
     pub fn forget(&mut self, window: WindowId) {
         self.hidden.remove(&window);
-        self.restored.remove(&window);
+        self.shown.forget(window);
     }
 }
 
@@ -144,3 +138,7 @@ mod tests;
 #[cfg(test)]
 #[path = "tests/echo_hiding_tests.rs"]
 mod hiding_tests;
+
+#[cfg(test)]
+#[path = "tests/echo_late_tests.rs"]
+mod late_tests;

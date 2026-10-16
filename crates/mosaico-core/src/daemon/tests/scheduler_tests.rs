@@ -4,17 +4,25 @@
 use std::time::{Duration, Instant};
 
 use crate::WindowEvent;
-use crate::daemon::SETTLE;
+use crate::daemon::{Message, SETTLE};
 use crate::id::wid;
 
 use super::*;
 
 #[path = "scheduler_cap_tests.rs"]
 mod cap_tests;
+#[path = "scheduler_display_tests.rs"]
+mod display_tests;
 #[path = "scheduler_flush_tests.rs"]
 mod flush_tests;
+#[path = "scheduler_frame_tests.rs"]
+mod frame_tests;
 #[path = "scheduler_hold_tests.rs"]
 mod hold_tests;
+#[path = "scheduler_input_tests.rs"]
+mod input_tests;
+#[path = "scheduler_motion_tests.rs"]
+mod motion_tests;
 #[path = "scheduler_settle_tests.rs"]
 mod settle_tests;
 
@@ -48,6 +56,12 @@ fn focused(window: u64) -> WindowEvent {
 
 fn moved(window: u64) -> WindowEvent {
     WindowEvent::LocationChanged {
+        window: wid(window),
+    }
+}
+
+fn titled(window: u64) -> WindowEvent {
+    WindowEvent::TitleChanged {
         window: wid(window),
     }
 }
@@ -122,7 +136,7 @@ fn an_idle_loop_waits_for_messages_and_does_nothing_when_it_times_out() {
     let mut scheduler = Scheduler::default();
 
     // Act
-    let wait = scheduler.begin_wait(None, t0);
+    let wait = scheduler.begin_wait(None, None, t0);
     let steps = scheduler.step(timed_out(), t0 + ms(50));
 
     // Assert

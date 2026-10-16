@@ -21,11 +21,10 @@ fn a_display_change_waits_for_the_configuration_to_settle() {
     let settled = scheduler.step(timed_out(), t0 + SETTLE);
     let later = scheduler.step(timed_out(), t0 + SETTLE * 2);
 
-    // Assert -- the rest of the batch does not wait.
-    assert_eq!(
-        arrived,
-        vec![Step::Events(vec![WindowEvent::WorkAreaChanged, focused(1)])]
-    );
+    // Assert -- the loop is told at once, to stop what moves to the old
+    // layout, and the rest of the batch does not wait.
+    let events = vec![WindowEvent::WorkAreaChanged, focused(1)];
+    assert_eq!(arrived, vec![Step::DisplayChanging, Step::Events(events)]);
     assert!(early.is_empty(), "rebuilt before settling: {early:?}");
     assert_eq!(settled, vec![Step::RebuildMonitors]);
     assert!(later.is_empty(), "rebuilt twice: {later:?}");
@@ -56,7 +55,7 @@ fn the_wait_ends_when_a_display_change_settles() {
     scheduler.step(display_changed(), t0);
 
     // Act
-    let wait = scheduler.begin_wait(None, t0 + ms(250));
+    let wait = scheduler.begin_wait(None, None, t0 + ms(250));
 
     // Assert
     assert_eq!(wait, Some(SETTLE - ms(250)));
@@ -71,7 +70,7 @@ fn a_display_change_settled_before_the_wait_is_rebuilt_for_first() {
     let held = Some(t0 + SETTLE - ms(5));
 
     // Act
-    let wait = scheduler.begin_wait(held, t0 + SETTLE + ms(5));
+    let wait = scheduler.begin_wait(held, None, t0 + SETTLE + ms(5));
     let batch = received(vec![task("hotkey"), event(focused(1))]);
     let steps = scheduler.step(batch, t0 + SETTLE + ms(5));
 
@@ -96,7 +95,7 @@ fn while_effects_are_held_the_wait_is_for_them_alone() {
     let start = t0 + SETTLE - ms(10);
 
     // Act
-    let wait = scheduler.begin_wait(Some(start), start);
+    let wait = scheduler.begin_wait(Some(start), None, start);
 
     // Assert
     assert_eq!(wait, Some(QUIET));
@@ -110,7 +109,7 @@ fn a_flush_due_with_a_rebuild_comes_first() {
     let mut scheduler = Scheduler::default();
     scheduler.step(display_changed(), t0);
     let start = t0 + SETTLE - ms(10);
-    scheduler.begin_wait(Some(start), start);
+    scheduler.begin_wait(Some(start), None, start);
 
     // Act
     let steps = scheduler.step(timed_out(), start + QUIET);
@@ -128,11 +127,11 @@ fn a_display_change_that_settles_during_a_wait_waits_for_the_batch_that_ends_it(
     scheduler.step(display_changed(), t0);
     let start = t0 + SETTLE - ms(10);
     let held = Some(start);
-    scheduler.begin_wait(held, start);
+    scheduler.begin_wait(held, None, start);
 
     // Act
     let batch = scheduler.step(received(vec![task("hotkey")]), t0 + SETTLE + ms(5));
-    let wait = scheduler.begin_wait(held, t0 + SETTLE + ms(6));
+    let wait = scheduler.begin_wait(held, None, t0 + SETTLE + ms(6));
     let next = scheduler.step(timed_out(), t0 + SETTLE + ms(6));
 
     // Assert -- the batch runs first and the rebuild right after it, as

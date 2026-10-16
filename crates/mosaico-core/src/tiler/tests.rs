@@ -40,9 +40,9 @@ mod empty_focus_tests;
 #[path = "tests/event_tests.rs"]
 mod event_tests;
 #[path = "tests/fake_desktop.rs"]
-mod fake_desktop;
+pub(super) mod fake_desktop;
 #[path = "tests/fake_platform.rs"]
-mod fake_platform;
+pub(super) mod fake_platform;
 #[path = "tests/fallback_tests.rs"]
 mod fallback_tests;
 #[path = "tests/focus_tests.rs"]
@@ -72,7 +72,7 @@ mod manager_focus_tests;
 #[path = "tests/manager_record_tests.rs"]
 mod manager_record_tests;
 #[path = "tests/manager_support.rs"]
-mod manager_support;
+pub(super) mod manager_support;
 #[path = "tests/manager_tests.rs"]
 mod manager_tests;
 #[path = "tests/metrics_scenarios.rs"]

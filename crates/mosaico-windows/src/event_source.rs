@@ -7,6 +7,7 @@
 //! | `EVENT_OBJECT_DESTROY` | `Destroyed` |
 //! | `EVENT_OBJECT_HIDE` | `Hidden` |
 //! | `EVENT_SYSTEM_FOREGROUND` | `Focused` |
+//! | `EVENT_SYSTEM_MOVESIZESTART` | `MoveStarted` |
 //! | `EVENT_SYSTEM_MOVESIZEEND` | `Moved` |
 //! | `EVENT_SYSTEM_MINIMIZESTART` / `MINIMIZEEND` | `Minimized` / `Restored` |
 //! | `EVENT_OBJECT_NAMECHANGE` | `TitleChanged` |
@@ -32,9 +33,10 @@
 //!   which the tiler checks against the window's visibility.
 //! - The mouse pointer reports being shown and changing shape with no
 //!   window, and those reports are dropped.
-//! - `EVENT_SYSTEM_MOVESIZEEND` ends a drag the user makes. Maximizing
-//!   and restoring from the title bar do not drag, so they only report
-//!   `EVENT_OBJECT_LOCATIONCHANGE`.
+//! - `EVENT_SYSTEM_MOVESIZESTART` starts a drag the user makes, and
+//!   `EVENT_SYSTEM_MOVESIZEEND` ends it, even one cancelled with Escape.
+//!   Maximizing and restoring from the title bar do not drag, so they
+//!   only report `EVENT_OBJECT_LOCATIONCHANGE`.
 //! - When the hidden window cannot be created, the source still runs
 //!   without display and work-area changes, and `EventWatch::display_error`
 //!   says why.

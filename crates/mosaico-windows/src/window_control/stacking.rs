@@ -19,8 +19,8 @@
 use mosaico_core::Result;
 use mosaico_core::window::Behind;
 use windows::Win32::UI::WindowsAndMessaging::{
-    GWL_EXSTYLE, GetWindowLongPtrW, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SetWindowPos,
-    WS_EX_TOPMOST,
+    GWL_EXSTYLE, GetWindowLongPtrW, SWP_ASYNCWINDOWPOS, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
+    SetWindowPos, WS_EX_TOPMOST,
 };
 
 use crate::error::OrPlatform;
@@ -29,25 +29,21 @@ use crate::window::Window;
 /// Puts `window` directly behind `other` when both are in the same band,
 /// and leaves it where it is otherwise. `SWP_NOMOVE`, `SWP_NOSIZE` and
 /// `SWP_NOACTIVATE` leave the position and size of `window` and the
-/// foreground window alone.
-pub(super) fn put_behind(window: Window, other: Window) -> Result<()> {
+/// foreground window alone. When `posted`, `SWP_ASYNCWINDOWPOS` posts the
+/// change to the thread of `window`, behind what was posted to it before,
+/// instead of waiting for it.
+pub(super) fn put_behind(window: Window, other: Window, posted: bool) -> Result<()> {
     if Behind::new(is_topmost(window), is_topmost(other)) == Behind::Stay {
         return Ok(());
     }
+    let mut flags = SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE;
+    if posted {
+        flags |= SWP_ASYNCWINDOWPOS;
+    }
     // SAFETY: SetWindowPos only reorders `window` here, after `other`,
     // which both exist; a window destroyed in the meantime makes it fail.
-    unsafe {
-        SetWindowPos(
-            window.hwnd(),
-            Some(other.hwnd()),
-            0,
-            0,
-            0,
-            0,
-            SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
-        )
-    }
-    .or_platform("put the window behind another")
+    unsafe { SetWindowPos(window.hwnd(), Some(other.hwnd()), 0, 0, 0, 0, flags) }
+        .or_platform("put the window behind another")
 }
 
 /// Whether a window is in the topmost band of the z-order.

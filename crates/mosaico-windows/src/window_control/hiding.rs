@@ -6,36 +6,55 @@
 //! show state with `ShowWindow`: `SW_HIDE` also removes the taskbar icon,
 //! and `SW_MINIMIZE` minimizes it. The events each way fires are listed
 //! on [`events`].
+//!
+//! A change of the show state made with `ShowWindow` takes effect at
+//! once, and a frame of a transition still queued for the window would
+//! overtake it, as it would any change applied at once: after a minimize,
+//! the frame would move the minimized window's caption on screen. So
+//! while something may still be queued for the window, the change is
+//! posted with `ShowWindowAsync` instead, and lands after it, in order
+//! with every frame and change posted around it. Cloaking does not go
+//! through the window's queue, and is never posted.
 
 use mosaico_core::config::HidingBehaviour;
 use mosaico_core::{HidingEvents, Result};
 use windows::Win32::UI::WindowsAndMessaging::{
-    SHOW_WINDOW_CMD, SW_HIDE, SW_MINIMIZE, SW_SHOW, SW_SHOWNOACTIVATE, ShowWindow,
+    SHOW_WINDOW_CMD, SW_HIDE, SW_MINIMIZE, SW_SHOW, SW_SHOWNOACTIVATE, ShowWindow, ShowWindowAsync,
 };
 
 use crate::com;
+use crate::error::OrPlatform;
 use crate::window::Window;
 
 /// Takes a window out of view for a workspace switch, the way `how`
-/// says.
-pub(super) fn hide(win: Window, how: HidingBehaviour) -> Result<()> {
+/// says, posted behind what may be queued for it when `posted`. Cloaking
+/// is not a show state, and never posted.
+pub(super) fn hide(win: Window, how: HidingBehaviour, posted: bool) -> Result<()> {
     match how {
-        HidingBehaviour::Cloak => return com::cloak_window(win.hwnd()),
-        HidingBehaviour::Hide => show_window(win, SW_HIDE),
-        HidingBehaviour::Minimize => minimize(win),
+        HidingBehaviour::Cloak => com::cloak_window(win.hwnd()),
+        HidingBehaviour::Hide => set_show_state(win, SW_HIDE, posted),
+        HidingBehaviour::Minimize => set_show_state(win, SW_MINIMIZE, posted),
     }
-    Ok(())
 }
 
 /// Shows a window hidden `how` again without activating it, so a
-/// workspace switch does not move focus. Uncloaking a window that is not
-/// cloaked does nothing.
-pub(super) fn show(win: Window, how: HidingBehaviour) -> Result<()> {
+/// workspace switch does not move focus, posted behind what may be queued
+/// for it when `posted`. Uncloaking a window that is not cloaked does
+/// nothing.
+pub(super) fn show(win: Window, how: HidingBehaviour, posted: bool) -> Result<()> {
     match how {
-        HidingBehaviour::Cloak => return com::uncloak_window(win.hwnd()),
-        HidingBehaviour::Hide | HidingBehaviour::Minimize => show_window(win, SW_SHOWNOACTIVATE),
+        HidingBehaviour::Cloak => com::uncloak_window(win.hwnd()),
+        HidingBehaviour::Hide | HidingBehaviour::Minimize => {
+            set_show_state(win, SW_SHOWNOACTIVATE, posted)
+        }
     }
-    Ok(())
+}
+
+/// Whether hiding or showing a window `how` changes its show state, and
+/// so keeps its order with what is posted to the window: all but
+/// cloaking, which goes through the shell.
+pub(super) fn sets_show_state(how: HidingBehaviour) -> bool {
+    how != HidingBehaviour::Cloak
 }
 
 /// What hiding a window `how`, and showing it again, reports. Every way
@@ -59,29 +78,51 @@ pub(super) fn events(how: HidingBehaviour) -> HidingEvents {
     }
 }
 
-/// Uncloaks, then shows with `SW_SHOW`, which activates more strongly
-/// than `SW_SHOWNOACTIVATE` and makes sure Windows fully restores the
-/// window's visibility state. The window is shown even when uncloaking
-/// it fails.
-pub(super) fn reveal(win: Window) -> Result<()> {
-    let uncloaked = com::uncloak_window(win.hwnd());
-    show_window(win, SW_SHOW);
-    uncloaked
+/// Uncloaks a window `reveal` shows, which goes through the shell and is
+/// never posted.
+pub(super) fn uncloak(win: Window) -> Result<()> {
+    com::uncloak_window(win.hwnd())
 }
 
-/// Minimizes a window.
-pub(super) fn minimize(win: Window) {
-    show_window(win, SW_MINIMIZE);
+/// Shows a window `reveal` uncloaked with `SW_SHOW`, which activates more
+/// strongly than `SW_SHOWNOACTIVATE` and makes sure Windows fully restores
+/// the window's visibility state, posted behind what may be queued for it
+/// when `posted`. It is shown even when uncloaking it failed.
+pub(super) fn show_revealed(win: Window, posted: bool) -> Result<()> {
+    set_show_state(win, SW_SHOW, posted)
 }
 
-/// Sets a window's show state.
+/// Whether a window `reveal` shows is in view once that lands: `SW_SHOW`
+/// leaves one that is `minimized` minimized.
+pub(super) fn revealed_in_view(minimized: bool) -> bool {
+    !minimized
+}
+
+/// Minimizes a window, posted behind what may be queued for it when
+/// `posted`.
+pub(super) fn minimize(win: Window, posted: bool) -> Result<()> {
+    set_show_state(win, SW_MINIMIZE, posted)
+}
+
+/// Sets a window's show state at once, or posts it to the window's
+/// thread, behind what was posted to it before, when `posted`.
 ///
 /// `ShowWindow` reports whether the window was visible before, not
 /// whether the call worked, so there is no failure to pass on.
-fn show_window(window: Window, command: SHOW_WINDOW_CMD) {
+/// `ShowWindowAsync` says whether it queued the change.
+fn set_show_state(window: Window, command: SHOW_WINDOW_CMD, posted: bool) -> Result<()> {
+    if posted {
+        // SAFETY: ShowWindowAsync only posts the show state to the
+        // window's thread; an invalid handle makes it fail without side
+        // effects.
+        return unsafe { ShowWindowAsync(window.hwnd(), command) }
+            .ok()
+            .or_platform("queue the window's show state");
+    }
     // SAFETY: ShowWindow is safe to call with a valid HWND; an invalid
     // one makes it fail without side effects.
     unsafe {
         let _ = ShowWindow(window.hwnd(), command);
     }
+    Ok(())
 }

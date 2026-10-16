@@ -110,7 +110,7 @@ fn next(hwnd: HWND) -> Option<HWND> {
 fn put_behind(window_on_top: bool, other_on_top: bool) -> Option<(TestWindow, TestWindow)> {
     let other = TestWindow::new(other_on_top)?;
     let window = TestWindow::new(window_on_top)?;
-    Win32WindowControl
+    Win32WindowControl::default()
         .put_behind(window.id(), other.id())
         .expect("both windows exist");
     Some((window, other))

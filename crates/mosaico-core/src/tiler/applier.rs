@@ -1,8 +1,9 @@
 //! Applies the tiler's effects through the platform.
 //!
 //! Effects that change a window or move the pointer are carried out by
-//! [`apply_window_effect`] through the platform's window control, and
-//! borders and window corners by [`apply_decoration_effect`] through its
+//! [`apply_window_effect`](super::apply_window_effect) through the
+//! platform's window control, and borders and window corners by
+//! [`apply_decoration_effect`](super::apply_decoration_effect) through its
 //! decorations. Most effects are applied as they arrive. Two kinds are
 //! held back while the user is still pressing keys, and only the latest
 //! of each is applied once input goes quiet:
@@ -13,6 +14,9 @@
 //!   window once. A window's border and cursor moves wait with it, so
 //!   the border never shows at a slot the window has not reached yet.
 //!
+//! A placement the tiler marked to animate becomes a motion instead,
+//! when it still may as it is applied (`applier_motion.rs`).
+//!
 //! Every applied effect is recorded in [`Expectations`] so the events it
 //! causes can be told apart from the user's.
 
@@ -21,14 +25,34 @@ use std::time::Instant;
 
 use crate::{HidingSupport, WindowId};
 
-use super::window_effects::place_and_repaint;
-use super::{
-    Coalescer, Effect, Expectations, HiddenFile, HiddenWindows, Platform, apply_decoration_effect,
-    apply_window_effect,
-};
+use super::{Coalescer, Effect, Expectations, HiddenFile, HiddenWindows, Platform};
 
+#[path = "applier_borders.rs"]
+mod borders;
+#[path = "applier_display.rs"]
+mod display;
+#[path = "applier_ends.rs"]
+mod ends;
+#[path = "applier_frames.rs"]
+mod frames;
 #[path = "applier_hidden.rs"]
 mod hidden;
+#[path = "applier_landing.rs"]
+mod landing;
+#[path = "applier_motion.rs"]
+mod motion;
+#[path = "applier_posted.rs"]
+mod posted;
+#[path = "applier_reports.rs"]
+mod reports;
+#[path = "applier_run.rs"]
+mod run;
+#[path = "applier_shows.rs"]
+mod shows;
+#[path = "applier_stop.rs"]
+mod stop;
+#[path = "applier_view.rs"]
+mod view;
 
 /// Executes effects and remembers what the OS should report back.
 #[derive(Default)]
@@ -44,6 +68,12 @@ pub(super) struct Applier {
     /// Windows moved on screen without waiting, whose next placement is
     /// made in full. See `run`.
     moved_on_screen: HashSet<WindowId>,
+    /// The windows moving to placements that animate.
+    transitions: motion::Transitions,
+    /// What a display change stopped, until it is rebuilt for.
+    display: display::DisplayChange,
+    /// What may still be on its way to windows.
+    posted: posted::Posted,
 }
 
 impl Applier {
@@ -63,13 +93,15 @@ impl Applier {
         }
     }
 
-    /// Applies effects in order, holding back the ones that may wait.
+    /// Applies effects in order, holding back the ones that may wait. The
+    /// windows they set moving form a step, which falls behind as one.
     pub(super) fn apply(
         &mut self,
         effects: Vec<Effect>,
         platform: &mut dyn Platform,
         now: Instant,
     ) {
+        self.begin_step();
         for effect in effects {
             if matches!(effect, Effect::Focus { .. }) {
                 self.expectations.held(&effect);
@@ -96,70 +128,12 @@ impl Applier {
         self.held.held_since()
     }
 
-    /// Applies everything held back.
+    /// Applies everything held back, as a step of its own.
     pub(super) fn flush(&mut self, platform: &mut dyn Platform, now: Instant) {
+        self.begin_step();
+        self.settle_while_off(platform);
         for effect in self.held.take() {
             self.run(&effect, platform, now);
-        }
-    }
-
-    /// Why an event is an echo of our own effects, if it is one.
-    pub(super) fn echo(
-        &mut self,
-        event: &crate::WindowEvent,
-        now: Instant,
-    ) -> Option<&'static str> {
-        // Nothing held for a window that no longer exists may be applied.
-        if let crate::WindowEvent::Destroyed { window } = *event {
-            self.held.forget(window);
-            self.release_dropped_focus();
-            self.moved_on_screen.remove(&window);
-        }
-        self.expectations.echo(event, now)
-    }
-
-    fn run(&mut self, effect: &Effect, platform: &mut dyn Platform, now: Instant) {
-        match *effect {
-            // A move that does not wait may land before the window's
-            // placement comes, and a placement that finds its window in
-            // place is skipped, repaint and all. Nothing has repainted a
-            // window moved that way while on screen, so its next placement
-            // is made in full, where it would have been made anyway.
-            Effect::PrePlace { window, .. } if platform.desktop().is_visible(window) => {
-                self.moved_on_screen.insert(window);
-                apply_window_effect(effect, platform.desktop(), platform.control());
-            }
-            Effect::Place { window, rect, .. } if self.moved_on_screen.remove(&window) => {
-                place_and_repaint(window, rect, platform.control());
-            }
-            Effect::Place { .. }
-            | Effect::PrePlace { .. }
-            | Effect::Hide { .. }
-            | Effect::Show { .. }
-            | Effect::Reveal { .. }
-            | Effect::Focus { .. }
-            | Effect::CenterCursor { .. }
-            | Effect::Close { .. }
-            | Effect::Minimize { .. }
-            | Effect::Repaint { .. }
-            | Effect::PutBehind { .. } => {
-                apply_window_effect(effect, platform.desktop(), platform.control())
-            }
-            // Admitting it dropped what was held for the window, and the
-            // platform has nothing to do.
-            Effect::Untile { .. } => {}
-            Effect::Decorate { .. }
-            | Effect::Undecorate { .. }
-            | Effect::Border { .. }
-            | Effect::DropBorder { .. }
-            | Effect::RedrawBorders => apply_decoration_effect(effect, platform.decorations()),
-        }
-        self.expectations.applied(effect, now);
-        if self
-            .hidden
-            .applied(effect, |w| platform.desktop().identity(w))
-        {
-            self.save_hidden();
         }
     }
 }

@@ -18,6 +18,8 @@ pub mod decoration;
 pub mod error;
 /// Window events, and the sources that report them.
 pub mod event;
+/// Moving windows through the frames of their transitions.
+pub mod frames;
 /// The ways a platform can hide windows, and what each one reports.
 pub mod hiding;
 /// Hotkeys: key names, and the contract for claiming them.
@@ -38,6 +40,8 @@ pub mod lifecycle;
 pub mod log;
 /// Platform-agnostic monitor identity and matching.
 pub mod monitor;
+/// Window transitions: how windows move to their new place over time.
+pub mod motion;
 /// PID file management for the daemon.
 pub mod pid;
 /// Axis-aligned rectangle type.

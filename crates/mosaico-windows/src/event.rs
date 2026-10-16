@@ -3,8 +3,8 @@ use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::{
     EVENT_OBJECT_CREATE, EVENT_OBJECT_DESTROY, EVENT_OBJECT_HIDE, EVENT_OBJECT_LOCATIONCHANGE,
     EVENT_OBJECT_NAMECHANGE, EVENT_OBJECT_SHOW, EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_MINIMIZEEND,
-    EVENT_SYSTEM_MINIMIZESTART, EVENT_SYSTEM_MOVESIZEEND, SPI_SETWORKAREA, WM_DISPLAYCHANGE,
-    WM_SETTINGCHANGE,
+    EVENT_SYSTEM_MINIMIZESTART, EVENT_SYSTEM_MOVESIZEEND, EVENT_SYSTEM_MOVESIZESTART,
+    SPI_SETWORKAREA, WM_DISPLAYCHANGE, WM_SETTINGCHANGE,
 };
 
 /// Object ID indicating the event applies to the window itself,
@@ -46,6 +46,7 @@ pub(crate) fn translate(event: u32, hwnd: HWND, id_object: i32) -> Option<Window
         e if e == EVENT_OBJECT_DESTROY => Some(WindowEvent::Destroyed { window }),
         e if e == EVENT_OBJECT_HIDE => Some(WindowEvent::Hidden { window }),
         e if e == EVENT_SYSTEM_FOREGROUND => Some(WindowEvent::Focused { window }),
+        e if e == EVENT_SYSTEM_MOVESIZESTART => Some(WindowEvent::MoveStarted { window }),
         e if e == EVENT_SYSTEM_MOVESIZEEND => Some(WindowEvent::Moved { window }),
         e if e == EVENT_SYSTEM_MINIMIZESTART => Some(WindowEvent::Minimized { window }),
         e if e == EVENT_SYSTEM_MINIMIZEEND => Some(WindowEvent::Restored { window }),
@@ -74,3 +75,7 @@ pub(crate) fn translate_broadcast(msg: u32, wparam: usize) -> Option<WindowEvent
 #[cfg(test)]
 #[path = "event_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "event_drag_tests.rs"]
+mod drag_tests;

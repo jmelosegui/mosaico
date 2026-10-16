@@ -5,7 +5,7 @@ use super::Win32WindowControl;
 #[test]
 fn every_way_of_hiding_is_available_with_the_usual_reports() {
     // Arrange
-    let control = Win32WindowControl;
+    let control = Win32WindowControl::default();
 
     // Act
     let support = HidingSupport::new(|how| control.hiding_events(how));

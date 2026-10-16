@@ -3,7 +3,7 @@ use std::path::Path;
 use mosaico_core::config::{ConfigStore, ThemeCheck, ThemeConfig};
 
 use super::context::{Context, Exit, say};
-use super::doctor_runtime;
+use super::{doctor_animations, doctor_runtime};
 
 /// ANSI escape helpers for doctor output.
 const OK: &str = "\x1b[32m[ok]\x1b[0m";
@@ -26,6 +26,7 @@ pub fn execute(cx: &mut Context) -> Exit {
     doctor_runtime::check_autostart(cx);
     doctor_runtime::check_daemon(cx);
     doctor_runtime::check_monitors(cx);
+    doctor_animations::check_animations(cx);
     println!();
     Exit::Success
 }

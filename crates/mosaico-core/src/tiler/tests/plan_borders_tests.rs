@@ -8,11 +8,7 @@ use crate::tiler::{BorderStyle, Timing};
 use super::*;
 
 fn place(window: u64, x: i32) -> Effect {
-    Effect::Place {
-        window: wid(window),
-        rect: Rect::new(x, 0, 100, 100),
-        timing: Timing::Now,
-    }
+    Effect::snap(wid(window), Rect::new(x, 0, 100, 100), Timing::Now)
 }
 
 /// The border of `window` drawn around the slot at `x`.

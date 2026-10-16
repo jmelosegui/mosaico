@@ -55,7 +55,7 @@ impl Harness {
 
     fn apply(&mut self, effects: Vec<Effect>) {
         for effect in &effects {
-            self.desktop.apply(effect);
+            self.desktop.apply(effect, self.now);
         }
         self.effects = effects;
     }
@@ -135,6 +135,7 @@ impl Harness {
                     window,
                     rect,
                     timing,
+                    ..
                 } => Some((window.raw(), rect, timing)),
                 _ => None,
             })

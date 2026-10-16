@@ -11,7 +11,7 @@ use mosaico_core::instance::InstanceError;
 use mosaico_core::lifecycle::Startup;
 use mosaico_core::pid::PidFile;
 use mosaico_core::system::{Interrupts, ProcessSetup};
-use mosaico_core::tiler::Enumerator;
+use mosaico_core::tiler::{Enumerator, Platform};
 
 use crate::commands::banner;
 use crate::commands::context::{Context, Exit, SystemClock};
@@ -45,14 +45,21 @@ pub fn init() {
 pub fn run(command: impl FnOnce(&mut Context) -> Exit) -> Exit {
     let instance = instance();
     let daemon = mosaico_windows::ipc::PipeClient::new(&mosaico_windows::ipc::pipe_name(instance));
+    // Made only for a command that asks for the tiler's desktop.
+    let tiling = std::cell::OnceCell::new();
     let mut out = std::io::stdout();
     let mut err = std::io::stderr();
     let mut cx = Context {
         daemon: &daemon,
         processes: &mosaico_windows::process::WindowsProcesses,
         autostart: &mosaico_windows::autostart::RegistryAutostart,
-        windows: &mosaico_windows::window_control::Win32WindowControl,
+        windows: &mosaico_windows::window_control::Win32WindowControl::default(),
         desktop: &mosaico_windows::enumerate::WindowsEnumerator,
+        tiler_desktop: &|| {
+            tiling
+                .get_or_init(mosaico_windows::tiling::Win32Platform::new)
+                .desktop()
+        },
         current_exe: &std::env::current_exe,
         files: &mosaico_windows::files::WindowsFiles,
         pid_file: PidFile::new(instance.pid_path()),

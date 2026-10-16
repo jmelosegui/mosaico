@@ -18,6 +18,11 @@ pub(super) fn handle_event(
     _get_update: &dyn Fn() -> String,
 ) -> bool {
     match event {
+        // A drag that starts changes nothing on the bar.
+        started @ mosaico_core::WindowEvent::MoveStarted { .. } => {
+            manager.handle_event(&started);
+            false
+        }
         mosaico_core::WindowEvent::WorkAreaChanged => {
             mosaico_core::log_info!("Work area changed (taskbar shown/hidden)");
             let bar_height = bar_mgr.bar_height();
@@ -43,6 +48,7 @@ pub(super) fn handle_event(
             }
             Err(e) => {
                 mosaico_core::log_warn!("Failed to re-enumerate monitors: {}", e);
+                manager.display_change_skipped();
                 false
             }
         },

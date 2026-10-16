@@ -1,6 +1,8 @@
 use mosaico_core::config::ConfigStore;
 use mosaico_core::{Instance, Result};
 
+#[path = "daemon_frames.rs"]
+mod daemon_frames;
 #[path = "daemon_inputs.rs"]
 mod daemon_inputs;
 #[path = "daemon_ipc.rs"]

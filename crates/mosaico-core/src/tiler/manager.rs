@@ -10,6 +10,8 @@ use crate::{Action, HidingSupport, Result, WindowEvent};
 use super::applier::Applier;
 use super::{HiddenFile, Input, Platform, Settings, Tiler};
 
+#[path = "manager_frames.rs"]
+mod frames;
 #[path = "manager_inputs.rs"]
 mod inputs;
 
@@ -44,6 +46,7 @@ impl<P: Platform> TilingManager<P> {
         // at the windows, so they are found and adopted like any other.
         let hiding = HidingSupport::new(|how| platform.control().hiding_events(how));
         let mut applier = Applier::new(hidden, hiding);
+        applier.set_animations(&config.animations);
         let now = platform.now();
         applier.restore_previous(&mut platform, now);
 
@@ -55,6 +58,7 @@ impl<P: Platform> TilingManager<P> {
             borders: config.borders.clone(),
             rules,
             mouse_follows_focus: config.mouse.follows_focus,
+            animations: config.animations.clone(),
             hiding_support: hiding,
         };
         let now = platform.now();
@@ -70,7 +74,11 @@ impl<P: Platform> TilingManager<P> {
 
     fn step(&mut self, input: Input) {
         let now = self.platform.now();
-        let effects = self.tiler.step(input, self.platform.desktop(), now);
+        // While transitions are off, the platform forgets the windows it no
+        // longer needs to post to before the tiler reads the desktop.
+        self.applier.settle_while_off(&self.platform);
+        let desktop = self.applier.view(&self.platform, now);
+        let effects = self.tiler.step(input, &desktop, now);
         self.applier.apply(effects, &mut self.platform, now);
     }
 
@@ -84,7 +92,8 @@ impl<P: Platform> TilingManager<P> {
         if let WindowEvent::Destroyed { window } = *event {
             self.applier.forget(window);
         }
-        if let Some(reason) = self.applier.echo(event, self.platform.now()) {
+        let now = self.platform.now();
+        if let Some(reason) = self.applier.echo(event, &mut self.platform, now) {
             crate::log_debug!("{} suppressed ({})", event, reason);
             return;
         }

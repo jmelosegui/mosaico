@@ -20,6 +20,19 @@ repaint = 2
 reset_corners = 1
 show_border = 3
 
+[close_one_of_4_animated]
+border_renders = 2
+calls = 24
+drop_border = 1
+focus = 1
+hide_border = 2
+move_cursor = 1
+place = 2
+place_frames = 11
+repaint = 2
+reset_corners = 1
+show_border = 3
+
 [config_reload]
 border_renders = 4
 calls = 18
@@ -36,6 +49,17 @@ calls = 12
 focus = 1
 move_cursor = 1
 place = 3
+repaint = 3
+show_border = 4
+
+[cycle_layout_animated]
+border_renders = 3
+calls = 26
+focus = 1
+hide_border = 3
+move_cursor = 1
+place = 3
+place_frames = 11
 repaint = 3
 show_border = 4
 
@@ -81,6 +105,17 @@ place = 2
 repaint = 2
 show_border = 5
 
+[monocle_on_and_off_animated]
+border_renders = 2
+calls = 38
+focus = 1
+hide_border = 5
+move_cursor = 1
+place = 2
+place_frames = 22
+repaint = 2
+show_border = 5
+
 [move_burst_of_9]
 border_renders = 2
 calls = 19
@@ -96,6 +131,17 @@ calls = 11
 focus = 1
 move_cursor = 2
 place = 2
+repaint = 2
+show_border = 4
+
+[move_once_animated]
+border_renders = 2
+calls = 24
+focus = 1
+hide_border = 2
+move_cursor = 2
+place = 2
+place_frames = 11
 repaint = 2
 show_border = 4
 
@@ -116,6 +162,19 @@ calls = 12
 focus = 1
 move_cursor = 1
 place = 2
+pre_place = 1
+repaint = 2
+set_corners = 1
+show_border = 4
+
+[open_next_to_3_animated]
+border_renders = 2
+calls = 24
+focus = 1
+hide_border = 1
+move_cursor = 1
+place = 2
+place_frames = 11
 pre_place = 1
 repaint = 2
 set_corners = 1

@@ -14,6 +14,7 @@ mod actions;
 mod adopt;
 mod applier;
 mod bar_states;
+mod border_style;
 mod borders;
 mod coalesce;
 mod corners;
@@ -45,6 +46,7 @@ mod lookup;
 mod manager;
 mod navigation;
 mod navigation_helpers;
+mod placement;
 mod plan;
 mod platform;
 mod queries;
@@ -54,28 +56,32 @@ mod removal;
 mod snapshot;
 mod startup;
 mod state;
+mod step;
 mod window_effects;
 mod work_area;
 mod workspace;
 
 use std::collections::HashSet;
-use std::time::Instant;
 
-use crate::config::{BorderConfig, HidingBehaviour, LayoutConfig, WindowRule, WorkspaceMode};
+use crate::config::{
+    AnimationConfig, BorderConfig, HidingBehaviour, LayoutConfig, WindowRule, WorkspaceMode,
+};
 use crate::{HidingSupport, LayoutKind, WindowId};
 
+pub use border_style::BorderStyle;
 pub use coalesce::Coalescer;
 pub use decoration_effects::apply_decoration_effect;
 pub use desktop::{Desktop, Display, WindowFacts};
 pub use echo::{Expectations, HIDE_FOCUS_ECHO_TTL};
 pub use echo_focus::FOCUS_ECHO_TTL;
-pub use effect::{BorderStyle, Effect, Timing};
+pub use effect::Effect;
 pub use enumerator::{Enumerator, Insets, WindowDetails};
 pub use hidden::{HiddenWindows, WindowIdentity};
 pub use hidden_file::HiddenFile;
 pub use input::{BarReservation, Input};
 pub use last_drawn::LastDrawn;
 pub use manager::TilingManager;
+pub use placement::{Timing, Transition};
 pub use platform::Platform;
 pub use release::{MAX_HOLD, QUIET, release_at};
 pub use startup::Settings;
@@ -108,6 +114,12 @@ pub struct Tiler {
     workspace_mode: WorkspaceMode,
     rules: Vec<WindowRule>,
     border_config: BorderConfig,
+    /// Whether placements may animate, and how, see
+    /// [`Transition`](crate::tiler::Transition).
+    animations: AnimationConfig,
+    /// Whether no step has run since the tiler started. The bar reserving
+    /// its space right after the start lays out as the start does.
+    fresh: bool,
     /// Windows that currently have a border, so the ones that leave the
     /// screen can have theirs destroyed.
     bordered: HashSet<WindowId>,
@@ -131,28 +143,6 @@ pub struct Tiler {
     /// keep arriving for them are not judged again. Cleared when the
     /// rules change; entries are removed when the window is destroyed.
     adopt_rejected: HashSet<WindowId>,
-}
-
-impl Tiler {
-    /// Handles one input and returns the effects to apply, in order.
-    pub fn step(&mut self, input: Input, desktop: &dyn Desktop, now: Instant) -> Vec<Effect> {
-        let mut plan = Plan::new(desktop, now);
-        match input {
-            Input::Action(action) => self.handle_action(&mut plan, &action),
-            Input::Event(event) => self.handle_event(&mut plan, &event),
-            Input::Displays { monitors, bar } => {
-                self.handle_display_change(&mut plan, monitors, &bar)
-            }
-            Input::WorkAreas { monitors, bar } => self.reset_work_areas(&mut plan, &monitors, &bar),
-            Input::Bar(bar) => self.reserve_bar(&mut plan, &bar),
-            Input::Config(config) => self.reload_config(&mut plan, &config),
-            Input::Rules(rules) => self.reload_rules(&mut plan, rules),
-            Input::RefreshBorders => self.update_border(&mut plan),
-            Input::RepaintAll => self.repaint_visible(&mut plan),
-            Input::Shutdown => self.restore_all_windows(&mut plan),
-        }
-        plan.finish()
-    }
 }
 
 #[cfg(test)]

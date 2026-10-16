@@ -18,6 +18,8 @@ fn kind(call: &Call) -> &'static str {
     match call {
         Call::Place(..) => "place",
         Call::PrePlace(..) => "pre_place",
+        Call::PlaceFrames(..) => "place_frames",
+        Call::SettleResponding => "settle_responding",
         Call::Repaint(..) => "repaint",
         Call::Focus(..) => "focus",
         Call::PutBehind(..) => "put_behind",
@@ -29,6 +31,7 @@ fn kind(call: &Call) -> &'static str {
         Call::MoveCursor(..) => "move_cursor",
         Call::ShowBorder(..) => "show_border",
         Call::HideBorder(..) => "hide_border",
+        Call::MoveBorder(..) => "move_border",
         Call::DropBorder(..) => "drop_border",
         Call::SetCorners(..) => "set_corners",
         Call::ResetCorners(..) => "reset_corners",

@@ -15,7 +15,10 @@ use super::WindowIdentity;
 ///   anything else the user can see.
 /// - Answers describe the desktop right now. The tiler accounts for its
 ///   own effects that have not been applied yet, so a platform must not
-///   try to predict them.
+///   try to predict them. A change posted as
+///   [`posts_behind`](crate::frames::FrameControl::posts_behind) says may
+///   not show until the window gets to it, so the tiler must not read it
+///   back as done.
 /// - A window that no longer exists answers like an invisible one:
 ///   `is_visible` false, `rect`, `owner`, `identity` and `facts` `None`.
 ///   Its `monitor_of` may be an id that is in no [`Display`] list.
@@ -73,6 +76,26 @@ pub trait Desktop {
     /// took in, and it could position them then. `None` only when the
     /// window no longer exists or is no longer an application window.
     fn facts(&self, window: WindowId) -> Option<WindowFacts>;
+
+    /// Whether windows may be animated on this desktop: the user allows
+    /// animations in the system's settings, and the session is not a
+    /// remote one, where every frame would travel over the network.
+    ///
+    /// Read each time it is asked, so a change of the setting applies to
+    /// the next transition. A platform without such a setting answers
+    /// `true`, which is the default.
+    fn animations_allowed(&self) -> bool {
+        true
+    }
+
+    /// Whether a change made to the window now is posted behind what was
+    /// posted to it, as [`posts_behind`](crate::frames::FrameControl::posts_behind)
+    /// says. The tiling manager answers this for the tiler from the
+    /// platform's window control, so a platform keeps the default, `false`.
+    fn changes_posted(&self, window: WindowId) -> bool {
+        let _ = window;
+        false
+    }
 }
 
 /// Properties the window rules match against.

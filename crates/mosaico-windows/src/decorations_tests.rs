@@ -28,7 +28,11 @@ fn forgetting_how_borders_were_drawn_renders_every_one_again() {
         };
         let mut drawn = LastDrawn::default();
         drawn.rendered(&style(), true);
-        let overlay = Overlay { border, drawn };
+        let overlay = Overlay {
+            border,
+            drawn,
+            width: 4,
+        };
         decorations.borders.insert(WindowId::from_raw(raw), overlay);
     }
 
@@ -39,4 +43,32 @@ fn forgetting_how_borders_were_drawn_renders_every_one_again() {
     for overlay in decorations.borders.values() {
         assert!(overlay.drawn.needs_render(&style()));
     }
+}
+
+#[test]
+fn moving_a_border_keeps_what_it_was_drawn_with() {
+    // Arrange -- an overlay of our own, never shown, whose bitmap shows
+    // the style. Without a desktop to make it on, skip.
+    let mut decorations = Win32Decorations::default();
+    let Ok(border) = Border::new() else {
+        return;
+    };
+    let mut drawn = LastDrawn::default();
+    drawn.rendered(&style(), true);
+    let window = WindowId::from_raw(1);
+    let overlay = Overlay {
+        border,
+        drawn: drawn.clone(),
+        width: 4,
+    };
+    decorations.borders.insert(window, overlay);
+    let elsewhere = Rect::new(-19000, -20000, 40, 30);
+
+    // Act
+    let moved = decorations.move_border(window, elsewhere);
+    let without = decorations.move_border(WindowId::from_raw(2), elsewhere);
+
+    // Assert -- and a window without a border is no error.
+    assert!(moved.is_ok() && without.is_ok());
+    assert_eq!(decorations.borders[&window].drawn, drawn);
 }

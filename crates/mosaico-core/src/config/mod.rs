@@ -1,3 +1,5 @@
+/// Window transitions: whether windows move to their new place, and how.
+mod animations;
 /// Status bar configuration.
 pub mod bar;
 /// Colors as the configuration writes them.
@@ -26,6 +28,7 @@ pub mod types;
 
 use serde::{Deserialize, Serialize};
 
+pub use animations::AnimationConfig;
 pub use bar::{BarColors, BarConfig, WidgetConfig};
 pub use color::Color;
 pub use hiding_behaviour::HidingBehaviour;
@@ -55,18 +58,22 @@ pub struct Config {
     pub borders: BorderConfig,
     /// Mouse integration settings.
     pub mouse: MouseConfig,
+    /// Window transitions.
+    pub animations: AnimationConfig,
     /// Logging settings.
     pub logging: crate::log::LogConfig,
 }
 
 impl Config {
-    /// Clamps layout and border values to safe ranges and resolves
-    /// theme colors for any unset border color fields.
+    /// Clamps layout, border and transition values to safe ranges and
+    /// resolves theme colors for any unset border color fields.
     pub fn validate(&mut self) {
         self.resolve_borders();
         self.layout.gap = self.layout.gap.clamp(0, 200);
         self.layout.ratio = self.layout.ratio.clamp(0.1, 0.9);
         self.borders.width = self.borders.width.clamp(0, 32);
+        let duration = self.animations.duration;
+        self.animations.duration = duration.clamp(0, animations::MAX_DURATION_MS);
     }
 
     /// Resolves border colors: empty -> theme default, named -> theme hex.
