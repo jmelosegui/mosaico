@@ -1,12 +1,15 @@
 //! Picks the platform implementation of each core contract.
 //!
-//! Commands use the core traits through a [`Context`] built here, so
-//! supporting another OS means adding a branch to this file rather than
-//! touching every command.
+//! Commands use the core traits through a [`Context`] built here, and the
+//! daemon through a [`Startup`], so supporting another OS means adding a
+//! branch to this file rather than touching every command.
 
 use mosaico_core::Instance;
 use mosaico_core::event::EventSource;
+use mosaico_core::lifecycle::Startup;
 use mosaico_core::pid::PidFile;
+use mosaico_core::system::{Interrupts, ProcessSetup};
+use mosaico_core::tiler::Enumerator;
 
 use crate::commands::banner;
 use crate::commands::context::{Context, Exit, SystemClock};
@@ -19,11 +22,16 @@ pub fn instance() -> &'static Instance {
     Instance::current().expect("the instance is validated at startup")
 }
 
+/// Sets this process up for the platform, so it sees windows and
+/// monitors the way the daemon does. `main` calls it once, before any
+/// command runs, the daemon included.
+#[cfg(target_os = "windows")]
+pub fn init() {
+    mosaico_windows::setup::WindowsSetup.init();
+}
+
 /// Runs `command` with the real daemon, processes, registry, desktop,
 /// network, clock and terminal.
-///
-/// The process is not DPI aware, so commands that move windows or show
-/// where windows and monitors are use [`run_on_desktop`] instead.
 #[cfg(target_os = "windows")]
 pub fn run(command: impl FnOnce(&mut Context) -> Exit) -> Exit {
     let instance = instance();
@@ -50,22 +58,35 @@ pub fn run(command: impl FnOnce(&mut Context) -> Exit) -> Exit {
     command(&mut cx)
 }
 
-/// Runs `command` like [`run`], for commands that move windows or show
-/// where windows and monitors are, after making this process see the
-/// desktop in the physical pixels the daemon uses.
-///
-/// Without per-monitor DPI awareness Windows scales the coordinates of
-/// this process on high-DPI monitors, so a window would not land where
-/// the daemon would put it, and positions shown would not be the ones
-/// the daemon works with.
+/// What the daemon of this instance starts and stops with: the real
+/// single instance lock, installer and executable, and the platform's
+/// daemon loop.
 #[cfg(target_os = "windows")]
-pub fn run_on_desktop(command: impl FnOnce(&mut Context) -> Exit) -> Exit {
-    mosaico_windows::dpi::enable_dpi_awareness();
-    run(command)
+pub fn daemon_startup() -> Startup<'static> {
+    Startup {
+        instance: instance(),
+        lock: &mosaico_windows::instance_guard::NamedMutex,
+        installer: &mosaico_windows::install::RenameInstaller,
+        exe: std::env::current_exe().ok(),
+        pid: std::process::id(),
+        serve: &mosaico_windows::daemon::serve,
+    }
 }
 
 /// Where window events come from, for `debug events`.
 #[cfg(target_os = "windows")]
 pub fn event_source() -> impl EventSource {
     mosaico_windows::event_source::WindowsEventSource
+}
+
+/// How this process hears about Ctrl+C, for `debug events`.
+#[cfg(target_os = "windows")]
+pub fn interrupts() -> impl Interrupts {
+    mosaico_windows::ctrl_c::ConsoleInterrupts
+}
+
+/// The windows on the desktop, for the titles `debug events` shows.
+#[cfg(target_os = "windows")]
+pub fn desktop() -> impl Enumerator {
+    mosaico_windows::enumerate::WindowsEnumerator
 }

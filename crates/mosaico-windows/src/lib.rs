@@ -19,7 +19,7 @@ pub mod border;
 /// Config file watcher for hot-reloading.
 pub mod config_watcher;
 
-/// Ctrl+C signal handler using SetConsoleCtrlHandler.
+/// Ctrl+C in the console, through SetConsoleCtrlHandler.
 pub mod ctrl_c;
 
 /// Daemon main loop.
@@ -28,8 +28,8 @@ pub mod daemon;
 /// Focus borders and window corners through Win32.
 mod decorations;
 
-/// DPI awareness setup.
-pub mod dpi;
+/// DPI awareness, which [`setup`] turns on in every process.
+mod dpi;
 
 /// Window and monitor listing for the core `Enumerator` contract.
 pub mod enumerate;
@@ -61,7 +61,7 @@ mod event;
 /// Installing a downloaded release over the running executable.
 pub mod install;
 
-/// Single-instance daemon guard (named kernel mutex).
+/// The single instance lock, as a named kernel mutex.
 pub mod instance_guard;
 
 /// Window events from Win32 event hooks and broadcasts.
@@ -88,16 +88,18 @@ mod monitor_edid;
 /// Stable monitor identity from the display configuration.
 mod monitor_identity;
 
-/// Process utilities (alive check).
+/// Starting, checking and ending processes.
 pub mod process;
+
+/// What every mosaico process sets up first.
+pub mod setup;
 
 /// Tiling manager that applies layouts to managed windows.
 pub mod tiling;
 
-/// Window type wrapping a Win32 `HWND`.
-pub mod window;
+/// Window type wrapping a Win32 `HWND`, which other crates reach only
+/// through the core contracts.
+mod window;
 
 /// Moving, showing, hiding and focusing windows through Win32.
 pub mod window_control;
-
-pub use window::Window;

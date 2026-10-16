@@ -1,3 +1,6 @@
+//! Processes on Windows: [`ProcessControl`](mosaico_core::system::ProcessControl)
+//! for the CLI, and whether mosaico itself runs elevated, for the desktop.
+
 use std::os::windows::process::CommandExt;
 use std::process::{Command, Stdio};
 
@@ -15,7 +18,7 @@ use crate::error::OrPlatform;
 /// Uses `OpenProcess` with minimal access rights. If the handle can be
 /// opened, the process exists. This is used to detect stale PID files
 /// left behind when the daemon is killed without a clean shutdown.
-pub fn is_process_alive(pid: u32) -> bool {
+fn is_process_alive(pid: u32) -> bool {
     // SAFETY: OpenProcess attempts to open an existing process.
     // PROCESS_QUERY_LIMITED_INFORMATION is the least-privilege access
     // right that still lets us confirm the process exists.
@@ -37,8 +40,11 @@ pub fn is_process_alive(pid: u32) -> bool {
 /// Returns whether the current process is running elevated (Administrator).
 ///
 /// Called once at startup so the tiling manager knows whether to skip
-/// elevated windows (which cannot be repositioned via UIPI).
-pub fn is_current_process_elevated() -> bool {
+/// elevated windows (which cannot be repositioned via UIPI). That is how
+/// Windows decides which windows mosaico may move, so it stays inside
+/// this crate, with the desktop that leaves those windows out, rather
+/// than becoming a core contract.
+pub(crate) fn is_current_process_elevated() -> bool {
     use windows::Win32::Security::{
         GetTokenInformation, TOKEN_ELEVATION, TOKEN_QUERY, TokenElevation,
     };
@@ -72,7 +78,7 @@ pub fn is_current_process_elevated() -> bool {
 /// Used as a fallback when the daemon's IPC pipe is gone but the
 /// process is still alive (e.g. the IPC thread crashed). Fails when the
 /// process cannot be opened for termination or refuses to end.
-pub fn kill_process(pid: u32) -> Result<()> {
+fn kill_process(pid: u32) -> Result<()> {
     // SAFETY: OpenProcess with PROCESS_TERMINATE grants permission to
     // call TerminateProcess. The handle is closed below.
     let handle = unsafe { OpenProcess(PROCESS_TERMINATE, false, pid) }

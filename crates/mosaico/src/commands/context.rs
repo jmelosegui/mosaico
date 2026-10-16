@@ -91,18 +91,17 @@ pub struct Context<'a> {
     pub autostart: &'a dyn Autostart,
     /// Moving windows on the desktop.
     ///
-    /// Positions and sizes are in the coordinates the daemon works in
-    /// only when the command runs through `platform::run_on_desktop`,
-    /// which makes the process DPI aware first. Without it, a window
-    /// placed on a scaled monitor lands in the wrong place.
+    /// Positions and sizes are in the coordinates the daemon works in,
+    /// since `main` sets every process up first (`platform::init()`,
+    /// which makes it DPI aware). Without that, a window placed on a
+    /// scaled monitor would land in the wrong place.
     pub windows: &'a dyn WindowControl,
     /// The windows and monitors on the desktop.
     ///
     /// Positions and sizes are in the coordinates the daemon works in,
-    /// and window frames mean something, only when the command runs
-    /// through `platform::run_on_desktop`, which makes the process DPI
-    /// aware first. `doctor` runs without it, and prints monitor sizes as
-    /// the system scales them for such a process.
+    /// and window frames mean something, since `main` sets every process
+    /// up first (`platform::init()`, which makes it DPI aware), `doctor`
+    /// included.
     pub desktop: &'a dyn Enumerator,
     /// Finds the mosaico executable this command runs from, which is what
     /// autostart registers and what `update` replaces.

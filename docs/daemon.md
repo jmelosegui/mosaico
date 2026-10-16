@@ -30,7 +30,8 @@ from separate `mpsc` channels into the unified `DaemonMsg` channel.
 
 | File | Purpose |
 |------|---------|
-| `crates/mosaico-windows/src/daemon.rs` | `run()`, `daemon_loop()`, `ipc_loop()`, `DaemonMsg` |
+| `crates/mosaico-core/src/lifecycle.rs` | `run()`, `Startup` -- what the daemon does before and after its loop |
+| `crates/mosaico-windows/src/daemon.rs` | `serve()`, `daemon_loop()`, `ipc_loop()`, `DaemonMsg` |
 | `crates/mosaico-windows/src/daemon_inputs.rs` | `Inputs` -- starts and stops window events, hotkeys and focus-follows-mouse |
 | `crates/mosaico-windows/src/event_source.rs` | `WindowsEventSource` -- the WinEvent hooks and the broadcast window |
 | `crates/mosaico-windows/src/hotkey_thread.rs` | `WindowsHotkeySource` -- registers and dispatches hotkeys on a thread of its own |
@@ -53,19 +54,31 @@ from separate `mpsc` channels into the unified `DaemonMsg` channel.
 
 ## Startup Sequence
 
-`daemon::run()` is the entry point, called from the hidden `daemon` CLI
-subcommand:
+The hidden `daemon` CLI subcommand runs `mosaico_core::lifecycle::run()` once
+`main` has set the process up, as it does for every command
+(`platform::init()`, which makes it per-monitor DPI aware). `platform.rs`
+gives it a `Startup`: the instance, its single instance lock
+(`SingleInstance`, a named mutex on Windows), the `Installer`, the running
+executable, the process id, and the platform's loop, `daemon::serve()`. In
+order, it:
 
-1. Enable per-monitor DPI awareness
-2. Take the single instance lock; a second daemon of the same instance stops
-   here with `Error::AlreadyRunning` ("Mosaico daemon is already running.")
-3. Write PID file to `%LOCALAPPDATA%\mosaico\mosaico.pid`
-4. Log that it started
-5. Call `daemon_loop()` for the main logic
-6. Log the error `daemon_loop()` returned, if any, since the daemon has no
+1. Deletes what a self-update left beside the executable
+   (`Installer::remove_leftovers()`), ignoring a failure
+2. Takes the single instance lock, which is identified by the instance name;
+   a second daemon of the same instance stops here with
+   `Error::AlreadyRunning` ("Mosaico daemon is already running."), or with an
+   `Error::Platform` when it may not open the other daemon's lock, such as
+   another user's, leaving the running daemon's PID file alone
+3. Writes the PID file to `%LOCALAPPDATA%\mosaico\mosaico.pid`
+4. Logs that it started
+5. Calls `serve()`, which runs `daemon_loop()` for the main logic
+6. Logs the error the loop returned, if any, since the daemon has no
    console. Errors from the steps before it come before the logger is set up
    and are only printed by the `daemon` subcommand
-7. On exit, remove PID file
+7. Removes the PID file, then releases the lock, so a daemon that starts next
+   never has its PID file removed by this one. This also happens when a panic
+   in the loop unwinds; release builds abort on a panic and leave the PID file
+   behind, as a crash does
 
 `daemon_loop()` performs:
 
@@ -219,7 +232,8 @@ Shutdown is triggered by:
     thread, where dropping `Hotkeys` unregisters the hotkeys still
     registered, and stops the focus-follows-mouse thread; it waits for each
     of them
-  - PID file is removed
+  - Once the loop has returned, `lifecycle::run` removes the PID file and then
+    releases the single instance lock
   - Bridge threads (event, action, reload) and tick thread are joined
 
 ### Unclean exit

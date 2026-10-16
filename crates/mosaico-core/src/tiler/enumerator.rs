@@ -72,7 +72,7 @@ pub trait Enumerator {
     fn connected_monitors(&self) -> Result<Vec<Display>>;
 
     /// What the platform can tell about a window, for `mosaico debug
-    /// list`.
+    /// list` and the window titles `mosaico debug events` prints.
     ///
     /// # Contract for platform implementations
     ///
@@ -103,7 +103,8 @@ pub trait Enumerator {
     }
 }
 
-/// A window as `mosaico debug list` shows it.
+/// A window as `mosaico debug list` shows it, and where `mosaico debug
+/// events` reads its titles from.
 #[derive(Debug, Clone, PartialEq)]
 pub struct WindowDetails {
     /// What the window rules match against.

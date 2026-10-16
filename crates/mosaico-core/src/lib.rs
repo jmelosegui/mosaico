@@ -28,6 +28,8 @@ pub mod instance;
 pub mod ipc;
 /// Tiling layout trait and implementations.
 pub mod layout;
+/// Starting and stopping a daemon around its loop.
+pub mod lifecycle;
 /// Logging configuration and helpers.
 pub mod log;
 /// Platform-agnostic monitor identity and matching.
@@ -38,7 +40,8 @@ pub mod pid;
 pub mod rect;
 /// Spatial direction helpers.
 pub mod spatial;
-/// OS services the CLI uses: processes and start at login.
+/// OS services mosaico uses: process setup, processes, the single instance
+/// lock, Ctrl+C and start at login.
 pub mod system;
 /// The tiling state machine.
 pub mod tiler;

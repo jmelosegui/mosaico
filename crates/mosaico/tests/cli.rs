@@ -1,6 +1,60 @@
 mod common;
 
+use std::path::{Path, PathBuf};
+use std::time::SystemTime;
+
+use mosaico_core::system::ProcessSetup;
+use mosaico_core::tiler::Enumerator;
+use mosaico_windows::enumerate::WindowsEnumerator;
+use mosaico_windows::setup::WindowsSetup;
+
 use common::{TestInstance, desktop_guard};
+
+/// Every file and directory under `dir`, with its size and when it was
+/// last written, to tell whether a command changed anything there.
+fn snapshot(dir: &Path) -> Vec<(PathBuf, u64, SystemTime)> {
+    let mut entries = Vec::new();
+    let mut pending = vec![dir.to_path_buf()];
+    while let Some(dir) = pending.pop() {
+        for entry in std::fs::read_dir(&dir).expect("failed to read a test directory") {
+            let entry = entry.expect("failed to read a directory entry");
+            let meta = entry.metadata().expect("failed to read file metadata");
+            if meta.is_dir() {
+                pending.push(entry.path());
+            }
+            let modified = meta.modified().expect("no modification time");
+            entries.push((entry.path(), meta.len(), modified));
+        }
+    }
+    entries.sort();
+    entries
+}
+
+/// Runs the CLI of `instance` to the end and returns its standard output.
+///
+/// Unlike [`TestInstance::stdout`], this reads the output while the
+/// command runs, which `doctor` needs: its animated logo alone is more
+/// than a pipe holds, so it would wait for a reader until the timeout.
+fn whole_stdout(instance: &TestInstance, args: &[&str]) -> String {
+    let output = instance
+        .command(args)
+        .output()
+        .unwrap_or_else(|e| panic!("failed to run mosaico {args:?}: {e}"));
+    assert!(output.status.success(), "mosaico {args:?} failed");
+    String::from_utf8_lossy(&output.stdout).into_owned()
+}
+
+/// The size and position of each monitor a command lists, from lines
+/// such as `Monitor 0: 3840x2064 at (0, 0)`, in the order it lists them.
+fn monitor_rects(output: &str) -> Vec<String> {
+    output
+        .lines()
+        .map(str::trim)
+        .filter(|line| line.starts_with("Monitor "))
+        .filter_map(|line| line.split_once(": "))
+        .map(|(_, rect)| rect.to_string())
+        .collect()
+}
 
 #[test]
 fn help_exits_successfully() {
@@ -142,4 +196,36 @@ fn debug_list_subcommand_runs() {
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("windows found"));
+}
+
+#[test]
+fn doctor_and_debug_list_show_monitors_as_the_daemon_sees_them() {
+    // Arrange -- a fresh instance leaves doctor nothing to fix or migrate:
+    // its config directory exists, and it has no config and no PID file.
+    let instance = TestInstance::new("doctor-monitors");
+    let before = snapshot(instance.root());
+
+    // The monitors as a process set up like the daemon sees them. On a
+    // scaled display that is physical pixels, which a command that skips
+    // the setup would not show.
+    WindowsSetup.init();
+    let daemon_sees: Vec<String> = WindowsEnumerator
+        .monitors()
+        .expect("failed to list the monitors")
+        .iter()
+        .map(|m| {
+            let r = m.work_area;
+            format!("{}x{} at ({}, {})", r.width, r.height, r.x, r.y)
+        })
+        .collect();
+
+    // Act
+    let doctor = whole_stdout(&instance, &["doctor"]);
+    let after_doctor = snapshot(instance.root());
+    let list = whole_stdout(&instance, &["debug", "list"]);
+
+    // Assert -- doctor only read.
+    assert_eq!(after_doctor, before, "doctor changed the instance's files");
+    assert_eq!(monitor_rects(&doctor), daemon_sees, "doctor");
+    assert_eq!(monitor_rects(&list), daemon_sees, "debug list");
 }

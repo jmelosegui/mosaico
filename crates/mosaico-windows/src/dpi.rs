@@ -10,8 +10,11 @@ use windows::Win32::UI::HiDpi::{
 /// windows accurately on any monitor.
 ///
 /// Must be called once at process startup, before creating any windows
-/// or calling any Win32 functions that depend on DPI.
-pub fn enable_dpi_awareness() {
+/// or calling any Win32 functions that depend on DPI. [`WindowsSetup`]
+/// does, as the first thing every mosaico process runs.
+///
+/// [`WindowsSetup`]: crate::setup::WindowsSetup
+pub(crate) fn enable_dpi_awareness() {
     // SAFETY: SetProcessDpiAwarenessContext is safe to call once at startup.
     // If it fails (e.g. already set via manifest), we ignore the error.
     unsafe {

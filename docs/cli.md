@@ -48,23 +48,25 @@ packaged and installed (`mosaico_core::update::Installer`), the logo, and
 the output and error streams. They return an `Exit` (`Success` or
 `Failure`), and only `main` calls `std::process::exit`.
 
-`crates/mosaico/src/platform.rs` builds the real context; it is the one place
-in the CLI that picks a platform implementation. Commands that move windows
-or show where windows and monitors are run through `platform::run_on_desktop`,
-which first makes the process DPI aware so coordinates match the daemon's.
-The unit tests build one from `commands/test_support.rs`, a fake `World`
-standing in for the daemon, processes, registry, program files, desktop,
-GitHub, the release installer and clock, and `commands/fake_desktop.rs`, a
-fake list of windows and monitors, so `start`, `stop`, `status`,
-`autostart`, `action`,
-`pause`, `update`, `debug move`, `debug list` and `doctor`'s autostart,
-daemon and monitor checks are tested without a daemon, a desktop or a
-network.
+`crates/mosaico/src/platform.rs` builds the real context, and the `Startup`
+that the `daemon` subcommand hands to `mosaico_core::lifecycle::run()`; it is
+the one place in the CLI that picks a platform implementation. Before any
+command runs, `main` sets the process up through `platform::init()`, which
+makes it DPI aware, so the coordinates commands move windows to or show match
+the daemon's. The unit tests build one from `commands/test_support.rs`, a
+fake `World` standing in for the daemon, processes, registry, program files,
+desktop, GitHub, the release installer and clock, and
+`commands/fake_desktop.rs`, a fake list of windows and monitors, so `start`,
+`stop`, `status`, `autostart`, `action`, `pause`, `update`, `debug move`,
+`debug list` and `doctor`'s autostart, daemon and monitor checks are tested
+without a daemon, a desktop or a network. `daemon` is tested with a fake lock
+and loop.
 
-Still calling the platform crate directly: `daemon` (it is the daemon), and
-`debug events`' Ctrl+C handler and window titles, which wait for the signal
-contract (#48). `debug events` gets its event source from
-`platform::event_source()`.
+No command calls the platform crate itself. The two that run without a
+context get what they need from `platform.rs` as well: `daemon` its
+`Startup` from `platform::daemon_startup()`, and `debug events` its event
+source, Ctrl+C and window titles from `platform::event_source()`,
+`platform::interrupts()` and `platform::desktop()`.
 
 ### Key Types
 
@@ -110,7 +112,7 @@ existing state instead of starting a second instance.
 
 Sends a `Stop` command to the running daemon over IPC (named pipe). If the
 IPC pipe is unavailable (e.g. the IPC thread crashed), falls back to reading
-the PID file and terminating the process via `kill_process()`. Reports
+the PID file and terminating the process via `ProcessControl::kill()`. Reports
 success or failure.
 
 ### `mosaico status`
@@ -232,6 +234,11 @@ Runs the daemon in-process. This subcommand is hidden from `--help` output
 because users should use `mosaico start` instead. The `start` command
 re-spawns the binary with this subcommand as a detached process.
 
+It runs `mosaico_core::lifecycle::run()` (see [daemon.md](daemon.md)) and
+exits with status 1 after printing `Daemon error: <reason>` when the daemon
+cannot run, for example `Daemon error: Mosaico daemon is already running.`
+when another daemon of the instance holds the lock.
+
 ### `mosaico debug list`
 
 Lists every window the platform's `Enumerator` reports, showing: window id
@@ -282,7 +289,8 @@ integration tests use this to run each test against a private instance.
   `doctor` for the shared ASCII logo.
 - Action verbs use a nested subcommand pattern (`action focus left`) rather
   than flat kebab-case (`action focus-left`) for a clearer CLI experience.
-- Commands that show or move windows run outside the daemon process, so they
-  enable DPI awareness themselves, through `platform::run_on_desktop`
-  (`debug list`, `debug move`). Other commands, `doctor` included, run without
-  it.
+- Commands that show or move windows run outside the daemon process, so
+  `main` sets the platform up once per process (`platform::init()`, which on
+  Windows makes the process per-monitor DPI aware) before any command runs.
+  The daemon, the debug commands and `doctor` all see windows and monitors in
+  the same coordinates.

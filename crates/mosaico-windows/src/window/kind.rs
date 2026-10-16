@@ -3,28 +3,21 @@
 use super::Window;
 
 impl Window {
-    /// Returns whether this looks like a real application window.
+    /// Whether this looks like a real application window, and if so,
+    /// whether it has a caption bar.
     ///
-    /// Checks for a caption bar (`WS_CAPTION`), rejects tool windows
-    /// (`WS_EX_TOOLWINDOW`), rejects owned windows, and rejects modal
-    /// dialog frames (`WS_EX_DLGMODALFRAME`).
+    /// Returns `None` for tool windows (`WS_EX_TOOLWINDOW`), owned
+    /// windows, and modal dialog frames (`WS_EX_DLGMODALFRAME`).
+    /// Otherwise returns `Some(has_caption)`, from `WS_CAPTION`. Apps
+    /// that draw their own title bar (e.g. winit or frameless windows)
+    /// have no `WS_CAPTION` and come back as `Some(false)`; those are
+    /// only tiled when a window rule explicitly opts them in.
     ///
     /// The modal-frame check is important because when a dialog is
     /// created on a different thread from its owner, the owner
     /// relationship may not be queryable at the time
     /// `EVENT_OBJECT_CREATE` fires. `WS_EX_DLGMODALFRAME` is set
     /// during `CreateWindowEx` itself, so it's always available.
-    pub fn is_app_window(&self) -> bool {
-        self.app_window_caption() == Some(true)
-    }
-
-    /// Like [`Self::is_app_window`], but without requiring `WS_CAPTION`.
-    ///
-    /// Returns `None` for tool windows, owned windows, and modal
-    /// dialogs. Otherwise returns `Some(has_caption)`. Apps that draw
-    /// their own title bar (e.g. winit or frameless windows) have no
-    /// `WS_CAPTION` and come back as `Some(false)`; those are only
-    /// tiled when a window rule explicitly opts them in.
     pub fn app_window_caption(&self) -> Option<bool> {
         use windows::Win32::UI::WindowsAndMessaging::{
             GW_OWNER, GWL_EXSTYLE, GWL_STYLE, GetWindow, GetWindowLongPtrW, WS_CAPTION,
