@@ -1,4 +1,5 @@
-//! The cap on how long the effects the tiler holds back can wait.
+//! The cap on how long the effects the tiling manager holds back can
+//! wait.
 
 use crate::tiler::{MAX_HOLD, QUIET};
 
@@ -117,7 +118,8 @@ fn a_slow_startup_keeps_its_quiet_window() {
 fn a_hold_started_by_the_batch_that_ends_a_wait_gets_its_own_quiet_window() {
     // Arrange -- messages have ended every wait early for 90 ms. The
     // batch that arrives as the cap passes closes the window, which ends
-    // that hold, and the tiler holds a focus change for the next window.
+    // that hold, and the tiling manager holds a focus change for the
+    // next window.
     let t0 = Instant::now();
     let mut scheduler = Scheduler::default();
     let held = Some(t0);

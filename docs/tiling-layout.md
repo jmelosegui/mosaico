@@ -2,8 +2,9 @@
 
 Mosaico ships three tiling layout algorithms -- BSP, VerticalStack, and
 ThreeColumn -- that can be assigned per workspace and cycled at runtime. The
-layout system is split into platform-agnostic types in `mosaico-core` and
-orchestration logic in `mosaico-windows`.
+layouts, the tiler that applies them and the tiling manager that drives the
+tiler are all in `mosaico-core`. `mosaico-windows` implements the platform
+contracts the manager runs on.
 
 ## Architecture
 
@@ -20,14 +21,18 @@ orchestration logic in `mosaico-windows`.
 | `crates/mosaico-core/src/workspace/monocle.rs` | Monocle state of a `Workspace`, with the windows a display change brought onto it that wait behind the monocle window |
 | `crates/mosaico-core/src/rect.rs` | `Rect` -- rectangle type with spatial helpers |
 | `crates/mosaico-core/src/spatial.rs` | Pure spatial navigation functions (`find_neighbor`, `find_entry`) |
-| `crates/mosaico-windows/src/tiling/mod.rs` | `TilingManager`, `MonitorState` -- core orchestration, event/action dispatch |
-| `crates/mosaico-windows/src/tiling/navigation.rs` | `focus_direction()`, `move_direction()` -- spatial navigation and cross-monitor moves |
-| `crates/mosaico-windows/src/tiling/layout.rs` | `apply_layout_on()`, `retile_all()`, `toggle_monocle()`, `cycle_layout()` -- layout application |
-| `crates/mosaico-windows/src/tiling/workspace.rs` | `goto_workspace()`, `send_to_workspace()` -- workspace switching |
+| `crates/mosaico-core/src/tiler/mod.rs` | `Tiler` -- every tiling decision, returned as effects; `MonitorState` in `state.rs` |
+| `crates/mosaico-core/src/tiler/navigation.rs` | `focus_direction()`, `move_direction()` -- spatial navigation and cross-monitor moves |
+| `crates/mosaico-core/src/tiler/layout.rs`, `layout_actions.rs` | `apply_layout_on()`, `retile_all()`, `toggle_monocle()`, `cycle_layout()` -- layout application |
+| `crates/mosaico-core/src/tiler/workspace.rs` | `goto_workspace()`, `send_to_workspace()` -- workspace switching |
+| `crates/mosaico-core/src/tiler/manager.rs`, `manager_inputs.rs` | `TilingManager` -- runs the tiler on a `Platform`, event/action dispatch |
+| `crates/mosaico-core/src/tiler/applier.rs` | Applies effects, holds focus changes and moves back, drops their echoes |
+| `crates/mosaico-core/src/tiler/platform.rs` | `Platform` -- what the tiling manager needs from the OS |
+| `crates/mosaico-windows/src/tiling/platform.rs` | `Win32Platform` -- the Win32 implementation of each of those contracts |
 
 ### Key Types
 
-- `Layout` (trait) -- defines `fn apply(&self, handles: &[usize], work_area: &Rect) -> Vec<(usize, Rect)>`
+- `Layout` (trait) -- defines `fn apply(&self, windows: &[WindowId], work_area: &Rect) -> Vec<(WindowId, Rect)>`
 - `LayoutKind` (enum) -- `Bsp`, `VerticalStack`, `ThreeColumn`; provides
   `next()` for cycling and `name()` for status-bar display
 - `BspLayout` -- implements `Layout` with configurable `gap` and `ratio`
@@ -35,15 +40,18 @@ orchestration logic in `mosaico-windows`.
   stack right
 - `ThreeColumnLayout` -- implements `Layout`: master pane center, stacks on
   both sides; extra windows alternate left/right
-- `Workspace` -- maintains an ordered `Vec<usize>` of window handles for a
+- `Workspace` -- maintains an ordered `Vec<WindowId>` of the windows on a
   monitor plus a `layout_kind: LayoutKind` field; provides `add()`,
   `insert()`, `remove()`, `swap()`, `compute_layout()`,
   `layout_kind()` / `set_layout_kind()`
 - `Rect` -- fields: `x`, `y`, `width`, `height`; methods: `center_x()`,
   `center_y()`, `vertical_overlap()`, `horizontal_overlap()`
-- `TilingManager` -- central orchestrator holding `Vec<MonitorState>`,
-  `layout_gap`, `layout_ratio`, rules, border, focus state,
-  `applying_layout` flag
+- `TilingManager<P: Platform>` -- runs a `Tiler` on the platform `P`: feeds
+  it actions and events, applies the effects it returns, holds focus changes
+  and moves back while input keeps arriving, and drops the events its own
+  effects cause
+- `Platform` -- one implementation of each contract the manager uses
+  (`Desktop`, `WindowControl`, `Decorations`, `Enumerator`) and the time
 - `MonitorState` -- per-monitor state: `id`, `work_area`,
   `workspaces: Vec<Workspace>` (up to 8), `active_workspace: usize`
 
@@ -172,8 +180,10 @@ kebab-case:
 
 ## TilingManager
 
-The `TilingManager` is instantiated in the daemon loop and processes both
-window events and user actions.
+The `TilingManager` is in `mosaico-core`, generic over the `Platform` it
+runs on, so its tests run on a fake platform on any OS. The Windows daemon
+builds it on `Win32Platform` in its daemon loop. It processes both window
+events and user actions.
 
 ### Event Handling
 
@@ -188,8 +198,8 @@ window events and user actions.
 
 ### Action Handling
 
-`handle_action()` dispatches `Action` variants to dedicated methods in
-the split tiling modules:
+`Tiler::handle_action()` (in `actions.rs`) dispatches `Action` variants to
+dedicated methods in the split tiler modules:
 
 - `Focus(dir)` -> `focus_direction(dir)` (in `navigation.rs`) -- spatial
   navigation. Left/Right use `resolve_horizontal_target()` and can cross
@@ -198,14 +208,15 @@ the split tiling modules:
 - `Move(dir)` -> `move_direction(dir)` (in `navigation.rs`) -- spatial swap.
   Left/Right can move windows across monitors. Up/Down swap on the same
   monitor.
-- `Retile` -> `retile_all()` (in `layout.rs`) -- re-applies layout on all
-  monitors
-- `ToggleMonocle` -> `toggle_monocle()` (in `layout.rs`) -- toggles monocle
-  mode
-- `CycleLayout` -> `cycle_layout()` (in `layout.rs`) -- advances the active
-  workspace's layout to the next variant and retiles
-- `CloseFocused` -> `close_focused()` -- sends `WM_CLOSE`
-- `MinimizeFocused` -> `minimize_focused()` -- minimizes the focused window
+- `Retile` -> `retile_all()` (in `layout_actions.rs`) -- re-applies layout
+  on all monitors
+- `ToggleMonocle` -> `toggle_monocle()` (in `layout_actions.rs`) -- toggles
+  monocle mode
+- `CycleLayout` -> `cycle_layout()` (in `layout_actions.rs`) -- advances the
+  active workspace's layout to the next variant and retiles
+- `CloseFocused` -> asks the platform to close the focused window, which on
+  Windows posts `WM_CLOSE`
+- `MinimizeFocused` -> asks the platform to minimize the focused window
 - `GoToWorkspace(n)` -> `goto_workspace(n)` (in `workspace.rs`) -- switches
   to workspace N on the focused monitor
 - `SendToWorkspace(n)` -> `send_to_workspace(n)` (in `workspace.rs`) -- sends
@@ -254,16 +265,21 @@ The `TilingManager` supports hot-reloading of configuration:
    avoid unnecessary repaints, and places and repaints the rest through the
    platform's `WindowControl`.
 
-The `applying_layout` flag suppresses `Moved` events during programmatic layout
-to prevent re-entrant tiling.
+A layout never sets off another one: `WindowEvent::Moved` is only reported
+when the user finishes dragging a window, never for the tiler's own
+placements, and the `LocationChanged` reports they cause are only acted on
+when the focused window is maximized or restored.
 
 ### Window Tileability
 
-`is_tileable(hwnd)` checks:
+`Tiler::is_tileable(window)` (in `adopt.rs`) checks:
 
-1. Window is visible
-2. Window has `WS_CAPTION` and is not `WS_EX_TOOLWINDOW`
-3. Window passes `should_manage()` rule evaluation
+1. The window is visible
+2. The platform offers it as a candidate (`Desktop::candidate`), which rules
+   out tool windows, owned dialogs, shell surfaces, windows the system keeps
+   out of view and windows the platform cannot position
+3. The rules manage it: `should_manage()` for a window with a title bar, and
+   only a rule that asks for it (`matching_rule()`) for one without
 
 ## Monocle Mode
 
@@ -325,19 +341,19 @@ time (`active_workspace` index).
 
 The `Workspace` type maintains window ordering:
 
-- `add(handle)` -- appends to the end (no duplicates)
-- `insert(index, handle)` -- inserts at a specific position (index clamped
+- `add(window)` -- appends to the end (no duplicates)
+- `insert(index, window)` -- inserts at a specific position (index clamped
   to length, no duplicates). Used when moving windows across monitors to
   control BSP slot placement.
-- `remove(handle)` -- removes and shifts remaining handles
-- `swap(a, b)` -- swaps two handles by index
+- `remove(window)` -- removes and shifts the remaining windows
+- `swap(a, b)` -- swaps two windows by index
 - `compute_layout(layout, work_area)` -- delegates to `Layout::apply()`
-- `handles()` -- returns a slice of all window handles in the workspace
+- `windows()` -- returns a slice of all the windows in the workspace
 
 New windows are always placed on the **focused** monitor's **active
 workspace**, not the OS-determined monitor. When moving a window to an
-adjacent monitor, `insert(0, hwnd)` is used when entering from the right
-(leftmost BSP slot) and `add(hwnd)` when entering from the left.
+adjacent monitor, `insert(0, window)` is used when entering from the right
+(leftmost BSP slot) and `add(window)` when entering from the left.
 
 ### Workspace Switching
 
@@ -358,18 +374,22 @@ and showing windows cause are kept from undoing a switch as described in
 - Layout cycling wraps around: `Bsp -> VerticalStack -> ThreeColumn -> Bsp`.
 - All three layouts share the same `gap` and `ratio` parameters; only the
   spatial algorithm differs.
-- `applying_layout` flag prevents infinite loops from programmatic window
-  moves triggering `Moved` events.
+- Programmatic moves never report `Moved`, so a layout cannot set off
+  another one.
 - Stale handle pruning runs before every layout application to handle UWP apps
   that close without firing destroy events, and windows minimized without a
   report. It leaves alone a window the tiler itself hid with `hide` and is
   about to show, which is out of view by the tiler's doing, not stale.
-- `Workspace` stores a `layout_kind` alongside its `Vec<usize>` handle list
+- `Workspace` stores a `layout_kind` alongside its `Vec<WindowId>` list
   -- the layout algorithm determines spatial positioning, not insertion order.
 - The core layout module is split into sub-files (`mod.rs`, `bsp.rs`,
   `vertical_stack.rs`, `three_column.rs`, `tests.rs`) with one layout per
-  file. The tiling orchestration module is similarly split into four files
-  (`mod.rs`, `navigation.rs`, `layout.rs`, `workspace.rs`).
+  file. The tiler in `crates/mosaico-core/src/tiler/` is split the same way,
+  one concern per file: the state machine and `step` in `mod.rs`, startup in
+  `startup.rs`, actions in `actions.rs`, window events in `events.rs`,
+  layout in `layout.rs` and `layout_actions.rs`, workspaces in
+  `workspace.rs`, navigation in `navigation.rs`, and the tiling manager
+  that runs it in `manager.rs`.
 - `restore_all_windows()` iterates all workspaces on all monitors to ensure
   no window remains invisible after daemon shutdown.
 
@@ -384,7 +404,11 @@ and showing windows cause are kept from undoing a switch as described in
 - 2 unit tests for `LayoutKind`: cycle order, display names
 - 3 unit tests for `Workspace`: add/remove, insert at position, layout
   delegation
-- 13 unit tests in `tiling/mod.rs`: event handling, action dispatch,
-  workspace switching, config reload, bar state, window restore
+- Tiler tests in `crates/mosaico-core/src/tiler/tests/`, against a fake
+  desktop: event handling, action dispatch, workspace switching, config
+  reload, window restore
+- Tiling manager tests in the same place, against a fake platform: what is
+  held back until it is flushed, echoes of its own effects, the hidden-window
+  record, and a restart after the daemon was killed
 - Extensive spatial navigation tests in `spatial.rs` (see
   [monitor-management.md](monitor-management.md))

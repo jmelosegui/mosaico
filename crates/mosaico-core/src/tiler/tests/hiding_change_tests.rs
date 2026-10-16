@@ -52,20 +52,6 @@ fn hides(h: &Harness) -> Vec<(u64, HidingBehaviour)> {
         .collect()
 }
 
-/// How the record of hidden windows has the next daemon show each
-/// window, by id.
-fn recorded(h: &Harness) -> Vec<(u64, HidingBehaviour)> {
-    let desktop = &h.desktop;
-    h.hidden
-        .restore(|w| desktop.identity(w))
-        .into_iter()
-        .filter_map(|e| match e {
-            Effect::Show { window, how } => Some((window.raw(), how)),
-            _ => None,
-        })
-        .collect()
-}
-
 #[test]
 fn windows_hidden_before_cloaking_was_chosen_are_shown_as_hidden() {
     // #92
@@ -173,14 +159,6 @@ fn a_hidden_window_moved_to_another_hidden_workspace_stays_hidden_the_same_way()
         hides(&h),
         [(1, HidingBehaviour::Hide), (3, HidingBehaviour::Minimize)]
     );
-    assert_eq!(
-        recorded(&h),
-        [
-            (1, HidingBehaviour::Hide),
-            (2, HidingBehaviour::Minimize),
-            (3, HidingBehaviour::Minimize),
-        ]
-    );
 }
 
 #[test]
@@ -251,27 +229,4 @@ fn a_window_the_tiler_did_not_hide_is_shown_the_configured_way() {
 
     // Assert
     assert_eq!(shows(&h), [(1, HidingBehaviour::Minimize)]);
-}
-
-#[test]
-fn the_record_of_hidden_windows_keeps_how_each_one_was_hidden() {
-    // Arrange -- windows 2 and 3 are hidden with "hide"; after the config
-    // changes to "minimize", window 1 is minimized.
-    let settings = hiding(HidingBehaviour::Hide);
-    let mut h = Harness::with_settings(settings, 1, &[(1, 0), (2, 0), (3, 0)]);
-    h.action(Action::SendToWorkspace(2));
-    reload(&mut h, HidingBehaviour::Minimize);
-
-    // Act
-    h.action(Action::GoToWorkspace(3));
-
-    // Assert
-    assert_eq!(
-        recorded(&h),
-        [
-            (1, HidingBehaviour::Minimize),
-            (2, HidingBehaviour::Hide),
-            (3, HidingBehaviour::Hide),
-        ]
-    );
 }

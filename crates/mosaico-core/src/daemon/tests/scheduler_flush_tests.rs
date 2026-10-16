@@ -1,4 +1,4 @@
-//! When the effects the tiler holds back are flushed.
+//! When the effects the tiling manager holds back are flushed.
 
 use crate::tiler::QUIET;
 

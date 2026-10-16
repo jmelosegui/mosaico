@@ -279,8 +279,9 @@ by default.
 
 ### Integration
 
-`TilingManager::is_tileable()` evaluates rules as part of its tileability
-check, after verifying visibility and window style.
+The tiler's `is_tileable()` (in `crates/mosaico-core/src/tiler/adopt.rs`)
+evaluates rules as part of its tileability check, after verifying that the
+window is visible and that the platform offers it as a candidate.
 
 `Window::app_window_caption()` rejects tool windows, owned windows, and
 modal dialogs outright. For the rest it reports whether the window has

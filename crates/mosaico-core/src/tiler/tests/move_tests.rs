@@ -31,7 +31,8 @@ fn borders_after_a_move_use_the_new_slot() {
     // Act
     let effects = h.action(Action::Move(Direction::Right)).to_vec();
 
-    // Assert -- the platform holds this border until the window lands.
+    // Assert -- the tiling manager holds this border until the window
+    // lands.
     let border_of_2 = effects.iter().rev().find_map(|e| match e {
         Effect::Border {
             window,

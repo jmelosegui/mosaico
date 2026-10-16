@@ -3,6 +3,7 @@ use super::super::reconnect::ReconnectMemory;
 use super::super::*;
 use super::{make_monitors, simulate_display_change};
 use crate::MonitorId;
+use crate::action::MAX_WORKSPACES;
 use crate::id::wid;
 use crate::{MonitorKey, Rect};
 

@@ -94,7 +94,7 @@ pub mod setup;
 /// Machine readings for the bar's system widgets.
 pub mod system_info;
 
-/// Tiling manager that applies layouts to managed windows.
+/// The Win32 platform the core tiling manager runs on.
 pub mod tiling;
 
 /// The user's profile and local application data folders.

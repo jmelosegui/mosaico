@@ -4,15 +4,20 @@
 //! where they go, which workspace is on screen and what has focus. It
 //! never touches the OS. Each [`Tiler::step`] reads the desktop through
 //! [`Desktop`], updates the tiler's state and returns the [`Effect`]s
-//! that bring the desktop in line with it. The platform applies them,
-//! and records them in an [`Expectations`] so that the events they
-//! cause are recognized as ours.
+//! that bring the desktop in line with it.
+//! [`TilingManager`](crate::tiler::TilingManager) runs a tiler on a
+//! [`Platform`](crate::tiler::Platform): it applies the effects, and
+//! records them in an [`Expectations`] so that the events they cause are
+//! recognized as ours.
 
+mod actions;
 mod adopt;
+mod applier;
 mod bar_states;
 mod borders;
 mod coalesce;
 mod corners;
+mod created;
 mod decoration_effects;
 mod desktop;
 mod display;
@@ -22,21 +27,30 @@ mod echo;
 mod echo_focus;
 mod effect;
 mod empty_focus;
+mod empty_focus_park;
 mod enumerator;
 mod events;
 mod events_focus;
 mod focus;
 mod hidden;
+mod hidden_file;
 mod hidden_how;
 mod input;
 mod layout;
+mod layout_actions;
 mod lifecycle;
+mod lookup;
+mod manager;
 mod navigation;
 mod navigation_helpers;
 mod plan;
+mod platform;
+mod queries;
 mod reconnect;
 mod release;
+mod removal;
 mod snapshot;
+mod startup;
 mod state;
 mod window_effects;
 mod work_area;
@@ -45,10 +59,7 @@ mod workspace;
 use std::collections::HashSet;
 use std::time::Instant;
 
-use crate::action::MAX_WORKSPACES;
-use crate::config::{
-    BorderConfig, HidingBehaviour, LayoutConfig, WindowRule, WorkspaceMode, WorkspacesConfig,
-};
+use crate::config::{BorderConfig, HidingBehaviour, LayoutConfig, WindowRule, WorkspaceMode};
 use crate::{HidingSupport, LayoutKind, WindowId};
 
 pub use coalesce::Coalescer;
@@ -59,31 +70,17 @@ pub use echo_focus::FOCUS_ECHO_TTL;
 pub use effect::{BorderStyle, Effect, Timing};
 pub use enumerator::{Enumerator, Insets, WindowDetails};
 pub use hidden::{HiddenWindows, WindowIdentity};
+pub use hidden_file::HiddenFile;
 pub use input::{BarReservation, Input};
+pub use manager::TilingManager;
+pub use platform::Platform;
 pub use release::{MAX_HOLD, QUIET, release_at};
+pub use startup::Settings;
 pub use state::MonitorState;
 pub use window_effects::apply_window_effect;
 
 use plan::Plan;
 use state::SpatialTarget;
-
-/// Everything the tiler is configured with at startup.
-#[derive(Debug, Clone, Default)]
-pub struct Settings {
-    /// Layout algorithm, gaps and hiding.
-    pub layout: LayoutConfig,
-    /// Workspace mode and per-workspace layouts.
-    pub workspaces: WorkspacesConfig,
-    /// Border appearance and window corners.
-    pub borders: BorderConfig,
-    /// Rules deciding which windows are managed.
-    pub rules: Vec<WindowRule>,
-    /// Whether keyboard-driven focus moves the pointer.
-    pub mouse_follows_focus: bool,
-    /// The ways the platform can hide windows. A `layout.hiding` it does
-    /// not have is swapped for one it has.
-    pub hiding_support: HidingSupport,
-}
 
 /// Tiled windows across all connected monitors.
 pub struct Tiler {
@@ -134,72 +131,6 @@ pub struct Tiler {
 }
 
 impl Tiler {
-    /// Starts tiling `windows` across `displays`.
-    ///
-    /// `displays` and `windows` are what exists right now, in the order
-    /// [`Enumerator::monitors`] and [`Enumerator::windows`] list them. The
-    /// tiler keeps the windows the rules accept, each on the monitor it is
-    /// on, and returns the effects that lay them out.
-    pub fn new(
-        settings: Settings,
-        displays: &[Display],
-        windows: &[WindowId],
-        desktop: &dyn Desktop,
-        now: Instant,
-    ) -> (Self, Vec<Effect>) {
-        let workspace_layouts: Vec<LayoutKind> = (1..=MAX_WORKSPACES)
-            .map(|n| {
-                settings
-                    .workspaces
-                    .layouts
-                    .get(&n)
-                    .copied()
-                    .unwrap_or(settings.layout.default)
-            })
-            .collect();
-        let monitors = displays
-            .iter()
-            .map(|d| MonitorState::new(d, &workspace_layouts))
-            .collect();
-        let mut layout = settings.layout;
-        let configured_hiding = layout.hiding;
-        layout.hiding = settings.hiding_support.choose(configured_hiding);
-
-        let mut tiler = Self {
-            monitors,
-            workspace_layouts,
-            reconnect: reconnect::ReconnectMemory::default(),
-            layout,
-            configured_hiding,
-            hiding_support: settings.hiding_support,
-            hidden_how: hidden_how::HiddenHow::default(),
-            workspace_mode: settings.workspaces.mode,
-            rules: settings.rules,
-            border_config: settings.borders,
-            bordered: HashSet::new(),
-            decorated: HashSet::new(),
-            mouse_follows_focus: settings.mouse_follows_focus,
-            focused_monitor: 0,
-            focused_window: None,
-            focused_maximized: false,
-            empty_focus_claim: None,
-            adopt_rejected: HashSet::new(),
-        };
-
-        let mut plan = Plan::new(desktop, now);
-        for &window in windows {
-            if tiler.is_tileable(&plan, window)
-                && let Some(idx) = tiler.monitor_index_for(&plan, window)
-            {
-                tiler.monitors[idx].active_ws_mut().add(window);
-                tiler.decorate(&mut plan, window);
-            }
-        }
-        tiler.retile_all(&mut plan);
-        tiler.focus_initial(&mut plan);
-        (tiler, plan.finish())
-    }
-
     /// Handles one input and returns the effects to apply, in order.
     pub fn step(&mut self, input: Input, desktop: &dyn Desktop, now: Instant) -> Vec<Effect> {
         let mut plan = Plan::new(desktop, now);
@@ -218,32 +149,6 @@ impl Tiler {
             Input::Shutdown => self.restore_all_windows(&mut plan),
         }
         plan.finish()
-    }
-
-    /// Every monitor, in the order of the displays handed to
-    /// [`Tiler::new`] or in the latest [`Input::Displays`]: left to right
-    /// when they come from [`Enumerator::monitors`].
-    pub fn monitors(&self) -> &[MonitorState] {
-        &self.monitors
-    }
-
-    /// Index of the monitor the user is working on.
-    pub fn focused_monitor(&self) -> usize {
-        self.focused_monitor
-    }
-
-    /// The window that has focus, as far as the tiler is concerned.
-    pub fn focused_window(&self) -> Option<WindowId> {
-        self.focused_window
-    }
-
-    /// Total number of managed windows.
-    pub fn window_count(&self) -> usize {
-        self.monitors
-            .iter()
-            .flat_map(|m| &m.workspaces)
-            .map(|ws| ws.len())
-            .sum()
     }
 }
 

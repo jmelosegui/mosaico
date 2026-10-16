@@ -1,4 +1,4 @@
-use super::super::adopt::should_pre_place;
+use super::super::created::should_pre_place;
 use super::super::layout::monocle_rect_for;
 use super::make_monitor;
 use crate::Rect;

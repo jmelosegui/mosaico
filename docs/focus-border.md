@@ -130,7 +130,8 @@ does not know or `"none"` on `focused` or `monocle`, is drawn in
 ## Integration
 
 The tiler decides every border and emits it as an effect; in
-`mosaico-windows`, the applier's `Win32Decorations` keeps a
+`mosaico-windows`, the `Win32Decorations` that `Win32Platform` hands the
+tiling manager keeps a
 `HashMap<WindowId, Border>` keyed by window id, with one entry per
 visible tiled window. The lifecycle is unified through a single entry
 point:

@@ -1,15 +1,15 @@
 use std::sync::mpsc;
 
-use mosaico_core::Result;
 use mosaico_core::bar::BarManager;
 use mosaico_core::config::ConfigStore;
-use mosaico_core::tiler::Enumerator;
+use mosaico_core::tiler::{Enumerator, HiddenFile};
+use mosaico_core::{Instance, Result};
 
 use crate::bar::Win32BarRenderer;
 use crate::enumerate::WindowsEnumerator;
 use crate::http::WinHttpClient;
 use crate::system_info::Win32SystemInfo;
-use crate::tiling::TilingManager;
+use crate::tiling::{TilingManager, Win32Platform};
 
 use super::daemon_inputs::Inputs;
 use super::daemon_loop_run;
@@ -58,13 +58,8 @@ pub(super) fn daemon_loop(pipe_name: &str, store: &ConfigStore) -> Result<()> {
 
     let (tx, rx) = mpsc::channel::<DaemonMsg>();
 
-    let mut manager = TilingManager::new(
-        &config.layout,
-        &config.workspaces,
-        rules,
-        config.borders,
-        config.mouse.follows_focus,
-    )?;
+    let hidden = Instance::current().map(HiddenFile::for_instance);
+    let mut manager = TilingManager::new(Win32Platform::new(), hidden, &config, rules)?;
     let bar_height = bar_mgr.bar_height();
     if bar_height > 0 {
         // Retile with bar-adjusted work areas so borders match final positions.
