@@ -4,6 +4,7 @@ mod hiding;
 mod stacking;
 
 use mosaico_core::config::HidingBehaviour;
+use mosaico_core::frames::FrameControl;
 use mosaico_core::{Error, HidingEvents, Rect, Result, WindowControl, WindowId};
 use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
 use windows::Win32::UI::WindowsAndMessaging::{
@@ -22,6 +23,9 @@ use crate::window::Window;
 /// one behind another in `window_control/stacking.rs`.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Win32WindowControl;
+
+/// Windows are not moved frame by frame yet.
+impl FrameControl for Win32WindowControl {}
 
 impl WindowControl for Win32WindowControl {
     fn place(&self, window: WindowId, rect: Rect) -> Result<()> {

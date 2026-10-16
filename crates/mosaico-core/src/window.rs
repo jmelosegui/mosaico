@@ -29,15 +29,17 @@ use crate::{HidingEvents, Rect, Result, WindowId};
 ///   window may let the system activate another one, as it would for
 ///   the user.
 /// - Only [`pre_place`](Self::pre_place) and [`close`](Self::close)
-///   promise not to wait for the application. The others may wait for
-///   it to handle the change.
-pub trait WindowControl {
+///   promise not to wait for the application. The desktop may not show a
+///   posted change until it gets to it: do not read one back as done.
+pub trait WindowControl: crate::frames::FrameControl {
     /// Moves and resizes a window so its visible bounds are `rect`.
     ///
-    /// - A maximized window is no longer maximized afterwards.
-    /// - A window [`hide`](Self::hide) took out of view with
-    ///   [`HidingBehaviour::Hide`] is moved and stays out of view, so
-    ///   showing it afterwards shows it in place.
+    /// - A maximized window is no longer maximized afterwards. A window
+    ///   [`hide`](Self::hide) took out of view with [`HidingBehaviour::Hide`]
+    ///   is moved and stays out of view, so showing it afterwards shows it
+    ///   in place. But a maximized one, placed while its application does
+    ///   not respond or while its hide is still on its way, stays maximized,
+    ///   and showing it restores the normal bounds it had before.
     /// - A minimized window stays minimized, and placing it need not
     ///   change where it goes once restored: the tiler restores a window
     ///   before it places it.
@@ -72,8 +74,8 @@ pub trait WindowControl {
     /// programmatically, and can draw at a stale offset after a display
     /// change. The tiler repaints a window after placing it and every
     /// visible window after a display change or a retile, so platforms
-    /// put such repairs here. A platform with nothing to repair may make
-    /// it a plain repaint.
+    /// put such repairs here, or make it a plain repaint. A posted one
+    /// only repairs what was wrong before the changes queued ahead of it.
     fn repaint(&self, window: WindowId) -> Result<()>;
 
     /// Gives a window keyboard focus and brings it to the front.
@@ -104,7 +106,7 @@ pub trait WindowControl {
     /// platform never destroys the window or ends its process itself.
     fn close(&self, window: WindowId) -> Result<()>;
 
-    /// Minimizes a window.
+    /// Minimizes a window, after what may be on its way to it.
     ///
     /// The platform must report it back as
     /// [`WindowEvent::Minimized`](crate::WindowEvent::Minimized): that
@@ -114,10 +116,9 @@ pub trait WindowControl {
     /// Takes a window out of view for a workspace switch, the way `how`
     /// describes. The window stays open and where it is.
     ///
-    /// - Afterwards the desktop reports the window as the
-    ///   [`HidingBehaviour`] docs say: still shown when cloaked, not
-    ///   shown when hidden, minimized when minimized. The tiler plans
-    ///   the rest of a switch on that.
+    /// - Afterwards the desktop reports the window as [`HidingBehaviour`]
+    ///   says: still shown when cloaked, not shown when hidden, minimized
+    ///   when minimized. The tiler plans the rest of a switch on that.
     /// - The window is reported hidden or minimized only when
     ///   [`hiding_events`](Self::hiding_events) says so for `how`.
     fn hide(&self, window: WindowId, how: HidingBehaviour) -> Result<()>;
@@ -161,10 +162,9 @@ pub trait WindowControl {
     fn hiding_events(&self, how: HidingBehaviour) -> Option<HidingEvents>;
 
     /// Makes a window visible however it was hidden, by this daemon or
-    /// an earlier one. Used when the tiler stops, so that nothing is left
-    /// out of view.
-    ///
-    /// May focus the window. A minimized window may stay minimized.
+    /// an earlier one, when the tiler stops, so that nothing is left out
+    /// of view. May focus the window. A minimized window may stay
+    /// minimized.
     fn reveal(&self, window: WindowId) -> Result<()>;
 
     /// Puts the pointer at `(x, y)` in desktop coordinates.

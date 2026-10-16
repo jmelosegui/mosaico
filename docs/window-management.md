@@ -13,6 +13,13 @@ which includes invisible frame compensation and DPI awareness.
 |------|---------|
 | `crates/mosaico-core/src/window.rs` | `WindowControl` trait |
 | `crates/mosaico-core/src/window/behind.rs` | `Behind`: where `put_behind` puts a window, given which of the two are always on top |
+| `crates/mosaico-core/src/frames/control.rs` | `FrameControl`: moving windows through the frames of their transitions, and whether a change is posted behind them |
+| `crates/mosaico-core/src/frames/frame.rs` | `Frame`, `FrameOutcome`: a window's rect at a moment of its transition, and what `place_frames` found of each window |
+| `crates/mosaico-core/src/frames/table.rs` | `FrameTable`, `PENDING_LIMIT`, `ASYNC_GRACE`: what a platform keeps about the frames it posts, and whether the next one goes |
+| `crates/mosaico-core/src/frames/table_kept.rs` | What a `FrameTable` keeps about one window, looked up with its owner every time, and `kept_for` |
+| `crates/mosaico-core/src/frames/table_queue.rs` | `posts_behind`: whether a window's other changes are posted behind what may be queued for it, and the notes of what was |
+| `crates/mosaico-core/src/frames/probe.rs` | `FrameProbe`: how the table reads a platform's windows and posts their moves |
+| `crates/mosaico-core/src/frames/posted.rs` | `LastPost`: the last frame, or the last of anything, posted to a window, whether the window has been seen to move since, and whether the frame holds the next one back |
 | `crates/mosaico-core/src/hiding.rs` | `HidingEvents`, `HidingSupport`: the ways of hiding a platform has, and what each reports |
 | `crates/mosaico-core/src/tiler/desktop.rs` | `Desktop` trait, the read side |
 | `crates/mosaico-core/src/tiler/window_effects.rs` | `apply_window_effect()`, which carries out window effects |
@@ -34,8 +41,31 @@ which includes invisible frame compensation and DPI awareness.
 ### Key Types
 
 - `WindowControl` (trait, core) -- changes the platform makes on request
+- `FrameControl` (trait, core) -- moving windows through the frames of their
+  transitions, whether a change made to a window is posted behind them
+  (`posts_behind`), and forgetting the windows that need it no longer once
+  transitions are off (`settle_responding`); every `WindowControl` is one,
+  unsupported by default
 - `Behind` (enum, core) -- where `put_behind` puts a window: directly behind
   the other when both share an always-on-top layer, nowhere otherwise
+- `Frame` (struct, core) -- a window, the rect it should have at a moment of
+  its transition, and whether it is the first frame of its motion
+- `FrameOutcome` (enum, core) -- what `place_frames` found of a window:
+  `Handled { reached }`, `Pending`, `Maximized`, `Minimized` or `Gone`
+- `FrameTable<K>` (struct, core) -- what a platform keeps about the frames it
+  posts to each window, `K` being what the platform keeps of its own, and the
+  decisions on whether the next frame goes and whether a change is posted, the
+  same for every platform
+- `FrameProbe` (trait, core) -- what a `FrameTable` reads of a platform's
+  windows, and how it posts their moves
+- `PENDING_LIMIT` (const, core) -- 250 ms: how long a frame posted to a window
+  that has not been seen to move since holds the next one back
+- `ASYNC_GRACE` (const, core) -- 5 s: how long after something was posted to
+  a window its other changes are posted too, behind it, even once it has been
+  seen to move since
+- `LastPost` (struct, core) -- the last frame, or the last of anything, posted
+  to a window: when, where the window was then, and whether it has been seen
+  anywhere else since
 - `HidingEvents` (struct, core) -- whether hiding a window one way reports it
   hidden or minimized, and showing it again reports it restored
 - `HidingSupport` (struct, core) -- the platform's `HidingEvents` for every
@@ -55,7 +85,7 @@ The tiler never changes a window itself. It returns effects, and the ones that
 change a window or move the pointer reach the platform through `WindowControl`:
 
 ```rust
-pub trait WindowControl {
+pub trait WindowControl: FrameControl {
     fn place(&self, window: WindowId, rect: Rect) -> Result<()>;
     fn pre_place(&self, window: WindowId, rect: Rect) -> Result<()>;
     fn repaint(&self, window: WindowId) -> Result<()>;
@@ -69,14 +99,54 @@ pub trait WindowControl {
     fn reveal(&self, window: WindowId) -> Result<()>;
     fn move_cursor(&self, x: i32, y: i32) -> Result<()>;
 }
+
+pub trait FrameControl {
+    // Unsupported by default. Clears `outcomes`, then fills it, one per frame.
+    fn place_frames(&self, frames: &[Frame], outcomes: &mut Vec<FrameOutcome>) -> Result<()>;
+    // False by default: whether a change made to `window` now is posted.
+    fn posts_behind(&self, window: WindowId) -> bool;
+    // Nothing by default: forgets the windows posted to no longer.
+    fn settle_responding(&self);
+}
 ```
 
-The contract, in the trait's docs, spells out what callers rely on:
+Every `WindowControl` is a `FrameControl` too (`frames.rs`), so the frames of
+transitions reach the platform through the same object, and a platform that
+cannot move windows frame by frame keeps the default. The caller keeps the
+`outcomes` buffer from one frame to the next, so a frame allocates nothing.
+
+What each frame does is decided in core, by a `FrameTable` the platform keeps,
+so every platform decides the same way. The platform only reads its windows
+and posts their moves through a `FrameProbe`, and gives the table the time
+from its own clock. For each frame, in this order: a window that is gone is
+`Gone`; a minimized or maximized one is reported so and left alone; one that
+another owner has now, and whose motion is not starting over, is `Gone`; the
+first frame of a motion reads the window again (`FrameProbe::keep`), and
+starts over for a window whose owner changed, a new window given the id of an
+old one; a window whose application is not responding is `Pending`; a frame
+posted less than `PENDING_LIMIT` ago to a window that has not been seen to
+move since holds the new one back, `Pending`; a frame the window can only take
+at the rect it is at is not needed, `Handled`; and any other is posted,
+`Handled`. A post the system refuses holds nothing back, and is `Handled` too.
+The table also says when a window's other changes have to be posted behind
+what may be queued for it (`posts_behind`), is told what was posted
+(`posted`, `posted_show_state`) and what was made at once
+(`show_state_made`), and keeps what a posted placement needs: what the
+platform read with the window's frames (`kept_for`), and whether the window is
+to be in view once what was posted lands (`in_view_once_landed`).
+
+The contract, in the traits' docs, spells out what callers rely on:
 
 - Rects are a window's visible bounds in desktop coordinates, without invisible
   resize borders or shadows.
-- Placing a maximized window takes it out of maximized state, and a placement
-  is never reported as the user moving the window.
+- Placing a maximized window takes it out of maximized state, whether the
+  placement is posted or made at once, and a placement is never reported as
+  the user moving the window. One exception: a placement posted to a window
+  out of view, or to be once what was posted lands, may leave it maximized
+  while its application does not respond, or while the change that takes it
+  out of view is still on its way. A later show then brings it back as if it
+  had not been placed: a hidden window at the normal bounds it had before it
+  was maximized.
 - Placing a window hidden with `hide` moves it and keeps it out of view, so it
   can be shown in place. Placing a minimized window leaves it minimized and
   need not change where it is restored to, so the tiler restores a window
@@ -86,6 +156,82 @@ The contract, in the trait's docs, spells out what callers rely on:
   that is already shown when it is taken in, ahead of the layout. The move may
   land at once, later, or not at all, and moves made this way to one window
   land in the order they were made. A maximized window may stay maximized.
+- `FrameControl::place_frames` moves windows to the frames of their
+  transitions without waiting for their applications, and reports one
+  `FrameOutcome` per frame, in order. A frame posted less than `PENDING_LIMIT`
+  (250 ms) ago to a window that has not been seen to move since holds the next
+  one back: `Pending`, and nothing posted. A slow application gets at most one
+  frame that often, never a backlog that grows with the frame rate. Nothing
+  depends on knowing whether a frame landed: any move since the post lets the
+  next one go, wherever the window went, and so does the limit, for a window
+  that rounds its size, puts it back, or is sent back where it was. A window
+  whose application is not responding is `Pending`, and gets nothing posted.
+- `Handled` means the frame was posted, or was not needed: once mapped to what
+  the window can take (its own pixels, when it does not follow the display's
+  scale), it asks for where the window is. It also covers a post the system
+  refused, which holds nothing back. The first frame of a motion reads the
+  window again. A window with another owner starts over with it, and is
+  `Gone` for any other frame.
+- `place_frames` never raises, focuses, shows or hides a window or changes
+  whether one is maximized or minimized: such a window is reported and left
+  alone. A frame queued when the user or the system maximizes or minimizes a
+  window may land after that; the next call reports the window `Maximized` or
+  `Minimized`, and the caller leaves it alone. A frame that lands is reported
+  as the window's position changing (`LocationChanged`), never as the user
+  moving it. A platform without frames returns `Error::Unsupported`, the
+  default; asking with no frames tells which it is.
+- Placements, repaints, `put_behind` and changes of a window's show state
+  (`minimize`, `hide`, `show`, `reveal`) keep their order with the frames
+  posted before them. One made while something posted to the window may still
+  be queued, as `FrameTable::posts_behind` says, is posted behind it instead
+  of made at once: less than `ASYNC_GRACE` (5 s) after anything was posted to
+  the window; after that, for as long as the window has not been seen to move
+  since the last thing posted to it, a frame or any other change, which may
+  still be queued or may have been taken without a move; and, once the
+  window was given a frame, while its application does not respond, since a
+  change made at once would wait for it. A window never given a frame is
+  changed at once, responding or not, as it always was, so with animations
+  off from startup every change is. Once they are turned off,
+  `FrameControl::settle_responding`, which the tiler calls while they stay
+  off, forgets every window something was last posted to more than
+  `ASYNC_GRACE` before and whose application responds, which is then
+  changed at once again; one whose application hangs stays posted to while
+  it does. A change applied at once, a move or a resize alike,
+  would be overtaken by a frame still queued. So callers never wait for a
+  frame before placing, hiding or showing a window: a motion ends with
+  `place` and `repaint` at its target, which land after its frames. A caller
+  stops sending a window frames before hiding or minimizing it, since a frame
+  posted after lands after the change. Past the grace, any move of the
+  window, whoever made it, ends the order, and a change made at once then
+  lands before anything still queued: the later of two frames queued, when
+  the application took the earlier and stopped before it was reported not
+  responding, or what was queued when something else moved the window.
+- `FrameControl::posts_behind` tells the caller whether a change made to a
+  window now is posted. Asked right before the change, its answer can only go
+  from posted to made at once by the time the change is made, as time passes,
+  or once the window is seen to move or its application responds again, and
+  the other way once its application stops responding, or once a frame is
+  given to it while its application does not respond, which posts nothing
+  but starts what the table keeps for it. A caller that keeps its own record
+  of how a change was made asks right after it: a posted change renews the
+  grace, so `true` then means it was posted, or that the application stopped
+  responding since, which is handled the same way. A posted change
+  completes when the application gets to it: until then the desktop may not
+  show it, so the caller must not read it back as done, and a window may read
+  as settled while its last placement is still queued. It does not wait for
+  the application, except where a platform cannot end the maximized state of
+  a window out of view without waiting: then as long as the application takes
+  to handle that, once the window is out of view, and unless the application
+  is already reported not responding. Otherwise the window stays maximized,
+  the exception above.
+  A posted placement ends a maximized state as one made at once does, that of
+  a window maximized when it is posted, and that of one minimized then which a
+  show queued ahead brings back maximized. It lands with the bounds the window
+  has in its normal state, even on one still minimized or maximized when it
+  was posted. A posted repaint only repairs what was wrong before the changes
+  queued ahead of it, so the caller repaints the window again once it reports
+  where a posted placement took it. Focus is never posted: given right after a
+  posted show, it may reach the window before the window is shown.
 - `put_behind(window, other)` puts `window` behind `other` in the stacking
   order, within its own always-on-top layer, without activating, moving or
   resizing either. Neither window's layer changes: `window` goes directly

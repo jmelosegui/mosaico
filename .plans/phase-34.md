@@ -13,8 +13,10 @@ applier calls `WindowControl::place`, and Windows moves the window with one
 synchronous `SetWindowPos`. This phase adds an optional transition: the
 tiler marks the placements that may animate, the applier turns each into a
 motion, moves the window through intermediate rects on display frames, and
-ends with the same synchronous `place` as today once the last frame has
-landed, so the end state keeps every guarantee it has now.
+ends with `place` at the target. Nothing waits for a frame to land: while
+one may still be queued, the final `place` and the window's other changes
+are posted behind it, and land after it whatever became of it, so the end
+state keeps the guarantees it has now once the window gets to it.
 
 Everything that decides lives in core and runs on the injected clock: which
 placements animate, the curve, retargeting, when a motion ends and what
@@ -41,19 +43,26 @@ The work splits into four steps, one PR each (see Tasks).
   five times in a row gives one smooth path, not five restarts.
 - Intermediate frames never wait for an application. A slow or hung
   application gets fewer frames, never a backlog, and never delays hotkeys or
-  IPC. A synchronous placement is never made while a frame to the same window
-  is still on its way.
+  IPC. No change is made at once to a window while a frame to it may still be
+  on its way: it is posted behind the frame instead, and lands after it.
 - While a window moves, its motion is the tiler's record of where it is going.
   The only reads mid-flight are the frame outcomes the platform reports.
 - A window's position reports never count as input activity, whoever moved it.
 - Borders follow the window, not the frame posted to it, and are never
   rendered again on a frame.
 - The Windows "Animation effects" setting is honoured.
-- With animations off, the tiler emits the same effects and the platform gets
-  the same calls as today. The one change is timing: position reports no
-  longer count as input activity (34.2), so held moves are released after the
-  quiet window instead of being pushed to its cap while some window reports
-  its position.
+- Turning animations off at runtime, by a reload or the system's setting,
+  does not undo what was posted: the tiler settles windows while they stay
+  off (`FrameControl::settle_responding`), and a window whose application
+  responds gets its changes made at once again from `ASYNC_GRACE` after the
+  last thing posted to it, while one whose application hangs keeps them
+  posted until it responds. Once every window has settled so, as from
+  startup, the next goal holds.
+- With animations off nothing is posted, so the tiler emits the same effects
+  and the platform makes the same calls as today, at once. The one change is
+  timing: position reports no longer count as input activity (34.2), so held
+  moves are released after the quiet window instead of being pushed to its
+  cap while some window reports its position.
 
 ## Configuration
 
@@ -119,9 +128,8 @@ Tiler::step -> Vec<Effect> -> Applier::apply -> Coalescer -> Applier::run
 Plan::finish          -> Place { transition: Animate | Snap }       Snap whenever animations are off
 Applier::run(Place)   -> Motions::retarget(window, from, to, now)   for Animate, instead of place
 Scheduler frame step  -> Applier::frame(now)                        on a frame, or at a motion's deadline
-    -> WindowControl::place_frames(frames) -> outcome per window    never waits
-    -> last frame handled: WindowControl::place + repaint           exact, as today
-    -> still pending: post the target, place in full once it lands
+    -> WindowControl::place_frames(frames, outcomes)                never waits
+    -> at the deadline: WindowControl::place + repaint              exact, as today, posted behind the frames
 ```
 
 ### Core: the motion model (`mosaico-core/src/motion/`)
@@ -169,13 +177,12 @@ Scheduler frame step  -> Applier::frame(now)                        on a frame, 
   - maximized or minimized: the motion stops, and nothing forces the window
     back;
   - gone: the motion is dropped.
-- Finishing a motion: once its last frame is handled, today's `place` and
-  `repaint` at the target, then its border, drawn once at the final rect. A
-  window still pending a few frames after its deadline gets the target posted
-  (it queues behind the stale frame), and the full `place` and `repaint` once
-  that has landed, the way `moved_on_screen` works for pre-placed windows.
-  Before any synchronous `place` of a window with a frame on its way, the same
-  rule applies.
+- Finishing a motion: at its deadline, today's `place` and `repaint` at the
+  target, then its border, drawn once at the final rect. The platform posts
+  both behind any frame still queued for the window, so they land after it
+  and nothing waits for a frame to land: no finishing state, no waiting, and
+  no check after the final placement. A `Snap` placement of a window with
+  frames on their way orders itself the same way.
 - Stopping a motion: the window stays where it is.
 - What ends a motion:
   - `Hide`, `Minimize`, `Destroyed` and `MoveStarted` stop it. A window shown
@@ -185,7 +192,9 @@ Scheduler frame step  -> Applier::frame(now)                        on a frame, 
   - `Untile`, `Reveal`, a display change and shutdown finish it at the target.
   - `Destroyed` drops it in `Applier::echo`, with everything held for the
     window.
-- `Focus` and `PutBehind` apply at once. `Focus { move_cursor: true }` and
+- `Focus` and `PutBehind` apply at once, and are never held for a motion.
+  The platform orders `put_behind` itself, behind what may be queued for the
+  window, as it does every change but focus. `Focus { move_cursor: true }` and
   `CenterCursor` on a moving window put the pointer at the center of its
   target, not where the window is mid-flight.
 - A `Border` effect for a moving window only replaces the style the motion
@@ -215,29 +224,61 @@ screen, too slow for every frame.
 
 ### Platform contracts
 
-- `WindowControl::place_frames(&[Frame]) -> Result<Vec<FrameOutcome>>`, where a
+- `FrameControl::place_frames(&self, frames: &[Frame], outcomes: &mut
+  Vec<FrameOutcome>) -> Result<()>`, which every `WindowControl` is, where a
   `Frame` is a window, a rect and whether it is the first frame of a motion
-  (the platform then forgets what it kept for that window, which also covers a
-  reused id). It moves windows to intermediate rects without waiting for their
-  applications, and never changes their maximized or minimized state. The
-  outcome, per frame: `Handled { reached }` (the previous frame was handled, or
-  there was none, with the window's visible rect now), `Pending` (the window's
-  rect is unchanged since the previous frame was posted), `Maximized`,
-  `Minimized`, `Gone`. Any change since the post counts as handled: equality
-  with the rect posted would never hold for a window that adjusts its own size
-  or is moved by the shell. A frame equal to the last one posted to that window
-  is not posted again. A platform without frames returns
-  `Error::Unsupported`, and the tiler then places windows without transitions.
-  Windows: `SetWindowPos` with `SWP_ASYNCWINDOWPOS`, `SWP_NOZORDER`,
-  `SWP_NOACTIVATE` and `SWP_NOSENDCHANGING` (as `set_rect`, so the minimum size
-  an application asks for clamps no frame that the final place would not), and
-  never `SWP_NOCOPYBITS` (it would force a full repaint on every frame of a
-  plain move); the frame offset read once per motion; `IsIconic`, `IsZoomed`
-  and `IsHungAppWindow`. Whether Chromium windows need `SWP_FRAMECHANGED` on
-  resize frames is decided in 34.2 and checked live with a browser.
-- A minimize while a frame is pending is queued behind it (Windows:
-  `ShowWindowAsync` when a frame is pending), so no frame lands on a minimized
-  window and puts its caption on screen.
+  (the platform then reads the window again). It moves windows to
+  intermediate rects without waiting for their applications, and never
+  changes their maximized or minimized state. The decisions are core's
+  `FrameTable`, which reads windows through a `FrameProbe`. A frame posted
+  less than `PENDING_LIMIT` (250 ms) ago to a window that has not been seen to
+  move since holds the next one back, so a slow application gets at most one
+  frame that often; this is a backlog limit only, and nothing depends on
+  knowing whether a frame landed. The outcome, per frame: `Handled { reached }`
+  (the frame was posted, or was not needed because it maps to where the
+  window is, or the system refused the post, with the window's visible rect
+  before it lands), `Pending` (nothing posted: the last frame is recent and the
+  window has not been seen to move since, or the application does not
+  respond), `Maximized`, `Minimized`, `Gone`. A window whose owner changed
+  (a reused id) starts over with a first frame and is `Gone` for any other. A
+  frame for a window that does not follow the display's scale is mapped to its
+  own pixels first. A platform without frames returns `Error::Unsupported`,
+  and the tiler then places windows without transitions. Windows:
+  `SetWindowPos` with `SWP_ASYNCWINDOWPOS`, `SWP_NOZORDER`, `SWP_NOACTIVATE`
+  and `SWP_NOSENDCHANGING` (as `set_rect`, so the minimum size an application
+  asks for clamps no frame that the final place would not), and never
+  `SWP_NOCOPYBITS` (it would force a full repaint on every frame of a plain
+  move), nor `SWP_FRAMECHANGED` on resize frames; the frame offset read once
+  per motion; `IsIconic`, `IsZoomed` and `IsHungAppWindow`.
+- A window's other changes keep their order with its frames: `place`,
+  `repaint`, `put_behind`, `minimize`, `hide`, `show` and `reveal` are posted
+  behind what may be queued for the window while `FrameTable::posts_behind`
+  holds: less than `ASYNC_GRACE` (5 s) after anything was posted to it; after
+  that, for as long as it has not been seen to move since the last thing
+  posted to it, a frame or any other change; and, once it was given a frame,
+  while its application does not respond. Past the grace, any move of the
+  window, whoever made it, ends the order. A window never given a frame is
+  changed at once, as today, responding or not, and so is one
+  `FrameControl::settle_responding` forgot: the tiler calls it while
+  transitions are off, and it forgets every window something was last posted
+  to more than `ASYNC_GRACE` before, whose application responds.
+  `FrameControl::posts_behind(window)` tells the caller which it is: a posted
+  change may complete after the call returns, and the desktop may not show it
+  until then, so the caller never reads it back as done. A posted `place`
+  ends a maximized state too, that of a window minimized when it is posted
+  which a show queued ahead brings back maximized included, and lands with
+  the window's invisible borders in its normal state, at its display's scale
+  now. Focus is never posted. Callers never wait for a frame before placing,
+  hiding or showing a window. Windows: `SetWindowPos` with
+  `SWP_ASYNCWINDOWPOS` and the flags of `set_rect`, after
+  `ShowWindowAsync(SW_SHOWNOACTIVATE)` for a maximized window in view or a
+  minimized one a show queued ahead brings back in view (one out of view has
+  `WS_MAXIMIZE` cleared at once, which waits for its application, once it is
+  hidden and unless the application does not respond: else it stays
+  maximized, and a later show restores its old normal bounds), `RedrawWindow`
+  without `RDW_UPDATENOW`, `ShowWindowAsync`, and for `put_behind`
+  `SWP_ASYNCWINDOWPOS` too.
+  Cloaking does not go through the window's queue, and is unaffected.
 - `FrameClock::want_frames(bool)`: while on, the loop is woken about once per
   display refresh. One long-lived pacer, parked while frames are not wanted;
   `want_frames` only sets a flag and never blocks; at most one frame message
@@ -260,9 +301,10 @@ screen, too slow for every frame.
 
 1. Rapid input: a target that changes mid-flight retargets from the window's
    rect and speed without overshooting; the same target again is a no-op.
-2. Slow or hung applications: frames never block. A window pending for 3 frames
-   makes its step finish at once, and its own final placement waits until its
-   frames have landed.
+2. Slow or hung applications: frames never block, and a slow application gets
+   at most one frame per `PENDING_LIMIT`. A window pending for 3 frames makes
+   its step finish at once, and its final placement is posted behind its
+   frames, so it lands after them.
 3. Minimum sizes: frames and the final `place` skip the application's minimum
    size alike, so nothing stops short and jumps at the end.
 4. The user grabs a moving window: `MoveStarted` stops its motion.
@@ -270,9 +312,9 @@ screen, too slow for every frame.
    without forcing the window back.
 6. Close mid-flight: the motion runs on until the window is destroyed or
    hidden, so a refused close still ends in the slot.
-7. Hide, minimize or a workspace switch mid-flight: the motion stops; a minimize
-   queues behind the frame on its way. The window is placed again, snapping,
-   when it comes back.
+7. Hide, minimize or a workspace switch mid-flight: the motion stops, and the
+   hide or minimize is posted behind the frames on their way, landing after
+   them. The window is placed again, snapping, when it comes back.
 8. Display change mid-flight: every motion finishes at its target, and the
    rebuild snaps.
 9. Config reload mid-flight: motions finish with the settings they started
@@ -312,7 +354,7 @@ crates/
     tiler/manager_inputs.rs    # reloads reach the applier
     daemon/scheduler.rs        # position reports and frames are not activity; deadlines
     daemon/frame_clock.rs      # NEW: FrameClock
-    window.rs                  # place_frames, Frame, FrameOutcome
+    frames.rs, frames/         # FrameControl, Frame, FrameOutcome, FrameTable, FrameProbe
     tiler/desktop.rs           # animations_allowed
     event.rs, event/naming.rs  # MoveStarted
     config/types.rs            # AnimationConfig
@@ -323,9 +365,9 @@ crates/
     tiler/lifecycle.rs         # reload
     tiler/tests/               # fakes: frames that land late, outcomes, metrics scenario
   mosaico-windows/src/
-    window_control/frames.rs   # NEW: frames that never wait, one in flight per window
-    window_control.rs          # place_frames
-    window_control/hiding.rs   # a minimize queues behind a pending frame
+    window_control/frames.rs   # NEW: frames that never wait, one per limit to a window that has not moved
+    window_control.rs          # place_frames; placements posted behind frames
+    window_control/hiding.rs   # show state changes posted behind what was posted
     frame_clock.rs             # NEW: the pacer thread
     system_settings.rs         # NEW: the Windows animation setting
     event.rs, event_source.rs  # EVENT_SYSTEM_MOVESIZESTART

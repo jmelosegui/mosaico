@@ -2,49 +2,20 @@
 
 use std::collections::HashMap;
 
+use crate::frames::FrameTable;
 use crate::{MonitorId, Rect, WindowId};
 
 use super::super::{Desktop, WindowFacts, WindowIdentity};
-use super::MON_W;
 
 #[path = "fake_desktop_apply.rs"]
 mod apply;
+#[path = "fake_desktop_frames.rs"]
+mod frames;
+#[path = "fake_desktop_window.rs"]
+mod window;
 
-/// A window on the fake desktop.
-#[derive(Debug, Clone)]
-pub(crate) struct FakeWindow {
-    pub(crate) visible: bool,
-    pub(crate) minimized: bool,
-    pub(crate) maximized: bool,
-    pub(crate) cloaked: bool,
-    pub(crate) rect: Rect,
-    pub(crate) owner: Option<WindowId>,
-    pub(crate) monitor: usize,
-    pub(crate) facts: Option<WindowFacts>,
-    pub(crate) process: u32,
-}
-
-impl FakeWindow {
-    /// A visible, captioned application window on monitor `monitor`.
-    pub(crate) fn app(monitor: usize) -> Self {
-        Self {
-            visible: true,
-            minimized: false,
-            maximized: false,
-            cloaked: false,
-            rect: Rect::new(monitor as i32 * MON_W + 100, 100, 640, 480),
-            owner: None,
-            monitor,
-            facts: Some(WindowFacts {
-                class: "App".into(),
-                title: "app".into(),
-                path: "/apps/app".into(),
-                has_caption: true,
-            }),
-            process: 1000,
-        }
-    }
-}
+pub(crate) use frames::Queued;
+pub(crate) use window::FakeWindow;
 
 /// An in-memory desktop.
 #[derive(Debug, Default)]
@@ -59,6 +30,8 @@ pub(crate) struct FakeDesktop {
     /// The stacking order, front first. A window comes to the front when
     /// it opens and when it gets focus.
     pub(crate) stack: Vec<WindowId>,
+    /// What the platform keeps about the frames posted to the windows.
+    pub(crate) frames: FrameTable<()>,
 }
 
 impl Desktop for FakeDesktop {
