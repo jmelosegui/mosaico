@@ -12,6 +12,9 @@ use super::{Call, FakePlatform};
 
 impl WindowControl for FakePlatform {
     fn place(&self, window: WindowId, rect: Rect) -> Result<()> {
+        if let Some(w) = self.shared.desktop.borrow_mut().windows.get_mut(&window) {
+            w.hung |= std::mem::take(&mut w.hangs_on_place);
+        }
         let effect = Effect::snap(window, rect, Timing::Now);
         self.change(Call::Place(window, rect), effect)
     }

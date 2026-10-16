@@ -3,21 +3,22 @@
 //!
 //! - A window hidden, minimized, destroyed or grabbed by the user stops
 //!   where it is, whether the tiler, the user or its application hid or
-//!   minimized it. One shown or restored later is placed again by the
-//!   tiler, and that placement snaps.
+//!   minimized it. The tiler's own hide or minimize stops it before it is
+//!   made, as a frame posted after it would land after it. One shown or
+//!   restored later is placed again by the tiler, and that placement snaps.
 //! - A window asked to close keeps moving: the application may refuse,
 //!   and its destruction or hiding ends the motion.
 //! - A window the tiler lets go of is placed at its target, without the
-//!   border its motion kept, and the tiler stopping finishes every motion
-//!   at its target. A display change stops every motion where it is as
-//!   soon as it is noted, as `applier_display.rs` says.
+//!   border its motion kept. A display change stops every motion where it
+//!   is as soon as it is noted, as `applier_display.rs` says, and the
+//!   tiler stopping ends them as `applier_stop.rs` says.
 //! - Focusing a moving window with the pointer following, or putting the
 //!   pointer on it, aims at the center of its target, not at where the
 //!   window is on its way there.
 
 use crate::{Rect, WindowControl, WindowEvent, WindowId};
 
-use super::super::window_effects::{place_and_repaint, report};
+use super::super::window_effects::report;
 use super::super::{Desktop, Effect, Platform};
 use super::Applier;
 
@@ -70,28 +71,22 @@ impl Applier {
     pub(super) fn let_go(&mut self, window: WindowId, platform: &mut dyn Platform) {
         if let Some(target) = self.transitions.motions.end(window) {
             self.forget_kept_border(window);
-            place_and_repaint(window, target, platform.control());
-        }
-    }
-
-    /// Finishes every motion at its target, as the tiler stopping does,
-    /// placing each window there in full, the ones a display change stopped
-    /// too, without the borders they kept.
-    pub(in crate::tiler) fn finish_motions(&mut self, platform: &mut dyn Platform) {
-        for (window, target) in self.transitions.motions.clear() {
-            self.in_place(window, target, platform);
-        }
-        for (window, target) in self.take_stopped() {
-            self.forget_kept_border(window);
-            place_and_repaint(window, target, platform.control());
+            self.send_to(window, target, platform);
         }
     }
 
     /// Places a window whose motion is over at `target`, in full, and
-    /// draws the border it kept for the motion around it.
+    /// draws the border it kept for the motion around it. The platform
+    /// orders the placement behind the frames posted to the window before,
+    /// so the border is drawn at once only when the window is there
+    /// already, and otherwise once it lands (`applier_landing.rs`).
     pub(super) fn in_place(&mut self, window: WindowId, target: Rect, platform: &mut dyn Platform) {
-        place_and_repaint(window, target, platform.control());
-        self.draw_kept_border(window, target, platform.decorations());
+        if self.send_to(window, target, platform) {
+            let border = self.take_kept_border(window);
+            self.defer_border(window, border);
+        } else {
+            self.draw_kept_border(window, target, platform.decorations());
+        }
     }
 
     /// Whether `window` is moving to a target.
@@ -99,9 +94,18 @@ impl Applier {
         self.transitions.motions.is_moving(window)
     }
 
+    /// Where the pointer goes for `window`, if not where the desktop has
+    /// it: the target of its motion, or where it was last sent while that
+    /// may still be on its way.
+    pub(super) fn aim(&self, window: WindowId, control: &dyn WindowControl) -> Option<Rect> {
+        let target = self.transitions.motions.target(window);
+        target.or_else(|| self.last_sent(window, control))
+    }
+
     /// Carries out `effect`, a focus change with the pointer following or
-    /// a move of the pointer onto `window`, which is moving: the pointer
-    /// goes to the center of its target.
+    /// a move of the pointer onto `window`, which is moving or has what it
+    /// was last sent on its way: the pointer goes to the center of where
+    /// the window is going.
     pub(super) fn point_at_target(
         &self,
         effect: &Effect,
@@ -111,7 +115,7 @@ impl Applier {
         if let Effect::Focus { .. } = effect {
             report("focus", window, control.focus(window));
         }
-        if let Some(target) = self.transitions.motions.target(window) {
+        if let Some(target) = self.aim(window, control) {
             let (x, y) = (target.center_x(), target.center_y());
             report("center the pointer on", window, control.move_cursor(x, y));
         }

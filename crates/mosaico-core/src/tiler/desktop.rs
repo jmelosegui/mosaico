@@ -87,6 +87,15 @@ pub trait Desktop {
     fn animations_allowed(&self) -> bool {
         true
     }
+
+    /// Whether a change made to the window now is posted behind what was
+    /// posted to it, as [`posts_behind`](crate::frames::FrameControl::posts_behind)
+    /// says. The tiling manager answers this for the tiler from the
+    /// platform's window control, so a platform keeps the default, `false`.
+    fn changes_posted(&self, window: WindowId) -> bool {
+        let _ = window;
+        false
+    }
 }
 
 /// Properties the window rules match against.

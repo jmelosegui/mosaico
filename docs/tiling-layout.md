@@ -334,37 +334,146 @@ The applier checks a marked placement again as it applies it
 is on), the window is neither minimized nor maximized, some edge of it travels
 more than 4 pixels, and the platform can move windows through frames. A
 placement that passes becomes a motion in the applier's `Motions` table,
-starting from where the window's motion has it if it is moving, otherwise from
-where the desktop has it, with the duration and easing configured then. The
-applier takes the `[animations]` settings at start and from every reload. A
-motion in flight keeps the duration and easing it started with while its
-target stays; one that a reload's retile sends elsewhere turns towards its new
-target with the new ones, and with transitions off it snaps there. Any other
-placement of a moving window ends its motion and places it at once, in full.
+starting from where the window is as far as its motion knows if it is moving,
+otherwise from where the desktop has it, with the duration and easing
+configured then. The applier takes the `[animations]` settings at start and
+from every reload. A motion in flight keeps the duration and easing it
+started with while its target stays; one that a reload's retile sends
+elsewhere turns towards its new target with the new ones, and with
+transitions off it snaps there. Any other placement of a moving window ends
+its motion and places it at once, in full.
 
-`TilingManager::wants_frames()` says whether any window is moving,
-`frame_due(after)` when the first motion is due to end, after `after`, the
-last frame step, and `frame()` takes the frame step, which ends every motion
-at its target with a full placement.
+The windows an `apply` or a `flush` sets moving form a step
+(`Motions::begin_step`).
+
+The frame step (`applier_frames.rs`, `TilingManager::frame()`) posts every
+frame due in one `place_frames` call, and acts on what the platform found of
+each window (`motion/motions_frame.rs`):
+
+- A window that handled the frame before moves on, and its border is moved
+  to where the frame found it, or, when it took the frame posted at the step
+  before exactly, to the frame now posted: the border neither trails a
+  window that keeps up nor runs ahead of a slow one. One still to handle its
+  frame stays, and so does its border.
+- A window found still to handle its frame and not seen to move for 50 ms
+  (`MAX_LAG`) since it handled its first frame has fallen behind: every
+  motion of its step, and no other, ends at once with a full placement at
+  its target. The limit is a time, so it is the same at any refresh rate,
+  and it starts at the first frame, so what ran before the first frame
+  step does not count.
+- A window maximized or minimized meanwhile stops where it is, and one that
+  is gone is forgotten. What its motion kept for its border is dropped.
+- A motion ends at its end time with a full placement at its exact target,
+  as a placement without a transition is, and its border is drawn once
+  there: at once, as the last frames usually took the window there, or once
+  the window lands, as below.
+
+No placement waits for a frame to land: the platform orders a placement,
+and a change of how a window is shown, behind what was posted to the window
+before, so a placement made while a frame is on its way lands after it. A
+window whose application stopped responding after it was given frames
+needs nothing of its own: its placement is posted like its frames. One that
+had stopped before any was gets nothing posted, and is placed as it is
+without transitions.
+
+While something posted to a window may still be on its way
+(`FrameControl::posts_behind`), the desktop may not show it yet, so the
+applier does not read it back as done (`applier_posted.rs`). Where it keeps
+its own record of how a change was made, it asks right after the change: a
+posted change renews the grace, so the answer then is true for a change
+that was posted, or for a window whose application stopped responding
+since, which waits the same way.
+
+- A placement is not skipped because the desktop has the window in place
+  already, unless the window was last sent there too, by a placement or a
+  frame: what is still on its way would take it elsewhere. So a swap undone
+  before a slow window got to it puts the window back.
+- `Focus { move_cursor: true }` and `CenterCursor` aim at the center of
+  where the window was last sent, as they aim at a moving window's target,
+  and a new motion of the window starts from there.
+- A posted placement that finds the window there already, within 4 pixels
+  on every edge, and where the last thing sent to it took it, to the pixel,
+  moves nothing, so it reports nothing and needs no second repaint: the
+  border its motion kept is drawn at once. Any other is waited for
+  (`applier_landing.rs`), one whose last frame left the window a pixel
+  short too, as the placement moves it that pixel and it reports. The
+  window is repainted again once it lands, as a posted repaint only repairs
+  what was wrong before the changes queued ahead of it, and the border its
+  motion kept is drawn then, around where it was placed; until then the
+  border stays where the window was last found. It lands once it reports
+  being there, within 4 pixels, as a window that rounds its own size is;
+  once it reports being anywhere while nothing sent to it may still be on
+  its way; and when `LANDING_WAIT` (500 ms, twice `PENDING_LIMIT`) after
+  the placement has passed, if it is there or has moved since the
+  placement was posted, as a window that settles further away does, a
+  console sized to whole text cells say, or one whose report was missed. A
+  window that has not moved by then, as its application has not got to
+  the placement, is no longer waited for by time, so the daemon does not
+  wake for it: it lands on its next report, which comes once its
+  application gets there. A new motion of the window, or one that stops
+  on its way, ends the wait, and so does the user grabbing the window. A
+  `Border` effect for a window still to land, after any placement posted
+  behind frames, one that snaps too, replaces the style drawn then; a hide
+  happens at once.
+- A posted hide, minimize or show that changes something has the window as
+  it leaves it in the tiler's view of the desktop (`applier_shows.rs`), until
+  the desktop has the window that way, the window reports the change, or
+  nothing sent to the window may still be on its way. A show is kept as
+  long as a hide of the window is still expected to be reported, as it is
+  still to land. So a display change restores a window whose minimize is
+  queued before it places it, and a layout pass does not take a window
+  whose show is queued for one the user hid. A show of a window already
+  shown changes nothing, and is not kept. A hide or show by cloaking never
+  waits, so it is never kept.
+- A window the tiler places and that is out of view after the step, while
+  its changes are posted, counts as maximized as long as the desktop says
+  so (`plan_maximized.rs`): the platform may leave it maximized. A display
+  change shows a hidden maximized window whose changes are posted before it
+  places it, so the placement lands behind the show and ends the state, as
+  it restores a window still minimized first. A cloaked window counts as
+  shown, and is placed first as any other: a posted placement ends its
+  maximized state as it does a shown window's.
+
+`TilingManager::wants_frames()` says whether any window is moving, and
+`frame_due(after)` when the first motion is due to end, or the first wait by
+time for a window to land ends, after `after`, the last frame step.
+When `place_frames` returns `Unsupported`, the applier logs it once, places
+every moving window at its target at once, and lets nothing animate from
+then on; `TilingManager::turn_off_transitions()` does the same for a daemon
+that cannot have display frames. Any other error is logged once until
+frames work again, and places the windows the frames were for at their
+targets, as placements that snap do.
+
+While transitions are off, by the config, by the system's setting it
+follows, or because the platform cannot move windows frame by frame, the
+applier asks the platform to forget the windows it gave frames to
+(`FrameControl::settle_responding`), so that changes to them are made at
+once again: as they turn off, and at the start of every step after, before
+the tiler reads the desktop, and of every flush, for as long as one of
+those windows is still posted to, as it is within the grace or while its
+application does not respond (`applier_stop.rs`). So a step decides as it
+would from startup once the windows have settled.
 
 Other effects that reach a moving window (`applier_ends.rs`):
 
 - `Hide`, `Minimize`, and the window's `Destroyed` and `MoveStarted`
   events, which `Applier::echo` sees first, stop the motion where the window
-  is, and so does a `Minimized` or `Hidden` report that is not the tiler's
-  own, when the desktop agrees: the user minimized the window or its
-  application hid it, and the `Untile` that follows has nothing to finish.
-  The tiler ignores a hide report from a window still shown, as an
-  application recreating its surface sends, and a minimize report from one
-  restored again, and the window keeps moving. A window shown or restored
-  later is placed again by the tiler, and that placement snaps.
+  is, `Hide` and `Minimize` before they are made, as a frame posted after
+  them would land after them. So does a `Minimized` or `Hidden` report that
+  is not the tiler's own, when the desktop agrees: the user minimized the
+  window or its application hid it, and the `Untile` that follows has
+  nothing to finish. The tiler ignores a hide report from a window still
+  shown, as an application recreating its surface sends, and a minimize
+  report from one restored again, and the window keeps moving. A window
+  shown or restored later is placed again by the tiler, and that placement
+  snaps.
 - `Close` leaves it moving: the application may refuse to close, and its
   `Destroyed` or `Hidden` report ends the motion.
 - `Untile` and `Reveal` finish the motion at its target with a full
-  placement, and so does the tiler stopping, for every moving window and
-  every window a display change stopped, before it restores the windows. A
-  window the tiler lets go of gets no border drawn there: the step that lets
-  go of it drops its border.
+  placement. A window the tiler lets go of gets no border drawn there: the
+  step that lets go of it drops its border. The tiler stopping places every
+  moving window, and every window a display change stopped, at its target
+  before it reveals any, and draws no border there (`applier_stop.rs`).
 - A display change stops every motion where its window is as soon as it is
   noted (`TilingManager::display_changing()`), and each window keeps its
   target (`applier_display.rs`). Until the change is rebuilt for, every
@@ -375,6 +484,10 @@ Other effects that reach a moving window (`applier_ends.rs`):
   the border its motion kept is drawn there.
 - `Focus { move_cursor: true }` and `CenterCursor` put the pointer at the
   center of the window's target, not where it is on its way there.
+- `MouseHover` is dropped while windows move. That rarely matters: a report
+  takes three polls of the pointer, at least 200 ms, longer than a default
+  180 ms transition, so a window sliding under a pointer at rest is usually
+  reported only once it has stopped.
 
 ### Window Tileability
 

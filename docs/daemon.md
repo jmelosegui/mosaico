@@ -175,9 +175,12 @@ back, in order:
    however many, and once the wait reaches the earliest end of a motion
    after the last frame step (`Scheduler::last_frame_step`), which
    `begin_wait` is given, so a transition ends on time even when no frame
-   comes. An end at or before the last frame step has had its step and is
-   let go, so one left in the past never makes the loop spin, nor keeps the
-   wait from ending for the ends after it. Frames are not input either.
+   comes. The same goes for the end of the wait by time for a window to
+   land where a posted placement takes it (see
+   [tiling-layout.md](tiling-layout.md#placements-that-animate)). An end
+   at or before the last frame step has had its step and is let go, so one
+   left in the past never makes the loop spin, nor keeps the wait from
+   ending for the ends after it. Frames are not input either.
    They come from the platform's `FrameClock` (`mosaico_core::daemon`),
    which wakes the loop about once per display refresh while it wants
    frames, and never has more than one waiting in the queue. Before every
@@ -389,8 +392,10 @@ Shutdown is triggered by:
 - A `Stop` command received via IPC
 - The main loop breaks, which triggers cleanup:
   - The frame pacer is dropped, which stops its thread within a frame
-  - `TilingManager::restore_all_windows()` -- shows all hidden workspace
-    windows so they are not left invisible after exit
+  - `TilingManager::restore_all_windows()` -- places every window still in
+    a transition at its target, behind any frame on its way to it, then
+    shows all hidden workspace windows so they are not left invisible after
+    exit
   - `BarManager::hide_all()` -- hides all status bar overlay windows
   - `Inputs::stop()` posts `WM_QUIT` to the window event thread, which
     destroys its hidden window and removes its hooks, then to the hotkey

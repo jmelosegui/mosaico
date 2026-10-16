@@ -1,6 +1,7 @@
 //! Which placements become motions as they are applied.
 
 use crate::config::Config;
+use crate::tiler::tests::fake_platform::Call;
 use crate::{Action, Rect};
 
 use super::{animated, placements, settle, swap, two};
@@ -110,10 +111,11 @@ fn a_placement_made_at_once_ends_the_motion_of_its_window() {
     // Act
     manager.handle_action(&Action::Retile);
 
-    // Assert -- placed in full at once, and nothing is left moving.
+    // Assert -- placed in full at once, and no frame moves them after.
     assert_eq!(placements(&platform.take_calls()), [(2, left), (1, right)]);
-    assert!(!manager.wants_frames());
-    assert_eq!(settle(&platform, &mut manager), 0);
+    settle(&platform, &mut manager);
+    let frames = |call: &Call| matches!(call, Call::PlaceFrames(_));
+    assert!(!platform.take_calls().iter().any(frames));
 }
 
 #[test]

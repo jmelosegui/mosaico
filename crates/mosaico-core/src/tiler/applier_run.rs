@@ -4,6 +4,7 @@ use std::time::Instant;
 
 use super::super::{Effect, Platform, apply_decoration_effect, apply_window_effect};
 use super::Applier;
+use super::shows::left_by;
 
 impl Applier {
     /// Carries out `effect` through the platform, and records it.
@@ -25,26 +26,32 @@ impl Applier {
                 self.forget_stopped(window);
                 self.run_place(effect, platform, now);
             }
-            // What ends a motion, effect by effect, is in `applier_ends.rs`.
+            // What ends a motion, effect by effect, is in `applier_ends.rs`,
+            // and what is kept of a change on its way in `applier_posted.rs`.
             Effect::Hide { window, .. } | Effect::Minimize { window } => {
                 self.stop_motion(window);
                 apply_window_effect(effect, platform.desktop(), platform.control());
+                self.show_state(window, left_by(effect), platform);
             }
-            Effect::Reveal { window } => {
-                self.finish_motion(window, platform);
+            Effect::Reveal { window } | Effect::Show { window, .. } => {
+                if let Effect::Reveal { .. } = effect {
+                    self.finish_motion(window, platform);
+                }
+                let minimized = platform.desktop().is_minimized(window);
+                self.expectations.showing(window, minimized);
                 apply_window_effect(effect, platform.desktop(), platform.control());
+                self.show_state(window, left_by(effect), platform);
             }
             Effect::Focus {
                 window,
                 move_cursor: true,
             }
             | Effect::CenterCursor { window }
-                if self.is_moving_window(window) =>
+                if self.aim(window, platform.control()).is_some() =>
             {
                 self.point_at_target(effect, window, platform.control());
             }
             Effect::PrePlace { .. }
-            | Effect::Show { .. }
             | Effect::Focus { .. }
             | Effect::CenterCursor { .. }
             | Effect::Close { .. }
@@ -66,14 +73,25 @@ impl Applier {
             {
                 self.border_of_moving(window, style, platform.decorations());
             }
-            Effect::DropBorder { window } => {
-                self.forget_kept_border(window);
+            // One still to land where a posted placement takes it has the
+            // style drawn once it lands, around where it was placed
+            // (`applier_landing.rs`). A border to be hidden is hidden at once.
+            Effect::Border { window, ref style } if self.is_landing(window) => {
+                self.defer_border(window, style.clone());
+                if style.is_none() {
+                    apply_decoration_effect(effect, platform.decorations());
+                }
+            }
+            Effect::Border { .. } | Effect::DropBorder { .. } => {
+                if let Effect::DropBorder { window } = *effect {
+                    self.forget_kept_border(window);
+                    self.forget_deferred_border(window);
+                }
                 apply_decoration_effect(effect, platform.decorations());
             }
-            Effect::Decorate { .. }
-            | Effect::Undecorate { .. }
-            | Effect::Border { .. }
-            | Effect::RedrawBorders => apply_decoration_effect(effect, platform.decorations()),
+            Effect::Decorate { .. } | Effect::Undecorate { .. } | Effect::RedrawBorders => {
+                apply_decoration_effect(effect, platform.decorations())
+            }
         }
         self.expectations.applied(effect, now);
         if self

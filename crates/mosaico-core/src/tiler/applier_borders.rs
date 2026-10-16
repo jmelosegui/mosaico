@@ -4,9 +4,11 @@
 //! tens of milliseconds for a large window, too long for a frame. So a
 //! `Border` effect for a moving window only replaces the style its motion
 //! draws once the window is in place, at the rect it ends at. Hiding a
-//! border is cheap and happens at once. A window that changes size on its
-//! way has its border hidden until then, since the border could not
-//! follow it.
+//! border is cheap and happens at once. On the way, the border is moved,
+//! not drawn, to wherever a frame finds the window, and stays put while
+//! the window is still to handle its frame. A window that changes size on
+//! its way has its border hidden until it is in place, since the border
+//! could not follow it.
 
 use crate::{Decorations, Rect, WindowId};
 
@@ -64,20 +66,56 @@ impl Applier {
         rect: Rect,
         decorations: &mut dyn Decorations,
     ) {
-        let kept = self.transitions.borders.remove(&window);
-        if let Some(mut style) = kept.and_then(|border| border.style) {
-            style.rect = rect;
-            let draw = Effect::Border {
-                window,
-                style: Some(style),
-            };
-            apply_decoration_effect(&draw, decorations);
-        }
+        let style = self.take_kept_border(window);
+        draw_border(window, style, rect, decorations);
+    }
+
+    /// Takes the style `window` had kept for its motion, to draw once it is
+    /// in place.
+    pub(super) fn take_kept_border(&mut self, window: WindowId) -> Option<BorderStyle> {
+        self.transitions
+            .borders
+            .remove(&window)
+            .and_then(|border| border.style)
     }
 
     /// Forgets the border `window` had kept for its motion: what the tiler
     /// decides for it next is drawn as it comes.
     pub(super) fn forget_kept_border(&mut self, window: WindowId) {
         self.transitions.borders.remove(&window);
+    }
+
+    /// Moves the border of each window a frame found somewhere new to the
+    /// rect `reached` gives it, unless the border is hidden for the motion.
+    pub(super) fn follow_reached(
+        &self,
+        reached: &[(WindowId, Rect)],
+        decorations: &mut dyn Decorations,
+    ) {
+        for &(window, rect) in reached {
+            let border = self.transitions.borders.get(&window);
+            if border.is_some_and(|b| b.style.is_some() && !b.hidden) {
+                // A border that cannot be moved stays where it is until
+                // it is drawn around the window's final rect.
+                let _ = decorations.move_border(window, rect);
+            }
+        }
+    }
+}
+
+/// Draws `style`, if there is one, around `rect`, where `window` is.
+pub(super) fn draw_border(
+    window: WindowId,
+    style: Option<BorderStyle>,
+    rect: Rect,
+    decorations: &mut dyn Decorations,
+) {
+    if let Some(mut style) = style {
+        style.rect = rect;
+        let draw = Effect::Border {
+            window,
+            style: Some(style),
+        };
+        apply_decoration_effect(&draw, decorations);
     }
 }

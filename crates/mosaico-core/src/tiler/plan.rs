@@ -19,6 +19,8 @@ use super::{Desktop, Effect, WindowFacts};
 
 #[path = "plan_borders.rs"]
 mod borders;
+#[path = "plan_maximized.rs"]
+mod maximized;
 #[path = "plan_transitions.rs"]
 mod transitions;
 
@@ -113,11 +115,6 @@ impl<'a> Plan<'a> {
         self.planned(window)
             .minimized
             .unwrap_or_else(|| self.desktop.is_minimized(window))
-    }
-
-    pub(super) fn is_maximized(&self, window: WindowId) -> bool {
-        // A window placed this step is no longer maximized.
-        self.planned(window).rect.is_none() && self.desktop.is_maximized(window)
     }
 
     pub(super) fn rect(&self, window: WindowId) -> Option<Rect> {

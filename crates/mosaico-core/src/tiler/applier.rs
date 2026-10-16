@@ -33,12 +33,26 @@ mod borders;
 mod display;
 #[path = "applier_ends.rs"]
 mod ends;
+#[path = "applier_frames.rs"]
+mod frames;
 #[path = "applier_hidden.rs"]
 mod hidden;
+#[path = "applier_landing.rs"]
+mod landing;
 #[path = "applier_motion.rs"]
 mod motion;
+#[path = "applier_posted.rs"]
+mod posted;
+#[path = "applier_reports.rs"]
+mod reports;
 #[path = "applier_run.rs"]
 mod run;
+#[path = "applier_shows.rs"]
+mod shows;
+#[path = "applier_stop.rs"]
+mod stop;
+#[path = "applier_view.rs"]
+mod view;
 
 /// Executes effects and remembers what the OS should report back.
 #[derive(Default)]
@@ -58,6 +72,8 @@ pub(super) struct Applier {
     transitions: motion::Transitions,
     /// What a display change stopped, until it is rebuilt for.
     display: display::DisplayChange,
+    /// What may still be on its way to windows.
+    posted: posted::Posted,
 }
 
 impl Applier {
@@ -77,13 +93,15 @@ impl Applier {
         }
     }
 
-    /// Applies effects in order, holding back the ones that may wait.
+    /// Applies effects in order, holding back the ones that may wait. The
+    /// windows they set moving form a step, which falls behind as one.
     pub(super) fn apply(
         &mut self,
         effects: Vec<Effect>,
         platform: &mut dyn Platform,
         now: Instant,
     ) {
+        self.transitions.motions.begin_step();
         for effect in effects {
             if matches!(effect, Effect::Focus { .. }) {
                 self.expectations.held(&effect);
@@ -110,33 +128,12 @@ impl Applier {
         self.held.held_since()
     }
 
-    /// Applies everything held back.
+    /// Applies everything held back, as a step of its own.
     pub(super) fn flush(&mut self, platform: &mut dyn Platform, now: Instant) {
+        self.transitions.motions.begin_step();
+        self.settle_while_off(platform);
         for effect in self.held.take() {
             self.run(&effect, platform, now);
         }
-    }
-
-    /// Why an event is an echo of our own effects, if it is one.
-    pub(super) fn echo(
-        &mut self,
-        event: &crate::WindowEvent,
-        desktop: &dyn super::Desktop,
-        now: Instant,
-    ) -> Option<&'static str> {
-        // Nothing held for a window that no longer exists may be applied.
-        if let crate::WindowEvent::Destroyed { window } = *event {
-            self.held.forget(window);
-            self.release_dropped_focus();
-            self.moved_on_screen.remove(&window);
-        }
-        // A window that slides under a pointer at rest is not one the user
-        // pointed at.
-        if matches!(event, crate::WindowEvent::MouseHover { .. }) && self.is_moving() {
-            return Some("windows are moving");
-        }
-        let echo = self.expectations.echo(event, now);
-        self.motion_seen(event, echo.is_some(), desktop);
-        echo
     }
 }

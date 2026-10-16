@@ -16,8 +16,8 @@ mod frame;
 /// Before each wait for messages the loop calls [`Scheduler::begin_wait`]
 /// with the time, what
 /// [`Coalescer::held_since`](crate::tiler::Coalescer::held_since)
-/// reports and the earliest end of a motion after the last frame step, then
-/// hands whatever ended the wait to [`Scheduler::step`].
+/// reports and the first frame step due after the last one, as at the end
+/// of a motion, then hands whatever ended the wait to [`Scheduler::step`].
 ///
 /// - Held effects are flushed once the loop has waited
 ///   [`QUIET`](crate::tiler::QUIET) with no input arriving, and at the
@@ -75,9 +75,9 @@ impl Scheduler {
     /// given, unless the last wait goes on, and returns how long it may
     /// wait for messages, or `None` when nothing is due until one
     /// arrives. `held_since` is when the effects the tiling manager holds
-    /// started being held, if any, and `frame_due` the earliest end of a
-    /// motion after the [`last_frame_step`](Self::last_frame_step): the
-    /// wait ends by then with a frame step. One at or before it is let go.
+    /// started being held, if any, and `frame_due` the first frame step due
+    /// after the [`last_frame_step`](Self::last_frame_step), as at the end of
+    /// a motion: the wait ends by then with it. One at or before it is let go.
     pub fn begin_wait(
         &mut self,
         held_since: Option<Instant>,

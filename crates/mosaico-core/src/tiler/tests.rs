@@ -40,7 +40,7 @@ mod empty_focus_tests;
 #[path = "tests/event_tests.rs"]
 mod event_tests;
 #[path = "tests/fake_desktop.rs"]
-mod fake_desktop;
+pub(super) mod fake_desktop;
 #[path = "tests/fake_platform.rs"]
 pub(super) mod fake_platform;
 #[path = "tests/fallback_tests.rs"]

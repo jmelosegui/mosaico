@@ -1,21 +1,23 @@
-//! Motions a display change ends.
+//! Motions a display change ends: each stops where it is as the change is
+//! noted, and keeps its target, every placement snaps until the rebuild,
+//! and the rebuild, or its absence, leaves each window stopped in its slot.
 
 use crate::tiler::Display;
 use crate::tiler::tests::fake_platform::Call;
 use crate::tiler::tests::{MON_H, MON_W, displays};
 use crate::{Action, Direction, Rect};
 
-use super::{animated, placements, settle, swap, two};
+use super::{REFRESH, animated, placements, settle, swap, two};
 
 /// One monitor whose work area loses 100 pixels at the bottom.
-fn shorter() -> Vec<Display> {
+pub(super) fn shorter() -> Vec<Display> {
     let mut monitors = displays(1);
     monitors[0].work_area = Rect::new(0, 0, MON_W, MON_H - 100);
     monitors
 }
 
 /// Whether `rect` is in the work area of [`shorter`].
-fn fits(rect: &Rect) -> bool {
+pub(super) fn fits(rect: &Rect) -> bool {
     rect.y + rect.height <= MON_H - 100
 }
 
@@ -73,11 +75,16 @@ fn a_display_change_stops_every_motion_where_it_is_until_it_is_rebuilt_for() {
 #[test]
 fn the_windows_a_display_change_stopped_go_to_their_targets_rebuilt_for_or_not() {
     for rebuilt in [true, false] {
-        // Arrange -- a burst of changes that settles back where it started,
-        // or monitors that cannot be read once it settles.
+        // Arrange -- a swap three frames in, when a burst of changes comes
+        // that settles back where it started, or after which the monitors
+        // cannot be read.
         let (platform, mut manager) = two(&animated());
         let (left, right) = (platform.window(1).rect, platform.window(2).rect);
         swap(&mut manager);
+        for _ in 0..3 {
+            platform.advance(REFRESH);
+            manager.frame();
+        }
         manager.display_changing();
         platform.take_calls();
 

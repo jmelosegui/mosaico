@@ -2,7 +2,7 @@
 
 use std::collections::HashSet;
 
-use crate::config::{HidingBehaviour, WorkspaceMode};
+use crate::config::WorkspaceMode;
 
 use crate::WindowId;
 
@@ -118,9 +118,9 @@ impl Tiler {
         // handed it on and the system's own pick is not followed. Windows
         // that landed on an inactive workspace are hidden before the
         // retile; the ones on an active workspace are shown after it, so
-        // they appear in their final place. One the tiler minimized, and
-        // that is still minimized, is restored before it instead, as a
-        // workspace switch does: its slot cannot be set while minimized.
+        // they appear in their final place. One whose slot cannot be set
+        // while it is out of view is shown before it instead, as a
+        // workspace switch does (see `HiddenHow::shown_first`).
         let (shown, hidden): (Vec<WindowId>, Vec<WindowId>) = moved
             .into_iter()
             .partition(|&w| self.is_on_active_workspace(w));
@@ -129,9 +129,9 @@ impl Tiler {
         for &window in &hidden {
             self.hidden_how.hide(plan, window, how);
         }
-        let (restored, shown): (Vec<WindowId>, Vec<WindowId>) = shown.into_iter().partition(|&w| {
-            self.hidden_how.still_hidden(plan, w) == Some(HidingBehaviour::Minimize)
-        });
+        let (restored, shown): (Vec<WindowId>, Vec<WindowId>) = shown
+            .into_iter()
+            .partition(|&w| self.hidden_how.shown_first(plan, w));
         for &window in &restored {
             self.hidden_how.show(plan, window, how);
         }

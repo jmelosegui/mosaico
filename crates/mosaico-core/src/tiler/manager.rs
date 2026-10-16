@@ -74,7 +74,11 @@ impl<P: Platform> TilingManager<P> {
 
     fn step(&mut self, input: Input) {
         let now = self.platform.now();
-        let effects = self.tiler.step(input, self.platform.desktop(), now);
+        // While transitions are off, the platform forgets the windows it no
+        // longer needs to post to before the tiler reads the desktop.
+        self.applier.settle_while_off(&self.platform);
+        let desktop = self.applier.view(&self.platform, now);
+        let effects = self.tiler.step(input, &desktop, now);
         self.applier.apply(effects, &mut self.platform, now);
     }
 
@@ -88,10 +92,8 @@ impl<P: Platform> TilingManager<P> {
         if let WindowEvent::Destroyed { window } = *event {
             self.applier.forget(window);
         }
-        if let Some(reason) = self
-            .applier
-            .echo(event, self.platform.desktop(), self.platform.now())
-        {
+        let now = self.platform.now();
+        if let Some(reason) = self.applier.echo(event, &mut self.platform, now) {
             crate::log_debug!("{} suppressed ({})", event, reason);
             return;
         }

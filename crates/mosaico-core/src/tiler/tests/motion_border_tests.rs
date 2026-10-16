@@ -33,7 +33,7 @@ fn a_moving_window_has_its_border_drawn_once_it_is_in_place() {
     let on_the_way = borders(&platform.take_calls());
     settle(&platform, &mut manager);
 
-    // Assert
+    // Assert -- each as its motion ends, with its window there already.
     assert!(on_the_way.is_empty(), "{on_the_way:?}");
     let in_place = borders(&platform.take_calls());
     assert_eq!(in_place, [(2, Some(left)), (1, Some(right))]);

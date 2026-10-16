@@ -36,6 +36,9 @@ pub(crate) struct FakeWindow {
     /// Whether its application is not responding, so it gets to nothing
     /// queued for it.
     pub(crate) hung: bool,
+    /// Whether its application stops responding as the next placement of
+    /// the window is made, before the placement gets to it.
+    pub(crate) hangs_on_place: bool,
     /// What is queued for the window, oldest first, and for how many
     /// more calls.
     pub(crate) queued: Vec<(Queued, usize)>,
@@ -66,6 +69,7 @@ impl FakeWindow {
             frame_delay: 0,
             absorbs_frames: false,
             hung: false,
+            hangs_on_place: false,
             queued: Vec::new(),
         }
     }

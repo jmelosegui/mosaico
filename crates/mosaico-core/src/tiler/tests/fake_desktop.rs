@@ -1,6 +1,6 @@
 //! An in-memory desktop for the tiler tests.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::frames::FrameTable;
 use crate::{MonitorId, Rect, WindowId};
@@ -34,6 +34,9 @@ pub(crate) struct FakeDesktop {
     pub(crate) frames: FrameTable<()>,
     /// Whether the user turned animations off in the system's settings.
     pub(crate) animations_off: bool,
+    /// The windows whose changes it says are posted, for the tiler on its
+    /// own: through the manager, the window control says.
+    pub(crate) posting: HashSet<WindowId>,
 }
 
 impl Desktop for FakeDesktop {
@@ -89,5 +92,9 @@ impl Desktop for FakeDesktop {
 
     fn animations_allowed(&self) -> bool {
         !self.animations_off
+    }
+
+    fn changes_posted(&self, window: WindowId) -> bool {
+        self.posting.contains(&window)
     }
 }

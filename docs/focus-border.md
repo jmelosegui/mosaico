@@ -215,18 +215,41 @@ Drawing a border can take tens of milliseconds for a large window, too long
 for a frame of a transition, so a border is never drawn while its window
 moves (`tiler/applier_borders.rs`). A `Border` effect for a moving window
 only replaces the style that is drawn once the window is in place, around
-the rect it ends at; a hide happens at once, since it costs nothing. A
-window whose size changes on its way has its border hidden as its motion
-starts, since the border could not follow it, and drawn once at the end.
-A window whose motion stops on the way, as when it is hidden or the user
-grabs it, gets no border drawn for that motion: what the tiler decides for
-it next is drawn as it comes. Nor does one the tiler lets go of while it
-moves: it is placed where it was going, and the step drops its border.
-One a display change stops keeps the style until it is placed at its
-target, after the rebuild, and has it drawn there, unless the tiler placed
-it or took it out of view meanwhile; a `Border` effect for it meanwhile
-replaces the style, as for a moving window. `DropBorder` forgets the style
-a motion kept, so a border dropped meanwhile is not drawn again.
+the rect it ends at; a hide happens at once, since it costs nothing. On the
+way, the border follows the window: each frame step moves it with
+`move_border` to where the platform found the window, or, when the window
+took the frame posted at the step before exactly, to the frame now posted.
+So it neither trails a window that keeps up nor runs ahead of a slow
+application, and it stays where it is while the window is still to handle
+its frame. A window whose size changes on its way has its border hidden as
+its motion starts, since the border could not follow it, and drawn once at
+the end. The placement that ends a motion usually finds the window there
+already, as its last frame took it to its target, and the border is drawn
+at once. When the placement is posted behind what is still on its way to
+the window, and the window is not there yet, within 4 pixels on every
+edge, or its last frame took it elsewhere, if only a pixel short, the
+border is drawn once the window reports being there
+(`tiler/applier_landing.rs`). As a placement that moves nothing reports
+nothing, the border of a window that has not reported half a second after
+the placement is drawn then, if the window has moved since or is there.
+One that has not moved, as its application has not got to the placement,
+has its border drawn once it reports where it is next. Until then the
+border stays where the window was last found, so it never runs ahead of a
+window that fell behind. A `Border` effect for a window still to land that
+way, after any placement posted behind frames, one that snaps too,
+replaces the style drawn then, around where the window was placed; a hide
+happens at once. A new motion of the window, or the user grabbing it, ends
+the wait. A window whose motion stops on the way, as when it is hidden,
+maximized or minimized, or the user grabs it, gets no border drawn for that
+motion, and what its motion kept for the border is dropped with it: what
+the tiler decides for it next is drawn as it comes. Nor does one the tiler
+lets go of while it moves: it is placed where it was going, and the step
+drops its border. One a display change stops keeps the style until it is
+placed at its target, after the rebuild, and has it drawn there, unless the
+tiler placed it or took it out of view meanwhile; a `Border` effect for it
+meanwhile replaces the style, as for a moving window. `DropBorder` forgets
+the style a motion kept, or one kept for a window still to land, so a
+border dropped meanwhile is not drawn again.
 
 Color selection per window:
 

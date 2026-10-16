@@ -3,7 +3,7 @@
 
 use crate::{Rect, WindowId};
 
-use super::super::FakeWindow;
+use super::super::{FakeDesktop, FakeWindow};
 
 /// Something queued for a window, which its application gets to late.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -36,6 +36,19 @@ impl Queued {
             Self::Minimize | Self::Hide => Some(false),
             Self::Show | Self::Reveal => Some(true),
             Self::Frame(_) | Self::Place(_) | Self::PlaceMaximized(_) | Self::PutBehind(_) => None,
+        }
+    }
+}
+
+impl FakeDesktop {
+    /// The application of `window` gets to what is queued for it, in order,
+    /// up to and including the first `until`, which must be queued.
+    pub(crate) fn catch_up_through(&mut self, window: WindowId, until: Queued) {
+        let w = self.windows.get_mut(&window).expect("window exists");
+        let at = w.queued.iter().position(|&(queued, _)| queued == until);
+        let landing: Vec<_> = w.queued.drain(..=at.expect("queued")).collect();
+        for (queued, _) in landing {
+            self.land_on(window, queued);
         }
     }
 }

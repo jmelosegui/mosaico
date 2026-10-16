@@ -20,7 +20,8 @@ impl<P: Platform> TilingManager<P> {
 
     /// Shows every window again and restores their frames. Called on
     /// shutdown so nothing is left hidden. Windows still moving are placed
-    /// in their slots first.
+    /// in their slots first, behind the frames on their way to them, and
+    /// have no border drawn there: the tiler hides them all.
     pub fn restore_all_windows(&mut self) {
         self.applier.finish_motions(&mut self.platform);
         self.step(Input::Shutdown);
