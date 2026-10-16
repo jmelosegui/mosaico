@@ -1,4 +1,4 @@
-use mosaico_core::{Rect, WindowId, WindowResult};
+use mosaico_core::{Rect, Result, WindowId};
 
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::{
@@ -7,6 +7,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
     SWP_NOSENDCHANGING, SWP_NOZORDER, SetWindowPos,
 };
 
+use crate::error::OrPlatform;
 use crate::frame;
 
 /// Flags used when moving a window that has been created but not shown.
@@ -81,7 +82,7 @@ impl Window {
     /// is applied whenever that thread gets around to it, which is exactly
     /// the semantics pre placement wants, since nothing depends on the new
     /// position having landed before the window is shown.
-    pub fn move_async(&self, rect: &Rect) -> WindowResult<()> {
+    pub fn move_async(&self, rect: &Rect) -> Result<()> {
         // Compensate for invisible borders so the visible portion lands
         // exactly at the requested position and size, as set_rect does.
         let border = frame::border_offset(self.hwnd)?;
@@ -102,10 +103,8 @@ impl Window {
         // SAFETY: SetWindowPos is safe to call with a valid HWND.
         // SWP_ASYNCWINDOWPOS posts the request rather than sending it, so
         // this cannot block on an unresponsive owning thread.
-        unsafe {
-            SetWindowPos(self.hwnd, None, x, y, cx, cy, PRE_PLACE_FLAGS)?;
-        }
-        Ok(())
+        unsafe { SetWindowPos(self.hwnd, None, x, y, cx, cy, PRE_PLACE_FLAGS) }
+            .or_platform("move the window")
     }
 
     /// Returns whether this window needs `SWP_FRAMECHANGED` to update
@@ -381,7 +380,7 @@ impl Window {
 }
 
 impl mosaico_core::Window for Window {
-    fn title(&self) -> WindowResult<String> {
+    fn title(&self) -> Result<String> {
         // SAFETY: GetWindowTextLengthW and GetWindowTextW are safe to call
         // with a valid HWND. They read window text without modifying state.
         unsafe {
@@ -397,7 +396,7 @@ impl mosaico_core::Window for Window {
         }
     }
 
-    fn class(&self) -> WindowResult<String> {
+    fn class(&self) -> Result<String> {
         // SAFETY: RealGetWindowClassW reads the window class name.
         // 256 is the maximum class name length in Win32.
         unsafe {
@@ -407,12 +406,12 @@ impl mosaico_core::Window for Window {
         }
     }
 
-    fn rect(&self) -> WindowResult<Rect> {
+    fn rect(&self) -> Result<Rect> {
         let frame = frame::visible_rect(self.hwnd)?;
         Ok(crate::monitor::rect_from_win32(&frame))
     }
 
-    fn set_rect(&self, rect: &mosaico_core::Rect) -> WindowResult<()> {
+    fn set_rect(&self, rect: &mosaico_core::Rect) -> Result<()> {
         // If the window is maximized, clear the WS_MAXIMIZE style first.
         // SetWindowPos alone doesn't remove the style, leaving the window
         // in a "maximized but tiled-sized" ghost state with wrong frame
@@ -471,8 +470,7 @@ impl mosaico_core::Window for Window {
         );
 
         // SAFETY: SetWindowPos with a valid HWND is safe.
-        unsafe { SetWindowPos(self.hwnd, None, x, y, cx, cy, flags)? };
-        Ok(())
+        unsafe { SetWindowPos(self.hwnd, None, x, y, cx, cy, flags) }.or_platform("move the window")
     }
 
     fn invalidate(&self) {

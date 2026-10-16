@@ -6,6 +6,8 @@ pub mod keybinding;
 mod loader;
 /// Color palette definitions for themes.
 mod palette;
+/// Telling the user about their config while it loads.
+mod report;
 /// Window management rules.
 pub mod rules;
 /// Default configuration file templates.

@@ -6,6 +6,8 @@
 pub mod action;
 /// Configuration loading and types.
 pub mod config;
+/// The error type shared by core and the platform contracts.
+pub mod error;
 /// Window lifecycle events from the platform.
 pub mod event;
 /// Opaque window and monitor ids.
@@ -39,6 +41,7 @@ pub mod workspace;
 
 pub use action::{Action, Direction};
 pub use config::{BarConfig, Config};
+pub use error::{Error, Result};
 pub use event::WindowEvent;
 pub use id::{MonitorId, WindowId};
 pub use instance::Instance;
@@ -46,5 +49,5 @@ pub use ipc::{Command, Response};
 pub use layout::{BspLayout, Layout, LayoutKind, ThreeColumnLayout, VerticalStackLayout};
 pub use monitor::{EdidIdentity, Monitor, MonitorKey, match_monitors, pnp_manufacturer};
 pub use rect::Rect;
-pub use window::{Window, WindowResult};
+pub use window::Window;
 pub use workspace::Workspace;

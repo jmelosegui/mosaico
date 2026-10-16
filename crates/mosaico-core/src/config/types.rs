@@ -9,6 +9,8 @@ use serde::{Deserialize, Deserializer, Serialize};
 use crate::action::MAX_WORKSPACES;
 use crate::layout::LayoutKind;
 
+use super::report;
+
 /// Layout algorithm settings.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
@@ -69,15 +71,15 @@ where
                 out.insert(n, value);
             }
             Ok(n) => {
-                eprintln!(
-                    "Warning: ignoring [workspaces.layouts] entry for workspace {n}: \
+                report::warning(format_args!(
+                    "ignoring [workspaces.layouts] entry for workspace {n}: \
                      must be in 1..={MAX_WORKSPACES}"
-                );
+                ));
             }
             Err(_) => {
-                eprintln!(
-                    "Warning: ignoring [workspaces.layouts] entry with non-numeric key {key:?}"
-                );
+                report::warning(format_args!(
+                    "ignoring [workspaces.layouts] entry with non-numeric key {key:?}"
+                ));
             }
         }
     }

@@ -1,7 +1,13 @@
+use std::fmt;
 use std::path::{Path, PathBuf};
+
+use serde::de::DeserializeOwned;
+
+use crate::{Error, Result};
 
 use super::bar::BarConfig;
 use super::keybinding;
+use super::report;
 use super::rules::{KeybindingsFile, RulesFile, UserRulesFile};
 use super::{Config, Keybinding, WindowRule, default_rules};
 
@@ -40,8 +46,8 @@ pub fn bar_path() -> Option<PathBuf> {
 
 /// Tries to load and parse `config.toml`.
 ///
-/// Returns `Ok(Config)` on success, or an error string describing
-/// what went wrong (IO error, parse error, etc.).
+/// Returns `Ok(Config)` on success, or an [`Error::Config`] naming the
+/// file and what went wrong (IO error, parse error, etc.).
 ///
 /// If a legacy `[layout.workspaces]` section is detected, the file is
 /// backed up and rewritten in place to the new `[workspaces.layouts]`
@@ -51,17 +57,17 @@ pub fn bar_path() -> Option<PathBuf> {
 ///
 /// Returns `Err` if the config path cannot be determined, the file
 /// cannot be read, or the TOML content is invalid.
-pub fn try_load() -> Result<Config, String> {
-    let path = config_path().ok_or("could not determine config path")?;
-    let content = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+pub fn try_load() -> Result<Config> {
+    let path =
+        config_path().ok_or_else(|| Error::config(None, "could not determine config path"))?;
+    let content = read_file(&path)?;
 
     let content = match migrate_config_if_needed(&path, &content)? {
         Some(rewritten) => rewritten,
         None => content,
     };
 
-    let mut config: Config =
-        toml::from_str(&content).map_err(|e| format!("{}: {e}", path.display()))?;
+    let mut config: Config = parse_toml(&path, &content)?;
     config.validate();
     Ok(config)
 }
@@ -77,10 +83,8 @@ pub fn try_load() -> Result<Config, String> {
 /// the new content for the caller to parse.
 ///
 /// Returns `Ok(None)` when no migration was needed.
-fn migrate_config_if_needed(path: &Path, content: &str) -> Result<Option<String>, String> {
-    let mut doc: toml_edit::DocumentMut = content
-        .parse()
-        .map_err(|e| format!("{}: {e}", path.display()))?;
+fn migrate_config_if_needed(path: &Path, content: &str) -> Result<Option<String>> {
+    let mut doc: toml_edit::DocumentMut = content.parse().map_err(|e| file_error(path, e))?;
 
     let has_legacy_workspaces = doc
         .get("layout")
@@ -100,10 +104,9 @@ fn migrate_config_if_needed(path: &Path, content: &str) -> Result<Option<String>
     // without a safety net.
     let backup = backup_path(path);
     std::fs::copy(path, &backup).map_err(|e| {
-        format!(
-            "could not back up {} to {}: {e}",
-            path.display(),
-            backup.display()
+        file_error(
+            path,
+            format_args!("could not back up to {}: {e}", backup.display()),
         )
     })?;
 
@@ -120,14 +123,18 @@ fn migrate_config_if_needed(path: &Path, content: &str) -> Result<Option<String>
     }
 
     let new_content = doc.to_string();
-    std::fs::write(path, &new_content)
-        .map_err(|e| format!("could not write migrated config to {}: {e}", path.display()))?;
+    std::fs::write(path, &new_content).map_err(|e| {
+        file_error(
+            path,
+            format_args!("could not write the migrated config: {e}"),
+        )
+    })?;
 
-    eprintln!(
-        "Info: migrated config keys ({}). Backup saved at {}",
+    report::info(format_args!(
+        "migrated config keys ({}). Backup saved at {}",
         applied.join(", "),
         backup.display()
-    );
+    ));
 
     Ok(Some(new_content))
 }
@@ -136,7 +143,7 @@ fn migrate_config_if_needed(path: &Path, content: &str) -> Result<Option<String>
 ///
 /// If the user already has `[workspaces.layouts]`, keeps it and drops
 /// the legacy mapping (the new section wins).
-fn migrate_workspaces_section(doc: &mut toml_edit::DocumentMut, path: &Path) -> Result<(), String> {
+fn migrate_workspaces_section(doc: &mut toml_edit::DocumentMut, path: &Path) -> Result<()> {
     let legacy = doc
         .get_mut("layout")
         .and_then(|t| t.as_table_mut())
@@ -155,12 +162,7 @@ fn migrate_workspaces_section(doc: &mut toml_edit::DocumentMut, path: &Path) -> 
     let workspaces = doc
         .get_mut("workspaces")
         .and_then(|t| t.as_table_mut())
-        .ok_or_else(|| {
-            format!(
-                "{}: [workspaces] is not a table -- cannot migrate",
-                path.display()
-            )
-        })?;
+        .ok_or_else(|| file_error(path, "[workspaces] is not a table -- cannot migrate"))?;
 
     if !workspaces.contains_key("layouts") {
         workspaces.insert("layouts", legacy_item);
@@ -173,7 +175,7 @@ fn migrate_workspaces_section(doc: &mut toml_edit::DocumentMut, path: &Path) -> 
 ///
 /// If the user already has `[borders.colors].focused` or `.monocle`,
 /// the existing nested values win and the legacy keys are dropped.
-fn migrate_border_colors(doc: &mut toml_edit::DocumentMut, path: &Path) -> Result<(), String> {
+fn migrate_border_colors(doc: &mut toml_edit::DocumentMut, path: &Path) -> Result<()> {
     let borders = doc.get_mut("borders").and_then(|t| t.as_table_mut());
     let Some(borders) = borders else {
         return Ok(());
@@ -191,12 +193,7 @@ fn migrate_border_colors(doc: &mut toml_edit::DocumentMut, path: &Path) -> Resul
     let colors = borders
         .get_mut("colors")
         .and_then(|t| t.as_table_mut())
-        .ok_or_else(|| {
-            format!(
-                "{}: [borders.colors] is not a table -- cannot migrate",
-                path.display()
-            )
-        })?;
+        .ok_or_else(|| file_error(path, "[borders.colors] is not a table -- cannot migrate"))?;
 
     if let Some(item) = legacy_focused
         && !colors.contains_key("focused")
@@ -266,6 +263,7 @@ mode = "per-monitor"
 /// No-op when the file does not exist (a brand-new install will get the
 /// full section from `mosaico init`'s template). Errors are logged and
 /// swallowed -- failure here must not prevent the daemon from starting.
+/// Only the daemon calls this, so it reports to the log alone.
 pub fn merge_missing_config_sections() {
     let path = match config_path() {
         Some(p) if p.exists() => p,
@@ -273,21 +271,21 @@ pub fn merge_missing_config_sections() {
     };
 
     match append_missing_workspaces_section(&path) {
-        Ok(true) => eprintln!(
-            "Info: appended [workspaces] section to {} (new in this version)",
+        Ok(true) => crate::log_info!(
+            "Appended [workspaces] section to {} (new in this version)",
             path.display()
         ),
         Ok(false) => {}
-        Err(e) => eprintln!("Warning: {e}"),
+        Err(e) => crate::log_warn!("Could not add the [workspaces] section: {e}"),
     }
 
     match append_missing_unfocused_border_hint(&path) {
-        Ok(true) => eprintln!(
-            "Info: appended unfocused border hint to {} (new in this version)",
+        Ok(true) => crate::log_info!(
+            "Appended unfocused border hint to {} (new in this version)",
             path.display()
         ),
         Ok(false) => {}
-        Err(e) => eprintln!("Warning: {e}"),
+        Err(e) => crate::log_warn!("Could not add the unfocused border hint: {e}"),
     }
 }
 
@@ -315,13 +313,10 @@ const UNFOCUSED_BORDER_HINT_SNIPPET: &str = r##"
 /// Path-pure helper for [`merge_missing_config_sections`]: returns
 /// `Ok(true)` when an append happened, `Ok(false)` when the file already
 /// has a `[workspaces]` section.
-fn append_missing_workspaces_section(path: &Path) -> Result<bool, String> {
-    let content = std::fs::read_to_string(path)
-        .map_err(|e| format!("could not read {}: {e}", path.display()))?;
+fn append_missing_workspaces_section(path: &Path) -> Result<bool> {
+    let content = read_file(path)?;
 
-    let doc: toml_edit::DocumentMut = content
-        .parse()
-        .map_err(|e| format!("could not parse {}: {e}", path.display()))?;
+    let doc: toml_edit::DocumentMut = content.parse().map_err(|e| file_error(path, e))?;
 
     if doc.contains_key("workspaces") {
         return Ok(false);
@@ -335,13 +330,7 @@ fn append_missing_workspaces_section(path: &Path) -> Result<bool, String> {
     }
     to_append.push_str(WORKSPACES_SECTION_SNIPPET);
 
-    use std::io::Write;
-    let mut f = std::fs::OpenOptions::new()
-        .append(true)
-        .open(path)
-        .map_err(|e| format!("could not open {} for appending: {e}", path.display()))?;
-    f.write_all(to_append.as_bytes())
-        .map_err(|e| format!("could not append to {}: {e}", path.display()))?;
+    append_to_file(path, &to_append)?;
     Ok(true)
 }
 
@@ -358,13 +347,14 @@ fn append_missing_workspaces_section(path: &Path) -> Result<bool, String> {
 ///
 /// Both paths are idempotent: a second run finds the key (or the
 /// substring) already present and does nothing.
-fn append_missing_unfocused_border_hint(path: &Path) -> Result<bool, String> {
-    let content = std::fs::read_to_string(path)
-        .map_err(|e| format!("could not read {}: {e}", path.display()))?;
+fn append_missing_unfocused_border_hint(path: &Path) -> Result<bool> {
+    let content = read_file(path)?;
 
-    if let Some(updated) = insert_unfocused_into_active_section(&content)? {
+    let inserted =
+        insert_unfocused_into_active_section(&content).map_err(|e| file_error(path, e))?;
+    if let Some(updated) = inserted {
         std::fs::write(path, updated)
-            .map_err(|e| format!("could not write {}: {e}", path.display()))?;
+            .map_err(|e| file_error(path, format_args!("could not write it: {e}")))?;
         return Ok(true);
     }
 
@@ -381,14 +371,19 @@ fn append_missing_unfocused_border_hint(path: &Path) -> Result<bool, String> {
     }
     to_append.push_str(UNFOCUSED_BORDER_HINT_SNIPPET);
 
+    append_to_file(path, &to_append)?;
+    Ok(true)
+}
+
+/// Appends `text` to the config file at `path`.
+fn append_to_file(path: &Path, text: &str) -> Result<()> {
     use std::io::Write;
     let mut f = std::fs::OpenOptions::new()
         .append(true)
         .open(path)
-        .map_err(|e| format!("could not open {} for appending: {e}", path.display()))?;
-    f.write_all(to_append.as_bytes())
-        .map_err(|e| format!("could not append to {}: {e}", path.display()))?;
-    Ok(true)
+        .map_err(|e| file_error(path, format_args!("could not open it for appending: {e}")))?;
+    f.write_all(text.as_bytes())
+        .map_err(|e| file_error(path, format_args!("could not append to it: {e}")))
 }
 
 /// Inline comment placed above the inserted `unfocused` key. Kept on
@@ -403,9 +398,10 @@ const UNFOCUSED_INLINE_PREFIX: &str = "\n\
 /// If `content` has an active `[borders.colors]` table that is missing
 /// the `unfocused` key, returns the rewritten file contents with the
 /// key inserted. Returns `Ok(None)` when no edit is needed.
-fn insert_unfocused_into_active_section(content: &str) -> Result<Option<String>, String> {
-    let mut doc: toml_edit::DocumentMut =
-        content.parse().map_err(|e| format!("parse error: {e}"))?;
+fn insert_unfocused_into_active_section(
+    content: &str,
+) -> Result<Option<String>, toml_edit::TomlError> {
+    let mut doc: toml_edit::DocumentMut = content.parse()?;
 
     let Some(colors) = doc
         .get_mut("borders")
@@ -431,17 +427,17 @@ fn insert_unfocused_into_active_section(content: &str) -> Result<Option<String>,
 
 /// Tries to load and parse `keybindings.toml`.
 ///
-/// Returns the parsed keybindings or an error string.
+/// Returns the parsed keybindings or an [`Error::Config`] naming the
+/// file.
 ///
 /// # Errors
 ///
 /// Returns `Err` if the keybindings path cannot be determined, the file
 /// cannot be read, or the TOML content is invalid.
-pub fn try_load_keybindings() -> Result<Vec<Keybinding>, String> {
-    let path = keybindings_path().ok_or("could not determine keybindings path")?;
-    let content = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
-    let file: KeybindingsFile =
-        toml::from_str(&content).map_err(|e| format!("{}: {e}", path.display()))?;
+pub fn try_load_keybindings() -> Result<Vec<Keybinding>> {
+    let path = keybindings_path()
+        .ok_or_else(|| Error::config(None, "could not determine keybindings path"))?;
+    let file: KeybindingsFile = load_toml(&path)?;
     Ok(file.keybinding)
 }
 
@@ -464,6 +460,7 @@ pub fn load_keybindings() -> Vec<Keybinding> {
 /// automatically, without overwriting anything the user has configured.
 ///
 /// Falls back to `load_keybindings()` if the file cannot be read or written.
+/// Only the daemon calls this, so it reports to the log alone.
 pub fn merge_missing_keybindings() -> Vec<Keybinding> {
     let path = match keybindings_path() {
         Some(p) if p.exists() => p,
@@ -473,7 +470,7 @@ pub fn merge_missing_keybindings() -> Vec<Keybinding> {
     let user = match try_load_keybindings() {
         Ok(kb) => kb,
         Err(e) => {
-            eprintln!("Warning: {e}");
+            crate::log_warn!("Using the default keybindings: {e}");
             return keybinding::defaults();
         }
     };
@@ -499,18 +496,18 @@ pub fn merge_missing_keybindings() -> Vec<Keybinding> {
         Ok(mut f) => {
             use std::io::Write;
             if let Err(e) = f.write_all(addition.as_bytes()) {
-                eprintln!("Warning: could not append missing keybindings: {e}");
+                crate::log_warn!("Could not append missing keybindings: {e}");
                 return user;
             }
         }
         Err(e) => {
-            eprintln!("Warning: could not open keybindings file for appending: {e}");
+            crate::log_warn!("Could not open keybindings file for appending: {e}");
             return user;
         }
     }
 
-    eprintln!(
-        "Info: appended {} missing default keybinding(s) to keybindings.toml",
+    crate::log_info!(
+        "Appended {} missing default keybinding(s) to keybindings.toml",
         missing.len()
     );
 
@@ -551,6 +548,7 @@ fn keybinding_toml_entry(kb: &Keybinding) -> String {
 /// are picked up automatically, without overwriting anything the user has set.
 ///
 /// Falls back to `load_bar()` if the file cannot be read or written.
+/// Only the daemon calls this, so it reports to the log alone.
 pub fn merge_missing_bar_widgets() -> super::bar::BarConfig {
     use super::bar::{BarConfig, WidgetConfig};
     use serde::Serialize;
@@ -563,7 +561,7 @@ pub fn merge_missing_bar_widgets() -> super::bar::BarConfig {
     let mut user = match try_load_bar() {
         Ok(cfg) => cfg,
         Err(e) => {
-            eprintln!("Warning: {e}");
+            crate::log_warn!("Using the default bar: {e}");
             return BarConfig::default();
         }
     };
@@ -618,7 +616,7 @@ pub fn merge_missing_bar_widgets() -> super::bar::BarConfig {
             format!("\n# Added automatically — new defaults from this version of mosaico\n{s}")
         }
         Err(e) => {
-            eprintln!("Warning: could not serialize missing bar widgets: {e}");
+            crate::log_warn!("Could not serialize missing bar widgets: {e}");
             return user;
         }
     };
@@ -627,18 +625,18 @@ pub fn merge_missing_bar_widgets() -> super::bar::BarConfig {
         Ok(mut f) => {
             use std::io::Write;
             if let Err(e) = f.write_all(toml_addition.as_bytes()) {
-                eprintln!("Warning: could not append missing bar widgets: {e}");
+                crate::log_warn!("Could not append missing bar widgets: {e}");
                 return user;
             }
         }
         Err(e) => {
-            eprintln!("Warning: could not open bar.toml for appending: {e}");
+            crate::log_warn!("Could not open bar.toml for appending: {e}");
             return user;
         }
     }
 
     let total = missing_left.len() + missing_right.len();
-    eprintln!("Info: appended {total} missing default bar widget(s) to bar.toml");
+    crate::log_info!("Appended {total} missing default bar widget(s) to bar.toml");
 
     // Return merged config.
     user.left.extend(missing_left.into_iter().cloned());
@@ -648,17 +646,15 @@ pub fn merge_missing_bar_widgets() -> super::bar::BarConfig {
 
 /// Tries to load and parse `rules.toml`.
 ///
-/// Returns the parsed rules or an error string.
+/// Returns the parsed rules or an [`Error::Config`] naming the file.
 ///
 /// # Errors
 ///
 /// Returns `Err` if the rules path cannot be determined, the file
 /// cannot be read, or the TOML content is invalid.
-pub fn try_load_rules() -> Result<Vec<WindowRule>, String> {
-    let path = rules_path().ok_or("could not determine rules path")?;
-    let content = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
-    let file: RulesFile =
-        toml::from_str(&content).map_err(|e| format!("{}: {e}", path.display()))?;
+pub fn try_load_rules() -> Result<Vec<WindowRule>> {
+    let path = rules_path().ok_or_else(|| Error::config(None, "could not determine rules path"))?;
+    let file: RulesFile = load_toml(&path)?;
     Ok(file.rule)
 }
 
@@ -671,17 +667,16 @@ pub fn load_rules() -> Vec<WindowRule> {
 
 /// Tries to load and parse `user-rules.toml`.
 ///
-/// Returns the parsed rules or an error string.
+/// Returns the parsed rules or an [`Error::Config`] naming the file.
 ///
 /// # Errors
 ///
 /// Returns `Err` if the user-rules path cannot be determined, the file
 /// cannot be read, or the TOML content is invalid.
-pub fn try_load_user_rules() -> Result<Vec<WindowRule>, String> {
-    let path = user_rules_path().ok_or("could not determine user-rules path")?;
-    let content = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
-    let file: UserRulesFile =
-        toml::from_str(&content).map_err(|e| format!("{}: {e}", path.display()))?;
+pub fn try_load_user_rules() -> Result<Vec<WindowRule>> {
+    let path = user_rules_path()
+        .ok_or_else(|| Error::config(None, "could not determine user-rules path"))?;
+    let file: UserRulesFile = load_toml(&path)?;
     Ok(file.rule)
 }
 
@@ -705,19 +700,18 @@ pub fn load_merged_rules() -> Vec<WindowRule> {
 
 /// Tries to load and parse `bar.toml`.
 ///
-/// Returns the parsed bar config or an error string. Colors are **not**
-/// resolved here — the caller must call `resolve_colors(theme)` with
-/// the global theme from `config.toml`.
+/// Returns the parsed bar config or an [`Error::Config`] naming the
+/// file. Colors are **not** resolved here; the caller must call
+/// `resolve_colors(theme)` with the global theme from `config.toml`.
 ///
 /// # Errors
 ///
 /// Returns `Err` if the bar config path cannot be determined, the file
 /// cannot be read, or the TOML content is invalid.
-pub fn try_load_bar() -> Result<BarConfig, String> {
-    let path = bar_path().ok_or("could not determine bar config path")?;
-    let content = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
-    let mut config: BarConfig =
-        toml::from_str(&content).map_err(|e| format!("{}: {e}", path.display()))?;
+pub fn try_load_bar() -> Result<BarConfig> {
+    let path =
+        bar_path().ok_or_else(|| Error::config(None, "could not determine bar config path"))?;
+    let mut config: BarConfig = load_toml(&path)?;
     config.validate();
     Ok(config)
 }
@@ -731,10 +725,11 @@ pub fn load_bar() -> BarConfig {
 
 /// Loads a config value from disk, falling back to defaults.
 ///
-/// Non-existent files silently return defaults; other IO errors are logged.
+/// Non-existent files silently return defaults; other errors are
+/// reported as warnings, on standard error and in the log.
 fn load_or_default<T>(
     path: Option<PathBuf>,
-    try_load: impl FnOnce() -> Result<T, String>,
+    try_load: impl FnOnce() -> Result<T>,
     default: impl Fn() -> T,
 ) -> T {
     match path {
@@ -743,11 +738,33 @@ fn load_or_default<T>(
         _ => match try_load() {
             Ok(val) => val,
             Err(e) => {
-                eprintln!("Warning: {e}");
+                report::warning(format_args!("{e}"));
                 default()
             }
         },
     }
+}
+
+/// Reads and parses the config file at `path`.
+fn load_toml<T: DeserializeOwned>(path: &Path) -> Result<T> {
+    parse_toml(path, &read_file(path)?)
+}
+
+/// Reads the config file at `path`, naming it in the error.
+fn read_file(path: &Path) -> Result<String> {
+    std::fs::read_to_string(path).map_err(|e| file_error(path, e))
+}
+
+/// Parses `content`, the TOML of the config file at `path`, naming the
+/// file in the error.
+fn parse_toml<T: DeserializeOwned>(path: &Path, content: &str) -> Result<T> {
+    toml::from_str(content).map_err(|e| file_error(path, e))
+}
+
+/// A config error about the file at `path`. It reads
+/// `<path>: <problem>`, as these errors always have.
+fn file_error(path: &Path, problem: impl fmt::Display) -> Error {
+    Error::config(Some(path.to_path_buf()), problem.to_string())
 }
 
 #[cfg(test)]
@@ -1246,3 +1263,7 @@ focused = \"#abcdef\"
         cleanup(&path);
     }
 }
+
+#[cfg(test)]
+#[path = "loader_tests.rs"]
+mod tests;

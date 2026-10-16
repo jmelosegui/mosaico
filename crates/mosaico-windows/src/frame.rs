@@ -1,12 +1,14 @@
 use std::mem;
 
-use mosaico_core::WindowResult;
+use mosaico_core::Result;
 use mosaico_core::config::CornerStyle;
 use windows::Win32::Foundation::{HWND, RECT};
 use windows::Win32::Graphics::Dwm::{
     DWMWA_EXTENDED_FRAME_BOUNDS, DWMWINDOWATTRIBUTE, DwmGetWindowAttribute, DwmSetWindowAttribute,
 };
 use windows::Win32::UI::WindowsAndMessaging::GetWindowRect;
+
+use crate::error::OrPlatform;
 
 /// The invisible border widths around a window.
 ///
@@ -23,7 +25,7 @@ pub struct BorderOffset {
 /// Returns the visible bounds of a window using DWM extended frame bounds.
 ///
 /// Falls back to `GetWindowRect` if DWM is unavailable.
-pub fn visible_rect(hwnd: HWND) -> WindowResult<RECT> {
+pub fn visible_rect(hwnd: HWND) -> Result<RECT> {
     let mut frame = RECT::default();
     // SAFETY: DwmGetWindowAttribute queries a DWM attribute on a valid HWND.
     let result = unsafe {
@@ -37,7 +39,7 @@ pub fn visible_rect(hwnd: HWND) -> WindowResult<RECT> {
 
     if result.is_err() {
         // SAFETY: GetWindowRect retrieves the bounding rectangle of a valid HWND.
-        unsafe { GetWindowRect(hwnd, &mut frame)? };
+        unsafe { GetWindowRect(hwnd, &mut frame) }.or_platform("read the window bounds")?;
     }
 
     Ok(frame)
@@ -45,10 +47,10 @@ pub fn visible_rect(hwnd: HWND) -> WindowResult<RECT> {
 
 /// Computes the invisible border widths by comparing `GetWindowRect`
 /// (includes borders) with `DWMWA_EXTENDED_FRAME_BOUNDS` (visible area).
-pub fn border_offset(hwnd: HWND) -> WindowResult<BorderOffset> {
+pub fn border_offset(hwnd: HWND) -> Result<BorderOffset> {
     let mut window_rect = RECT::default();
     // SAFETY: GetWindowRect retrieves the bounding rectangle of a valid HWND.
-    unsafe { GetWindowRect(hwnd, &mut window_rect)? };
+    unsafe { GetWindowRect(hwnd, &mut window_rect) }.or_platform("read the window bounds")?;
 
     let frame_rect = visible_rect(hwnd)?;
 

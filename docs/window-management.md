@@ -11,7 +11,7 @@ and DPI awareness.
 
 | File | Purpose |
 |------|---------|
-| `crates/mosaico-core/src/window.rs` | `Window` trait, `WindowResult<T>` type alias |
+| `crates/mosaico-core/src/window.rs` | `Window` trait |
 | `crates/mosaico-windows/src/window.rs` | Win32 `Window` struct implementing the trait |
 | `crates/mosaico-windows/src/frame.rs` | `visible_rect()`, `border_offset()`, `BorderOffset` |
 | `crates/mosaico-windows/src/enumerate.rs` | `enumerate_windows()` |
@@ -20,7 +20,8 @@ and DPI awareness.
 ### Key Types
 
 - `Window` (trait, core) -- platform-agnostic window interface
-- `WindowResult<T>` -- `Result<T, Box<dyn std::error::Error>>`
+- `mosaico_core::Result<T>` -- `Result<T, mosaico_core::Error>`, the error
+  type of every platform contract
 - `Window` (struct, windows) -- wraps `HWND`
 - `BorderOffset` -- `left`, `top`, `right`, `bottom` offsets for frame
   compensation
@@ -31,17 +32,23 @@ The `Window` trait in `mosaico-core` defines the platform-agnostic interface:
 
 ```rust
 pub trait Window {
-    fn title(&self) -> WindowResult<String>;
-    fn class(&self) -> WindowResult<String>;
-    fn rect(&self) -> WindowResult<Rect>;
-    fn set_rect(&self, rect: &Rect) -> WindowResult<()>;
-    fn invalidate(&self) -> WindowResult<()>;
+    fn title(&self) -> Result<String>;
+    fn class(&self) -> Result<String>;
+    fn rect(&self) -> Result<Rect>;
+    fn set_rect(&self, rect: &Rect) -> Result<()>;
+    fn invalidate(&self);
     fn is_visible(&self) -> bool;
 }
 ```
 
 Note: `set_rect()` takes `&self` (not `&mut self`) because mutation happens
 on the OS side via the window handle.
+
+A failed OS call comes back as `Error::Platform`, which names what was being
+done and keeps the native error as its source. `mosaico-windows` cannot
+implement `From<windows::core::Error>` for the core error, so it wraps each
+call with the crate-private `OrPlatform::or_platform("move the window")`
+helper in `crates/mosaico-windows/src/error.rs`.
 
 ## Win32 Implementation
 

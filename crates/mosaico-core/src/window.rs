@@ -1,29 +1,29 @@
-use crate::Rect;
-
-/// A boxed error type for window operations.
-///
-/// Any error type that implements the `Error` trait can be boxed into this.
-/// We'll replace this with a custom error type as the project matures.
-pub type WindowResult<T> = Result<T, Box<dyn std::error::Error>>;
+use crate::{Rect, Result};
 
 /// Platform-agnostic window trait.
 ///
 /// Each platform crate (e.g. `mosaico-windows`) provides its own implementation.
+///
+/// # Contract for platform implementations
+///
+/// - The methods that return a [`Result`] fail with
+///   [`Error::Platform`](crate::Error::Platform) when the OS refuses the
+///   call, for example because the window has closed since it was found.
 pub trait Window {
     /// Returns the window title.
-    fn title(&self) -> WindowResult<String>;
+    fn title(&self) -> Result<String>;
 
     /// Returns the window class name.
-    fn class(&self) -> WindowResult<String>;
+    fn class(&self) -> Result<String>;
 
     /// Returns the window bounding rectangle.
-    fn rect(&self) -> WindowResult<Rect>;
+    fn rect(&self) -> Result<Rect>;
 
     /// Moves and resizes the window to the given rectangle.
     ///
     /// Takes `&self` because the mutation happens on the OS side via the
     /// window handle — the Rust struct itself doesn't change.
-    fn set_rect(&self, rect: &Rect) -> WindowResult<()>;
+    fn set_rect(&self, rect: &Rect) -> Result<()>;
 
     /// Forces the window to repaint, repairing its rendering if needed.
     ///

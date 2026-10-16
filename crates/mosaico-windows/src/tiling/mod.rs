@@ -13,7 +13,7 @@ use std::time::Instant;
 
 use mosaico_core::config::{BorderConfig, Config, LayoutConfig, WindowRule, WorkspacesConfig};
 use mosaico_core::tiler::{BarReservation, Display, Input, Settings, Tiler};
-use mosaico_core::{Action, WindowEvent, WindowId, WindowResult};
+use mosaico_core::{Action, Result, WindowEvent, WindowId};
 
 use crate::bar::BarState;
 use crate::enumerate;
@@ -39,7 +39,7 @@ impl TilingManager {
         rules: Vec<WindowRule>,
         border_config: BorderConfig,
         mouse_follows_focus: bool,
-    ) -> WindowResult<Self> {
+    ) -> Result<Self> {
         // Show what a killed or crashed daemon left hidden before looking
         // at the windows, so they are found and adopted like any other.
         let mut applier = Applier::with_hidden_file(HiddenFile::current());

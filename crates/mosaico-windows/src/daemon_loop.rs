@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::mpsc;
 use std::time::Instant;
 
-use mosaico_core::WindowResult;
+use mosaico_core::Result;
 use mosaico_core::config;
 use mosaico_core::ipc::Command;
 use windows::Win32::UI::WindowsAndMessaging::{
@@ -32,19 +32,20 @@ const PUMP_INTERVAL: std::time::Duration = std::time::Duration::from_millis(50);
 /// desktop compositor paints an opaque ghost over what should be a
 /// transparent layered bar. Draining the queue on every iteration, and on
 /// every wait timeout, keeps those windows classified as alive.
-pub(super) fn daemon_loop(pipe_name: &str) -> WindowResult<()> {
+pub(super) fn daemon_loop(pipe_name: &str) -> Result<()> {
     // Append any missing top-level config sections introduced by newer
     // versions of mosaico (e.g. [workspaces]) before loading, so the
     // user's config.toml visibly tracks the latest schema.
     config::merge_missing_config_sections();
 
+    // Whatever was logged so far, including problems with the config,
+    // waits for the logger, which needs the config to start.
     let config = config::load();
     mosaico_core::log::init(&config.logging);
 
     let keybindings = config::merge_missing_keybindings();
     let rules = config::load_merged_rules();
 
-    mosaico_core::log_info!("Daemon started (PID: {})", std::process::id());
     mosaico_core::log_info!(
         "Config: layout(gap={}, ratio={}), borders(width={}), log_level={}",
         config.layout.gap,
@@ -99,6 +100,16 @@ pub(super) fn daemon_loop(pipe_name: &str) -> WindowResult<()> {
         keybindings,
         config.mouse.focus_follows_mouse,
     )?;
+    if let Some(e) = event_loop.sink_error() {
+        let and_mouse = if config.mouse.focus_follows_mouse {
+            " and focus follows mouse will not work"
+        } else {
+            ""
+        };
+        mosaico_core::log_error!(
+            "Display and work area changes will not be noticed{and_mouse}: {e}"
+        );
+    }
 
     // Bridge: forward window events into the unified channel.
     let event_bridge = daemon_threads::spawn_event_bridge(event_channel_rx, event_tx);

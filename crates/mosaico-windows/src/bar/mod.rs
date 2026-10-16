@@ -19,6 +19,8 @@ use windows::Win32::UI::WindowsAndMessaging::{
 };
 use windows::core::PCWSTR;
 
+use crate::error::OrPlatform;
+
 use render::render_bar;
 pub use widgets::BarState;
 
@@ -84,7 +86,7 @@ impl Bar {
     /// # Errors
     ///
     /// Returns `Err` if the Win32 window could not be created.
-    pub fn new(monitor_work_area: Rect) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new(monitor_work_area: Rect) -> mosaico_core::Result<Self> {
         ensure_class_registered();
 
         let ex = WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT;
@@ -105,8 +107,9 @@ impl Bar {
                 None,
                 None,
                 None,
-            )?
-        };
+            )
+        }
+        .or_platform("create a bar window")?;
 
         Ok(Self {
             hwnd,

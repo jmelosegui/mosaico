@@ -1,9 +1,10 @@
-use mosaico_core::WindowResult;
+use mosaico_core::Result;
 
 use windows::Win32::Foundation::{HWND, LPARAM};
 use windows::Win32::UI::WindowsAndMessaging::{EnumWindows, IsIconic, IsWindowVisible};
 use windows::core::BOOL;
 
+use crate::error::OrPlatform;
 use crate::window::Window;
 
 /// Enumerates all visible, non-minimized, top-level application windows.
@@ -11,7 +12,7 @@ use crate::window::Window;
 /// This calls the Win32 `EnumWindows` API, which iterates over every top-level
 /// window and invokes a callback for each one. We filter inside the callback
 /// to keep only "real" application windows.
-pub fn enumerate_windows() -> WindowResult<Vec<Window>> {
+pub fn enumerate_windows() -> Result<Vec<Window>> {
     let mut windows: Vec<Window> = Vec::new();
 
     // SAFETY: EnumWindows calls our callback for each top-level window.
@@ -22,8 +23,9 @@ pub fn enumerate_windows() -> WindowResult<Vec<Window>> {
         EnumWindows(
             Some(enum_window_callback),
             LPARAM(&mut windows as *mut _ as isize),
-        )?;
+        )
     }
+    .or_platform("list windows")?;
 
     Ok(windows)
 }

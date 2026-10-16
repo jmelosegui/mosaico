@@ -38,7 +38,7 @@ pub(super) fn handle_event(
                 true
             }
             Err(e) => {
-                mosaico_core::log_info!("Failed to re-enumerate monitors: {}", e);
+                mosaico_core::log_warn!("Failed to re-enumerate monitors: {}", e);
                 false
             }
         },

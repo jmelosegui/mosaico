@@ -61,11 +61,16 @@ impl BarManager {
             return (bars, indices);
         }
         for (i, rect) in rects.iter().enumerate() {
-            if config.should_show_on(i)
-                && let Ok(bar) = Bar::new(*rect)
-            {
-                bars.push(bar);
-                indices.push(i);
+            if !config.should_show_on(i) {
+                continue;
+            }
+            match Bar::new(*rect) {
+                Ok(bar) => {
+                    bars.push(bar);
+                    indices.push(i);
+                }
+                // Same index as the `monitors` list in bar.toml.
+                Err(e) => mosaico_core::log_warn!("No bar on monitor {i}: {e}"),
             }
         }
         (bars, indices)

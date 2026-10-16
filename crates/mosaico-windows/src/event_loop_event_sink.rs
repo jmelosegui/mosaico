@@ -6,9 +6,10 @@ use windows::Win32::UI::WindowsAndMessaging::{
 };
 use windows::core::w;
 
-use mosaico_core::WindowEvent;
+use mosaico_core::{Error, Result, WindowEvent};
 
 use super::EVENT_SENDER;
+use crate::error::OrPlatform;
 
 const FOCUS_FOLLOWS_MOUSE_TIMER_ID: usize = 0x4D4F;
 const FOCUS_FOLLOWS_MOUSE_TOGGLE_MSG: u32 = WM_APP + 1;
@@ -44,7 +45,7 @@ thread_local! {
 /// Must NOT be a message-only window (`HWND_MESSAGE` parent) because those
 /// do not receive broadcast messages. Instead we create a regular hidden
 /// window with `WS_EX_TOOLWINDOW` to keep it out of the taskbar.
-pub(crate) fn create_event_sink(focus_follows_mouse: bool) -> Option<HWND> {
+pub(crate) fn create_event_sink(focus_follows_mouse: bool) -> Result<HWND> {
     // SAFETY: Registers a window class and creates a hidden popup window
     // for receiving broadcast messages (WM_DISPLAYCHANGE, WM_SETTINGCHANGE)
     // and timer ticks. All Win32 calls use valid parameters; the HWND is
@@ -58,13 +59,16 @@ pub(crate) fn create_event_sink(focus_follows_mouse: bool) -> Option<HWND> {
         };
 
         if RegisterClassW(&wc) == 0 {
-            eprintln!("Failed to register MosaicoEventSink class");
-            return None;
+            return Err(Error::platform(
+                "register the MosaicoEventSink window class",
+                windows::core::Error::from_win32(),
+            ));
         }
 
         // WS_EX_TOOLWINDOW: no taskbar entry.
         // No WS_VISIBLE: window stays hidden.
         // No HWND_MESSAGE parent: window receives broadcast messages.
+        // An Ok handle is never null.
         let hwnd = CreateWindowExW(
             WS_EX_TOOLWINDOW,
             class_name,
@@ -78,25 +82,18 @@ pub(crate) fn create_event_sink(focus_follows_mouse: bool) -> Option<HWND> {
             None,
             None,
             None,
-        );
+        )
+        .or_platform("create the MosaicoEventSink window")?;
 
-        match hwnd {
-            Ok(h) if !h.is_invalid() => {
-                if focus_follows_mouse {
-                    let _ = SetTimer(
-                        Some(h),
-                        FOCUS_FOLLOWS_MOUSE_TIMER_ID,
-                        FOCUS_FOLLOWS_MOUSE_INTERVAL_MS,
-                        None,
-                    );
-                }
-                Some(h)
-            }
-            _ => {
-                eprintln!("Failed to create MosaicoEventSink window");
-                None
-            }
+        if focus_follows_mouse {
+            let _ = SetTimer(
+                Some(hwnd),
+                FOCUS_FOLLOWS_MOUSE_TIMER_ID,
+                FOCUS_FOLLOWS_MOUSE_INTERVAL_MS,
+                None,
+            );
         }
+        Ok(hwnd)
     }
 }
 

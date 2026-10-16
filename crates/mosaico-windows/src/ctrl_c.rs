@@ -4,7 +4,10 @@
 
 use std::sync::mpsc::Sender;
 
+use mosaico_core::{Error, Result};
 use windows::Win32::System::Console::{CTRL_C_EVENT, SetConsoleCtrlHandler};
+
+use crate::error::OrPlatform;
 
 /// Registers a Ctrl+C handler that sends `()` on the given channel.
 ///
@@ -14,17 +17,16 @@ use windows::Win32::System::Console::{CTRL_C_EVENT, SetConsoleCtrlHandler};
 ///
 /// Returns an error if the Win32 console handler could not be installed
 /// or if `set_handler` has already been called.
-pub fn set_handler(tx: Sender<()>) -> Result<(), String> {
+pub fn set_handler(tx: Sender<()>) -> Result<()> {
     // SAFETY: SetConsoleCtrlHandler installs a process-wide console
     // control handler. The callback pointer is valid for the process
     // lifetime (static function).
-    unsafe { SetConsoleCtrlHandler(Some(handler), true) }
-        .map_err(|e| format!("failed to set Ctrl+C handler: {e}"))?;
+    unsafe { SetConsoleCtrlHandler(Some(handler), true) }.or_platform("set the Ctrl+C handler")?;
 
     // Store the sender in a global so the callback can reach it.
     SENDER
         .set(tx)
-        .map_err(|_| "Ctrl+C handler already registered".to_string())?;
+        .map_err(|_| Error::platform("set the Ctrl+C handler", "one is already set"))?;
     Ok(())
 }
 

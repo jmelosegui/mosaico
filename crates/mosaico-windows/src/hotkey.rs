@@ -52,7 +52,7 @@ impl HotkeyManager {
             let id = (i + 1) as i32;
 
             let Some(vk) = keys::vk_from_name(&binding.key) else {
-                eprintln!("Unknown key name: {:?}", binding.key);
+                mosaico_core::log_warn!("Unknown key name: {:?}", binding.key);
                 continue;
             };
 
@@ -87,8 +87,8 @@ impl HotkeyManager {
         // collisions.
         let result = unsafe { RegisterHotKey(None, id, modifiers, vk) };
 
-        if result.is_err() {
-            eprintln!("Failed to register hotkey {id} (vk=0x{vk:02X})");
+        if let Err(e) = result {
+            mosaico_core::log_warn!("Failed to register hotkey {id} (vk=0x{vk:02X}): {e}");
             return;
         }
 
@@ -141,10 +141,11 @@ impl HotkeyManager {
             // SAFETY: RegisterHotKey registers a system-wide hotkey on the
             // current thread's message queue using the original id, modifiers, vk.
             let result = unsafe { RegisterHotKey(None, hotkey.id, hotkey.modifiers, hotkey.vk) };
-            if result.is_err() {
-                eprintln!(
-                    "Failed to re-register hotkey {} (vk=0x{:02X})",
-                    hotkey.id, hotkey.vk
+            if let Err(e) = result {
+                mosaico_core::log_warn!(
+                    "Failed to re-register hotkey {} (vk=0x{:02X}): {e}",
+                    hotkey.id,
+                    hotkey.vk
                 );
             }
         }

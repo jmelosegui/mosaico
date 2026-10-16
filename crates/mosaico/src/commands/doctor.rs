@@ -51,7 +51,7 @@ fn check_config_dir() {
 fn check_toml_file(
     name: &str,
     path: Option<std::path::PathBuf>,
-    try_load: impl FnOnce() -> Result<(), String>,
+    try_load: impl FnOnce() -> mosaico_core::Result<()>,
 ) {
     let Some(path) = path else {
         println!("  {FAIL} Could not determine {name} path");

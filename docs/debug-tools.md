@@ -59,7 +59,9 @@ Streams real-time window events to stdout.
 
 1. Enables DPI awareness
 2. Creates an event channel
-3. Starts the Win32 event loop (without hotkey registration)
+3. Starts the Win32 event loop (without hotkey registration). If the hidden
+   window that receives display and work area changes cannot be created, it
+   prints a warning saying why and goes on without those events
 4. Registers a Ctrl+C handler that gracefully stops the event loop
 5. Prints each received event: event name, HWND (hex), and window title
 

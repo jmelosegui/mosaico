@@ -1,5 +1,5 @@
 use mosaico_core::pid;
-use mosaico_core::{Instance, WindowResult};
+use mosaico_core::{Instance, Result};
 
 use crate::dpi;
 use crate::instance_guard::InstanceGuard;
@@ -22,15 +22,23 @@ mod daemon_types;
 /// Starts background threads for the Win32 event loop (which also
 /// handles global hotkeys) and the IPC listener. The main thread
 /// manages the tiling workspace.
-pub fn run() -> WindowResult<()> {
+///
+/// The daemon has no console, so it reports through the log. An error
+/// from the daemon loop is logged here as well as returned. Errors before
+/// it, such as another daemon holding the lock, come before the logger
+/// is set up and are only returned.
+pub fn run() -> Result<()> {
     dpi::enable_dpi_awareness();
     clean_old_binary();
     let instance = Instance::current()?;
     let _guard = InstanceGuard::acquire(instance)?;
     pid::write_pid_file()?;
-    eprintln!("Mosaico daemon started.");
+    mosaico_core::log_info!("Daemon started (PID: {})", std::process::id());
 
     let result = daemon_loop::daemon_loop(&crate::ipc::pipe_name(instance));
+    if let Err(e) = &result {
+        mosaico_core::log_error!("Daemon stopped: {e}");
+    }
 
     let _ = pid::remove_pid_file();
 

@@ -5,12 +5,15 @@
 //! so that `mosaico start` is executed on user logon. No elevation is
 //! required since HKCU is per-user.
 
+use mosaico_core::Result;
 use mosaico_core::system::Autostart;
 use windows::Win32::System::Registry::{
     HKEY, HKEY_CURRENT_USER, KEY_QUERY_VALUE, KEY_SET_VALUE, REG_SAM_FLAGS, REG_SZ, RegCloseKey,
     RegDeleteValueW, RegOpenKeyExW, RegQueryValueExW, RegSetValueExW,
 };
 use windows::core::PCWSTR;
+
+use crate::error::OrPlatform;
 
 const RUN_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
 const VALUE_NAME: &str = "Mosaico";
@@ -23,7 +26,7 @@ const VALUE_NAME: &str = "Mosaico";
 ///
 /// Returns `Err` if the executable path cannot be resolved or the
 /// registry key cannot be opened or written to.
-pub fn enable() -> Result<(), String> {
+pub fn enable() -> Result<()> {
     let value = exe_command()?;
     let key = open_run_key(KEY_SET_VALUE)?;
     let result = set_string_value(key, &value);
@@ -39,7 +42,7 @@ pub fn enable() -> Result<(), String> {
 ///
 /// Returns `Err` if the registry key cannot be opened or the value
 /// cannot be deleted (for reasons other than it not existing).
-pub fn disable() -> Result<(), String> {
+pub fn disable() -> Result<()> {
     let key = open_run_key(KEY_SET_VALUE)?;
     let result = delete_value(key);
     close_key(key);
@@ -57,13 +60,13 @@ pub fn is_enabled() -> bool {
 }
 
 /// Returns `"<exe_path>" start` for the registry value.
-fn exe_command() -> Result<String, String> {
-    let exe = std::env::current_exe().map_err(|e| format!("could not resolve exe path: {e}"))?;
+fn exe_command() -> Result<String> {
+    let exe = std::env::current_exe().or_platform("resolve exe path")?;
     Ok(format!("\"{}\" start", exe.display()))
 }
 
 /// Opens the HKCU Run key with the given access rights.
-fn open_run_key(access: REG_SAM_FLAGS) -> Result<HKEY, String> {
+fn open_run_key(access: REG_SAM_FLAGS) -> Result<HKEY> {
     let wide_key: Vec<u16> = RUN_KEY.encode_utf16().chain(std::iter::once(0)).collect();
     let mut key = HKEY::default();
     // SAFETY: RegOpenKeyExW is a standard Win32 registry API. We pass valid
@@ -77,14 +80,12 @@ fn open_run_key(access: REG_SAM_FLAGS) -> Result<HKEY, String> {
             &mut key,
         )
     };
-    if status.is_err() {
-        return Err(format!("could not open registry key: {status:?}"));
-    }
+    status.ok().or_platform("open registry key")?;
     Ok(key)
 }
 
 /// Writes a REG_SZ value under the opened key.
-fn set_string_value(key: HKEY, value: &str) -> Result<(), String> {
+fn set_string_value(key: HKEY, value: &str) -> Result<()> {
     let wide_name: Vec<u16> = VALUE_NAME
         .encode_utf16()
         .chain(std::iter::once(0))
@@ -98,14 +99,11 @@ fn set_string_value(key: HKEY, value: &str) -> Result<(), String> {
     // correct byte length for the wide-string value.
     let status =
         unsafe { RegSetValueExW(key, PCWSTR(wide_name.as_ptr()), None, REG_SZ, Some(bytes)) };
-    if status.is_err() {
-        return Err(format!("could not write registry value: {status:?}"));
-    }
-    Ok(())
+    status.ok().or_platform("write registry value")
 }
 
 /// Deletes the Mosaico value from the opened key.
-fn delete_value(key: HKEY) -> Result<(), String> {
+fn delete_value(key: HKEY) -> Result<()> {
     let wide_name: Vec<u16> = VALUE_NAME
         .encode_utf16()
         .chain(std::iter::once(0))
@@ -117,9 +115,8 @@ fn delete_value(key: HKEY) -> Result<(), String> {
         if status.0 as u32 == 2 {
             return Ok(());
         }
-        return Err(format!("could not delete registry value: {status:?}"));
     }
-    Ok(())
+    status.ok().or_platform("delete registry value")
 }
 
 /// Checks if the Mosaico value exists under the opened key.
@@ -148,11 +145,11 @@ impl Autostart for RegistryAutostart {
         is_enabled()
     }
 
-    fn enable(&self) -> Result<(), String> {
+    fn enable(&self) -> Result<()> {
         enable()
     }
 
-    fn disable(&self) -> Result<(), String> {
+    fn disable(&self) -> Result<()> {
         disable()
     }
 }

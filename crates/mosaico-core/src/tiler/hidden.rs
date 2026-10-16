@@ -12,11 +12,12 @@
 //! window, and a window that is no longer the same one is left alone.
 
 use std::collections::BTreeMap;
+use std::io;
 
 use serde::{Deserialize, Serialize};
 
-use crate::WindowId;
 use crate::config::HidingBehaviour;
+use crate::{Error, Result, WindowId};
 
 use super::Effect;
 
@@ -103,12 +104,16 @@ impl HiddenWindows {
         serde_json::to_string_pretty(&file).unwrap_or_default()
     }
 
-    /// Reads a record written by [`HiddenWindows::to_text`].
-    pub fn from_text(text: &str) -> Result<Self, String> {
-        let file: FileFormat =
-            serde_json::from_str(text).map_err(|e| format!("unreadable record: {e}"))?;
+    /// Reads a record written by [`HiddenWindows::to_text`]. Text that is
+    /// not such a record is an [`io::ErrorKind::InvalidData`] error.
+    pub fn from_text(text: &str) -> Result<Self> {
+        let file: FileFormat = serde_json::from_str(text)
+            .map_err(|e| invalid_record(format!("unreadable record: {e}")))?;
         if file.version != FORMAT_VERSION {
-            return Err(format!("unknown record version {}", file.version));
+            return Err(invalid_record(format!(
+                "unknown record version {}",
+                file.version
+            )));
         }
         let entries = file
             .hidden
@@ -123,6 +128,11 @@ impl HiddenWindows {
             .collect();
         Ok(Self { entries })
     }
+}
+
+/// A record that cannot be used, saying why.
+fn invalid_record(message: String) -> Error {
+    io::Error::new(io::ErrorKind::InvalidData, message).into()
 }
 
 /// The record as written to disk.
