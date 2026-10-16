@@ -110,7 +110,10 @@ a stale bitmap from the previous size would briefly appear at the new position.
 The `Color` struct (`mosaico_core::config::Color`) represents an RGB
 color. The bar draws with it too.
 
-- `Color::from_hex(s)` -- parses `"#RRGGBB"` or `"RRGGBB"` format strings
+- `Color::from_hex(s)` -- parses `"#RRGGBB"` or `"RRGGBB"` format strings:
+  six hex digits in either case, after any leading `#`. Anything else,
+  such as a value with a `+` sign or a character outside ASCII, is not a
+  color.
 - Default focused color: theme-resolved (Mocha: `#89b4fa` blue)
 - Default monocle color: theme-resolved (Mocha: `#a6e3a1` green)
 - Default unfocused color: theme-resolved (Mocha: `#6c7086` muted gray)
@@ -217,8 +220,11 @@ the rules change to leave it alone while it is minimized.
 
 ## Tests
 
-`Color::from_hex()` is covered by unit tests for both `#RRGGBB` and
-`RRGGBB` formats. Theme tests assert that `border_focused`,
+`Color::from_hex()` is covered by unit tests in `config/color_tests.rs`:
+every spelling of six hex digits, with or without `#` and in any case,
+and values with a multibyte character, which are not colors.
+`config/color_digit_tests.rs` checks that a `+` sign is not a hex digit.
+Theme tests assert that `border_focused`,
 `border_monocle`, and `border_unfocused` are distinct per flavor and
 match their Catppuccin palette values.
 
