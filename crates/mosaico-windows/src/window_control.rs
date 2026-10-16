@@ -1,14 +1,15 @@
 //! Changes to windows and the pointer, made through Win32.
 
+mod hiding;
+mod stacking;
+
 use mosaico_core::config::HidingBehaviour;
 use mosaico_core::{Error, HidingEvents, Rect, Result, WindowControl, WindowId};
 use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
 use windows::Win32::UI::WindowsAndMessaging::{
-    PostMessageW, SHOW_WINDOW_CMD, SW_HIDE, SW_MINIMIZE, SW_SHOW, SW_SHOWNOACTIVATE, SetCursorPos,
-    SetForegroundWindow, ShowWindow, WM_CLOSE,
+    PostMessageW, SetCursorPos, SetForegroundWindow, WM_CLOSE,
 };
 
-use crate::com;
 use crate::error::OrPlatform;
 use crate::window::Window;
 
@@ -16,7 +17,9 @@ use crate::window::Window;
 ///
 /// Holds no state: every call goes straight to the window's handle.
 /// `ShowWindow` does not say whether it worked, so the calls built on
-/// it first check that the window still exists.
+/// it first check that the window still exists. Hiding, showing and
+/// minimizing windows are in `window_control/hiding.rs`, and putting
+/// one behind another in `window_control/stacking.rs`.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Win32WindowControl;
 
@@ -49,6 +52,10 @@ impl WindowControl for Win32WindowControl {
         Ok(())
     }
 
+    fn put_behind(&self, window: WindowId, other: WindowId) -> Result<()> {
+        stacking::put_behind(existing(window)?, existing(other)?)
+    }
+
     /// Posts `WM_CLOSE`, the message the window's close button leads
     /// to, without waiting for the application to handle it.
     fn close(&self, window: WindowId) -> Result<()> {
@@ -59,65 +66,24 @@ impl WindowControl for Win32WindowControl {
     }
 
     fn minimize(&self, window: WindowId) -> Result<()> {
-        show_window(existing(window)?, SW_MINIMIZE);
+        hiding::minimize(existing(window)?);
         Ok(())
     }
 
-    /// Cloaking goes through the ImmersiveShell COM interface, the
-    /// mechanism Windows uses for its own virtual desktops: the window
-    /// becomes invisible but keeps its taskbar icon. `SW_HIDE` also
-    /// removes the taskbar icon. The events each way fires are listed on
-    /// `hiding_events`.
     fn hide(&self, window: WindowId, how: HidingBehaviour) -> Result<()> {
-        let win = existing(window)?;
-        match how {
-            HidingBehaviour::Cloak => return com::cloak_window(win.hwnd()),
-            HidingBehaviour::Hide => show_window(win, SW_HIDE),
-            HidingBehaviour::Minimize => show_window(win, SW_MINIMIZE),
-        }
-        Ok(())
+        hiding::hide(existing(window)?, how)
     }
 
-    /// Shows without activating, so a workspace switch does not move
-    /// focus. Uncloaking a window that is not cloaked does nothing.
     fn show(&self, window: WindowId, how: HidingBehaviour) -> Result<()> {
-        let win = existing(window)?;
-        match how {
-            HidingBehaviour::Cloak => return com::uncloak_window(win.hwnd()),
-            HidingBehaviour::Hide | HidingBehaviour::Minimize => {
-                show_window(win, SW_SHOWNOACTIVATE)
-            }
-        }
-        Ok(())
+        hiding::show(existing(window)?, how)
     }
 
-    /// Every way is available. Cloaking and uncloaking fire neither
-    /// `EVENT_OBJECT_HIDE` nor the minimize events. `SW_HIDE` fires
-    /// `EVENT_OBJECT_HIDE`, and showing the window again fires
-    /// `EVENT_OBJECT_SHOW`, which arrives as a new window rather than a
-    /// restore. `SW_MINIMIZE` fires `EVENT_SYSTEM_MINIMIZESTART`, and
-    /// showing the window again `EVENT_SYSTEM_MINIMIZEEND`.
     fn hiding_events(&self, how: HidingBehaviour) -> Option<HidingEvents> {
-        let (reports_hidden, reports_restored) = match how {
-            HidingBehaviour::Cloak => (false, false),
-            HidingBehaviour::Hide => (true, false),
-            HidingBehaviour::Minimize => (true, true),
-        };
-        Some(HidingEvents {
-            reports_hidden,
-            reports_restored,
-        })
+        Some(hiding::events(how))
     }
 
-    /// Uncloaks, then shows with `SW_SHOW`, which activates more strongly
-    /// than `SW_SHOWNOACTIVATE` and makes sure Windows fully restores the
-    /// window's visibility state. The window is shown even when
-    /// uncloaking it fails.
     fn reveal(&self, window: WindowId) -> Result<()> {
-        let win = existing(window)?;
-        let uncloaked = com::uncloak_window(win.hwnd());
-        show_window(win, SW_SHOW);
-        uncloaked
+        hiding::reveal(existing(window)?)
     }
 
     fn move_cursor(&self, x: i32, y: i32) -> Result<()> {
@@ -138,18 +104,6 @@ fn existing(window: WindowId) -> Result<Window> {
         return Err(Error::platform("find the window", "it no longer exists"));
     }
     Ok(win)
-}
-
-/// Sets a window's show state.
-///
-/// `ShowWindow` reports whether the window was visible before, not
-/// whether the call worked, so there is no failure to pass on.
-fn show_window(window: Window, command: SHOW_WINDOW_CMD) {
-    // SAFETY: ShowWindow is safe to call with a valid HWND; an invalid
-    // one makes it fail without side effects.
-    unsafe {
-        let _ = ShowWindow(window.hwnd(), command);
-    }
 }
 
 #[cfg(test)]

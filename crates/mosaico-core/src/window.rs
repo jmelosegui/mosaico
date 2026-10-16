@@ -1,3 +1,7 @@
+mod behind;
+
+pub use behind::Behind;
+
 use crate::config::HidingBehaviour;
 use crate::{HidingEvents, Rect, Result, WindowId};
 
@@ -67,6 +71,22 @@ pub trait WindowControl {
     /// The system may refuse, to stop applications from stealing focus.
     /// Does not move the pointer.
     fn focus(&self, window: WindowId) -> Result<()>;
+
+    /// Puts `window` behind `other` in the stacking order, within its own
+    /// always-on-top layer.
+    ///
+    /// - Neither window's always-on-top layer changes: one that is
+    ///   always on top stays so, and one that is not does not become so.
+    ///   `window` is ordered behind `other` within its own layer, as
+    ///   [`Behind`] says: directly behind it when they share a layer, and
+    ///   left where it is otherwise. That is behind `other` already when
+    ///   only `other` is always on top. When only `window` is, it stays
+    ///   in front of `other`, and covers it where they overlap.
+    /// - Neither window is activated, moved or resized, and the window
+    ///   that has focus keeps it. This is the only way to change which
+    ///   window is in front without focusing one.
+    /// - Fails when either window no longer exists.
+    fn put_behind(&self, window: WindowId, other: WindowId) -> Result<()>;
 
     /// Asks a window to close, the way the user closing it would.
     ///

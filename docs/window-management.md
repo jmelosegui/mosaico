@@ -12,6 +12,7 @@ which includes invisible frame compensation and DPI awareness.
 | File | Purpose |
 |------|---------|
 | `crates/mosaico-core/src/window.rs` | `WindowControl` trait |
+| `crates/mosaico-core/src/window/behind.rs` | `Behind`: where `put_behind` puts a window, given which of the two are always on top |
 | `crates/mosaico-core/src/hiding.rs` | `HidingEvents`, `HidingSupport`: the ways of hiding a platform has, and what each reports |
 | `crates/mosaico-core/src/tiler/desktop.rs` | `Desktop` trait, the read side |
 | `crates/mosaico-core/src/tiler/window_effects.rs` | `apply_window_effect()`, which carries out window effects |
@@ -21,6 +22,8 @@ which includes invisible frame compensation and DPI awareness.
 | `crates/mosaico-windows/src/window/process.rs` | The owning process: `process_id()`, `is_elevated()`, `exe_path()` |
 | `crates/mosaico-windows/src/window/kind.rs` | `app_window_caption()`: whether a window is an application window |
 | `crates/mosaico-windows/src/window_control.rs` | `Win32WindowControl`, the Win32 `WindowControl` |
+| `crates/mosaico-windows/src/window_control/hiding.rs` | Hiding, showing, revealing and minimizing windows for `Win32WindowControl` |
+| `crates/mosaico-windows/src/window_control/stacking.rs` | `put_behind` for `Win32WindowControl`, within each window's `WS_EX_TOPMOST` band |
 | `crates/mosaico-windows/src/frame.rs` | `visible_rect()`, `border_offset()`, `BorderOffset` |
 | `crates/mosaico-core/src/tiler/enumerator.rs` | `Enumerator`, the contract for listing windows and monitors |
 | `crates/mosaico-windows/src/enumerate.rs` | `WindowsEnumerator`, `enumerate_windows()` |
@@ -31,6 +34,8 @@ which includes invisible frame compensation and DPI awareness.
 ### Key Types
 
 - `WindowControl` (trait, core) -- changes the platform makes on request
+- `Behind` (enum, core) -- where `put_behind` puts a window: directly behind
+  the other when both share an always-on-top layer, nowhere otherwise
 - `HidingEvents` (struct, core) -- whether hiding a window one way reports it
   hidden or minimized, and showing it again reports it restored
 - `HidingSupport` (struct, core) -- the platform's `HidingEvents` for every
@@ -55,6 +60,7 @@ pub trait WindowControl {
     fn pre_place(&self, window: WindowId, rect: Rect) -> Result<()>;
     fn repaint(&self, window: WindowId) -> Result<()>;
     fn focus(&self, window: WindowId) -> Result<()>;
+    fn put_behind(&self, window: WindowId, other: WindowId) -> Result<()>;
     fn close(&self, window: WindowId) -> Result<()>;
     fn minimize(&self, window: WindowId) -> Result<()>;
     fn hide(&self, window: WindowId, how: HidingBehaviour) -> Result<()>;
@@ -77,6 +83,14 @@ The contract, in the trait's docs, spells out what callers rely on:
   before it places it.
 - Pre-placement, for windows that exist but are not shown yet, never waits for
   the application, even one that never handles its messages.
+- `put_behind(window, other)` puts `window` behind `other` in the stacking
+  order, within its own always-on-top layer, without activating, moving or
+  resizing either. Neither window's layer changes: `window` goes directly
+  behind `other` when they share a layer, and stays where it is otherwise
+  (`Behind`), which is behind `other` already when only `other` is always on
+  top. When only `window` is, it stays in front of `other`. It is the only way
+  to change which window is in front without focusing one, and it fails when
+  either window is gone.
 - A minimize is reported back as a `Minimized` event, which is what takes the
   window out of the layout.
 - `hiding_events` says which ways of hiding the platform has, and whether
@@ -139,6 +153,7 @@ to implement the core contracts.
 | `pre_place` | `move_async()`: the same move with `SWP_ASYNCWINDOWPOS`, which posts the request instead of sending it |
 | `repaint` | `invalidate()`: `RedrawWindow` with aggressive flags, then realigns a Chromium window's GPU surface |
 | `focus` | `SetForegroundWindow` |
+| `put_behind` | `SetWindowPos` with `other` as the window to insert after and `SWP_NOMOVE`, `SWP_NOSIZE` and `SWP_NOACTIVATE`, only when both or neither are `WS_EX_TOPMOST`: inserted after a window of the other band, a window moves into that band |
 | `close` | `PostMessageW` with `WM_CLOSE` |
 | `minimize` | `ShowWindow(SW_MINIMIZE)` |
 | `hide` | `Cloak`: ImmersiveShell cloak; `Hide`: `ShowWindow(SW_HIDE)`; `Minimize`: `ShowWindow(SW_MINIMIZE)` |

@@ -16,6 +16,7 @@ mod corners;
 mod decoration_effects;
 mod desktop;
 mod display;
+mod display_monocle;
 mod display_rebuild;
 mod echo;
 mod echo_focus;

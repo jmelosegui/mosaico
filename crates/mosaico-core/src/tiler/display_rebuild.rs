@@ -7,6 +7,7 @@ use crate::WindowId;
 use super::Display;
 
 use super::MonitorState;
+use super::display_monocle::clear_stale_monocle;
 use super::reconnect::ReconnectMemory;
 
 /// Result of [`rebuild_monitors`].
@@ -20,6 +21,8 @@ pub(super) struct Rebuilt {
     /// The primary monitor, which took in the windows of the monitors
     /// that went away.
     pub(super) host: usize,
+    /// Windows that went back to a returning monitor, also in `moved`.
+    pub(super) went_home: Vec<WindowId>,
 }
 
 /// Builds the monitor list for a new display configuration.
@@ -86,6 +89,7 @@ pub(super) fn rebuild_monitors(
         moved.extend(memory.park(gone, &mut states[host]));
     }
 
+    let mut went_home = Vec::new();
     for (idx, parked_key) in returned {
         let back = memory.restore(&mut states, idx, &parked_key);
         crate::log_info!(
@@ -93,25 +97,19 @@ pub(super) fn rebuild_monitors(
             back.len(),
             states[idx].key
         );
-        moved.extend(back);
         clear_stale_monocle(&mut states[idx]);
+        went_home.extend(back);
     }
+    // A host workspace whose monocle window went home is settled once the
+    // windows that moved have joined it (`join_monocle`).
+    moved.extend(&went_home);
 
     Rebuilt {
         monitors: states,
         moved,
         pairs,
         host,
-    }
-}
-
-/// Turns monocle off on workspaces whose monocle window did not return.
-fn clear_stale_monocle(monitor: &mut MonitorState) {
-    for ws in &mut monitor.workspaces {
-        if ws.monocle() && !ws.monocle_window().is_some_and(|h| ws.contains(h)) {
-            ws.set_monocle(false);
-            ws.set_monocle_window(None);
-        }
+        went_home,
     }
 }
 

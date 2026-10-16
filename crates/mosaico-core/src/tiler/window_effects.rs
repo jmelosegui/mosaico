@@ -44,6 +44,9 @@ pub fn apply_window_effect(effect: &Effect, desktop: &dyn Desktop, windows: &dyn
         Effect::Close { window } => report("close", window, windows.close(window)),
         Effect::Minimize { window } => report("minimize", window, windows.minimize(window)),
         Effect::Repaint { window } => report("repaint", window, windows.repaint(window)),
+        Effect::PutBehind { window, other } => {
+            report("put behind", window, windows.put_behind(window, other));
+        }
         Effect::Decorate { .. }
         | Effect::Undecorate { .. }
         | Effect::Border { .. }

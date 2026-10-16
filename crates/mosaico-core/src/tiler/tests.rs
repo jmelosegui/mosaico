@@ -49,6 +49,16 @@ mod mode_reload_settings_tests;
 mod mode_reload_tests;
 #[path = "tests/monitor_return_tests.rs"]
 mod monitor_return_tests;
+#[path = "tests/monocle_display_tests.rs"]
+mod monocle_display_tests;
+#[path = "tests/monocle_join_tests.rs"]
+mod monocle_join_tests;
+#[path = "tests/monocle_out_of_view_tests.rs"]
+mod monocle_out_of_view_tests;
+#[path = "tests/monocle_return_tests.rs"]
+mod monocle_return_tests;
+#[path = "tests/monocle_stale_tests.rs"]
+mod monocle_stale_tests;
 #[path = "tests/move_tests.rs"]
 mod move_tests;
 #[path = "tests/pipeline_tests.rs"]
@@ -61,6 +71,8 @@ mod rules_release_tests;
 mod rules_reload_tests;
 #[path = "tests/session_tests.rs"]
 mod session_tests;
+#[path = "tests/stacking_tests.rs"]
+mod stacking_tests;
 #[path = "tests/window_effects_tests.rs"]
 mod window_effects_tests;
 #[path = "tests/window_recorder.rs"]
@@ -121,6 +133,9 @@ pub(super) struct FakeDesktop {
     /// created when first drawn and destroyed by `DropBorder`. The value
     /// is whether the overlay is showing.
     pub(super) borders: HashMap<WindowId, bool>,
+    /// The stacking order, front first. A window comes to the front when
+    /// it opens and when it gets focus.
+    pub(super) stack: Vec<WindowId>,
 }
 
 impl Desktop for FakeDesktop {
@@ -176,14 +191,29 @@ impl Desktop for FakeDesktop {
 }
 
 impl FakeDesktop {
+    /// Brings a window to the front of the stacking order.
+    pub(super) fn raise(&mut self, window: WindowId) {
+        self.stack.retain(|&w| w != window);
+        self.stack.insert(0, window);
+    }
+
+    /// Whether `front` is in front of `back` in the stacking order.
+    pub(super) fn in_front(&self, front: WindowId, back: WindowId) -> bool {
+        let at = |window: WindowId| self.stack.iter().position(|&w| w == window);
+        matches!((at(front), at(back)), (Some(f), Some(b)) if f < b)
+    }
+
     /// Applies an effect the way a platform would.
     fn apply(&mut self, effect: &Effect) {
         match *effect {
             Effect::Place { window, rect, .. } => {
                 // As `WindowControl::place` promises: no longer maximized,
-                // but a minimized window stays minimized.
+                // but a minimized window stays minimized, and comes back
+                // where it was before, as the contract allows.
                 if let Some(w) = self.windows.get_mut(&window) {
-                    w.rect = rect;
+                    if !w.minimized {
+                        w.rect = rect;
+                    }
                     w.maximized = false;
                 }
             }
@@ -208,7 +238,19 @@ impl FakeDesktop {
                     w.minimized = true;
                 }
             }
-            Effect::Focus { window, .. } => self.focused = Some(window),
+            Effect::Focus { window, .. } => {
+                self.focused = Some(window);
+                self.raise(window);
+            }
+            Effect::PutBehind { window, other } => {
+                // As `WindowControl::put_behind`: nothing changes when
+                // either window is gone.
+                if window != other && self.stack.contains(&window) && self.stack.contains(&other) {
+                    self.stack.retain(|&w| w != window);
+                    let at = self.stack.iter().position(|&w| w == other);
+                    self.stack.insert(at.map_or(0, |at| at + 1), window);
+                }
+            }
             Effect::Border {
                 window,
                 style: Some(_),
@@ -309,6 +351,7 @@ impl Harness {
         let mut desktop = FakeDesktop::default();
         for &(id, mon) in windows {
             desktop.windows.insert(wid(id), FakeWindow::app(mon));
+            desktop.raise(wid(id));
         }
         let ids: Vec<WindowId> = windows.iter().map(|&(id, _)| wid(id)).collect();
         let now = Instant::now();
@@ -383,8 +426,12 @@ impl Harness {
     }
 
     /// Reports a window event. Through the platform, an echo of our own
-    /// effects is dropped before the tiler sees it.
+    /// effects is dropped before the tiler sees it. A window reported
+    /// focused is in front, whoever focused it.
     pub(super) fn event(&mut self, event: WindowEvent) -> &[Effect] {
+        if let WindowEvent::Focused { window } = event {
+            self.desktop.raise(window);
+        }
         let now = self.now;
         if let Some(pipeline) = self.pipeline.as_mut()
             && pipeline.expectations.echo(&event, now).is_some()
@@ -400,6 +447,7 @@ impl Harness {
         self.desktop
             .windows
             .insert(wid(id), FakeWindow::app(monitor));
+        self.desktop.raise(wid(id));
         self.event(WindowEvent::Created { window: wid(id) })
     }
 

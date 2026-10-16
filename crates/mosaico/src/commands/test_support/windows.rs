@@ -29,6 +29,10 @@ impl WindowControl for World {
         Ok(())
     }
 
+    fn put_behind(&self, _: WindowId, _: WindowId) -> Result<()> {
+        Ok(())
+    }
+
     fn close(&self, _: WindowId) -> Result<()> {
         Ok(())
     }

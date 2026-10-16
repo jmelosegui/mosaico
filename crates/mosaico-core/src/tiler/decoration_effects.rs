@@ -56,7 +56,8 @@ pub fn apply_decoration_effect(effect: &Effect, decorations: &mut dyn Decoration
         | Effect::CenterCursor { .. }
         | Effect::Close { .. }
         | Effect::Minimize { .. }
-        | Effect::Repaint { .. } => {}
+        | Effect::Repaint { .. }
+        | Effect::PutBehind { .. } => {}
     }
 }
 
