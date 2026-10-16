@@ -13,6 +13,7 @@
     - [Window Rules](guide/window-rules.md)
     - [Status Bar](guide/status-bar.md)
     - [Theming](guide/theming.md)
+    - [Window Transitions](guide/animations.md)
 - [Tiling & Layouts](guide/tiling-layout.md)
 - [Workspaces](guide/workspaces.md)
 - [Multi-Monitor](guide/multi-monitor.md)

@@ -61,6 +61,9 @@ unfocused = "#6c7086"  # Color drawn around unfocused tiled windows
   monitor are also hidden because they are visually covered.
 - Borders are click-through (`WS_EX_TRANSPARENT`) and never interfere
   with mouse interaction.
+- With [window transitions](animations.md) on, a border follows its window
+  to its new place. A window that changes size on the way gets its border
+  back once it is in place.
 
 ## Using Named Colors
 

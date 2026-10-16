@@ -9,7 +9,7 @@ Run `mosaico init` to generate fully-commented template files.
 
 | File | Purpose | Hot-Reload |
 |------|---------|------------|
-| `config.toml` | Layout, borders, theme, logging | Yes |
+| `config.toml` | Layout, borders, window transitions, theme, logging | Yes |
 | `keybindings.toml` | Keyboard shortcuts | No (restart required) |
 | `rules.toml` | Community window rules (auto-downloaded) | On startup |
 | `user-rules.toml` | Personal window rule overrides | Yes |
@@ -17,7 +17,7 @@ Run `mosaico init` to generate fully-commented template files.
 
 ## `config.toml`
 
-Controls layout, borders, logging, and theme:
+Controls layout, borders, window transitions, logging, and theme:
 
 ```toml
 [layout]
@@ -48,6 +48,14 @@ monocle = "#2d6a4f"    # Color of the focused window in monocle mode
 unfocused = "#6c7086"  # Color drawn around unfocused tiled windows;
                        # set to "none" to disable unfocused borders
 
+[animations]
+enabled = false           # Move windows to their new place over time (off by default)
+duration = 180            # How long a transition takes, in milliseconds (0-1000)
+easing = "ease-out-cubic" # linear, ease-out-quad, ease-out-cubic, ease-in-out-cubic,
+                          # ease-out-expo, or "cubic-bezier(x1, y1, x2, y2)"
+follow_system = true      # Snap while Windows turns animations off,
+                          # and in a remote session
+
 [theme]
 name = "catppuccin"  # catppuccin, rose-pine, tokyo-night
 flavor = "mocha"     # catppuccin: mocha | macchiato | frappe | latte
@@ -59,6 +67,10 @@ enabled = false    # Enable file logging
 level = "info"     # Log level: debug, info, warn, error
 max_file_mb = 10   # Max log file size before rotation
 ```
+
+The `[animations]` section turns on window transitions, which are off by
+default. See [Window Transitions](animations.md) for what moves, the easings
+and troubleshooting.
 
 ## `keybindings.toml`
 
@@ -137,6 +149,13 @@ than rejected:
 | `corner_style` | `"square"`, `"small"`, `"round"` |
 | `hiding` | `"cloak"`, `"hide"`, `"minimize"` |
 | `default` | `"bsp"`, `"vertical-stack"`, `"three-column"` |
+| `[animations] duration` | 0 -- 1000 (milliseconds) |
+
+An `[animations] easing` is never clamped. It must be `"linear"`,
+`"ease-out-quad"`, `"ease-out-cubic"`, `"ease-in-out-cubic"`,
+`"ease-out-expo"`, or `"cubic-bezier(x1, y1, x2, y2)"` with each number from
+0 to 1. Any other value makes the whole `config.toml` invalid: a running
+mosaico keeps the settings it has, and one that starts uses the defaults.
 
 ## Hot-Reload
 
@@ -146,8 +165,10 @@ waits for the system to report a change in the config directory, then
 reloads each of these files whose modification time changed.
 
 - **config.toml** -- layout gap/ratio, hiding behaviour, border settings,
-  and theme are reloaded. Windows are retiled immediately. Hiding changes
-  take effect on the next workspace switch.
+  mouse settings, window transitions and theme are reloaded. Windows are
+  retiled immediately. Hiding changes take effect on the next workspace
+  switch. Windows already moving keep going, unless the reload moves them
+  elsewhere or turns transitions off.
 - **user-rules.toml** -- both rule sets are re-merged, your rules first.
   New rules apply to new windows. Managed windows the new rules no longer
   manage are released at once, and their monitor is retiled. A window on
