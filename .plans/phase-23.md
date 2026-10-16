@@ -1,6 +1,10 @@
 # Phase 23: Mouse Follows Focus & Focus Follows Mouse
 
-**Status:** Pending
+**Status:** Complete
+
+**Left open:** focus following the mouse is not held back while a
+window is dragged, and the configuration docs do not describe the
+`[mouse]` settings yet.
 
 **Goal:** Add bidirectional mouse/focus integration so the cursor tracks
 keyboard-driven focus changes, and optionally, hovering the mouse over a
@@ -306,33 +310,33 @@ focus_follows_mouse = false
 ## Tasks
 
 ### Mouse Follows Focus
-- [ ] Add `MouseConfig` struct to `mosaico-core/src/config/mod.rs`
-- [ ] Add `mouse: MouseConfig` to `Config` struct
-- [ ] Add `[mouse]` section to `generate_config()` template
-- [ ] Add `mouse_follows_focus: bool` field to `TilingManager`
-- [ ] Add `focus_from_mouse: bool` field to `TilingManager`
-- [ ] Add `move_cursor_to_window(hwnd)` helper using `SetCursorPos`
-- [ ] Update `focus_and_update_border()` to move cursor when enabled
+- [x] Add `MouseConfig` struct to `mosaico-core/src/config/mod.rs`
+- [x] Add `mouse: MouseConfig` to `Config` struct
+- [x] Add `[mouse]` section to `generate_config()` template
+- [x] Add `mouse_follows_focus: bool` field to `TilingManager`
+- [x] Add `focus_from_mouse: bool` field to `TilingManager`
+- [x] Add `move_cursor_to_window(hwnd)` helper using `SetCursorPos`
+- [x] Update `focus_and_update_border()` to move cursor when enabled
       and `focus_from_mouse` is false
-- [ ] Set `focus_from_mouse = true` in `Focused` event handler
-- [ ] Update `reload_config()` to propagate `mouse_follows_focus`
-- [ ] Pass `mouse_follows_focus` from config in `TilingManager::new()`
+- [x] Set `focus_from_mouse = true` in `Focused` event handler
+- [x] Update `reload_config()` to propagate `mouse_follows_focus`
+- [x] Pass `mouse_follows_focus` from config in `TilingManager::new()`
 
 ### Focus Follows Mouse
-- [ ] Add timer infrastructure to event loop (`SetTimer`/`WM_TIMER`)
-- [ ] Add `check_cursor_focus()`: `GetCursorPos` + `WindowFromPoint`
+- [x] Add timer infrastructure to event loop (`SetTimer`/`WM_TIMER`)
+- [x] Add `check_cursor_focus()`: `GetCursorPos` + `WindowFromPoint`
       + `GetAncestor(GA_ROOT)` → find managed window under cursor
-- [ ] Add debounce logic (2-3 consecutive ticks on same window)
-- [ ] Send focus message to daemon when cursor-tracked window changes
-- [ ] Guard against programmatic cursor moves retriggering focus
+- [x] Add debounce logic (2-3 consecutive ticks on same window)
+- [x] Send focus message to daemon when cursor-tracked window changes
+- [x] Guard against programmatic cursor moves retriggering focus
 - [ ] Guard against drag operations
-- [ ] Start/stop timer based on config reload
-- [ ] Pass `focus_follows_mouse` from config to event loop
+- [x] Start/stop timer based on config reload
+- [x] Pass `focus_follows_mouse` from config to event loop
 
 ### General
-- [ ] Run `cargo fmt --all`
-- [ ] Run `cargo clippy --all-targets -- -D warnings` and fix warnings
-- [ ] Run `cargo test` and fix failures
+- [x] Run `cargo fmt --all`
+- [x] Run `cargo clippy --all-targets -- -D warnings` and fix warnings
+- [x] Run `cargo test` and fix failures
 - [ ] Manual test: mouse follows focus — keyboard navigate between
       windows, verify cursor moves to center of focused window
 - [ ] Manual test: mouse follows focus — click a window, verify cursor

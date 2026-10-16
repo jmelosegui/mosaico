@@ -1,6 +1,10 @@
 # Phase 27: Additional Layouts & Layout Cycling
 
-**Status:** Pending
+**Status:** Complete
+
+**Left open:** the Columns and Rows layouts were not built.
+ThreeColumn shipped instead, so the cycle is BSP, VerticalStack and
+ThreeColumn, and the layout is kept per workspace, not per monitor.
 
 **Goal:** Add Columns, Rows, and VerticalStack layouts alongside the
 existing BSP layout, and allow users to cycle through layouts with a
@@ -310,28 +314,28 @@ crates/
 
 ## Tasks
 
-- [ ] Add `LayoutKind` enum to `mosaico-core/src/layout.rs`
+- [x] Add `LayoutKind` enum to `mosaico-core/src/layout.rs`
 - [ ] Implement `ColumnsLayout` with `Layout` trait
 - [ ] Implement `RowsLayout` with `Layout` trait
-- [ ] Implement `VerticalStackLayout` with `Layout` trait
-- [ ] Add `next()` and `name()` methods to `LayoutKind`
-- [ ] Add `default: LayoutKind` to `LayoutConfig` (default `Bsp`)
-- [ ] Add `default = "bsp"` to `generate_config()` template
-- [ ] Add `layout_kind: LayoutKind` to `MonitorState`
-- [ ] Update `apply_layout_on()` to dispatch based on `layout_kind`
-- [ ] Add `CycleLayout` variant to `Action` enum
-- [ ] Update `Action::from_str` / `Display` for `cycle-layout`
-- [ ] Add default keybinding: Alt+N -> CycleLayout
+- [x] Implement `VerticalStackLayout` with `Layout` trait
+- [x] Add `next()` and `name()` methods to `LayoutKind`
+- [x] Add `default: LayoutKind` to `LayoutConfig` (default `Bsp`)
+- [x] Add `default = "bsp"` to `generate_config()` template
+- [x] Add `layout_kind: LayoutKind` to `MonitorState`
+- [x] Update `apply_layout_on()` to dispatch based on `layout_kind`
+- [x] Add `CycleLayout` variant to `Action` enum
+- [x] Update `Action::from_str` / `Display` for `cycle-layout`
+- [x] Add default keybinding: Alt+N -> CycleLayout
 - [ ] Add `cycle-layout` to keybindings template comments
-- [ ] Implement `cycle_layout()` in `TilingManager`:
+- [x] Implement `cycle_layout()` in `TilingManager`:
       advance focused monitor's `layout_kind`, retile
-- [ ] Update `bar_states()` to use `layout_kind.name()`
-- [ ] Initialize `MonitorState::layout_kind` from config default
-- [ ] Add `CycleLayout` subcommand to CLI
-- [ ] Add unit tests for each layout (1, 2, 3, 5 windows)
-- [ ] Run `cargo fmt --all`
-- [ ] Run `cargo clippy --all-targets -- -D warnings` and fix warnings
-- [ ] Run `cargo test` and fix failures
+- [x] Update `bar_states()` to use `layout_kind.name()`
+- [x] Initialize `MonitorState::layout_kind` from config default
+- [x] Add `CycleLayout` subcommand to CLI
+- [x] Add unit tests for each layout (1, 2, 3, 5 windows)
+- [x] Run `cargo fmt --all`
+- [x] Run `cargo clippy --all-targets -- -D warnings` and fix warnings
+- [x] Run `cargo test` and fix failures
 - [ ] Manual test: cycle through all 4 layouts, verify correct tiling
 - [ ] Manual test: Columns with 1, 3, and 6 windows
 - [ ] Manual test: Rows with 1, 3, and 6 windows
@@ -339,6 +343,6 @@ crates/
 - [ ] Manual test: cycle layout while in monocle mode
 - [ ] Manual test: verify bar displays correct layout name
 - [ ] Manual test: spatial navigation works with all layouts
-- [ ] Update documentation (`docs/tiling-layout.md`, `docs/configuration.md`,
+- [x] Update documentation (`docs/tiling-layout.md`, `docs/configuration.md`,
       `docs/keyboard-bindings.md`)
 - [ ] Update `.plans/plan.md`

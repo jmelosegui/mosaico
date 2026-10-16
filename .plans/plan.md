@@ -48,7 +48,7 @@ Mosaico is structured as a Cargo workspace with multiple crates:
 | [29](phase-29.md) | Toggle Pause (Stop/Resume Daemon) | Complete |
 | [30](phase-30.md) | Windows Installer & Winget Distribution | Pending |
 | [31](phase-31.md) | Unfocused Window Borders | Complete |
-| [32](phase-32.md) | Rosé Pine & Tokyo Night Themes | Pending |
+| [32](phase-32.md) | Rosé Pine & Tokyo Night Themes | Complete |
 | [33](phase-33.md) | Theme Accent Override | Pending |
 | [34](phase-34.md) | Window Transitions | Pending |
 | [35](phase-35.md) | Mouse Interaction | Pending |

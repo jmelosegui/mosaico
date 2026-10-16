@@ -2,6 +2,11 @@
 
 **Status:** Complete
 
+**Left open:** the pause shipped for hotkeys only: `toggle-pause`,
+`mosaico pause` and `mosaico unpause` stop and start the hotkeys,
+while tiling, borders and window events keep running. Restoring
+windows on pause and retiling on resume were not built.
+
 **Goal:** Add a single command that pauses the daemon (stops managing
 windows) and can be resumed later, effectively a toggle.
 
@@ -104,17 +109,17 @@ crates/
 
 ## Tasks
 
-- [ ] Add `TogglePause` to `Action`
-- [ ] Add `toggle-pause` parsing/display strings
-- [ ] Add `toggle_pause()` handling in daemon
-- [ ] Add paused state flag to daemon state
+- [x] Add `TogglePause` to `Action`
+- [x] Add `toggle-pause` parsing/display strings
+- [x] Add `toggle_pause()` handling in daemon
+- [x] Add paused state flag to daemon state
 - [ ] Implement pause: unregister hotkeys, restore windows, clear borders
 - [ ] Implement resume: re-register hotkeys, re-enumerate, re-tile
-- [ ] Add CLI subcommand and IPC wiring
+- [x] Add CLI subcommand and IPC wiring
 - [ ] Add integration test: toggle pause twice restores state
-- [ ] Run `cargo fmt --all`
-- [ ] Run `cargo clippy --all-targets -- -D warnings` and fix warnings
-- [ ] Run `cargo test` and fix failures
+- [x] Run `cargo fmt --all`
+- [x] Run `cargo clippy --all-targets -- -D warnings` and fix warnings
+- [x] Run `cargo test` and fix failures
 - [ ] Manual test: pause stops tiling and hotkeys
 - [ ] Manual test: resume restores tiling and hotkeys
-- [ ] Update `.plans/plan.md`
+- [x] Update `.plans/plan.md`
