@@ -6,7 +6,8 @@ use crate::tiler::{MAX_HOLD, QUIET};
 use super::*;
 
 /// Waits with the effects held since `held`, from `from` until `until`,
-/// with every wait ended early by a message 10 ms in.
+/// with every wait ended early by a message 10 ms in: a title that keeps
+/// changing.
 fn interrupted_waits(
     scheduler: &mut Scheduler,
     held: Option<Instant>,
@@ -17,7 +18,7 @@ fn interrupted_waits(
     while now < until {
         scheduler.begin_wait(held, now);
         now += ms(10);
-        scheduler.step(received(vec![event(moved(1))]), now);
+        scheduler.step(received(vec![event(titled(1))]), now);
     }
 }
 

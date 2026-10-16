@@ -11,8 +11,10 @@
 //! back.
 
 mod dedup;
+mod messages;
 mod scheduler;
 mod settle;
 
-pub use scheduler::{Message, Scheduler, Step, Wake};
+pub use messages::{Message, Step, Wake};
+pub use scheduler::Scheduler;
 pub use settle::SETTLE;

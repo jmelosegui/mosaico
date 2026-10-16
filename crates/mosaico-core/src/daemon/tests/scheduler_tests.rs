@@ -15,6 +15,8 @@ mod cap_tests;
 mod flush_tests;
 #[path = "scheduler_hold_tests.rs"]
 mod hold_tests;
+#[path = "scheduler_input_tests.rs"]
+mod input_tests;
 #[path = "scheduler_settle_tests.rs"]
 mod settle_tests;
 
@@ -48,6 +50,12 @@ fn focused(window: u64) -> WindowEvent {
 
 fn moved(window: u64) -> WindowEvent {
     WindowEvent::LocationChanged {
+        window: wid(window),
+    }
+}
+
+fn titled(window: u64) -> WindowEvent {
+    WindowEvent::TitleChanged {
         window: wid(window),
     }
 }

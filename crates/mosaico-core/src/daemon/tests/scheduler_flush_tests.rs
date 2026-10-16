@@ -31,11 +31,11 @@ fn a_message_ends_the_wait_without_a_flush() {
     scheduler.begin_wait(held, t0);
 
     // Act -- the message arrives 20 ms into the quiet window.
-    let steps = scheduler.step(received(vec![event(moved(1))]), t0 + ms(20));
+    let steps = scheduler.step(received(vec![event(focused(2))]), t0 + ms(20));
     let wait = scheduler.begin_wait(held, t0 + ms(21));
 
     // Assert -- the next wait starts the window over.
-    assert_eq!(steps, vec![Step::Events(vec![moved(1)])]);
+    assert_eq!(steps, vec![Step::Events(vec![focused(2)])]);
     assert_eq!(wait, Some(QUIET));
 }
 

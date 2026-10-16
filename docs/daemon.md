@@ -128,14 +128,19 @@ timeout) to the scheduler with the current time, and runs the steps it gets
 back, in order:
 
 1. **Flush** the focus changes and coalesced moves the tiling manager holds
-   back, once the loop has waited 25 ms (`tiler::QUIET`) with no message
+   back, once the loop has waited 25 ms (`tiler::QUIET`) with no input
    arriving. The wait starts once everything before it has run, so a slow
-   batch, a display rebuild or startup never counts as quiet. They are
-   flushed at the latest 100 ms after the loop first waited with them held
-   (`tiler::MAX_HOLD`), even while messages keep arriving: while a window
-   animates or a title keeps changing, no wait would ever last 25 ms. A
-   slow batch or a slow startup does not count toward the cap, so it still
-   gets the full 25 ms.
+   batch of input, a display rebuild or startup never counts as quiet. They
+   are flushed at the latest 100 ms after the loop first waited with them
+   held (`tiler::MAX_HOLD`), even while input keeps arriving: while a title
+   keeps changing, no wait would ever last 25 ms. A slow batch or a slow
+   startup does not count toward the cap, so it still gets the full 25 ms.
+   A window's `LocationChanged` reports are not input, whoever moved the
+   window, the tiler's own placements included: a wake that brought only
+   those finds what is due by then, as a timeout does, and otherwise lets
+   the wait go on, through the batch that handles them, so the time that
+   batch takes counts as quiet. So a window that animates no longer pushes
+   held moves back to the cap.
 2. **Rebuild for the monitors** once a display change has settled. A
    `DisplayChanged` event only starts or extends a 750 ms settle window, see
    [monitor-management.md](monitor-management.md). While effects are held,
@@ -149,7 +154,7 @@ back, in order:
    `TitleChanged` of the batch, which can turn hundreds of events into a
    handful.
 
-Messages that end a wait only find what was due when it began: a message
+Input that ends a wait only finds what was due when it began: a message
 that arrives during the quiet window ends it without a flush, and the next
 wait starts the window over. The scheduler never reads the clock itself, so
 its decisions are unit tested with a fake one.

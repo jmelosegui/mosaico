@@ -16,10 +16,11 @@ pub const QUIET: Duration = Duration::from_millis(25);
 
 /// The longest effects are held while input keeps arriving.
 ///
-/// A window that reports its position on every frame of an animation,
-/// or a title that keeps changing, never lets the daemon wait
-/// [`QUIET`], and would otherwise hold focus changes and moves back for
-/// as long as it lasts.
+/// A title that keeps changing never lets the daemon wait [`QUIET`], and
+/// would otherwise hold focus changes and moves back for as long as it
+/// lasts. A window that reports its position on every frame of an
+/// animation does not count: position reports are not input to the
+/// [`Scheduler`](crate::daemon::Scheduler), whoever moved the window.
 ///
 /// The cap counts from the first time the daemon waits with the
 /// effects held, not from when they were held, so the time spent
