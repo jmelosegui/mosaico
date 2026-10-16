@@ -1,9 +1,9 @@
 //! What the user asks for: actions from hotkeys and commands from the
 //! CLI.
 
+use mosaico_core::bar::BarManager;
 use mosaico_core::ipc::{Command, DAEMON_VERSION, DaemonStatus, PROTOCOL_VERSION, Response};
 
-use crate::bar_manager::BarManager;
 use crate::tiling::TilingManager;
 
 use super::daemon_inputs::Inputs;

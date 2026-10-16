@@ -1,229 +1,25 @@
-//! Status bar overlay windows — one per monitor.
+//! Status bar overlay windows, one per monitor.
 //!
-//! Each bar is a layered Win32 popup that renders workspace indicators,
-//! layout info, and system widgets using `UpdateLayeredWindow`.
+//! Core's [`BarManager`](mosaico_core::bar::BarManager) decides what each
+//! bar shows; this module puts it on screen. Each bar is a layered Win32
+//! popup that draws its [`BarContent`](mosaico_core::bar::BarContent) with
+//! GDI into a DIB and presents it using `UpdateLayeredWindow`.
 
 mod render;
 mod text;
 pub(crate) mod widgets;
-
-use std::sync::Once;
+mod window;
 
 use mosaico_core::Rect;
-use mosaico_core::config::bar::BarConfig;
-use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
-use windows::Win32::UI::WindowsAndMessaging::{
-    CW_USEDEFAULT, CreateWindowExW, DefWindowProcW, DestroyWindow, HWND_TOP, RegisterClassW,
-    SW_HIDE, SWP_NOACTIVATE, SWP_SHOWWINDOW, SetWindowPos, ShowWindow, WM_CLOSE, WNDCLASSW,
-    WS_EX_LAYERED, WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT, WS_POPUP,
-};
-use windows::core::PCWSTR;
+use mosaico_core::bar::{BarRenderer, BarSurface};
 
-use crate::error::OrPlatform;
+use window::Bar;
 
-use render::render_bar;
-pub use widgets::BarState;
+/// Puts the status bars on screen as layered popup windows.
+pub struct Win32BarRenderer;
 
-/// A status bar overlay for a single monitor.
-pub struct Bar {
-    hwnd: HWND,
-    monitor_rect: Rect,
-}
-
-static REGISTER_CLASS: Once = Once::new();
-const CLASS_NAME: &[u16] = &[
-    b'M' as u16,
-    b'o' as u16,
-    b's' as u16,
-    b'a' as u16,
-    b'i' as u16,
-    b'c' as u16,
-    b'o' as u16,
-    b'B' as u16,
-    b'a' as u16,
-    b'r' as u16,
-    0,
-];
-
-fn ensure_class_registered() {
-    REGISTER_CLASS.call_once(|| {
-        let wc = WNDCLASSW {
-            lpfnWndProc: Some(bar_wnd_proc),
-            lpszClassName: PCWSTR(CLASS_NAME.as_ptr()),
-            ..Default::default()
-        };
-        // SAFETY: RegisterClassW is called once (guarded by Once) to
-        // register the bar window class with a valid WNDCLASSW.
-        unsafe {
-            RegisterClassW(&wc);
-        }
-    });
-}
-
-unsafe extern "system" fn bar_wnd_proc(
-    hwnd: HWND,
-    msg: u32,
-    wparam: WPARAM,
-    lparam: LPARAM,
-) -> LRESULT {
-    // The bar belongs to BarManager, which destroys it in Drop. Now that
-    // the owning thread dispatches messages, DefWindowProcW would act on
-    // WM_CLOSE by destroying the window behind the owner's back, leaving
-    // a dangling handle and a monitor with no bar until the next rebuild.
-    // Anything that closes a process's windows in bulk, End task being
-    // the common one, reaches this. Ignore the request instead.
-    if msg == WM_CLOSE {
-        return LRESULT(0);
-    }
-    // SAFETY: DefWindowProcW is the default handler required by WNDPROC.
-    unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) }
-}
-
-impl Bar {
-    /// Creates a new hidden bar overlay positioned at the top of the
-    /// given monitor work area.
-    ///
-    /// # Errors
-    ///
-    /// Returns `Err` if the Win32 window could not be created.
-    pub fn new(monitor_work_area: Rect) -> mosaico_core::Result<Self> {
-        ensure_class_registered();
-
-        let ex = WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT;
-        // SAFETY: CreateWindowExW creates a layered popup window for the
-        // bar overlay. The class name pointer is valid for the process
-        // lifetime (static array).
-        let hwnd = unsafe {
-            CreateWindowExW(
-                ex,
-                PCWSTR(CLASS_NAME.as_ptr()),
-                PCWSTR::null(),
-                WS_POPUP,
-                CW_USEDEFAULT,
-                CW_USEDEFAULT,
-                0,
-                0,
-                None,
-                None,
-                None,
-                None,
-            )
-        }
-        .or_platform("create a bar window")?;
-
-        Ok(Self {
-            hwnd,
-            monitor_rect: monitor_work_area,
-        })
-    }
-
-    /// Renders and shows the bar with the given config and state.
-    pub fn update(&self, config: &BarConfig, state: &BarState) {
-        let x = self.monitor_rect.x;
-        let y = self.monitor_rect.y;
-        let w = self.monitor_rect.width;
-        let h = config.height;
-
-        render_bar(self.hwnd, x, y, w, h, config, state);
-
-        // SAFETY: SetWindowPos positions and shows the bar overlay.
-        // The HWND is owned by this struct.
-        unsafe {
-            let _ = SetWindowPos(
-                self.hwnd,
-                Some(HWND_TOP),
-                x,
-                y,
-                w,
-                h,
-                SWP_NOACTIVATE | SWP_SHOWWINDOW,
-            );
-        }
-    }
-
-    /// Hides the bar.
-    pub fn hide(&self) {
-        // SAFETY: ShowWindow hides the bar overlay owned by this struct.
-        unsafe {
-            let _ = ShowWindow(self.hwnd, SW_HIDE);
-        }
-    }
-}
-
-impl Drop for Bar {
-    fn drop(&mut self) {
-        // SAFETY: DestroyWindow cleans up the bar overlay. The HWND is
-        // exclusively owned by this struct and not used after drop.
-        unsafe {
-            let _ = DestroyWindow(self.hwnd);
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use windows::Win32::UI::WindowsAndMessaging::{IsWindow, SendMessageW};
-
-    /// Creates a window of the real bar class, so a message sent to it
-    /// goes through the registered window procedure rather than calling
-    /// the function directly.
-    ///
-    /// Returns `None` when the window cannot be created, so a machine
-    /// with no interactive desktop skips instead of failing.
-    fn bar_class_window() -> Option<HWND> {
-        ensure_class_registered();
-
-        // SAFETY: creates a small popup of the already registered bar
-        // class. The caller destroys it.
-        let hwnd = unsafe {
-            CreateWindowExW(
-                WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT,
-                PCWSTR(CLASS_NAME.as_ptr()),
-                PCWSTR::null(),
-                WS_POPUP,
-                0,
-                0,
-                1,
-                1,
-                None,
-                None,
-                None,
-                None,
-            )
-        }
-        .ok()?;
-
-        (!hwnd.is_invalid()).then_some(hwnd)
-    }
-
-    #[test]
-    fn wm_close_does_not_destroy_the_bar() {
-        // Arrange
-        let Some(hwnd) = bar_class_window() else {
-            return;
-        };
-
-        // Act -- the daemon thread pumps now, so this message reaches the
-        // window procedure instead of sitting in the queue. End task and
-        // anything else that closes a process's windows in bulk sends it.
-        // SAFETY: sending a message to a window this thread created.
-        unsafe {
-            SendMessageW(hwnd, WM_CLOSE, None, None);
-        }
-
-        // SAFETY: reading the state of a window this thread owns.
-        let alive = unsafe { IsWindow(Some(hwnd)).as_bool() };
-
-        // SAFETY: destroying a window this thread created.
-        unsafe {
-            let _ = DestroyWindow(hwnd);
-        }
-
-        // Assert
-        assert!(
-            alive,
-            "WM_CLOSE destroyed the bar, which BarManager still holds a handle to"
-        );
+impl BarRenderer for Win32BarRenderer {
+    fn create(&mut self, area: Rect) -> mosaico_core::Result<Box<dyn BarSurface>> {
+        Ok(Box::new(Bar::new(area)?))
     }
 }

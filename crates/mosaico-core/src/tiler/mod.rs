@@ -9,6 +9,7 @@
 //! cause are recognized as ours.
 
 mod adopt;
+mod bar_states;
 mod borders;
 mod coalesce;
 mod corners;

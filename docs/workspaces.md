@@ -180,14 +180,15 @@ At daemon startup, all 8 workspaces are created per monitor (as empty
 
 ## Bar Integration
 
-The status bar displays workspace indicators showing which workspaces
-contain windows and which is active. The `BarState` struct provides:
+The status bar displays workspace indicators showing which workspace is
+active. The `BarState` struct (`mosaico_core::bar`) provides:
 
 - `active_workspace` -- 0-indexed active workspace
-- `workspace_count` -- number of workspaces that contain at least one window
+- `workspace_count` -- number of workspaces on the monitor
 
-The workspaces widget renders one pill per populated workspace, with the
-active workspace highlighted in the configured `active_workspace` color.
+The workspaces widget renders every workspace number inside one container
+pill, with the active workspace highlighted in the configured
+`active_workspace` color.
 
 ## Configuration
 

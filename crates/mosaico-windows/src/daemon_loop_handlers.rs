@@ -1,6 +1,6 @@
+use mosaico_core::bar::BarManager;
 use mosaico_core::tiler::Enumerator;
 
-use crate::bar_manager::BarManager;
 use crate::enumerate::WindowsEnumerator;
 use crate::tiling::TilingManager;
 

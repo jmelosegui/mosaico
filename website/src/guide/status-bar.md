@@ -74,13 +74,12 @@ focused window. It extracts the icon from the running process and renders
 it as a bitmap in the bar. When no window is focused or the icon cannot be
 determined, the widget is hidden automatically.
 
-The `media` widget shows the currently playing track ("Artist - Title")
-using the Windows media transport controls API (GSMTC). It works with
-Spotify, browser media (YouTube, SoundCloud, etc.), VLC, and any app that
-integrates with Windows media controls. When nothing is playing, the
-widget is hidden automatically. Long titles are truncated to `max_length`
-characters (default 40) with an ellipsis. Some third-party media apps
-may not register with GSMTC and will not be detected.
+The `media` widget is meant to show the track that is playing ("Artist -
+Title"), with long titles truncated to `max_length` characters (default 40)
+and an ellipsis, and to hide itself when nothing plays. It does not read
+anything on Windows yet: the query to the Windows media controls (GSMTC)
+blocks the daemon, so for now the widget always stays hidden. You can keep
+it in `bar.toml` for when that is solved.
 
 ```toml
 [[right]]

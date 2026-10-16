@@ -222,8 +222,8 @@ The `TilingManager` supports hot-reloading of configuration:
   monitors that display a bar (offsets `y` and `height` by the bar height)
 - `reset_and_adjust_work_areas(height, indices)` -- resets to original work
   areas and re-applies bar adjustment (used on bar config reload)
-- `bar_states()` -- returns per-monitor `BarState` with workspace count,
-  active workspace, active window title, etc.
+- `bar_states()` -- returns per-monitor `BarState` from `Tiler::bar_states()`:
+  workspace count, active workspace, layout, monocle and the focused window
 - `restore_all_windows()` -- shows all windows across every workspace and
   monitor; called on shutdown so windows hidden by workspace switching are
   not left invisible

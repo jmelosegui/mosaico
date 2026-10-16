@@ -11,11 +11,11 @@ use std::sync::mpsc;
 use std::time::Instant;
 
 use mosaico_core::WindowEvent;
+use mosaico_core::bar::BarManager;
 use mosaico_core::config::Theme;
 use mosaico_core::daemon::{Scheduler, Step, Wake};
 use mosaico_core::ipc::Command;
 
-use crate::bar_manager::BarManager;
 use crate::tiling::TilingManager;
 
 use super::daemon_inputs::Inputs;
