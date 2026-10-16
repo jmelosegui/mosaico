@@ -91,17 +91,17 @@ Configures the status bar. See [Status Bar](status-bar.md) for details.
 ```toml
 enabled = true
 height = 28
-monitor = "all"      # "all", "primary", or 0-based index
+monitors = []            # 0-based monitor indices; empty for all of them
 
 [colors]
-background = "base"      # Named Catppuccin color
-foreground = "text"
-accent = "blue"
+background = "#1e1e2e"   # Hex, or empty for the theme's own
+foreground = "#cdd6f4"
+accent = "blue"          # A color the theme names
 
 [[left]]
 type = "workspaces"
 
-[[center]]
+[[right]]
 type = "clock"
 format = "%H:%M"
 

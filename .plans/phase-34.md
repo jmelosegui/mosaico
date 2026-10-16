@@ -525,7 +525,7 @@ that changes them.
       handled, and the slowest window (no log line per frame)
 - [x] `mosaico doctor` shows the animation settings and whether Windows allows
       animations
-- [ ] `docs/animations.md`, and the changes in `docs/daemon.md`,
+- [x] `docs/animations.md`, and the changes in `docs/daemon.md`,
       `docs/window-management.md` and `docs/window-events.md`
 - [ ] Run `cargo fmt --all -- --check`
 - [ ] Run `cargo clippy --all-targets -- -D warnings`
