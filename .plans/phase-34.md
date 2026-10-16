@@ -519,7 +519,7 @@ that changes them.
 
 ### 34.4 Verification and docs
 
-- [ ] The `[animations]` section in the config template, and the hint for
+- [x] The `[animations]` section in the config template, and the hint for
       existing configs
 - [ ] A debug log line per transition: windows, frames posted, pending and
       handled, and the slowest window (no log line per frame)

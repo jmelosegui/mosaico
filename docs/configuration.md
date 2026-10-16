@@ -65,7 +65,7 @@ All settings have sensible defaults, so configuration files are optional.
 
 ### `config.toml`
 
-Controls layout, borders, logging, and theme:
+Controls layout, borders, window transitions, logging, and theme:
 
 ```toml
 [layout]
@@ -91,6 +91,13 @@ focused = "#00b4d8"    # Color of the focused window in tiled layouts
 monocle = "#2d6a4f"    # Color of the focused window in monocle mode
 unfocused = "#6c7086"  # Color drawn around unfocused tiled windows
                        # (set to "none" to disable unfocused borders)
+
+[animations]
+enabled = false           # Move windows to their new place over time (off by default)
+duration = 180            # How long a transition takes, in milliseconds (0-1000)
+easing = "ease-out-cubic" # linear, ease-out-quad, ease-out-cubic, ease-in-out-cubic,
+                          # ease-out-expo, or "cubic-bezier(x1, y1, x2, y2)"
+follow_system = true      # Snap while the system's settings turn animations off
 
 [theme]
 name = "catppuccin"  # catppuccin, rose-pine, tokyo-night
@@ -228,7 +235,11 @@ A missing file is never created. Files that exist change in two ways:
     already mentions the option. That rewrites the file in place (through
     `toml_edit`, so comments and formatting survive) without a backup.
     Otherwise it appends a comment block about the option, unless the file
-    already mentions `unfocused` anywhere.
+    already mentions `unfocused` anywhere. Last, it appends a comment block
+    about window transitions, unless the file has an `[animations]` section,
+    active or commented out as the template and the block itself write it.
+    The block is all comments, so the file keeps the defaults, with
+    transitions off, until the user writes the section.
   - `merge_missing_keybindings()` and `merge_missing_bar_widgets()` append the
     default bindings and bar widgets the files lack; see
     [keyboard-bindings.md](keyboard-bindings.md) and
@@ -394,7 +405,10 @@ apply alone until it is fixed.
 - 11 unit tests covering: defaults, partial TOML parsing, rule matching
   (by class, by title, first-match wins, no-rules default), validation
   clamping
-- 6 template tests: roundtrip parsing, template-matches-defaults verification
+- Template tests (`template_tests.rs`, `template_animations_tests.rs`):
+  roundtrip parsing, template-matches-defaults verification, and that the
+  `[animations]` section writes out every key and names only easings the
+  config takes
 - `ConfigStore` tests in `config/store/tests/`. The tests of the migration
   and merge helpers work on single files in the system temp directory. The
   tests of the store's operations each get a directory of their own, deleted

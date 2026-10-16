@@ -1,4 +1,5 @@
 mod load;
+mod merge_animations;
 mod merge_bar;
 mod merge_config;
 mod merge_keybindings;
@@ -54,7 +55,8 @@ impl ConfigStore {
         &self.dir
     }
 
-    /// `config.toml`: theme, layout, workspaces, borders, mouse and logging.
+    /// `config.toml`: theme, layout, workspaces, borders, mouse, animations
+    /// and logging.
     pub fn config_path(&self) -> PathBuf {
         self.dir.join("config.toml")
     }

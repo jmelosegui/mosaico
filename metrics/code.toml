@@ -7,10 +7,10 @@ tests = 127
 unsafe_keywords = 51
 
 [mosaico-core]
-files_over_line_limit = 75
-lines_over_line_limit = 5693
+files_over_line_limit = 74
+lines_over_line_limit = 5681
 os_names = 0
-tests = 1309
+tests = 1320
 unsafe_keywords = 0
 unwraps_outside_tests = 0
 

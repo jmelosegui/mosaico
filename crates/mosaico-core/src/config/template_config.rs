@@ -65,6 +65,21 @@ follows_focus = true
 # Automatically focus the window under the cursor without clicking.
 focus_follows_mouse = false
 
+[animations]
+# Window transitions: windows move to their new place over a short time
+# when they swap, move or resize, and when the layout changes, instead of
+# jumping there.
+enabled = false
+# How long a transition takes, in milliseconds (0 to 1000).
+duration = 180
+# How windows speed up and slow down on the way: "linear", "ease-out-quad",
+# "ease-out-cubic", "ease-in-out-cubic", "ease-out-expo", or
+# "cubic-bezier(x1, y1, x2, y2)" with all four numbers from 0 to 1.
+easing = "ease-out-cubic"
+# Snap windows into place while animations are turned off in the system's
+# settings ("Animation effects" on Windows), and in a remote session.
+follow_system = true
+
 [logging]
 # Enable file logging to ~/.config/mosaico/logs/mosaico.log.
 enabled = false
