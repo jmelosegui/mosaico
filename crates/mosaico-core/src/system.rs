@@ -1,7 +1,15 @@
 //! What the CLI asks of the OS besides talking to the daemon: starting
 //! and stopping processes, and registering for start on login.
 
+mod autostart;
+mod autostart_status;
+mod file_probe;
+
 use crate::Result;
+
+pub use autostart::{Autostart, LaunchCommand};
+pub use autostart_status::AutostartStatus;
+pub use file_probe::FileProbe;
 
 /// Starting and stopping daemon processes.
 ///
@@ -32,29 +40,4 @@ pub trait ProcessControl {
 
     /// Ends a process forcefully.
     fn kill(&self, pid: u32) -> Result<()>;
-}
-
-/// Starting mosaico when the user logs in.
-///
-/// # Contract for platform implementations
-///
-/// - Registration is per user and needs no elevation.
-/// - What is registered runs `mosaico start` with the executable the
-///   caller is running, so a moved or updated binary is picked up by
-///   enabling again.
-/// - `disable` succeeds when nothing was registered.
-/// - A failed registration or removal is an
-///   [`Error::Platform`](crate::Error::Platform).
-/// - A platform without a way to start at login returns
-///   [`Error::Unsupported`](crate::Error::Unsupported) from `enable`,
-///   and `is_enabled` returns false.
-pub trait Autostart {
-    /// Whether mosaico is registered to start at login.
-    fn is_enabled(&self) -> bool;
-
-    /// Registers mosaico to start at login.
-    fn enable(&self) -> Result<()>;
-
-    /// Removes the registration.
-    fn disable(&self) -> Result<()>;
 }

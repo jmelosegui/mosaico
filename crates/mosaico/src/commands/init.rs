@@ -1,5 +1,6 @@
 use mosaico_core::config;
 
+use super::autostart;
 use super::context::{Context, Exit};
 
 /// Creates the default configuration files at `~/.config/mosaico/`.
@@ -59,7 +60,7 @@ fn prompt_autostart(cx: &mut Context) {
     let _ = std::io::stdout().flush();
     let mut input = String::new();
     if std::io::stdin().read_line(&mut input).is_ok() && input.trim().eq_ignore_ascii_case("y") {
-        match cx.autostart.enable() {
+        match autostart::register(cx) {
             Ok(()) => println!("Autostart enabled."),
             Err(e) => eprintln!("Warning: could not enable autostart: {e}"),
         }

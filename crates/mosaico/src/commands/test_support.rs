@@ -1,25 +1,30 @@
 //! Fakes for testing commands without a daemon, processes or registry.
 //!
 //! [`World`] stands in for everything outside the CLI at once (the
-//! daemon, the process table, the autostart registration, the desktop
-//! and the clock) so a test can describe a situation, such as "the
-//! daemon stopped answering but its process is still alive", in a few
-//! fields.
+//! daemon, the process table, the autostart registration, program files,
+//! the desktop and the clock) so a test can describe a situation, such
+//! as "the daemon stopped answering but its process is still alive", in
+//! a few fields.
 
+#[path = "test_support_autostart.rs"]
+mod autostart_fake;
 mod windows;
 
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, VecDeque};
 use std::io;
+use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 use mosaico_core::ipc::{Command, IpcError, Response};
 use mosaico_core::pid::PidFile;
-use mosaico_core::system::{Autostart, ProcessControl};
+use mosaico_core::system::{LaunchCommand, ProcessControl};
 use mosaico_core::{Error, Rect, Result, WindowId};
 
 use super::context::{Clock, Context, Daemon, Exit};
 use super::fake_desktop::FakeDesktop;
+
+pub use autostart_fake::{EXE, MOVED_AWAY};
 
 /// How long a fake process stays alive.
 #[derive(Debug, Clone, Copy)]
@@ -62,14 +67,21 @@ pub struct World {
     pub can_kill: Cell<bool>,
     /// What `launch_daemon` does.
     pub launch: RefCell<Launch>,
-    /// Whether autostart is registered.
-    pub autostart: Cell<bool>,
+    /// What is registered to start at login.
+    pub autostart: RefCell<Option<LaunchCommand>>,
+    /// Whether the user turned the registration off in the system's
+    /// startup settings.
+    pub turned_off: Cell<bool>,
     /// Error the autostart registration fails with, if any.
     pub autostart_error: RefCell<Option<String>>,
     /// Windows placed, and where, in order.
     pub placed: RefCell<Vec<(WindowId, Rect)>>,
     /// Error placing a window fails with, if any.
     pub place_error: RefCell<Option<String>>,
+    /// Program files that exist.
+    pub files: RefCell<Vec<PathBuf>>,
+    /// Whether the executable commands run from cannot be found.
+    pub exe_missing: Cell<bool>,
     /// The fake time.
     pub now: Cell<Instant>,
 }
@@ -84,10 +96,13 @@ impl Default for World {
             processes: RefCell::default(),
             can_kill: Cell::new(true),
             launch: RefCell::new(Launch::Answers(4321)),
-            autostart: Cell::new(false),
+            autostart: RefCell::default(),
+            turned_off: Cell::new(false),
             autostart_error: RefCell::default(),
             placed: RefCell::default(),
             place_error: RefCell::default(),
+            files: RefCell::default(),
+            exe_missing: Cell::new(false),
             now: Cell::new(Instant::now()),
         }
     }
@@ -177,28 +192,6 @@ impl ProcessControl for World {
     }
 }
 
-impl Autostart for World {
-    fn is_enabled(&self) -> bool {
-        self.autostart.get()
-    }
-
-    fn enable(&self) -> Result<()> {
-        if let Some(message) = self.autostart_error.borrow().clone() {
-            return Err(failure(message));
-        }
-        self.autostart.set(true);
-        Ok(())
-    }
-
-    fn disable(&self) -> Result<()> {
-        if let Some(message) = self.autostart_error.borrow().clone() {
-            return Err(failure(message));
-        }
-        self.autostart.set(false);
-        Ok(())
-    }
-}
-
 /// An error that reads exactly `message`, so a test can pin what the
 /// command prints.
 fn failure(message: String) -> Error {
@@ -250,6 +243,8 @@ impl Harness {
             autostart: &self.world,
             windows: &self.world,
             desktop: &self.desktop,
+            current_exe: &|| self.world.current_exe(),
+            files: &self.world,
             pid_file: self.pid_file.clone(),
             config_dir: "C:\\config\\mosaico".into(),
             clock: &self.world,

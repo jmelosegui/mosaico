@@ -1,8 +1,11 @@
 //! Runtime health checks for `mosaico doctor`.
 //!
-//! These checks inspect live system state (daemon process, monitors)
-//! rather than static configuration files.
+//! These checks inspect live system state (autostart registration,
+//! daemon process, monitors) rather than static configuration files.
 
+use mosaico_core::system::AutostartStatus;
+
+use super::autostart;
 use super::context::{Context, say};
 
 const OK: &str = "\x1b[32m[ok]\x1b[0m";
@@ -37,14 +40,36 @@ pub fn check_rules_cache_age() {
     }
 }
 
+/// Reports whether this mosaico starts at login. Only reports: another
+/// registration may be one the user wants, such as a development build.
 pub fn check_autostart(cx: &mut Context) {
-    if cx.autostart.is_enabled() {
-        say!(cx, "  {OK} Autostart is enabled");
-    } else {
-        say!(
+    match autostart::check(cx) {
+        Ok(AutostartStatus::Enabled) => say!(cx, "  {OK} Autostart is enabled"),
+        Ok(AutostartStatus::Disabled) => say!(
             cx,
             "  {WARN} Autostart is disabled (run `mosaico autostart enable` to set up)"
-        );
+        ),
+        Ok(AutostartStatus::TurnedOff) => say!(
+            cx,
+            "  {WARN} Autostart is turned off in the startup apps settings (run `mosaico autostart enable` to turn it back on)"
+        ),
+        Ok(AutostartStatus::Empty) => say!(
+            cx,
+            "  {FAIL} The autostart entry is empty (run `mosaico autostart enable` to set it, or `mosaico autostart disable` to remove it)"
+        ),
+        Ok(AutostartStatus::Other {
+            registered,
+            expected,
+        }) => say!(
+            cx,
+            "  {WARN} Autostart starts {registered} instead of {expected} (run `mosaico autostart enable` to switch)"
+        ),
+        Ok(AutostartStatus::Missing(command)) => say!(
+            cx,
+            "  {FAIL} Autostart starts \"{}\", which is not a file (run `mosaico autostart enable` to fix)",
+            command.program.display()
+        ),
+        Err(e) => say!(cx, "  {FAIL} Autostart: {e}"),
     }
 }
 

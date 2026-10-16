@@ -38,9 +38,12 @@ Commands do not reach for the OS themselves. They take a
 (`mosaico_core::system::ProcessControl`), start at login
 (`mosaico_core::system::Autostart`), window control
 (`mosaico_core::WindowControl`), the windows and monitors on the desktop
-(`mosaico_core::tiler::Enumerator`), the instance's `PidFile`, a clock, the
-update check, the logo, and the output and error streams. They return an
-`Exit` (`Success` or `Failure`), and only `main` calls `std::process::exit`.
+(`mosaico_core::tiler::Enumerator`), the path of the running executable
+(`current_exe`, which is what autostart registers), file checks that never
+wait on the network (`mosaico_core::system::FileProbe`, for the autostart
+check), the instance's `PidFile`, a clock, the update check, the logo, and
+the output and error streams. They return an `Exit` (`Success` or
+`Failure`), and only `main` calls `std::process::exit`.
 
 `crates/mosaico/src/platform.rs` builds the real context; it is the one place
 in the CLI that picks a platform implementation. Commands that move windows
@@ -50,8 +53,8 @@ The unit tests build one from `commands/test_support.rs`, a fake `World`
 standing in for the daemon, processes, registry, desktop and clock, and
 `commands/fake_desktop.rs`, a fake list of windows and monitors, so `start`,
 `stop`, `status`, `autostart`, `action`, `pause`, `debug move`, `debug list`
-and `doctor`'s daemon and monitor checks are tested without a daemon or a
-desktop.
+and `doctor`'s autostart, daemon and monitor checks are tested without a
+daemon or a desktop.
 
 Still calling the platform crate directly: `daemon` (it is the daemon),
 `debug events`' Ctrl+C handler and window titles, and `update`'s version
@@ -138,9 +141,20 @@ Checks performed:
    total count and any unknown key names
 5. **rules.toml** -- validates syntax via `try_load_rules()`
 6. **bar.toml** -- validates syntax via `try_load_bar()`
-7. **Daemon** -- checks IPC pipe, PID file, and process liveness; cleans up
+7. **Autostart** -- compares what is registered to start at login with what
+   `mosaico autostart enable` would register from the running executable
+   (`AutostartStatus::read` in `mosaico_core::system`): `[ok]` when they
+   match, `[warn]` when nothing is registered, when the user turned the
+   entry off in the startup apps settings (Settings or Task Manager), or
+   when another command is registered (another copy of mosaico, or other
+   arguments), `[fail]` when the registered program is
+   not a file (the binary moved or was deleted), the entry names no program,
+   or the registration cannot be read. A program on a network share is not
+   looked at, so it counts as another command. Doctor only reports; it never
+   changes the registration
+8. **Daemon** -- checks IPC pipe, PID file, and process liveness; cleans up
    stale PID files
-8. **Monitors** -- enumerates monitors and reports count with per-monitor
+9. **Monitors** -- enumerates monitors and reports count with per-monitor
    dimensions and positions
 
 ### `mosaico action <verb> [direction]`
