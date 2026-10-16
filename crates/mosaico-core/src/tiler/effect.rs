@@ -90,6 +90,13 @@ pub enum Effect {
         /// The window it goes behind.
         other: WindowId,
     },
+    /// Stop tiling a window that left the layout. Nothing changes on
+    /// screen: the tiling manager drops what it still holds back for the
+    /// window, since that was decided while the window was tiled.
+    Untile {
+        /// The window.
+        window: WindowId,
+    },
     /// Apply the configured corner style to a managed window's frame.
     Decorate {
         /// The window.

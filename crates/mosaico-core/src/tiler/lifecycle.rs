@@ -4,6 +4,7 @@ use crate::config::{Config, WindowRule, WorkspaceMode};
 
 use crate::WindowId;
 
+use super::removal::untile;
 use super::{Effect, Plan, Tiler};
 
 impl Tiler {
@@ -71,8 +72,8 @@ impl Tiler {
     }
 
     /// Replaces the window rules and lets go of windows the new rules
-    /// no longer manage. One hidden by a workspace switch is shown
-    /// again as it is let go, so it is not left out of view.
+    /// no longer manage, see [`untile`]. One hidden by a workspace switch
+    /// is shown again as it is let go, so it is not left out of view.
     pub(super) fn reload_rules(&mut self, plan: &mut Plan, rules: Vec<WindowRule>) {
         self.rules = rules;
         self.adopt_rejected.clear();
@@ -92,7 +93,7 @@ impl Tiler {
         for (mi, wi, window) in removals {
             self.undecorate(plan, window);
             let ws = &mut self.monitors[mi].workspaces[wi];
-            ws.remove(window);
+            untile(plan, ws, window);
             // As when a window leaves any other way, a workspace whose
             // monocle window goes is no longer in monocle.
             if ws.monocle() && ws.monocle_window() == Some(window) {

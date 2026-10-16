@@ -53,6 +53,8 @@ mod global_lineup_tests;
 mod harness;
 #[path = "tests/held_border_tests.rs"]
 mod held_border_tests;
+#[path = "tests/held_removal_tests.rs"]
+mod held_removal_tests;
 #[path = "tests/hidden_how_tests.rs"]
 mod hidden_how_tests;
 #[path = "tests/hiding_change_record_tests.rs"]

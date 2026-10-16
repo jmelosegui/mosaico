@@ -59,7 +59,8 @@ pub fn apply_decoration_effect(effect: &Effect, decorations: &mut dyn Decoration
         | Effect::Close { .. }
         | Effect::Minimize { .. }
         | Effect::Repaint { .. }
-        | Effect::PutBehind { .. } => {}
+        | Effect::PutBehind { .. }
+        | Effect::Untile { .. } => {}
     }
 }
 

@@ -46,17 +46,20 @@ impl Coalescer {
             }
             Effect::Place { window, .. } => {
                 // A placement made now supersedes a held one, along with
-                // whatever was waiting for it.
-                self.forget(window);
+                // whatever was waiting for it. A focus change held for the
+                // window still lands.
+                self.forget_placement(window);
                 Some(effect)
             }
-            // The window is leaving the screen. What was held for it
-            // would move a window that is gone, or draw a border around
-            // it that nothing removes afterwards (#71).
+            // The window is leaving the screen or the layout. What was
+            // held for it would move or focus a window that is gone or no
+            // longer tiled, or draw a border around it that nothing
+            // removes afterwards (#71, #135).
             Effect::Hide { window, .. }
             | Effect::Minimize { window }
             | Effect::Close { window }
-            | Effect::DropBorder { window } => {
+            | Effect::DropBorder { window }
+            | Effect::Untile { window } => {
                 self.forget(window);
                 Some(effect)
             }
@@ -94,9 +97,20 @@ impl Coalescer {
         self.after.push(effect);
     }
 
-    /// Drops the held placement of `window` and everything waiting for
-    /// it. The tiling manager calls this when the window is destroyed.
+    /// Drops everything held for `window`: its placement, what waits for
+    /// it, and a focus change to it. The window is gone, or leaving the
+    /// screen or the layout; the tiling manager calls this when it is
+    /// destroyed.
     pub fn forget(&mut self, window: WindowId) {
+        self.forget_placement(window);
+        if matches!(self.focus, Some(Effect::Focus { window: w, .. }) if w == window) {
+            self.focus = None;
+        }
+    }
+
+    /// Drops the held placement of `window` and everything waiting for
+    /// it.
+    fn forget_placement(&mut self, window: WindowId) {
         self.places.retain(|&(w, _)| w != window);
         self.after.retain(|e| waits_for(e) != Some(window));
     }
@@ -104,6 +118,11 @@ impl Coalescer {
     /// Whether anything is held.
     pub fn is_empty(&self) -> bool {
         self.focus.is_none() && self.places.is_empty()
+    }
+
+    /// Whether a focus change is held.
+    pub fn holds_focus(&self) -> bool {
+        self.focus.is_some()
     }
 
     /// When the effects held now started being held, or `None` when

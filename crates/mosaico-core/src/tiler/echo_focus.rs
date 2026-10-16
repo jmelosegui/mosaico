@@ -52,6 +52,11 @@ impl FocusEchoes {
         self.held.is_some()
     }
 
+    /// Forgets the focus change held back, which will not be applied.
+    pub(super) fn release_held(&mut self) {
+        self.held = None;
+    }
+
     /// Why a report that `window` got focus is an echo of our own focus
     /// changes, or `None` when it is not one.
     pub(super) fn echo(&mut self, window: WindowId, now: Instant) -> Option<&'static str> {

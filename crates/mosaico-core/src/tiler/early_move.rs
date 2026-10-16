@@ -40,12 +40,13 @@ impl Tiler {
 
     /// Where the layout pass puts the windows on the monitor's active
     /// workspace, in the order it places them, after pruning the ones
-    /// that are gone or minimized. Nothing is emitted.
+    /// that are gone or minimized. Nothing is emitted but the prune's
+    /// untiling of the windows it drops.
     ///
     /// Empty in monocle mode, whatever the pass does there: it places the
     /// monocle window alone, after the windows waiting behind it, or the
     /// whole layout when monocle has no window to show.
-    fn positions_on(&mut self, plan: &Plan, monitor_idx: usize) -> Vec<(WindowId, Rect)> {
+    fn positions_on(&mut self, plan: &mut Plan, monitor_idx: usize) -> Vec<(WindowId, Rect)> {
         self.prune_stale_handles(plan, monitor_idx);
         let monocle = self
             .monitors
