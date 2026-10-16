@@ -2,17 +2,18 @@ use std::sync::mpsc::Sender;
 
 use mosaico_core::config::Keybinding;
 use mosaico_core::event::{EventSource, EventWatch, FocusFollowsMouse};
+use mosaico_core::hotkey::{HotkeySource, HotkeyWatch};
 use mosaico_core::{Action, Error, Result, WindowEvent};
 
 use crate::event_source::WindowsEventSource;
-use crate::hotkey_thread::HotkeyThread;
+use crate::hotkey_thread::WindowsHotkeySource;
 use crate::pointer::WindowsPointer;
 
 /// What the daemon listens to besides IPC: window events, hotkeys and
 /// the pointer, each on a thread of its own.
 pub(super) struct Inputs {
     events: EventWatch,
-    hotkeys: HotkeyThread,
+    hotkeys: HotkeyWatch,
     focus_follows_mouse: FocusFollowsMouse,
 }
 
@@ -26,7 +27,7 @@ impl Inputs {
         focus_follows_mouse: bool,
     ) -> Result<Self> {
         let watch = WindowsEventSource.start(events.clone())?;
-        let hotkeys = HotkeyThread::start(actions, keybindings)?;
+        let hotkeys = WindowsHotkeySource.start(keybindings, actions)?;
         let mut inputs = Self {
             events: watch,
             hotkeys,
@@ -44,12 +45,16 @@ impl Inputs {
 
     /// Unregisters every hotkey except toggle-pause.
     pub(super) fn pause_hotkeys(&self) {
-        self.hotkeys.pause();
+        if let Err(e) = self.hotkeys.pause() {
+            mosaico_core::log_warn!("Could not pause the hotkeys: {e}");
+        }
     }
 
     /// Registers the paused hotkeys again.
     pub(super) fn unpause_hotkeys(&self) {
-        self.hotkeys.unpause();
+        if let Err(e) = self.hotkeys.unpause() {
+            mosaico_core::log_warn!("Could not unpause the hotkeys: {e}");
+        }
     }
 
     /// Turns focus-follows-mouse on or off, as the config asks. When it

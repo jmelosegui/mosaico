@@ -12,7 +12,7 @@ All settings have sensible defaults, so configuration files are optional.
 | `crates/mosaico-core/src/config/mod.rs` | `Config`, `LayoutConfig`, `BorderConfig`, `ThemeConfig`, `WindowRule`, `should_manage()` |
 | `crates/mosaico-core/src/config/hiding_behaviour.rs` | `HidingBehaviour`, how windows are hidden on a workspace switch |
 | `crates/mosaico-core/src/config/loader.rs` | All load/try_load functions and path helpers for all 4 config files |
-| `crates/mosaico-core/src/config/keybinding.rs` | `Keybinding`, `Modifier`, `defaults()` |
+| `crates/mosaico-core/src/config/keybinding.rs` | `Keybinding`, `Modifier`, `defaults()`, `Keybinding::combo()` |
 | `crates/mosaico-core/src/config/bar.rs` | `BarConfig`, `BarColors`, `WidgetConfig` |
 | `crates/mosaico-core/src/config/theme.rs` | `ThemeConfig`, `Theme` enum |
 | `crates/mosaico-core/src/config/palette.rs` | Catppuccin color palettes (hardcoded named color data) |

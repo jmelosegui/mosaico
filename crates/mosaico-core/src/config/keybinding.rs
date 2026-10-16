@@ -1,21 +1,44 @@
 use serde::{Deserialize, Serialize};
 
-use crate::Action;
 use crate::action::Direction;
+use crate::hotkey::KeyCombo;
+use crate::{Action, Result};
 
 /// A user-configured keybinding that maps a key combination to an action.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Keybinding {
     /// The action to trigger.
     pub action: Action,
-    /// Key name (e.g. "J", "Enter", "Space", "F1").
+    /// Key name as written in the file (e.g. "J", "Enter", "Space", "F1").
+    ///
+    /// Kept as text and checked by [`Keybinding::combo`], so an unknown
+    /// name puts only its own binding out of action, not the whole file.
     pub key: String,
     /// Modifier keys (e.g. ["alt", "shift"]).
     pub modifiers: Vec<Modifier>,
 }
 
+impl Keybinding {
+    /// The key combination that triggers this binding.
+    ///
+    /// This is where a binding's key name is checked, for the daemon and
+    /// for `mosaico doctor` alike, so both accept the same names on every
+    /// platform.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::Config`](crate::Error::Config) when the key name
+    /// is not one mosaico knows.
+    pub fn combo(&self) -> Result<KeyCombo> {
+        Ok(KeyCombo {
+            modifiers: self.modifiers.iter().copied().collect(),
+            key: self.key.parse()?,
+        })
+    }
+}
+
 /// Keyboard modifier keys.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Modifier {
     /// Alt key.
@@ -80,3 +103,7 @@ fn bind(action: Action, key: &str, modifiers: &[Modifier]) -> Keybinding {
         modifiers: modifiers.to_vec(),
     }
 }
+
+#[cfg(test)]
+#[path = "keybinding_tests.rs"]
+mod tests;

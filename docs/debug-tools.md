@@ -137,9 +137,9 @@ colored status tags:
    if missing (`[fixed]`)
 2. **config.toml** -- validates TOML syntax via `try_load()`
 3. **keybindings.toml** -- validates syntax via `try_load_keybindings()`
-4. **Keybinding key codes** -- loads all keybindings and resolves each key
-   name through `vk_from_name()`; reports the total count of valid bindings
-   or lists any unresolvable key names
+4. **Keybinding key codes** -- loads all keybindings and checks each key
+   name with `Keybinding::combo()`, the check the daemon uses; reports the
+   total count of valid bindings or lists any unknown key names
 5. **rules.toml** -- validates syntax via `try_load_rules()`
 6. **bar.toml** -- validates syntax via `try_load_bar()`
 7. **Daemon status** -- checks IPC pipe connectivity, PID file, and process

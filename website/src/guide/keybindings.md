@@ -81,7 +81,7 @@ modifiers = ["alt", "shift"]
 |----------|----------|
 | Letters | `A` -- `Z` (case-insensitive) |
 | Digits | `0` -- `9` |
-| Function keys | `F1` -- `F12` |
+| Function keys | `F1` -- `F24` |
 | Named keys | `Enter`, `Tab`, `Escape`, `Space` |
 | Arrow keys | `Left`, `Right`, `Up`, `Down` |
 | Punctuation | `Minus`, `Plus`, `Comma`, `Period` |
