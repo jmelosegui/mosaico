@@ -119,4 +119,10 @@ impl Desktop for Win32Desktop {
             path: win.exe_path(),
         })
     }
+
+    /// The Windows animation setting, `SPI_GETCLIENTAREAANIMATION`, and
+    /// never in a remote session (see `system_settings.rs`).
+    fn animations_allowed(&self) -> bool {
+        crate::system_settings::animations_allowed()
+    }
 }

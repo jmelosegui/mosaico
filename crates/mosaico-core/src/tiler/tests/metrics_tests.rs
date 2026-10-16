@@ -18,6 +18,8 @@ fn kind(call: &Call) -> &'static str {
     match call {
         Call::Place(..) => "place",
         Call::PrePlace(..) => "pre_place",
+        Call::PlaceFrames(..) => "place_frames",
+        Call::SettleResponding => "settle_responding",
         Call::Repaint(..) => "repaint",
         Call::Focus(..) => "focus",
         Call::PutBehind(..) => "put_behind",

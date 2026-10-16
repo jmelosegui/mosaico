@@ -14,40 +14,25 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
-use crate::config::{CornerStyle, HidingBehaviour};
+use crate::config::HidingBehaviour;
 use crate::id::wid;
 use crate::{Error, HidingSupport, Rect, Result, WindowId};
 
-use super::super::{BorderStyle, Display, Effect, LastDrawn};
+use super::super::{Display, Effect, LastDrawn};
 use super::{FakeDesktop, FakeWindow, displays};
 
+pub(crate) use calls::Call;
+
+#[path = "fake_platform_calls.rs"]
+mod calls;
 #[path = "fake_platform_control.rs"]
 mod control;
 #[path = "fake_platform_desktop.rs"]
 mod desktop;
+#[path = "fake_platform_frames.rs"]
+mod frames;
 #[path = "fake_platform_view.rs"]
 mod view;
-
-/// A change the manager asked the platform to make.
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) enum Call {
-    Place(WindowId, Rect),
-    PrePlace(WindowId, Rect),
-    Repaint(WindowId),
-    Focus(WindowId),
-    PutBehind(WindowId, WindowId),
-    Close(WindowId),
-    Minimize(WindowId),
-    Hide(WindowId, HidingBehaviour),
-    Show(WindowId, HidingBehaviour),
-    Reveal(WindowId),
-    MoveCursor(i32, i32),
-    ShowBorder(WindowId, BorderStyle),
-    HideBorder(WindowId),
-    DropBorder(WindowId),
-    SetCorners(WindowId, CornerStyle),
-    ResetCorners(WindowId),
-}
 
 /// What every clone of a [`FakePlatform`] shares.
 struct Shared {
@@ -120,6 +105,12 @@ impl FakePlatform {
         self.shared.pre_places_land.set(true);
     }
 
+    /// Turns animations on or off, as the user does in the system's
+    /// settings.
+    pub(crate) fn allow_animations(&self, allowed: bool) {
+        self.shared.desktop.borrow_mut().animations_off = !allowed;
+    }
+
     /// Moves the work area of monitor `index`.
     pub(crate) fn set_work_area(&self, index: usize, area: Rect) {
         self.shared.displays.borrow_mut()[index].work_area = area;
@@ -137,7 +128,8 @@ impl FakePlatform {
     /// Records `call` and changes the desktop the way `effect` says.
     fn change(&self, call: Call, effect: Effect) -> Result<()> {
         self.record(call);
-        self.shared.desktop.borrow_mut().apply(&effect);
+        let now = self.shared.now.get();
+        self.shared.desktop.borrow_mut().apply(&effect, now);
         Ok(())
     }
 

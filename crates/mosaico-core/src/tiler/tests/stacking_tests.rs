@@ -1,6 +1,8 @@
 //! The stacking order the fake desktop keeps, as focusing a window and
 //! putting it behind another change it.
 
+use std::time::Instant;
+
 use super::*;
 
 /// A desktop with windows 1 and 2 open, 2 opened last, so in front.
@@ -20,10 +22,13 @@ fn putting_a_window_behind_another_leaves_the_other_in_front() {
     assert!(desktop.in_front(wid(2), wid(1)));
 
     // Act
-    desktop.apply(&Effect::PutBehind {
-        window: wid(2),
-        other: wid(1),
-    });
+    desktop.apply(
+        &Effect::PutBehind {
+            window: wid(2),
+            other: wid(1),
+        },
+        Instant::now(),
+    );
 
     // Assert -- and nothing else changed.
     assert!(desktop.in_front(wid(1), wid(2)));
@@ -36,10 +41,13 @@ fn a_window_put_behind_one_that_is_gone_stays_where_it_was() {
     let mut desktop = desktop();
 
     // Act
-    desktop.apply(&Effect::PutBehind {
-        window: wid(2),
-        other: wid(9),
-    });
+    desktop.apply(
+        &Effect::PutBehind {
+            window: wid(2),
+            other: wid(9),
+        },
+        Instant::now(),
+    );
 
     // Assert
     assert!(desktop.in_front(wid(2), wid(1)));
@@ -51,10 +59,13 @@ fn focusing_a_window_brings_it_to_the_front() {
     let mut desktop = desktop();
 
     // Act
-    desktop.apply(&Effect::Focus {
-        window: wid(1),
-        move_cursor: false,
-    });
+    desktop.apply(
+        &Effect::Focus {
+            window: wid(1),
+            move_cursor: false,
+        },
+        Instant::now(),
+    );
 
     // Assert
     assert!(desktop.in_front(wid(1), wid(2)));

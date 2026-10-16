@@ -1,12 +1,17 @@
 //! The desktop of the fake [`World`].
 //!
 //! Commands only place windows, so placements are recorded and can be
-//! made to fail. Everything else succeeds and changes nothing.
+//! made to fail. Everything else succeeds and changes nothing, except
+//! the frames of transitions, which no command posts: the World keeps
+//! the default and does not support them.
 
 use mosaico_core::config::HidingBehaviour;
+use mosaico_core::frames::FrameControl;
 use mosaico_core::{Error, HidingEvents, Rect, Result, WindowControl, WindowId};
 
 use super::World;
+
+impl FrameControl for World {}
 
 impl WindowControl for World {
     fn place(&self, window: WindowId, rect: Rect) -> Result<()> {

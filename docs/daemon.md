@@ -37,7 +37,8 @@ from separate `mpsc` channels into the unified `DaemonMsg` channel.
 | `crates/mosaico-windows/src/daemon_loop_task.rs` | `Task` -- every `DaemonMsg` except a window event, as the main loop runs it |
 | `crates/mosaico-windows/src/daemon_loop_pump.rs` | `pump_thread_messages()`, `PUMP_INTERVAL` -- keeps the bar and border windows responsive |
 | `crates/mosaico-windows/src/daemon_loop_commands.rs` | `carry_out()`, `handle_action()`, `handle_command()` -- hotkey actions and CLI commands |
-| `crates/mosaico-core/src/daemon/` | `Scheduler` -- decides what the main loop runs, and when |
+| `crates/mosaico-core/src/daemon/` | `Scheduler` -- decides what the main loop runs, and when; `FrameClock` -- the contract for waking the loop on display frames; `FramePacer`, `FrameToken` -- a `FrameClock` on a thread of its own, paced through a `FrameWait` |
+| `crates/mosaico-windows/src/frame_clock.rs` | `DisplayWait` -- the Win32 `FrameWait`: `DwmFlush` and a high-resolution timer |
 | `crates/mosaico-windows/src/daemon_inputs.rs` | `Inputs` -- starts and stops window events, hotkeys and focus-follows-mouse |
 | `crates/mosaico-windows/src/event_source.rs` | `WindowsEventSource` -- the WinEvent hooks and the broadcast window |
 | `crates/mosaico-windows/src/hotkey_thread.rs` | `WindowsHotkeySource` -- registers and dispatches hotkeys on a thread of its own |
@@ -128,14 +129,19 @@ timeout) to the scheduler with the current time, and runs the steps it gets
 back, in order:
 
 1. **Flush** the focus changes and coalesced moves the tiling manager holds
-   back, once the loop has waited 25 ms (`tiler::QUIET`) with no message
+   back, once the loop has waited 25 ms (`tiler::QUIET`) with no input
    arriving. The wait starts once everything before it has run, so a slow
-   batch, a display rebuild or startup never counts as quiet. They are
-   flushed at the latest 100 ms after the loop first waited with them held
-   (`tiler::MAX_HOLD`), even while messages keep arriving: while a window
-   animates or a title keeps changing, no wait would ever last 25 ms. A
-   slow batch or a slow startup does not count toward the cap, so it still
-   gets the full 25 ms.
+   batch of input, a display rebuild or startup never counts as quiet. They
+   are flushed at the latest 100 ms after the loop first waited with them
+   held (`tiler::MAX_HOLD`), even while input keeps arriving: while a title
+   keeps changing, no wait would ever last 25 ms. A slow batch or a slow
+   startup does not count toward the cap, so it still gets the full 25 ms.
+   A window's `LocationChanged` reports are not input, whoever moved the
+   window, the tiler's own placements included: a wake that brought only
+   those finds what is due by then, as a timeout does, and otherwise lets
+   the wait go on, through the batch that handles them, so the time that
+   batch takes counts as quiet. So a window that animates no longer pushes
+   held moves back to the cap.
 2. **Rebuild for the monitors** once a display change has settled. A
    `DisplayChanged` event only starts or extends a 750 ms settle window, see
    [monitor-management.md](monitor-management.md). While effects are held,
@@ -148,8 +154,20 @@ back, in order:
    Each window keeps only its last `LocationChanged` and its last
    `TitleChanged` of the batch, which can turn hundreds of events into a
    handful.
+5. **Take the frame step**, which moves the windows of transitions on: once
+   per wake that brought display frames, however many, and once the wait
+   reaches the earliest end of a motion after the last frame step
+   (`Scheduler::last_frame_step`), which `begin_wait` is given, so a
+   transition ends on time even when no frame comes. An end at or before the
+   last frame step has had its step and is let go, so one left in the past
+   never makes the loop spin, nor keeps the wait from ending for the ends
+   after it. Frames are not input either. They come from the platform's
+   `FrameClock` (`mosaico_core::daemon`), which wakes the loop about once per
+   display refresh while it wants frames, and never has more than one waiting
+   in the queue. The loop does not ask for frames yet, and gives no motion
+   deadline.
 
-Messages that end a wait only find what was due when it began: a message
+Input that ends a wait only finds what was due when it began: a message
 that arrives during the quiet window ends it without a flush, and the next
 wait starts the window over. The scheduler never reads the clock itself, so
 its decisions are unit tested with a fake one.
@@ -303,6 +321,41 @@ watcher follows it to its new location while the daemon keeps reading the
 old path. Nothing is logged when it moves, and hot-reload stops working
 until the daemon restarts: a later change in the moved directory finds no
 files at the old path, and reloads as if they had been deleted.
+
+## Frame Pacer
+
+`FramePacer` (`mosaico_core::daemon`) implements core's `FrameClock`, which
+wakes the main loop on display frames while windows move. It waits on the
+display through a `FrameWait` of the platform's, `DisplayWait`
+(`frame_clock.rs`) on Windows, and owns one thread, started with the pacer
+and ended with it:
+
+- While no frames are wanted, the thread is parked and costs nothing.
+  `want_frames` only sets a flag, and unparks the thread to start it, so it
+  never blocks.
+- While frames are wanted, the thread waits for the display's next frame,
+  which `DisplayWait` does with `DwmFlush`, and hands a frame to the sender it
+  was started with. `DwmFlush` fails where nothing is composed, and returns
+  at once while the display sleeps or the session is locked. A wait that
+  ends sooner after the last frame than half a refresh, the refresh being
+  what `DwmGetCompositionTimingInfo` reports, or than 1 ms when it reports
+  none, is waited once more on the display, as one does after a frame the
+  thread was woken for late. Only when that one ends too soon as well, or the
+  display cannot be waited for, is the rest of a refresh, or of a frame at
+  about 60 a second when none is reported, waited out on a high-resolution
+  waitable timer.
+- Each frame comes with a `FrameToken`, and no other is sent until the token
+  is dropped, which the loop does as it takes the frame out of its queue. So
+  at most one frame waits in the queue, however busy the loop is.
+- The sender says whether the frame reached the loop. When it did not, as
+  once the loop is gone, the thread parks until frames are asked for again,
+  instead of trying on every frame.
+- Dropping the pacer stops the thread within a frame, and waits for it 100 ms
+  at most, so a `DwmFlush` that does not come back never holds up a shutdown.
+
+The pacer's logic is in core, tested against waits of the tests' own, so its
+tests run without DWM. The daemon does not start a pacer yet: nothing in the
+loop asks for frames until transitions do.
 
 ## Shutdown
 

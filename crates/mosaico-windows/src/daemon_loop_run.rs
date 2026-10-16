@@ -48,9 +48,9 @@ pub(super) fn run(
         // blocking forever, so the message queue is drained on a regular
         // cadence. The thread is parked inside `recv_timeout` between
         // wakeups, so an idle daemon costs one wakeup per `PUMP_INTERVAL`
-        // and never spins.
+        // and never spins. Nothing moves yet, so no motion is due to end.
         let wait = scheduler
-            .begin_wait(manager.held_since(), Instant::now())
+            .begin_wait(manager.held_since(), None, Instant::now())
             .map_or(PUMP_INTERVAL, |left| left.min(PUMP_INTERVAL));
         let wake = match rx.recv_timeout(wait) {
             Ok(first) => Wake::Received(
@@ -141,6 +141,9 @@ pub(super) fn run(
                         bar_mgr.update(&manager.bar_states(&get_update(), hotkeys_paused));
                     }
                 }
+                // No frames are asked for and no motion is due to end, so
+                // this never comes yet.
+                Step::Frame => {}
             }
         }
     }
