@@ -11,7 +11,7 @@ All settings have sensible defaults, so configuration files are optional.
 |------|---------|
 | `crates/mosaico-core/src/config/mod.rs` | `Config`, `LayoutConfig`, `BorderConfig`, `ThemeConfig`, `WindowRule`, `should_manage()` |
 | `crates/mosaico-core/src/config/hiding_behaviour.rs` | `HidingBehaviour`, how windows are hidden on a workspace switch |
-| `crates/mosaico-core/src/config/loader.rs` | All load/try_load functions and path helpers for all 4 config files |
+| `crates/mosaico-core/src/config/store/` | `ConfigStore`: the paths of the config files (`mod.rs`), loading them (`load.rs`), each migration (`migrate*.rs`) and each merge of new defaults (`merge_*.rs`) |
 | `crates/mosaico-core/src/config/keybinding.rs` | `Keybinding`, `Modifier`, `defaults()`, `Keybinding::combo()` |
 | `crates/mosaico-core/src/config/bar.rs` | `BarConfig`, `BarColors`, `WidgetConfig` |
 | `crates/mosaico-core/src/config/theme.rs` | `ThemeConfig`, `Theme` enum |
@@ -151,26 +151,35 @@ the user's configuration lives (the `UserDirs` contract in
 `mosaico_core::user_dirs`; on Windows `.config` in the profile folder,
 `%USERPROFILE%`), and core adds `mosaico` and, for a named instance,
 `instances\<name>`. `MOSAICO_CONFIG_DIR` replaces the whole path; see
-Instances in [cli.md](cli.md). The `config_dir()` function returns this path.
+Instances in [cli.md](cli.md).
 
-Individual file paths:
-- `config_path()` -> `~/.config/mosaico/config.toml`
-- `keybindings_path()` -> `~/.config/mosaico/keybindings.toml`
-- `rules_path()` -> `~/.config/mosaico/rules.toml`
-- `bar_path()` -> `~/.config/mosaico/bar.toml`
+`ConfigStore` (in `mosaico_core::config`) reads and writes the config files
+in one directory. `ConfigStore::for_instance(instance)` is the store of an
+instance, which the daemon, the config watcher and the CLI commands use.
+`ConfigStore::new(dir)` points a store at any directory, which is how the
+tests load, merge and migrate files in a temporary directory. Its paths:
+
+- `dir()` -> the directory, `~/.config/mosaico/` for the default instance
+- `config_path()` -> `config.toml` in it
+- `keybindings_path()` -> `keybindings.toml`
+- `rules_path()` -> `rules.toml`
+- `user_rules_path()` -> `user-rules.toml`
+- `bar_path()` -> `bar.toml`
 
 ## Loading Behavior
 
-Each config file has two loader variants:
+Each config file has two loaders on `ConfigStore`:
 
-- `load()` / `load_keybindings()` / `load_rules()` / `load_bar()` -- load
-  with fallback to defaults: silently when the file is missing, with a
-  warning when it cannot be read or parsed
-- `try_load()` / `try_load_keybindings()` / `try_load_rules()` /
-  `try_load_bar()` -- return `mosaico_core::Result<T>`. A failure is an
-  `Error::Config` whose `path` is the file and whose message says what is
-  wrong; it reads `<path>: <problem>`. Only "could not determine ... path",
-  which has no file to name, comes without a path
+- `load_config()` / `load_keybindings()` / `load_rules()` /
+  `load_user_rules()` / `load_bar()` -- load with fallback to defaults:
+  silently when the file is missing, with a warning when it cannot be read
+  or parsed
+- `try_load_config()` / `try_load_keybindings()` / `try_load_rules()` /
+  `try_load_user_rules()` / `try_load_bar()` -- return
+  `mosaico_core::Result<T>`. A failure is an `Error::Config` whose `path` is
+  the file and whose message says what is wrong; it reads `<path>: <problem>`
+
+`load_merged_rules()` returns the user rules followed by the community rules.
 
 The `try_load` variants are used by the `doctor` command for validation and
 by the config file watcher for hot-reload (only valid configs are applied).
@@ -178,9 +187,36 @@ by the config file watcher for hot-reload (only valid configs are applied).
 All loaders follow the same pattern:
 
 1. Attempt to read the file from disk
-2. If the file is missing, unreadable, or unparsable: fall back to defaults
+2. For `config.toml`: rewrite keys from older versions (see below)
+3. If the file is missing, unreadable, or unparsable: fall back to defaults
    (or return an error for `try_load` variants)
-3. For `Config`: call `validate()` to clamp values to safe ranges
+4. For `Config` and `BarConfig`: call `validate()` to clamp values to safe
+   ranges
+
+### Files a Newer Version Updates
+
+A missing file is never created. Files that exist change in two ways:
+
+- Loading `config.toml` rewrites keys from older versions in place
+  (`[layout.workspaces]` becomes `[workspaces.layouts]`, and `focused` /
+  `monocle` under `[borders]` move to `[borders.colors]`), after copying the
+  file to `config.toml.pre-0.9.bak` (`.bak.1`, `.bak.2`, ... when that
+  exists). Comments and formatting survive. This happens wherever the file is
+  loaded: at daemon startup, on hot-reload and in `mosaico doctor`.
+- At daemon startup, the `merge_missing_*` methods add what a newer version
+  introduced, by appending to the file or, for one key, inserting into it:
+  - `merge_missing_config_sections()` appends a documented `[workspaces]`
+    section when `config.toml` has none. For the `unfocused` border color,
+    when `[borders.colors]` is an active table without the key, it inserts
+    `unfocused = ""` there under a comment, even if a comment in the file
+    already mentions the option. That rewrites the file in place (through
+    `toml_edit`, so comments and formatting survive) without a backup.
+    Otherwise it appends a comment block about the option, unless the file
+    already mentions `unfocused` anywhere.
+  - `merge_missing_keybindings()` and `merge_missing_bar_widgets()` append the
+    default bindings and bar widgets the files lack; see
+    [keyboard-bindings.md](keyboard-bindings.md) and
+    [status-bar.md](status-bar.md).
 
 ### Validation
 
@@ -315,3 +351,10 @@ error, the watcher logs a warning and keeps the current config.
   (by class, by title, first-match wins, no-rules default), validation
   clamping
 - 6 template tests: roundtrip parsing, template-matches-defaults verification
+- `ConfigStore` tests in `config/store/tests/`. The tests of the migration
+  and merge helpers work on single files in the system temp directory. The
+  tests of the store's operations each get a directory of their own, deleted
+  when the test ends: every load and its fallback, the errors that name the
+  file, the migrations of `config.toml` with their backups, and each merge of
+  new defaults, including what it adds, that a second run changes nothing, and
+  the daemon's order of merging before loading

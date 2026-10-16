@@ -139,9 +139,9 @@ check:
 
 Checks performed:
 
-1. **Config directory** -- verifies `~/.config/mosaico/` exists; creates it
-   if missing
-2. **config.toml** -- validates TOML syntax via `try_load()`
+1. **Config directory** -- verifies the instance's config directory
+   (`~/.config/mosaico/` by default) exists; creates it if missing
+2. **config.toml** -- validates TOML syntax via `ConfigStore::try_load_config()`
 3. **keybindings.toml** -- validates syntax via `try_load_keybindings()`
 4. **Keybinding keys** -- verifies each key name is one mosaico knows, with
    the check the daemon uses (`Keybinding::combo()` in core); reports the

@@ -94,7 +94,7 @@ fn print_banner(cx: &mut Context, pid: u32) {
 
     (cx.logo)(&mut *cx.out);
     say!(cx, "");
-    say!(cx, "  {d}Config{r}   {}", cx.config_dir.display());
+    say!(cx, "  {d}Config{r}   {}", cx.config.dir().display());
     say!(cx, "  {d}Daemon{r}   Started (PID: {w}{pid}{r})");
     say!(cx, "  {d}Repo{r}     https://github.com/jmelosegui/mosaico");
     say!(cx, "  {d}Tip{r}      {tip}");

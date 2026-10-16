@@ -19,6 +19,7 @@ use std::io;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
+use mosaico_core::config::ConfigStore;
 use mosaico_core::ipc::{Command, IpcError, Response};
 use mosaico_core::pid::PidFile;
 use mosaico_core::system::{LaunchCommand, ProcessControl};
@@ -224,13 +225,14 @@ pub struct Harness {
     pub world: World,
     pub desktop: FakeDesktop,
     pub pid_file: PidFile,
+    pub config: ConfigStore,
     out: Vec<u8>,
     err: Vec<u8>,
 }
 
 impl Harness {
-    /// A harness whose PID file lives in a fresh temporary directory
-    /// named after `test`.
+    /// A harness whose PID file and config files live in a fresh
+    /// temporary directory named after `test`.
     pub fn new(test: &str) -> Self {
         let dir = std::env::temp_dir()
             .join("mosaico-command-tests")
@@ -240,6 +242,7 @@ impl Harness {
             world: World::default(),
             desktop: FakeDesktop::default(),
             pid_file: PidFile::new(dir.join("mosaico.pid")),
+            config: ConfigStore::new(dir.join("config")),
             out: Vec::new(),
             err: Vec::new(),
         }
@@ -256,7 +259,7 @@ impl Harness {
             current_exe: &|| self.world.current_exe(),
             files: &self.world,
             pid_file: self.pid_file.clone(),
-            config_dir: "C:\\config\\mosaico".into(),
+            config: self.config.clone(),
             clock: &self.world,
             http: &self.world.releases,
             installer: &self.world.installer,

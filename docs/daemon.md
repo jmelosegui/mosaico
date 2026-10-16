@@ -74,8 +74,10 @@ order, it:
 4. Logs that it started
 5. Calls `serve()`, which checks that the instance is the one the process
    resolved (`Instance::require_current`), since the loop still finds the
-   config, the logs and the record of hidden windows through
-   `Instance::current()`, and then runs `daemon_loop()` for the main logic
+   logs and the record of hidden windows through `Instance::current()`. It
+   then builds the instance's `ConfigStore` (`ConfigStore::for_instance`),
+   through which the loop reads, watches and updates the config files, and
+   runs `daemon_loop()` for the main logic
 6. Logs the error the loop returned, if any, since the daemon has no
    console. Errors from the steps before it, and an instance that `serve()`
    refuses in step 5, come before the logger is set up and are only printed
@@ -87,7 +89,8 @@ order, it:
 
 `daemon_loop()` performs:
 
-1. Load configuration (`config.toml`, `keybindings.toml`, `rules.toml`)
+1. Load configuration (`config.toml`, `keybindings.toml`, `rules.toml`) from
+   the instance's `ConfigStore`
 2. Initialize the logger, which then writes what was logged before it,
    such as problems found in the config (see [logging.md](logging.md))
 3. Resolve the current theme from `config.theme`
@@ -213,8 +216,9 @@ The config watcher runs on a dedicated thread, polling `config.toml`,
 
 1. Records the initial modification time of each file
 2. On each poll cycle, compares current mtime with the stored value
-3. If changed, validates the new content using `try_load()` or
-   `try_load_rules()`
+3. If changed, validates the new content using the daemon's `ConfigStore`
+   (`try_load_config()` or `try_load_bar()`), or reloads the merged rules
+   with `load_merged_rules()`
 4. Only valid configs are sent as `ConfigReload` -- invalid files are logged
    and skipped
 5. The reload is forwarded via a bridge thread to `DaemonMsg::Reload`

@@ -1,43 +1,39 @@
-use mosaico_core::config;
+use mosaico_core::config::{self, ConfigStore};
 
 use super::autostart;
 use super::context::{Context, Exit};
 
-/// Creates the default configuration files at `~/.config/mosaico/`.
+/// Creates the default configuration files in the instance's config
+/// directory, `~/.config/mosaico/` for the default instance.
 ///
 /// Generates `config.toml`, `keybindings.toml`, `rules.toml`,
 /// `user-rules.toml`, and `bar.toml` with comments explaining every
 /// option. Existing files are not overwritten. On first run, prompts
 /// the user to enable autostart.
 pub fn execute(cx: &mut Context) -> Exit {
-    let Some(dir) = config::config_dir() else {
-        eprintln!("Error: could not determine home directory.");
-        return Exit::Failure;
-    };
+    let store = cx.config.clone();
+    let dir = store.dir();
 
-    if let Err(e) = std::fs::create_dir_all(&dir) {
+    if let Err(e) = std::fs::create_dir_all(dir) {
         eprintln!("Error: could not create {}: {e}", dir.display());
         return Exit::Failure;
     }
 
-    let is_first_run = !dir.join("config.toml").exists();
+    let is_first_run = !store.config_path().exists();
 
-    check_rules_migration(&dir);
+    check_rules_migration(&store);
 
+    write_if_missing(&store.config_path(), &config::template::generate_config());
     write_if_missing(
-        &dir.join("config.toml"),
-        &config::template::generate_config(),
-    );
-    write_if_missing(
-        &dir.join("keybindings.toml"),
+        &store.keybindings_path(),
         &config::template::generate_keybindings(),
     );
-    write_if_missing(&dir.join("rules.toml"), &config::template::generate_rules());
+    write_if_missing(&store.rules_path(), &config::template::generate_rules());
     write_if_missing(
-        &dir.join("user-rules.toml"),
+        &store.user_rules_path(),
         &config::template::generate_user_rules(),
     );
-    write_if_missing(&dir.join("bar.toml"), &config::template::generate_bar());
+    write_if_missing(&store.bar_path(), &config::template::generate_bar());
 
     if is_first_run {
         prompt_autostart(cx);
@@ -72,16 +68,13 @@ fn prompt_autostart(cx: &mut Context) {
 /// Community rules now overwrite `rules.toml` on every daemon startup.
 /// If the user previously added custom rules there, they need to migrate
 /// them to `user-rules.toml` to avoid losing them.
-fn check_rules_migration(dir: &std::path::Path) {
-    let rules_path = dir.join("rules.toml");
-    let user_rules_path = dir.join("user-rules.toml");
-
-    if !rules_path.exists() || user_rules_path.exists() {
+fn check_rules_migration(store: &ConfigStore) {
+    if !store.rules_path().exists() || store.user_rules_path().exists() {
         return;
     }
 
     let default_count = config::default_rules().len();
-    let Ok(current) = config::try_load_rules() else {
+    let Ok(current) = store.try_load_rules() else {
         return;
     };
 

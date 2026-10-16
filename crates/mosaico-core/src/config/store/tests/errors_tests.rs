@@ -1,8 +1,10 @@
 use std::path::{Path, PathBuf};
 
 use crate::Error;
+use crate::config::rules::RulesFile;
 
-use super::{RulesFile, load_toml, migrate_config_if_needed, read_file};
+use super::migrate::migrate_config_if_needed;
+use super::{load_toml, read_file};
 
 /// A fresh directory for one test.
 fn temp_dir(test: &str) -> PathBuf {

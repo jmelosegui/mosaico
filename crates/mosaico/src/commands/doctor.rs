@@ -1,4 +1,6 @@
-use mosaico_core::config;
+use std::path::Path;
+
+use mosaico_core::config::ConfigStore;
 
 use super::context::{Context, Exit, say};
 use super::doctor_runtime;
@@ -12,15 +14,15 @@ const FIXED: &str = "\x1b[36m[fixed]\x1b[0m";
 pub fn execute(cx: &mut Context) -> Exit {
     (cx.logo)(&mut *cx.out);
     say!(cx, "");
-    check_config_dir();
-    check_config_file();
-    check_theme();
-    check_keybindings_file();
-    check_keybinding_keys();
-    check_rules_file();
-    doctor_runtime::check_rules_cache_age();
-    check_user_rules_file();
-    check_bar_file();
+    check_config_dir(&cx.config);
+    check_config_file(&cx.config);
+    check_theme(&cx.config);
+    check_keybindings_file(&cx.config);
+    check_keybinding_keys(&cx.config);
+    check_rules_file(&cx.config);
+    doctor_runtime::check_rules_cache_age(&cx.config);
+    check_user_rules_file(&cx.config);
+    check_bar_file(&cx.config);
     doctor_runtime::check_autostart(cx);
     doctor_runtime::check_daemon(cx);
     doctor_runtime::check_monitors(cx);
@@ -28,35 +30,24 @@ pub fn execute(cx: &mut Context) -> Exit {
     Exit::Success
 }
 
-fn check_config_dir() {
-    match config::config_dir() {
-        Some(dir) if dir.is_dir() => {
-            println!("  {OK} Config directory exists ({})", dir.display());
+fn check_config_dir(store: &ConfigStore) {
+    let dir = store.dir();
+    if dir.is_dir() {
+        println!("  {OK} Config directory exists ({})", dir.display());
+        return;
+    }
+    match std::fs::create_dir_all(dir) {
+        Ok(()) => {
+            println!("  {FIXED} Created config directory ({})", dir.display());
         }
-        Some(dir) => match std::fs::create_dir_all(&dir) {
-            Ok(()) => {
-                println!("  {FIXED} Created config directory ({})", dir.display());
-            }
-            Err(e) => {
-                println!("  {FAIL} Config directory missing and could not create it: {e}");
-            }
-        },
-        None => {
-            println!("  {FAIL} Could not determine home directory");
+        Err(e) => {
+            println!("  {FAIL} Config directory missing and could not create it: {e}");
         }
     }
 }
 
 /// Checks that a TOML config file exists and parses without errors.
-fn check_toml_file(
-    name: &str,
-    path: Option<std::path::PathBuf>,
-    try_load: impl FnOnce() -> mosaico_core::Result<()>,
-) {
-    let Some(path) = path else {
-        println!("  {FAIL} Could not determine {name} path");
-        return;
-    };
+fn check_toml_file(name: &str, path: &Path, try_load: impl FnOnce() -> mosaico_core::Result<()>) {
     if !path.exists() {
         println!("  {WARN} {name} not found (using defaults)");
         return;
@@ -67,14 +58,14 @@ fn check_toml_file(
     }
 }
 
-fn check_config_file() {
-    check_toml_file("config.toml", config::config_path(), || {
-        config::try_load().map(|_| ())
+fn check_config_file(store: &ConfigStore) {
+    check_toml_file("config.toml", &store.config_path(), || {
+        store.try_load_config().map(|_| ())
     });
 }
 
-fn check_theme() {
-    let cfg = config::load();
+fn check_theme(store: &ConfigStore) {
+    let cfg = store.load_config();
     let name = cfg.theme.name.to_ascii_lowercase();
     let flavor = cfg.theme.flavor.to_ascii_lowercase();
     if name != "catppuccin" {
@@ -97,16 +88,16 @@ fn check_theme() {
     println!("  {OK} Theme: catppuccin {flavor}");
 }
 
-fn check_keybindings_file() {
-    check_toml_file("keybindings.toml", config::keybindings_path(), || {
-        config::try_load_keybindings().map(|_| ())
+fn check_keybindings_file(store: &ConfigStore) {
+    check_toml_file("keybindings.toml", &store.keybindings_path(), || {
+        store.try_load_keybindings().map(|_| ())
     });
 }
 
 /// Flags the bindings whose key name the daemon would skip. The names
 /// are checked in core, so this agrees with the daemon on every platform.
-fn check_keybinding_keys() {
-    let bindings = config::load_keybindings();
+fn check_keybinding_keys(store: &ConfigStore) {
+    let bindings = store.load_keybindings();
     let mut bad: Vec<String> = Vec::new();
     for kb in &bindings {
         if kb.combo().is_err() {
@@ -127,20 +118,20 @@ fn check_keybinding_keys() {
     }
 }
 
-fn check_rules_file() {
-    check_toml_file("rules.toml", config::rules_path(), || {
-        config::try_load_rules().map(|_| ())
+fn check_rules_file(store: &ConfigStore) {
+    check_toml_file("rules.toml", &store.rules_path(), || {
+        store.try_load_rules().map(|_| ())
     });
 }
 
-fn check_user_rules_file() {
-    check_toml_file("user-rules.toml", config::user_rules_path(), || {
-        config::try_load_user_rules().map(|_| ())
+fn check_user_rules_file(store: &ConfigStore) {
+    check_toml_file("user-rules.toml", &store.user_rules_path(), || {
+        store.try_load_user_rules().map(|_| ())
     });
 }
 
-fn check_bar_file() {
-    check_toml_file("bar.toml", config::bar_path(), || {
-        config::try_load_bar().map(|_| ())
+fn check_bar_file(store: &ConfigStore) {
+    check_toml_file("bar.toml", &store.bar_path(), || {
+        store.try_load_bar().map(|_| ())
     });
 }
