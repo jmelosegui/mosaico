@@ -92,24 +92,12 @@ right regardless of which theme you pick.
 | `cyan` | Cyan |
 | `teal` | Teal |
 | `blue` | Blue |
-| `purple` | Purple (alias `mauve`, `magenta`) |
+| `purple` | Purple |
+| `magenta` | Magenta (alias `mauve`) |
 
-Additional named colors for surfaces and text:
-
-| Name | Description |
-|------|-------------|
-| `base` | Base background |
-| `mantle` | Darker background |
-| `crust` | Darkest background |
-| `surface0` | Surface layer 0 |
-| `surface1` | Surface layer 1 |
-| `surface2` | Surface layer 2 |
-| `overlay0` | Overlay layer 0 |
-| `overlay1` | Overlay layer 1 |
-| `overlay2` | Overlay layer 2 |
-| `subtext0` | Subdued text |
-| `subtext1` | Slightly subdued text |
-| `text` | Primary text color |
+These tables list every name each theme has. No theme names its
+background, surface or text shades: write those as hex values, or leave
+the setting empty to fall back to its default.
 
 ## Color Resolution
 
@@ -128,9 +116,8 @@ Using named colors in `bar.toml`:
 
 ```toml
 [colors]
-background = "base"
-foreground = "text"
-accent = "blue"
+foreground = "lavender"  # a Catppuccin name
+accent = "blue"          # a name every theme has
 ```
 
 Using named colors for borders in `config.toml`:

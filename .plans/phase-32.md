@@ -1,6 +1,6 @@
 # Phase 32: Rosé Pine and Tokyo Night Themes
 
-**Status:** Pending
+**Status:** Complete
 
 **Goal:** Add two new built-in color themes alongside the existing Catppuccin
 theme: Rosé Pine (3 flavors) and Tokyo Night (3 flavors).
@@ -128,19 +128,19 @@ crates/mosaico-core/src/config/
 
 ## Tasks
 
-- [ ] Add `RosePineMain`, `RosePineMoon`, `RosePineDawn` to `Theme` enum
-- [ ] Add `TokyoNight`, `TokyoStorm`, `TokyoDay` to `Theme` enum
-- [ ] Add Rosé Pine named color tables (main, moon, dawn)
-- [ ] Add Tokyo Night named color tables (night, storm, day)
-- [ ] Add bar color mappings for all 6 new variants
-- [ ] Extend `ThemeConfig::resolve()` for "rose-pine" and "tokyo-night"
-- [ ] Extend `border_focused()` and `border_monocle()` for new variants
-- [ ] Add common color aliases (red, blue, green, yellow) for all themes
-- [ ] Update config template with commented examples
-- [ ] Split `palette.rs` into module if file exceeds 150 lines
-- [ ] Add unit tests for each new variant
-- [ ] Run `cargo fmt --all`
-- [ ] Run `cargo clippy --all-targets -- -D warnings`
-- [ ] Run `cargo test --lib`
-- [ ] Update documentation (website + developer docs)
-- [ ] Update `.plans/plan.md`
+- [x] Add `RosePineMain`, `RosePineMoon`, `RosePineDawn` to `Theme` enum
+- [x] Add `TokyoNight`, `TokyoStorm`, `TokyoDay` to `Theme` enum
+- [x] Add Rosé Pine named color tables (main, moon, dawn)
+- [x] Add Tokyo Night named color tables (night, storm, day)
+- [x] Add bar color mappings for all 6 new variants
+- [x] Extend `ThemeConfig::resolve()` for "rose-pine" and "tokyo-night"
+- [x] Extend `border_focused()` and `border_monocle()` for new variants
+- [x] Add common color aliases (red, blue, green, yellow) for all themes
+- [x] Update config template with commented examples
+- [x] Split `palette.rs` into module if file exceeds 150 lines
+- [x] Add unit tests for each new variant
+- [x] Run `cargo fmt --all`
+- [x] Run `cargo clippy --all-targets -- -D warnings`
+- [x] Run `cargo test --lib`
+- [x] Update documentation (website + developer docs)
+- [x] Update `.plans/plan.md`

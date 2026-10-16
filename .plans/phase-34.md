@@ -1,6 +1,6 @@
 # Phase 34: Window Transitions
 
-**Status:** Pending
+**Status:** Complete
 
 **Goal:** Animate windows to their new place when they move, swap or resize,
 and when the layout changes, without making the daemon slower to respond or
@@ -534,11 +534,11 @@ that changes them.
 - [x] Run `cargo fmt --all -- --check`
 - [x] Run `cargo clippy --all-targets -- -D warnings`
 - [x] Run the safe test suites from the testing skill, and `cargo xtask metrics`
-- [ ] Manual test: swap, move, cycle layouts and toggle monocle with 2 to 6
+- [x] Manual test: swap, move, cycle layouts and toggle monocle with 2 to 6
       windows, including a browser (resize frames) and an Electron app
-- [ ] Manual test: a 144 Hz monitor next to a 60 Hz one
-- [ ] Manual test: an application that stops responding mid-transition
-- [ ] Manual test: Windows "Animation effects" off disables transitions
-- [ ] Manual test: CPU use while animating and when idle
+- [x] Manual test: a 144 Hz monitor next to a 60 Hz one
+- [x] Manual test: an application that stops responding mid-transition
+- [x] Manual test: Windows "Animation effects" off disables transitions
+- [x] Manual test: CPU use while animating and when idle
 - [x] Decide whether `enabled` defaults to true: it does
-- [ ] Update `.plans/plan.md`
+- [x] Update `.plans/plan.md`

@@ -76,3 +76,20 @@ decimal; `--hwnd` still works in its place. `--x` and `--y` are where the
 window's visible frame goes, `--w` and `--h` its width and height. The
 command exits with status 1 when the id is not a window id or the window
 cannot be moved.
+
+## `mosaico debug state`
+
+Shows what the running daemon manages:
+
+```sh
+mosaico debug state
+```
+
+It prints each monitor and its workspaces that have windows, with every
+window's id, whether it is visible, minimized, cloaked or elevated, its
+position and size, class and title. Then it lists the disconnected
+monitors, whether Mosaico runs elevated, and which monitor and window have
+focus. The command exits with status 1 when Mosaico is not running.
+
+This is useful for checking which windows Mosaico tiles, on which monitor
+and workspace, and which window it considers focused.

@@ -1,8 +1,9 @@
 # Theming
 
-Mosaico includes a built-in Catppuccin theme system that applies a consistent
-color scheme across all visual elements -- focus borders, monocle borders,
-and the status bar -- from a single configuration line.
+Mosaico includes built-in themes from three families, Catppuccin, Rosé Pine
+and Tokyo Night, that apply a consistent color scheme across all visual
+elements -- focus borders, monocle borders, and the status bar -- from a
+single configuration line.
 
 ## Architecture
 
@@ -11,7 +12,7 @@ and the status bar -- from a single configuration line.
 | File | Purpose |
 |------|---------|
 | `crates/mosaico-core/src/config/theme.rs` | `ThemeConfig`, `Theme` enum, color resolution |
-| `crates/mosaico-core/src/config/palette.rs` | Hardcoded hex values for all 4 flavors |
+| `crates/mosaico-core/src/config/palette/` | Hardcoded hex values for every flavor of the three families, one file per family (`catppuccin.rs`, `rose_pine.rs`, `tokyo_night.rs`), and the lookups that pick a family's table (`mod.rs`) |
 | `crates/mosaico-core/src/config/mod.rs` | `Config::validate()` integrates theme resolution |
 | `crates/mosaico-core/src/config/bar.rs` | `BarConfig::resolve_colors()` uses theme |
 
@@ -50,13 +51,13 @@ Catppuccin additionally exposes 14 native accent colors (rosewater,
 flamingo, pink, mauve, red, maroon, peach, yellow, green, teal, sky,
 sapphire, blue, lavender). Rosé Pine exposes its six native names
 (love, gold, rose, pine, foam, iris). Tokyo Night exposes red, orange,
-yellow, green, cyan, teal, blue, purple plus aliases `mauve` and
-`magenta` for `purple`.
+yellow, green, cyan, teal, blue, purple and magenta, plus `mauve` as an
+alias for `magenta`.
 
 ## Named Color Resolution
 
 Throughout the configuration, anywhere a hex color is expected, you can
-instead write a Catppuccin color name:
+instead write a color name from the active theme's palette:
 
 ```toml
 # These are equivalent when using Mocha:
@@ -78,24 +79,24 @@ border color that is not a hex color is drawn in `#00b4d8`.
 
 ### Border Colors
 
-| UI Element | Theme Default |
-|------------|---------------|
-| Focused border | `Blue` |
-| Monocle border | `Green` |
+| UI Element | Catppuccin | Rosé Pine | Tokyo Night |
+|------------|------------|-----------|-------------|
+| Focused border | `Blue` | `Iris` | `Blue` |
+| Monocle border | `Green` | `Foam` | `Green` |
 
 ### Bar Colors
 
 | UI Element | Mocha Default |
 |------------|---------------|
 | Background | `#1e1e2e` (Base) |
-| Foreground | `#cdd6f4` (Text) |
-| Active workspace | `#89b4fa` (Blue) |
-| Active workspace text | `#1e1e2e` (Base) |
-| Inactive workspace | `#45475a` (Surface1) |
-| Separator | `#313244` (Surface0) |
-| Accent | `#f38ba8` (Red) |
+| Foreground | `#89b4fa` (Blue) |
+| Active workspace | `#435375` |
+| Active workspace text | `#cdd6f4` (Text) |
+| Inactive workspace | `#89b4fa` (Blue) |
+| Separator | `#45475a` (Surface1) |
+| Accent | `#a6e3a1` (Green) |
 | Widget background | `#313244` (Surface0) |
-| Pill border | `#45475a` (Surface1) |
+| Pill border | `#89b4fa` (Blue) |
 
 Each flavor has its own complete bar color palette defined in
 `palette/<family>.rs` (one file per theme family).
@@ -171,8 +172,10 @@ name and flavor in the table above.
 ## Design Decisions
 
 - **Built-in palettes** rather than external theme files keep the
-  implementation simple and dependency-free. All 56 color values (14 per
-  flavor x 4 flavors) are compiled as constants.
+  implementation simple and dependency-free. Every named color is compiled
+  as a constant: the 14 Catppuccin accents in each of its 4 flavors, the 6
+  Rosé Pine accents and the 9 Tokyo Night colors in each of their 3
+  flavors, and the aliases.
 - **Named color strings** rather than a separate override struct provide a
   natural configuration experience -- users write `"blue"` instead of
   learning a theme-specific override syntax.

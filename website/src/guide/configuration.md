@@ -9,7 +9,7 @@ Run `mosaico init` to generate fully-commented template files.
 
 | File | Purpose | Hot-Reload |
 |------|---------|------------|
-| `config.toml` | Layout, borders, window transitions, theme, logging | Yes |
+| `config.toml` | Layout, borders, mouse, window transitions, theme, logging | Yes |
 | `keybindings.toml` | Keyboard shortcuts | No (restart required) |
 | `rules.toml` | Community window rules (auto-downloaded) | On startup |
 | `user-rules.toml` | Personal window rule overrides | Yes |
@@ -17,7 +17,7 @@ Run `mosaico init` to generate fully-commented template files.
 
 ## `config.toml`
 
-Controls layout, borders, window transitions, logging, and theme:
+Controls layout, borders, the mouse, window transitions, logging, and theme:
 
 ```toml
 [layout]
@@ -48,6 +48,10 @@ monocle = "#2d6a4f"    # Color of the focused window in monocle mode
 unfocused = "#6c7086"  # Color drawn around unfocused tiled windows;
                        # set to "none" to disable unfocused borders
 
+[mouse]
+follows_focus = true         # Move the pointer to the window that takes focus
+focus_follows_mouse = false  # Focus the window under the pointer without a click
+
 [animations]
 enabled = true            # Move windows to their new place over time (on by default)
 duration = 180            # How long a transition takes, in milliseconds (0-1000)
@@ -71,6 +75,15 @@ max_file_mb = 10   # Max log file size before rotation
 The `[animations]` section sets up window transitions, which are on by
 default. See [Window Transitions](animations.md) for what moves, the easings
 and troubleshooting.
+
+The `[mouse]` section ties the pointer to focus. With `follows_focus`, on by
+default, the pointer moves to the center of the window that gets focus when
+you move focus from the keyboard, switch workspaces or open a window, and it
+moves along when you move the focused window. Clicking a window leaves the
+pointer where it is. With `focus_follows_mouse`, off by default, resting the
+pointer on a tiled window focuses it without a click: after three checks of
+the pointer, 100 ms apart, as long as the window is on the monitor that has
+focus.
 
 ## `keybindings.toml`
 

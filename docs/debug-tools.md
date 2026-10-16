@@ -2,8 +2,8 @@
 
 Mosaico provides debugging subcommands for inspecting and interacting with
 the window manager's view of the desktop, plus a `doctor` command for health
-checks. These run independently of the daemon and are useful for
-troubleshooting.
+checks. These run independently of the daemon, except `debug state`, which
+asks the running daemon for its state, and are useful for troubleshooting.
 
 ## Architecture
 
@@ -14,6 +14,8 @@ troubleshooting.
 | `crates/mosaico/src/commands/debug/list.rs` | `mosaico debug list` handler |
 | `crates/mosaico/src/commands/debug/events.rs` | `mosaico debug events` handler |
 | `crates/mosaico/src/commands/debug/move_window.rs` | `mosaico debug move` handler |
+| `crates/mosaico/src/commands/debug/state.rs` | `mosaico debug state` handler |
+| `crates/mosaico-core/src/snapshot.rs` | `DesktopSnapshot`, the daemon's view of the desktop that `Inspect` returns, and its `debug state` text |
 | `crates/mosaico/src/commands/doctor.rs` | `mosaico doctor` handler |
 | `crates/mosaico/src/commands/doctor_animations.rs` | What `mosaico doctor` says about window transitions |
 | `crates/mosaico-core/src/tiler/enumerator.rs` | `Enumerator`, which `debug list` and `doctor` list windows and monitors through, and `debug events` reads window titles through |
@@ -121,6 +123,48 @@ This command is useful for:
 - Testing window positioning with frame compensation
 - Verifying that a placement produces the expected visual result
 - Manually arranging a specific window for debugging
+
+## `mosaico debug state`
+
+Prints the running daemon's view of the desktop.
+
+### Behavior
+
+1. Sends `Inspect` to the daemon over IPC
+2. Prints the text in the reply, so a newer daemon is shown the way it
+   describes itself; when the reply has no text, renders the
+   `DesktopSnapshot` it carries instead
+3. If the request fails, for example because no daemon is running, prints
+   why and exits with status 1
+
+### Output Format
+
+```
+Monitor 0 (id=0x10001, key=[DISPLAY1], work_area=1920x1040+0+40, active_ws=2):
+  Workspace 2 (2 windows):
+    0x4014E  visible=true  minimized=false  cloaked=false  elevated=false  rect=960x1040+0+40  class="Notepad"  title="a.txt - Notepad"
+    0x5020A  visible=true  minimized=false  cloaked=true  elevated=false  rect=N/A  class="Notepad"  title="b \"quoted\""
+  Workspace 3 (1 window):
+    0x6030C  visible=true  minimized=false  cloaked=false  elevated=false  rect=960x1040+0+40  class="Notepad"  title="c"
+Monitor 1 (id=0x20003, key=unknown, work_area=1920x1080+1920+0, active_ws=1):
+Disconnected monitors: [DISPLAY2]; [DISPLAY3], displaced windows: 2
+Self elevated: false
+Focused monitor: 0
+Focused window: 0x4014E
+```
+
+Each monitor lists only its workspaces that have windows, and their windows
+in layout order. Areas read `WIDTHxHEIGHT+X+Y`, and a window whose rect
+cannot be read shows `rect=N/A`.
+
+This command is useful for:
+- Checking which windows the daemon manages, on which monitor and
+  workspace
+- Seeing which monitors are disconnected and how many windows wait to go
+  back to them
+- Checking whether the daemon runs elevated, which it needs to move the
+  windows of programs that run elevated
+- Confirming which window the daemon considers focused
 
 ## `mosaico doctor`
 

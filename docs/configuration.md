@@ -80,7 +80,7 @@ All settings have sensible defaults, so configuration files are optional.
 
 ### `config.toml`
 
-Controls layout, borders, window transitions, logging, and theme:
+Controls layout, borders, the mouse, window transitions, logging, and theme:
 
 ```toml
 [layout]
@@ -107,6 +107,10 @@ monocle = "#2d6a4f"    # Color of the focused window in monocle mode
 unfocused = "#6c7086"  # Color drawn around unfocused tiled windows
                        # (set to "none" to disable unfocused borders)
 
+[mouse]
+follows_focus = true         # Move the pointer to the window that takes focus
+focus_follows_mouse = false  # Focus the window under the pointer without a click
+
 [animations]
 enabled = true            # Move windows to their new place over time (on by default)
 duration = 180            # How long a transition takes, in milliseconds (0-1000)
@@ -132,6 +136,16 @@ whose palette resolves named colors in border and bar configurations. See
 [theming.md](theming.md) for details. The `[animations]` section turns on
 window transitions; see [animations.md](animations.md) for what moves, what
 snaps and why.
+
+The `[mouse]` section ties the pointer to focus. `follows_focus` (default
+`true`) moves the pointer to the center of the window that takes focus when
+mosaico moves focus itself: on keyboard navigation, a workspace switch, or a
+new window it takes in, for example. Moving the focused window takes the
+pointer along. Clicking a window, or focusing it with `focus_follows_mouse`,
+leaves the pointer where it is. `focus_follows_mouse` (default `false`)
+focuses a window once the pointer has rested on it for three polls in a row,
+100 ms apart, if the window is managed and on the focused monitor's active
+workspace; see [window-events.md](window-events.md#focus-follows-mouse).
 
 ### `keybindings.toml`
 

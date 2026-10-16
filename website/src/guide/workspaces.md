@@ -15,7 +15,7 @@ you can opt into a global mode where every monitor switches in lockstep
 Or via the CLI:
 
 ```sh
-mosaico action goto-workspace 3
+mosaico action go-to-workspace 3
 mosaico action send-to-workspace 5
 ```
 
@@ -35,13 +35,17 @@ If you are already on the target workspace, nothing happens.
 
 ### Sending (`send-to-workspace`)
 
-When you send a window to another workspace:
+When you send a window to another workspace, Mosaico goes there with it:
 
-1. The focused window is removed from the current workspace
-2. It is added to the target workspace
-3. The window is hidden (it is now on a non-active workspace)
-4. The current workspace is retiled
-5. Focus moves to the next window
+1. The focused window is moved from the current workspace to the target
+   workspace
+2. The other windows on the current workspace are hidden
+3. The target workspace becomes the active one, and its windows are shown
+4. The layout is reapplied
+5. Focus stays on the window you sent
+
+In global mode, the other monitors switch to the target workspace too. If
+you are already on the target workspace, nothing happens.
 
 ## Hiding Behaviour
 
@@ -81,7 +85,7 @@ mode = "per-monitor"   # default
 
 In both modes each monitor still owns its own window list per workspace;
 windows do not jump between displays. The mode only controls which
-monitors flip when you press `Alt + N` or run `mosaico action goto-workspace N`.
+monitors flip when you press `Alt + 1` to `Alt + 8` or run `mosaico action go-to-workspace N`.
 
 `send-to-workspace` in `global` mode moves the window to the target
 workspace on its current monitor, then flips every other monitor to the

@@ -121,22 +121,22 @@ crates/
 
 ## Tasks
 
-- [ ] Add `unfocused: String` to `BorderConfig` (default: "")
-- [ ] Resolve unfocused color from theme in `validate()`
-- [ ] Add `unfocused` to config template
-- [ ] Replace `Option<Border>` with border pool in `TilingManager`
-- [ ] Create borders for all tiled windows on active workspace
-- [ ] Update all border positions in `apply_layout_on()`
-- [ ] Recolor borders on focus change (focused/unfocused swap)
-- [ ] Hide/show borders on workspace switch
-- [ ] Handle monocle mode (hide unfocused borders)
-- [ ] Handle window add/remove (create/destroy border)
-- [ ] Add unit tests
-- [ ] Run `cargo fmt --all`
-- [ ] Run `cargo clippy --all-targets -- -D warnings`
-- [ ] Run `cargo test --lib`
+- [x] Add `unfocused: String` to `BorderConfig` (default: "")
+- [x] Resolve unfocused color from theme in `validate()`
+- [x] Add `unfocused` to config template
+- [x] Replace `Option<Border>` with border pool in `TilingManager`
+- [x] Create borders for all tiled windows on active workspace
+- [x] Update all border positions in `apply_layout_on()`
+- [x] Recolor borders on focus change (focused/unfocused swap)
+- [x] Hide/show borders on workspace switch
+- [x] Handle monocle mode (hide unfocused borders)
+- [x] Handle window add/remove (create/destroy border)
+- [x] Add unit tests
+- [x] Run `cargo fmt --all`
+- [x] Run `cargo clippy --all-targets -- -D warnings`
+- [x] Run `cargo test --lib`
 - [ ] Manual test: verify borders appear on all windows
 - [ ] Manual test: verify focus change recolors correctly
 - [ ] Manual test: verify workspace switch hides/shows borders
 - [ ] Manual test: verify monocle hides unfocused borders
-- [ ] Update `.plans/plan.md`
+- [x] Update `.plans/plan.md`
