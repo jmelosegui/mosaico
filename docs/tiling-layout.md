@@ -199,7 +199,8 @@ events and user actions.
 - `Destroyed` -- removes window from whichever workspace contains it
 - `Focused` -- updates focus tracking, shows/hides border
 - `Moved` -- detects manual monitor reassignment (drag to different monitor)
-- `Minimized` -- removes window from workspace, re-tiles
+- `Minimized` -- removes window from workspace, re-tiles, unless the window
+  is no longer minimized, as when the report comes after it was restored
 - `Restored` -- re-adds window to workspace, moving it ahead of the layout
   like a new one
 
@@ -345,6 +346,32 @@ placement of a moving window ends its motion and places it at once, in full.
 `frame_due(after)` when the first motion is due to end, after `after`, the
 last frame step, and `frame()` takes the frame step, which ends every motion
 at its target with a full placement.
+
+Other effects that reach a moving window (`applier_ends.rs`):
+
+- `Hide`, `Minimize`, and the window's `Destroyed` and `MoveStarted`
+  events, which `Applier::echo` sees first, stop the motion where the window
+  is, and so does a `Minimized` or `Hidden` report that is not the tiler's
+  own, when the desktop agrees: the user minimized the window or its
+  application hid it, and the `Untile` that follows has nothing to finish.
+  The tiler ignores a hide report from a window still shown, as an
+  application recreating its surface sends, and a minimize report from one
+  restored again, and the window keeps moving. A window shown or restored
+  later is placed again by the tiler, and that placement snaps.
+- `Close` leaves it moving: the application may refuse to close, and its
+  `Destroyed` or `Hidden` report ends the motion.
+- `Untile` and `Reveal` finish the motion at its target with a full
+  placement, and so does the tiler stopping, for every moving window and
+  every window a display change stopped, before it restores the windows.
+- A display change stops every motion where its window is as soon as it is
+  noted (`TilingManager::display_changing()`), and each window keeps its
+  target (`applier_display.rs`). Until the change is rebuilt for, every
+  placement snaps, as the layout it is for is about to be replaced. After
+  the rebuild, or when the daemon cannot read the monitors and skips it
+  (`TilingManager::display_change_skipped()`), each window stopped that
+  nothing placed or took out of view meanwhile is placed at its target.
+- `Focus { move_cursor: true }` and `CenterCursor` put the pointer at the
+  center of the window's target, not where it is on its way there.
 
 ### Window Tileability
 

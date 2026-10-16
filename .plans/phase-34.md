@@ -59,12 +59,14 @@ The work splits into four steps, one PR each (see Tasks).
   posted until it responds. Once every window has settled so, as from
   startup, the next goal holds.
 - With animations off nothing is posted, so the tiler emits the same effects
-  and the platform makes the same calls as today, at once. Two things change,
-  both in the scheduler's timing (34.2): position reports no longer count as
-  input activity, so held moves are released after the quiet window instead
-  of being pushed to its cap while some window reports its position; and the
+  and the platform makes the same calls as today, at once. Two things change
+  in the scheduler's timing (34.2): position reports no longer count as input
+  activity, so held moves are released after the quiet window instead of
+  being pushed to its cap while some window reports its position; and the
   start of a drag now reaches the scheduler, as input, so it starts the quiet
-  window over.
+  window over. And the tiler ignores a minimize reported for a window that is
+  no longer minimized, as it ignores a hide reported for one still shown
+  (34.3).
 
 ## Configuration
 
@@ -191,7 +193,11 @@ Scheduler frame step  -> Applier::frame(now)                        on a frame, 
     or restored later is placed again by the tiler, and that placement snaps.
   - `Close` leaves it running: the application may refuse to close, and its
     `Destroyed` or `Hidden` ends it.
-  - `Untile`, `Reveal`, a display change and shutdown finish it at the target.
+  - `Untile`, `Reveal` and shutdown finish it at the target. A display
+    change stops it where it is as soon as it is noted, keeping its target,
+    and placements snap until the rebuild. After the rebuild, or when the
+    monitors cannot be read and it is skipped, a window nothing placed
+    meanwhile is placed at its target.
   - `Destroyed` drops it in `Applier::echo`, with everything held for the
     window.
 - `Focus` and `PutBehind` apply at once, and are never held for a motion.
@@ -326,8 +332,11 @@ screen, too slow for every frame.
 7. Hide, minimize or a workspace switch mid-flight: the motion stops, and the
    hide or minimize is posted behind the frames on their way, landing after
    them. The window is placed again, snapping, when it comes back.
-8. Display change mid-flight: every motion finishes at its target, and the
-   rebuild snaps.
+8. Display change mid-flight: every motion stops where it is as soon as the
+   change is noted, and placements snap while it settles. The rebuild places
+   the windows it lays out, and every window stopped that nothing placed
+   meanwhile is placed at its target, after the rebuild or when the monitors
+   cannot be read and it is skipped.
 9. Config reload mid-flight: a reload never changes a motion in flight. A
    target it moves starts a new segment with the new settings, and a reload
    that turns transitions off snaps the windows in flight.
@@ -447,7 +456,10 @@ that changes them.
       by the coalescer
 - [ ] Marked placements become motions; the frame step posts frames, acts on
       outcomes and finishes motions only once their last frame has landed
-- [ ] What ends a motion, effect by effect, and the cursor rules
+- [x] What ends a motion, effect by effect, and the cursor rules
+- [x] `Minimized` ignored for a window that is no longer minimized
+- [x] A display change keeps the targets of the motions it stops, and placements
+      snap until it is rebuilt for
 - [ ] Borders follow the reached rect, hide during resizes and are drawn once at
       the end
 - [ ] `MouseHover` dropped while windows move

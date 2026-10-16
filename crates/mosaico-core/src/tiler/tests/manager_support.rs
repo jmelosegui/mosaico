@@ -20,7 +20,7 @@ pub(in crate::tiler) fn start(
 }
 
 /// Windows the manager tiles on the active workspace of monitor `mon`.
-pub(super) fn tiled(manager: &TilingManager<FakePlatform>, mon: usize) -> Vec<u64> {
+pub(in crate::tiler) fn tiled(manager: &TilingManager<FakePlatform>, mon: usize) -> Vec<u64> {
     manager.tiler().monitors()[mon]
         .active()
         .windows()

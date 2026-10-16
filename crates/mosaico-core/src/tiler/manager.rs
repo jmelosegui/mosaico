@@ -88,7 +88,10 @@ impl<P: Platform> TilingManager<P> {
         if let WindowEvent::Destroyed { window } = *event {
             self.applier.forget(window);
         }
-        if let Some(reason) = self.applier.echo(event, self.platform.now()) {
+        if let Some(reason) = self
+            .applier
+            .echo(event, self.platform.desktop(), self.platform.now())
+        {
             crate::log_debug!("{} suppressed ({})", event, reason);
             return;
         }

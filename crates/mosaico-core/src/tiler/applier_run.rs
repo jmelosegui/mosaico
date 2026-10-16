@@ -21,22 +21,43 @@ impl Applier {
             Effect::Place { window, rect, .. } if self.moved_on_screen.remove(&window) => {
                 self.place_now(window, rect, platform);
             }
-            Effect::Place { .. } => self.run_place(effect, platform, now),
+            Effect::Place { window, .. } => {
+                self.forget_stopped(window);
+                self.run_place(effect, platform, now);
+            }
+            // What ends a motion, effect by effect, is in `applier_ends.rs`.
+            Effect::Hide { window, .. } | Effect::Minimize { window } => {
+                self.stop_motion(window);
+                apply_window_effect(effect, platform.desktop(), platform.control());
+            }
+            Effect::Reveal { window } => {
+                self.finish_motion(window, platform);
+                apply_window_effect(effect, platform.desktop(), platform.control());
+            }
+            Effect::Focus {
+                window,
+                move_cursor: true,
+            }
+            | Effect::CenterCursor { window }
+                if self.is_moving_window(window) =>
+            {
+                self.point_at_target(effect, window, platform.control());
+            }
             Effect::PrePlace { .. }
-            | Effect::Hide { .. }
             | Effect::Show { .. }
-            | Effect::Reveal { .. }
             | Effect::Focus { .. }
             | Effect::CenterCursor { .. }
             | Effect::Close { .. }
-            | Effect::Minimize { .. }
             | Effect::Repaint { .. }
             | Effect::PutBehind { .. } => {
                 apply_window_effect(effect, platform.desktop(), platform.control())
             }
-            // Admitting it dropped what was held for the window, and the
-            // platform has nothing to do.
-            Effect::Untile { .. } => {}
+            // Admitting it dropped what was held for the window. One let go
+            // of while it moves ends in its slot.
+            Effect::Untile { window } => {
+                self.forget_stopped(window);
+                self.finish_motion(window, platform);
+            }
             Effect::Decorate { .. }
             | Effect::Undecorate { .. }
             | Effect::Border { .. }

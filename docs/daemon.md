@@ -153,9 +153,16 @@ back, in order:
    held moves back to the cap.
 2. **Rebuild for the monitors** once a display change has settled. A
    `DisplayChanged` event only starts or extends a 750 ms settle window, see
-   [monitor-management.md](monitor-management.md). While effects are held,
-   the loop waits for the flush first, so a change that settles meanwhile is
-   rebuilt for right after it.
+   [monitor-management.md](monitor-management.md). As it arrives, ahead of
+   the flush, it stops every window transition where it is
+   (`TilingManager::display_changing()`), each window keeping its target,
+   and every placement snaps until the rebuild. After the rebuild, or when
+   the monitors cannot be read and it is skipped
+   (`TilingManager::display_change_skipped()`), each window stopped that
+   nothing placed meanwhile is placed at its target. A change that comes as
+   another is rebuilt for is noted again after the rebuild, as it is still
+   settling. While effects are held, the loop waits for the flush first, so
+   a change that settles meanwhile is rebuilt for right after it.
 3. **Run each task**, that is every message other than a window event, in
    arrival order and ahead of the window events that arrived with it, so
    hotkeys and commands stay responsive while windows flood the queue.

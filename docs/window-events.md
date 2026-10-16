@@ -162,12 +162,12 @@ pointer is read with `GetCursorPos`, `WindowFromPoint` and
 |-------|-----------------|
 | `Created` | Place a window that is not shown yet; adopt a visible one into the focused monitor's workspace |
 | `Destroyed` | Remove window from workspace, re-tile |
-| `Hidden` | Remove the window, if it is really no longer visible |
+| `Hidden` | Remove the window, if it is really no longer visible, and stop its transition then |
 | `Focused` | Update focus tracking, show/reposition border |
 | `MouseHover` | Focus the window, if it is managed and on the active workspace |
 | `MoveStarted` | Nothing: the layout changes when the drag ends, with `Moved` |
 | `Moved` | Detect monitor reassignment, re-tile if needed |
-| `Minimized` | Remove from workspace, re-tile |
+| `Minimized` | Remove from workspace, re-tile, and stop the window's transition, if it is really minimized |
 | `Restored` | Re-add to workspace, re-tile |
 | `TitleChanged` | Adopt a window that only became recognizable once it had a title |
 | `LocationChanged` | Notice the focused window entering or leaving maximized state |

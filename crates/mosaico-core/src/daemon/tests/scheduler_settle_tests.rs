@@ -21,11 +21,10 @@ fn a_display_change_waits_for_the_configuration_to_settle() {
     let settled = scheduler.step(timed_out(), t0 + SETTLE);
     let later = scheduler.step(timed_out(), t0 + SETTLE * 2);
 
-    // Assert -- the rest of the batch does not wait.
-    assert_eq!(
-        arrived,
-        vec![Step::Events(vec![WindowEvent::WorkAreaChanged, focused(1)])]
-    );
+    // Assert -- the loop is told at once, to stop what moves to the old
+    // layout, and the rest of the batch does not wait.
+    let events = vec![WindowEvent::WorkAreaChanged, focused(1)];
+    assert_eq!(arrived, vec![Step::DisplayChanging, Step::Events(events)]);
     assert!(early.is_empty(), "rebuilt before settling: {early:?}");
     assert_eq!(settled, vec![Step::RebuildMonitors]);
     assert!(later.is_empty(), "rebuilt twice: {later:?}");

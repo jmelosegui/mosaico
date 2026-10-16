@@ -10,8 +10,16 @@ use crate::{Action, Direction, Rect};
 
 #[path = "motion_apply_tests.rs"]
 mod apply_tests;
+#[path = "motion_cursor_tests.rs"]
+mod cursor_tests;
+#[path = "motion_display_tests.rs"]
+mod display_tests;
+#[path = "motion_end_tests.rs"]
+mod end_tests;
 #[path = "motion_reload_tests.rs"]
 mod reload_tests;
+#[path = "motion_stop_tests.rs"]
+mod stop_tests;
 
 type Manager = TilingManager<FakePlatform>;
 

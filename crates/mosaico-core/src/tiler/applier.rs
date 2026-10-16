@@ -27,6 +27,10 @@ use crate::{HidingSupport, WindowId};
 
 use super::{Coalescer, Effect, Expectations, HiddenFile, HiddenWindows, Platform};
 
+#[path = "applier_display.rs"]
+mod display;
+#[path = "applier_ends.rs"]
+mod ends;
 #[path = "applier_hidden.rs"]
 mod hidden;
 #[path = "applier_motion.rs"]
@@ -50,6 +54,8 @@ pub(super) struct Applier {
     moved_on_screen: HashSet<WindowId>,
     /// The windows moving to placements that animate.
     transitions: motion::Transitions,
+    /// What a display change stopped, until it is rebuilt for.
+    display: display::DisplayChange,
 }
 
 impl Applier {
@@ -113,6 +119,7 @@ impl Applier {
     pub(super) fn echo(
         &mut self,
         event: &crate::WindowEvent,
+        desktop: &dyn super::Desktop,
         now: Instant,
     ) -> Option<&'static str> {
         // Nothing held for a window that no longer exists may be applied.
@@ -121,6 +128,8 @@ impl Applier {
             self.release_dropped_focus();
             self.moved_on_screen.remove(&window);
         }
-        self.expectations.echo(event, now)
+        let echo = self.expectations.echo(event, now);
+        self.motion_seen(event, echo.is_some(), desktop);
+        echo
     }
 }

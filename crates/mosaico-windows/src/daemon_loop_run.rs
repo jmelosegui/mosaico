@@ -45,11 +45,10 @@ pub(super) fn run(
         // state before doing anything else this iteration.
         pump_thread_messages();
 
-        // Wait until something is due, in short slices instead of
-        // blocking forever, so the message queue is drained on a regular
-        // cadence. The thread is parked inside `recv_timeout` between
-        // wakeups, so an idle daemon costs one wakeup per `PUMP_INTERVAL`
-        // and never spins. Display frames come while windows move.
+        // Wait until something is due, in short slices instead of blocking
+        // forever, so the message queue is drained on a regular cadence. The
+        // thread is parked inside `recv_timeout` between wakeups, so an idle
+        // daemon costs one wakeup per `PUMP_INTERVAL` and never spins.
         frames.want_frames(manager.wants_frames());
         let due = manager.frame_due(scheduler.last_frame_step());
         let wait = scheduler.begin_wait(manager.held_since(), due, Instant::now());
@@ -68,6 +67,7 @@ pub(super) fn run(
         for step in scheduler.step(wake, Instant::now()) {
             match step {
                 Step::Flush => manager.flush_pending(),
+                Step::DisplayChanging => manager.display_changing(),
                 Step::RebuildMonitors => {
                     if daemon_loop_handlers::handle_event(
                         WindowEvent::DisplayChanged,

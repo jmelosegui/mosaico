@@ -101,8 +101,8 @@ fn clearing_the_table_stops_every_motion_and_gives_back_the_targets() {
     // Act
     let targets = motions.clear();
 
-    // Assert -- for the caller to place each window at its target, as a
-    // display change and shutdown do.
+    // Assert -- for the caller to place each window at its target, as
+    // shutdown does, or to leave it where it is, as a display change does.
     let crept = Rect::new(10, 0, 400, 400);
     assert_eq!(targets, vec![(wid(1), crept), (wid(2), to)]);
     assert!(motions.is_empty());

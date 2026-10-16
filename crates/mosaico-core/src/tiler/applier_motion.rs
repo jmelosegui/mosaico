@@ -21,11 +21,11 @@ use super::Applier;
 #[derive(Debug)]
 pub(super) struct Transitions {
     /// The windows moving to their placements.
-    motions: Motions,
+    pub(super) motions: Motions,
     /// How placements animate, as configured.
-    animations: AnimationConfig,
+    pub(super) animations: AnimationConfig,
     /// Whether the platform can move windows through frames.
-    frames_supported: bool,
+    pub(super) frames_supported: bool,
 }
 
 impl Default for Transitions {
@@ -71,9 +71,7 @@ impl Applier {
     /// The frame step: ends every motion at its target, placing each
     /// window there in full.
     pub(in crate::tiler) fn frame(&mut self, platform: &mut dyn Platform) {
-        for (window, rect) in self.transitions.motions.clear() {
-            place_and_repaint(window, rect, platform.control());
-        }
+        self.finish_motions(platform);
     }
 
     /// Applies a placement that is not made in full: as a motion when it
@@ -105,13 +103,13 @@ impl Applier {
 
     /// Places a window in full, ending its motion if it has one.
     pub(super) fn place_now(&mut self, window: WindowId, rect: Rect, platform: &mut dyn Platform) {
-        self.transitions.motions.end(window);
+        self.stop_motion(window);
         place_and_repaint(window, rect, platform.control());
     }
 
     /// Where a placement of `window` at `to` would animate from, if it may
-    /// still animate as it is applied at `now`: from where the window's
-    /// motion has it, or from where the desktop has it.
+    /// still animate as it is applied at `now`, and no display change
+    /// settles: from where its motion has it, or where the desktop has it.
     fn animates_from(
         &self,
         window: WindowId,
@@ -120,7 +118,7 @@ impl Applier {
         now: Instant,
     ) -> Option<Rect> {
         let transitions = &self.transitions;
-        if !transitions.animations.is_on() {
+        if !transitions.animations.is_on() || self.display.settling {
             return None;
         }
         let moving = transitions.motions.rect_at(window, now);
