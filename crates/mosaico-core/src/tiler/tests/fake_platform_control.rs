@@ -24,6 +24,11 @@ impl WindowControl for FakePlatform {
 
     fn pre_place(&self, window: WindowId, rect: Rect) -> Result<()> {
         self.record(Call::PrePlace(window, rect));
+        if self.shared.pre_places_land.get()
+            && let Some(w) = self.shared.desktop.borrow_mut().windows.get_mut(&window)
+        {
+            w.rect = rect;
+        }
         Ok(())
     }
 

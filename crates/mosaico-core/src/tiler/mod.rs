@@ -23,6 +23,7 @@ mod desktop;
 mod display;
 mod display_monocle;
 mod display_rebuild;
+mod early_move;
 mod echo;
 mod echo_focus;
 mod effect;

@@ -1,5 +1,5 @@
-//! Windows that were just created: moved into place before they are
-//! shown, or taken in at once when they already are.
+//! Windows that were just created: moved toward their slot before they
+//! are shown, or taken in at once when they already are.
 
 use crate::WindowId;
 
@@ -17,9 +17,9 @@ pub(super) fn should_pre_place(tracked: bool, passes_rules: bool) -> bool {
 impl Tiler {
     pub(super) fn on_created(&mut self, plan: &mut Plan, window: WindowId) {
         if !plan.is_visible(window) {
-            // Created but not shown yet. Moving it now means its first
-            // frame is painted in the right place instead of wherever
-            // the OS put it. It is not adopted: applications create many
+            // Created but not shown yet. Moving it now usually gets it
+            // into place before it is shown, instead of wherever the
+            // system put it. It is not adopted: applications create many
             // hidden helper windows that are never shown, and those must
             // not reflow the layout. Adoption happens on the show event.
             if should_pre_place(
@@ -30,10 +30,13 @@ impl Tiler {
             }
             return;
         }
-        // Already visible when created, so there is no moment to place
-        // it before it shows; adopt it straight away. Hiding it across
-        // the move was measured at roughly 160ms invisible, a worse
-        // artifact than the brief glimpse it removes. See #28.
+        // Visible by the time its creation is handled: created visible,
+        // or shown since. It may be on screen where the system put it,
+        // so it is adopted straight away and moved before anything else
+        // on the monitor, without waiting for its application. No way of
+        // hiding another application's window was found to take effect
+        // before that move lands, and where one did, activating the
+        // window undid it. See #28.
         if !self.is_tileable(plan, window) {
             return;
         }
@@ -47,7 +50,7 @@ impl Tiler {
     }
 
     /// Moves a window that has been created but not shown yet into the
-    /// slot it would get, so its first frame is already in place.
+    /// slot it would get, so it is usually in place once it is shown.
     ///
     /// Nothing is adopted and the workspace is left exactly as it was:
     /// the destination comes from asking the layout where the window

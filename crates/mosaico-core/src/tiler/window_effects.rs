@@ -58,12 +58,19 @@ pub fn apply_window_effect(effect: &Effect, desktop: &dyn Desktop, windows: &dyn
 /// there.
 ///
 /// Maximized windows are always placed: placing one clears its
-/// maximized state, which leaving it alone would not. The repaint
-/// follows even when the move fails, as part of it may have landed.
+/// maximized state, which leaving it alone would not.
 fn place(window: WindowId, rect: Rect, desktop: &dyn Desktop, windows: &dyn WindowControl) {
     if !desktop.is_maximized(window) && desktop.rect(window) == Some(rect) {
         return;
     }
+    place_and_repaint(window, rect, windows);
+}
+
+/// Moves a window into its slot and repaints it, wherever it is now.
+///
+/// The repaint follows even when the move fails, as part of it may have
+/// landed.
+pub(super) fn place_and_repaint(window: WindowId, rect: Rect, windows: &dyn WindowControl) {
     if let Err(e) = windows.place(window, rect) {
         crate::log_warn!("Failed to place {}: {}", window, e);
     }

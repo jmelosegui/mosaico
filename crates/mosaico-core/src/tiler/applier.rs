@@ -16,10 +16,12 @@
 //! Every applied effect is recorded in [`Expectations`] so the events it
 //! causes can be told apart from the user's.
 
+use std::collections::HashSet;
 use std::time::Instant;
 
-use crate::HidingSupport;
+use crate::{HidingSupport, WindowId};
 
+use super::window_effects::place_and_repaint;
 use super::{
     Coalescer, Effect, Expectations, HiddenFile, HiddenWindows, Platform, apply_decoration_effect,
     apply_window_effect,
@@ -39,6 +41,9 @@ pub(super) struct Applier {
     hidden: HiddenWindows,
     /// Where `hidden` is kept, if the instance has a data directory.
     hidden_file: Option<HiddenFile>,
+    /// Windows moved on screen without waiting, whose next placement is
+    /// made in full. See `run`.
+    moved_on_screen: HashSet<WindowId>,
 }
 
 impl Applier {
@@ -96,12 +101,25 @@ impl Applier {
         // Nothing held for a window that no longer exists may be applied.
         if let crate::WindowEvent::Destroyed { window } = *event {
             self.held.forget(window);
+            self.moved_on_screen.remove(&window);
         }
         self.expectations.echo(event, now)
     }
 
     fn run(&mut self, effect: &Effect, platform: &mut dyn Platform, now: Instant) {
-        match effect {
+        match *effect {
+            // A move that does not wait may land before the window's
+            // placement comes, and a placement that finds its window in
+            // place is skipped, repaint and all. Nothing has repainted a
+            // window moved that way while on screen, so its next placement
+            // is made in full, where it would have been made anyway.
+            Effect::PrePlace { window, .. } if platform.desktop().is_visible(window) => {
+                self.moved_on_screen.insert(window);
+                apply_window_effect(effect, platform.desktop(), platform.control());
+            }
+            Effect::Place { window, rect, .. } if self.moved_on_screen.remove(&window) => {
+                place_and_repaint(window, rect, platform.control());
+            }
             Effect::Place { .. }
             | Effect::PrePlace { .. }
             | Effect::Hide { .. }

@@ -56,6 +56,8 @@ struct Shared {
     hiding: Cell<HidingSupport>,
     /// Whether listing the monitors fails.
     monitors_fail: Cell<bool>,
+    /// Whether a move that does not wait lands at once.
+    pre_places_land: Cell<bool>,
 }
 
 /// A platform on a fake desktop that records what it is asked to do.
@@ -81,6 +83,7 @@ impl FakePlatform {
                 calls: RefCell::new(Vec::new()),
                 hiding: Cell::new(HidingSupport::default()),
                 monitors_fail: Cell::new(false),
+                pre_places_land: Cell::new(false),
             }),
         }
     }
@@ -101,6 +104,12 @@ impl FakePlatform {
     /// Makes listing the monitors fail.
     pub(crate) fn fail_monitors(&self) {
         self.shared.monitors_fail.set(true);
+    }
+
+    /// Makes a move that does not wait land at once, as it does when the
+    /// application handles its messages straight away.
+    pub(crate) fn land_pre_placements(&self) {
+        self.shared.pre_places_land.set(true);
     }
 
     /// Moves the work area of monitor `index`.
