@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use crate::Rect;
 
 use crate::id::wid;
@@ -29,25 +31,27 @@ fn border(window: u64) -> Effect {
 #[test]
 fn immediate_effects_pass_through() {
     // Arrange
+    let t0 = Instant::now();
     let mut c = Coalescer::default();
 
     // Act / Assert
     assert_eq!(
-        c.admit(place(1, 0, Timing::Now)),
+        c.admit(place(1, 0, Timing::Now), t0),
         Some(place(1, 0, Timing::Now))
     );
-    assert_eq!(c.admit(border(1)), Some(border(1)));
+    assert_eq!(c.admit(border(1), t0), Some(border(1)));
     assert!(c.is_empty());
 }
 
 #[test]
 fn only_the_last_focus_change_is_kept() {
     // Arrange
+    let t0 = Instant::now();
     let mut c = Coalescer::default();
 
     // Act
-    assert_eq!(c.admit(focus(1)), None);
-    assert_eq!(c.admit(focus(2)), None);
+    assert_eq!(c.admit(focus(1), t0), None);
+    assert_eq!(c.admit(focus(2), t0), None);
 
     // Assert
     assert!(!c.is_empty());
@@ -58,12 +62,13 @@ fn only_the_last_focus_change_is_kept() {
 #[test]
 fn coalesced_placements_keep_the_latest_rect_per_window() {
     // Arrange
+    let t0 = Instant::now();
     let mut c = Coalescer::default();
 
     // Act
-    c.admit(place(1, 0, Timing::Coalesced));
-    c.admit(place(2, 10, Timing::Coalesced));
-    c.admit(place(1, 20, Timing::Coalesced));
+    c.admit(place(1, 0, Timing::Coalesced), t0);
+    c.admit(place(2, 10, Timing::Coalesced), t0);
+    c.admit(place(1, 20, Timing::Coalesced), t0);
 
     // Assert
     assert_eq!(
@@ -75,13 +80,14 @@ fn coalesced_placements_keep_the_latest_rect_per_window() {
 #[test]
 fn borders_wait_for_their_window_and_land_before_focus() {
     // Arrange
+    let t0 = Instant::now();
     let mut c = Coalescer::default();
-    c.admit(place(1, 0, Timing::Coalesced));
+    c.admit(place(1, 0, Timing::Coalesced), t0);
 
     // Act
-    let held = c.admit(border(1));
-    let other = c.admit(border(2));
-    c.admit(focus(1));
+    let held = c.admit(border(1), t0);
+    let other = c.admit(border(2), t0);
+    c.admit(focus(1), t0);
 
     // Assert
     assert_eq!(held, None);
@@ -95,12 +101,13 @@ fn borders_wait_for_their_window_and_land_before_focus() {
 #[test]
 fn an_immediate_placement_supersedes_a_held_one() {
     // Arrange -- a move, then a workspace switch before the flush.
+    let t0 = Instant::now();
     let mut c = Coalescer::default();
-    c.admit(place(1, 0, Timing::Coalesced));
-    c.admit(border(1));
+    c.admit(place(1, 0, Timing::Coalesced), t0);
+    c.admit(border(1), t0);
 
     // Act
-    let now = c.admit(place(1, 50, Timing::Now));
+    let now = c.admit(place(1, 50, Timing::Now), t0);
 
     // Assert -- nothing left to move the window back later.
     assert_eq!(now, Some(place(1, 50, Timing::Now)));
@@ -109,12 +116,12 @@ fn an_immediate_placement_supersedes_a_held_one() {
 
 /// Holds a move of window 1 with its border and cursor, and a move of
 /// window 2, as a move across a workspace leaves them.
-fn holding_two_moves() -> Coalescer {
+fn holding_two_moves(t0: Instant) -> Coalescer {
     let mut c = Coalescer::default();
-    c.admit(place(1, 0, Timing::Coalesced));
-    c.admit(border(1));
-    c.admit(Effect::CenterCursor { window: wid(1) });
-    c.admit(place(2, 100, Timing::Coalesced));
+    c.admit(place(1, 0, Timing::Coalesced), t0);
+    c.admit(border(1), t0);
+    c.admit(Effect::CenterCursor { window: wid(1) }, t0);
+    c.admit(place(2, 100, Timing::Coalesced), t0);
     c
 }
 
@@ -122,10 +129,11 @@ fn holding_two_moves() -> Coalescer {
 /// for window 1 is released afterwards, while window 2's move still is.
 fn assert_leaving_drops_what_was_held(leaving: Effect) {
     // Arrange
-    let mut c = holding_two_moves();
+    let t0 = Instant::now();
+    let mut c = holding_two_moves(t0);
 
     // Act
-    let passed = c.admit(leaving.clone());
+    let passed = c.admit(leaving.clone(), t0);
 
     // Assert
     assert_eq!(passed, Some(leaving));
@@ -163,13 +171,14 @@ fn dropping_a_border_drops_the_held_move_and_border_too() {
 #[test]
 fn a_window_leaving_does_not_drop_another_windows_held_border() {
     // Arrange -- the near miss: only window 1 leaves.
+    let t0 = Instant::now();
     let mut c = Coalescer::default();
-    c.admit(place(1, 0, Timing::Coalesced));
-    c.admit(place(2, 100, Timing::Coalesced));
-    c.admit(border(2));
+    c.admit(place(1, 0, Timing::Coalesced), t0);
+    c.admit(place(2, 100, Timing::Coalesced), t0);
+    c.admit(border(2), t0);
 
     // Act
-    c.admit(Effect::DropBorder { window: wid(1) });
+    c.admit(Effect::DropBorder { window: wid(1) }, t0);
 
     // Assert
     assert_eq!(c.take(), vec![place(2, 100, Timing::Now), border(2)]);

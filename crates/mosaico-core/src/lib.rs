@@ -8,6 +8,8 @@ pub mod action;
 pub mod community_rules;
 /// Configuration loading and types.
 pub mod config;
+/// What the daemon loop runs, and when.
+pub mod daemon;
 /// The contract for drawing borders and corners on windows.
 pub mod decoration;
 /// The error type shared by core and the platform contracts.

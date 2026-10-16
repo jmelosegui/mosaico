@@ -326,7 +326,7 @@ impl Harness {
                     if matches!(effect, Effect::Focus { .. }) {
                         pipeline.expectations.held(&effect);
                     }
-                    if let Some(effect) = pipeline.coalescer.admit(effect) {
+                    if let Some(effect) = pipeline.coalescer.admit(effect, self.now) {
                         deliver(&mut self.desktop, &mut self.hidden, &effect);
                         pipeline.expectations.applied(&effect, self.now);
                     }

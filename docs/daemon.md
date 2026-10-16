@@ -33,6 +33,10 @@ from separate `mpsc` channels into the unified `DaemonMsg` channel.
 |------|---------|
 | `crates/mosaico-core/src/lifecycle.rs` | `run()`, `Startup` -- what the daemon does before and after its loop |
 | `crates/mosaico-windows/src/daemon.rs` | `serve()`, `daemon_loop()`, `ipc_loop()`, `DaemonMsg` |
+| `crates/mosaico-windows/src/daemon_loop_run.rs` | The main loop: waits for messages and runs the scheduler's steps |
+| `crates/mosaico-windows/src/daemon_loop_task.rs` | `Task` -- every `DaemonMsg` except a window event, as the main loop runs it |
+| `crates/mosaico-windows/src/daemon_loop_pump.rs` | `pump_thread_messages()`, `PUMP_INTERVAL` -- keeps the bar and border windows responsive |
+| `crates/mosaico-core/src/daemon/` | `Scheduler` -- decides what the main loop runs, and when |
 | `crates/mosaico-windows/src/daemon_inputs.rs` | `Inputs` -- starts and stops window events, hotkeys and focus-follows-mouse |
 | `crates/mosaico-windows/src/event_source.rs` | `WindowsEventSource` -- the WinEvent hooks and the broadcast window |
 | `crates/mosaico-windows/src/hotkey_thread.rs` | `WindowsHotkeySource` -- registers and dispatches hotkeys on a thread of its own |
@@ -112,10 +116,43 @@ order, it:
 
 ## Main Loop
 
-The main thread runs a blocking `recv()` loop that dispatches messages:
+The main thread waits for messages in slices of at most 50 ms
+(`PUMP_INTERVAL`) and drains its own Win32 message queue between them, so
+the bar and border windows it owns never look hung. Each time it is about to
+wait, it asks `mosaico_core::daemon::Scheduler` how long it may wait. When
+the wait ends, it hands what ended it (the messages that were queued, or a
+timeout) to the scheduler with the current time, and runs the steps it gets
+back, in order:
 
-- `DaemonMsg::Event(event)` -- forwarded to `TilingManager::handle_event()`,
-  then bar is updated
+1. **Flush** the focus changes and coalesced moves the tiler holds back,
+   once the loop has waited 25 ms (`tiler::QUIET`) with no message
+   arriving. The wait starts once everything before it has run, so a slow
+   batch, a display rebuild or startup never counts as quiet. They are
+   flushed at the latest 100 ms after the loop first waited with them held
+   (`tiler::MAX_HOLD`), even while messages keep arriving: while a window
+   animates or a title keeps changing, no wait would ever last 25 ms. A
+   slow batch or a slow startup does not count toward the cap, so it still
+   gets the full 25 ms.
+2. **Rebuild for the monitors** once a display change has settled. A
+   `DisplayChanged` event only starts or extends a 750 ms settle window, see
+   [monitor-management.md](monitor-management.md). While effects are held,
+   the loop waits for the flush first, so a change that settles meanwhile is
+   rebuilt for right after it.
+3. **Run each task**, that is every message other than a window event, in
+   arrival order and ahead of the window events that arrived with it, so
+   hotkeys and commands stay responsive while windows flood the queue.
+4. **Handle the batch's window events** in order, then refresh the bar once.
+   Each window keeps only its last `LocationChanged` and its last
+   `TitleChanged` of the batch, which can turn hundreds of events into a
+   handful.
+
+Messages that end a wait only find what was due when it began: a message
+that arrives during the quiet window ends it without a flush, and the next
+wait starts the window over. The scheduler never reads the clock itself, so
+its decisions are unit tested with a fake one.
+
+Tasks are dispatched like this:
+
 - `DaemonMsg::Action(action)` -- forwarded to `TilingManager::handle_action()`,
   then bar is updated
 - `DaemonMsg::Command(cmd, reply)` -- handles `Stop` (breaks loop),
@@ -131,8 +168,8 @@ The main thread runs a blocking `recv()` loop that dispatches messages:
 - `DaemonMsg::Tick` -- calls `bar_mgr.update()` to refresh time-based
   widgets (clock, CPU, RAM)
 
-The blocking `recv()` is CPU-efficient (no polling) and wakes immediately
-when any message arrives.
+Window events (`DaemonMsg::Event`) go to `TilingManager::handle_event()` in
+step 4. The wait ends as soon as any message arrives.
 
 ## Input Threads
 
@@ -299,8 +336,14 @@ and class.
   tiling logic run on the main thread.
 - Bridge threads exist because Win32 events and hotkeys produce different
   channel types that need to be unified into `DaemonMsg`.
-- Blocking `recv()` is more CPU-efficient than `recv_timeout()` since the
-  1-second tick thread provides the periodic wake-up needed for bar refresh.
+- The main loop waits with `recv_timeout()` rather than a blocking `recv()`
+  because its thread owns the bar and border windows and has to drain their
+  messages regularly. An idle daemon still wakes only once per
+  `PUMP_INTERVAL`.
+- Every scheduling decision of the main loop lives in
+  `mosaico_core::daemon` and takes the time as a parameter, so ordering,
+  dedup, display settling and flushing are tested without a desktop or a
+  real clock.
 - The `BarManager` is updated after every event, action, and command so that
   workspace indicators and window counts stay current.
 - Theme tracking (`current_theme`) lives in the daemon loop so that both

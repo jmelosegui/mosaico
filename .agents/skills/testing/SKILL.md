@@ -83,8 +83,8 @@ Examples to copy:
 - CLI commands take a `Context` (`crates/mosaico/src/commands/context.rs`) and return an `Exit`. Their tests
   run them against the fake `World` in `commands/test_support.rs`, so `stop` against a daemon that never
   exits, or `start` against one that is rejected at once, run in microseconds with no process involved.
-- `DisplaySettle` in `crates/mosaico-windows/src/daemon_settle.rs` takes `now`, so settle timing is tested
-  without sleeping.
+- `Scheduler` in `crates/mosaico-core/src/daemon/scheduler.rs` takes `now`, so the daemon loop's ordering,
+  display settling and flushing are tested without sleeping.
 - `serve` in `crates/mosaico-core/src/ipc/transport.rs` is tested against in-memory connections, so the
   daemon's request handling needs no pipe.
 - `ConfigStore` in `crates/mosaico-core/src/config/store/` is given its directory, so loading, merging and
@@ -99,8 +99,7 @@ Red flags:
 - a test that writes to the user's config directory, needs a running daemon to check logic, or sleeps to wait
   for something
 
-When a test needs one of these, add the missing seam instead of working around it. Known gaps are tracked in
-#64.
+When a test needs one of these, add the missing seam instead of working around it.
 
 ## Writing tests
 

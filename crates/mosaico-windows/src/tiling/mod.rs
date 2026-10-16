@@ -96,14 +96,15 @@ impl TilingManager {
         self.step(Input::Event(event.clone()));
     }
 
-    /// Whether focus changes or placements are held back, waiting for
-    /// input to go quiet.
-    pub fn has_pending(&self) -> bool {
-        self.applier.has_pending()
+    /// When the focus changes and placements held back, waiting for
+    /// input to go quiet, started being held, or `None` when nothing is
+    /// held.
+    pub fn held_since(&self) -> Option<Instant> {
+        self.applier.held_since()
     }
 
-    /// Applies everything held back. The daemon calls this once input
-    /// has been quiet for a moment.
+    /// Applies everything held back. The daemon calls this when the
+    /// scheduler says it is due.
     pub fn flush_pending(&mut self) {
         self.applier
             .flush(&self.desktop, &self.control, Instant::now());
