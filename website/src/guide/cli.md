@@ -117,12 +117,16 @@ mosaico action move left|right|up|down
 mosaico action retile
 mosaico action toggle-monocle
 mosaico action close-focused
-mosaico action goto-workspace <1-8>
+mosaico action cycle-layout
+mosaico action go-to-workspace <1-8>
 mosaico action send-to-workspace <1-8>
 ```
 
 These are the same actions triggered by keyboard shortcuts, useful for
-scripting or integration with other tools.
+scripting or integration with other tools. In `keybindings.toml` the
+workspace actions carry the number in their name instead:
+`goto-workspace-N` and `send-to-workspace-N` (see
+[Keyboard Bindings](keybindings.md)).
 
 ## `mosaico pause` / `mosaico unpause`
 
@@ -138,6 +142,10 @@ While paused, the status bar shows a red **PAUSED** indicator. You can also
 toggle pause from the keyboard by binding the `toggle-pause` action — the
 toggle hotkey remains registered while paused so you can resume without opening
 a terminal. See [Keyboard Bindings](keybindings.md#pause--unpause) for setup.
+
+## `mosaico banner`
+
+Plays the animated Mosaico logo that `mosaico start` shows.
 
 ## `mosaico debug list`
 
@@ -160,3 +168,10 @@ for understanding how Mosaico reacts to window changes.
 Moves a specific window to exact pixel coordinates. The id is the one
 `mosaico debug list` shows (`0x` hex), or the same number in decimal; `--hwnd`
 still works in place of `--window`. Useful for testing window positioning.
+
+## `mosaico debug state`
+
+Prints the running daemon's view of your desktop: each monitor, its
+workspaces that have windows and the windows on them, the monitors that
+were disconnected, and which monitor and window have focus. Useful for
+checking what Mosaico manages and where.

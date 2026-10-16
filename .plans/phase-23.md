@@ -3,8 +3,7 @@
 **Status:** Complete
 
 **Left open:** focus following the mouse is not held back while a
-window is dragged, and the configuration docs do not describe the
-`[mouse]` settings yet.
+window is dragged.
 
 **Goal:** Add bidirectional mouse/focus integration so the cursor tracks
 keyboard-driven focus changes, and optionally, hovering the mouse over a
@@ -353,5 +352,5 @@ focus_follows_mouse = false
 - [ ] Manual test: focus follows mouse — hover over unmanaged window,
       verify no focus change
 - [ ] Manual test: both features enabled simultaneously
-- [ ] Update documentation (`docs/configuration.md`)
+- [x] Update documentation (`docs/configuration.md`)
 - [ ] Update `.plans/plan.md`

@@ -34,7 +34,7 @@ irm https://raw.githubusercontent.com/jmelosegui/mosaico/main/docs/install.ps1 |
 ### From source
 
 ```sh
-cargo install --path .
+cargo install --path crates/mosaico
 ```
 
 ## Usage
@@ -66,9 +66,8 @@ mosaico action retile             # Re-apply the current layout
 mosaico action toggle-monocle     # Toggle monocle mode
 mosaico action cycle-layout       # Cycle BSP / VerticalStack / ThreeColumn
 mosaico action close-focused      # Close the focused window
-mosaico action minimize-focused   # Minimize the focused window
-mosaico action goto-workspace-3   # Switch to workspace 3 (1-8)
-mosaico action send-to-workspace-5  # Send focused window to workspace 5 (1-8)
+mosaico action go-to-workspace 3  # Switch to workspace 3 (1-8)
+mosaico action send-to-workspace 5  # Send focused window to workspace 5 (1-8)
 mosaico pause                     # Pause all hotkeys (also Alt + Shift + P)
 mosaico unpause                   # Resume all hotkeys
 ```
@@ -140,8 +139,16 @@ cargo build --release
 ## Running tests
 
 ```sh
-cargo test
+cargo test --lib
+cargo test -p mosaico --bins
+cargo test --doc
+cargo test -p mosaico-core --test '*'
 ```
+
+Plain `cargo test` also runs the desktop suites (`window_management`,
+`bar_reservation`, `display_change`, `window_transitions` and most of `cli`),
+which start a real daemon that tiles your desktop. Run those only with your
+own daemon stopped.
 
 ## License
 

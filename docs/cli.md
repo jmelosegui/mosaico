@@ -22,14 +22,16 @@ dedicated handler module under `crates/mosaico/src/commands/`.
 | `crates/mosaico/src/commands/status.rs` | `mosaico status` handler |
 | `crates/mosaico/src/commands/doctor.rs` | `mosaico doctor` handler |
 | `crates/mosaico/src/commands/doctor_animations.rs` | What `mosaico doctor` says about window transitions |
+| `crates/mosaico/src/commands/autostart.rs` | `mosaico autostart enable` / `disable` / `status` handler |
 | `crates/mosaico/src/commands/daemon.rs` | `mosaico daemon` handler (hidden) |
 | `crates/mosaico/src/commands/action.rs` | `mosaico action <verb>` handler |
 | `crates/mosaico/src/commands/pause.rs` | `mosaico pause` / `mosaico unpause` handler |
-| `crates/mosaico/src/commands/banner.rs` | Shared ASCII logo used by `start` and `doctor` |
+| `crates/mosaico/src/commands/banner.rs` | Shared ASCII logo used by `start` and `doctor`, and the `mosaico banner` handler |
 | `crates/mosaico/src/commands/update.rs` | `mosaico update` handler |
 | `crates/mosaico/src/commands/debug/list.rs` | `mosaico debug list` handler |
 | `crates/mosaico/src/commands/debug/events.rs` | `mosaico debug events` handler |
 | `crates/mosaico/src/commands/debug/move_window.rs` | `mosaico debug move` handler |
+| `crates/mosaico/src/commands/debug/state.rs` | `mosaico debug state` handler |
 
 ### Command Context
 
@@ -79,12 +81,15 @@ source, Ctrl+C and window titles from `platform::event_source()`,
 
 - `Cli` -- top-level `clap::Parser` struct
 - `Commands` -- enum of all subcommands: `Init`, `Start`, `Stop`, `Status`,
-  `Doctor`, `Update`, `Action`, `Pause`, `Unpause`, `Debug`, `Daemon`
+  `Doctor`, `Autostart`, `Update`, `Action`, `Banner`, `Pause`, `Unpause`,
+  `Debug`, `Daemon`
 - `ActionCommands` -- enum: `Focus { direction }`, `Move { direction }`,
-  `Retile`, `ToggleMonocle`, `CloseFocused`, `GoToWorkspace { n }`,
-  `SendToWorkspace { n }`
+  `Retile`, `ToggleMonocle`, `CloseFocused`, `CycleLayout`,
+  `GoToWorkspace { n }`, `SendToWorkspace { n }`
 - `DirectionCommands` -- enum: `Left`, `Right`, `Up`, `Down`
-- `DebugCommands` -- enum for debug sub-subcommands: `List`, `Events`, `Move`
+- `DebugCommands` -- enum for debug sub-subcommands: `List`, `Events`, `Move`,
+  `State`
+- `AutostartCommands` -- enum: `Enable`, `Disable`, `Status`
 
 ## Available Commands
 
@@ -95,6 +100,8 @@ Creates default configuration files in `~/.config/mosaico/`:
 - `config.toml` -- layout, border, and logging settings
 - `keybindings.toml` -- keyboard shortcuts
 - `rules.toml` -- window management rules
+- `user-rules.toml` -- personal rule overrides, never overwritten
+- `bar.toml` -- status bar settings
 
 Skips files that already exist to avoid overwriting user customizations.
 
@@ -194,6 +201,25 @@ Checks performed:
    frames, for any other error, `[fail]` with the error, and a `[warn]` that
    whether windows can move frame by frame is unknown
 
+### `mosaico autostart enable|disable|status`
+
+Manages starting mosaico at login, through the platform's `Autostart`
+(`mosaico_core::system`):
+
+- `enable` registers the running executable (`current_exe`) to run
+  `mosaico start` at login, replacing any earlier registration and turning
+  it back on if the user turned it off
+- `disable` removes the registration
+- `status` compares what is registered with what `enable` would register
+  (`AutostartStatus::read`) and says whether autostart is enabled,
+  disabled, turned off in the startup apps settings, or registered with an
+  empty entry, another command, or a program that is not a file
+
+Each prints what it did or found. One that fails prints `Error: <reason>`
+and exits with status 1. On Windows the registration is a value under
+`HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run`, the
+user's own Run key.
+
 ### `mosaico action <verb> [direction]`
 
 Sends a tiling action to the daemon over IPC. Actions now use a two-level
@@ -211,9 +237,14 @@ mosaico action move down
 mosaico action retile
 mosaico action toggle-monocle
 mosaico action close-focused
-mosaico action goto-workspace 3
+mosaico action cycle-layout
+mosaico action go-to-workspace 3
 mosaico action send-to-workspace 5
 ```
+
+The workspace number is an argument here. Key bindings name the same
+actions with the number in the name instead: `goto-workspace-N` and
+`send-to-workspace-N` (see [actions.md](actions.md#serialization)).
 
 It exits with status 0 when the daemon carried the action out, and also when
 there was nothing to act on (focusing left at the left edge, closing with
@@ -264,6 +295,11 @@ handling immediately.
 mosaico unpause
 ```
 
+### `mosaico banner`
+
+Plays the animated logo that `start` and `doctor` show, on its own, and
+exits with status 0.
+
 ### `mosaico daemon` (hidden)
 
 Runs the daemon in-process. This subcommand is hidden from `--help` output
@@ -296,6 +332,16 @@ or repainting it afterwards. Takes the window id `debug list` shows (`0x`
 hex), or the same number in decimal; `--hwnd` is still accepted for
 `--window`. Exits with status 1 when the id is not a window id or the window
 cannot be moved.
+
+### `mosaico debug state`
+
+Asks the daemon for its view of the desktop (the `Inspect` command) and
+prints it: each monitor with its key, work area and active workspace, the
+windows on each workspace that has any, the disconnected monitors and how
+many windows were displaced from them, whether the daemon runs elevated,
+and what has focus. The daemon's own text is printed when it sends one;
+otherwise the `DesktopSnapshot` it sends is rendered. Exits with status 1,
+saying why, when the request fails, for example when no daemon is running.
 
 ## Instances
 
@@ -331,8 +377,8 @@ integration tests use this to run each test against a private instance.
   `start` handles the process lifecycle.
 - `start` uses Windows-specific detach flags rather than a service manager,
   keeping the implementation simple and dependency-free.
-- The `banner` module is private -- only used internally by `start` and
-  `doctor` for the shared ASCII logo.
+- The `banner` module draws the logo `start` and `doctor` share, and
+  `mosaico banner` plays it on its own.
 - Action verbs use a nested subcommand pattern (`action focus left`) rather
   than flat kebab-case (`action focus-left`) for a clearer CLI experience.
 - Commands that show or move windows run outside the daemon process, so

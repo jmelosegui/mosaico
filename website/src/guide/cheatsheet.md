@@ -59,14 +59,14 @@ lockstep, like Windows virtual desktops. See
 
 | Shortcut | Action | CLI |
 |----------|--------|-----|
-| `Alt + 1` | Switch to workspace 1 | `mosaico action goto-workspace-1` |
-| `Alt + 2` | Switch to workspace 2 | `mosaico action goto-workspace-2` |
+| `Alt + 1` | Switch to workspace 1 | `mosaico action go-to-workspace 1` |
+| `Alt + 2` | Switch to workspace 2 | `mosaico action go-to-workspace 2` |
 | ... | ... | ... |
-| `Alt + 8` | Switch to workspace 8 | `mosaico action goto-workspace-8` |
-| `Alt + Shift + 1` | Send window to workspace 1 | `mosaico action send-to-workspace-1` |
-| `Alt + Shift + 2` | Send window to workspace 2 | `mosaico action send-to-workspace-2` |
+| `Alt + 8` | Switch to workspace 8 | `mosaico action go-to-workspace 8` |
+| `Alt + Shift + 1` | Send window to workspace 1 | `mosaico action send-to-workspace 1` |
+| `Alt + Shift + 2` | Send window to workspace 2 | `mosaico action send-to-workspace 2` |
 | ... | ... | ... |
-| `Alt + Shift + 8` | Send window to workspace 8 | `mosaico action send-to-workspace-8` |
+| `Alt + Shift + 8` | Send window to workspace 8 | `mosaico action send-to-workspace 8` |
 
 ## Layout
 
@@ -89,7 +89,7 @@ Per-workspace layout overrides are configured under
 | Shortcut | Action | CLI |
 |----------|--------|-----|
 | `Alt + Q` | Close focused window | `mosaico action close-focused` |
-| `Alt + M` | Minimize focused window | `mosaico action minimize-focused` |
+| `Alt + M` | Minimize focused window | -- |
 
 ## Daemon
 
