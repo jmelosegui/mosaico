@@ -1,44 +1,21 @@
-use std::mem;
-use std::sync::Once;
+mod class;
+mod render;
 
 use mosaico_core::{Rect, Result};
-use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
-use windows::Win32::Graphics::Gdi::{
-    BI_RGB, BITMAPINFO, BITMAPINFOHEADER, CreateCompatibleDC, CreateDIBSection, DIB_RGB_COLORS,
-    DeleteDC, DeleteObject, GetDC, ReleaseDC, SelectObject,
-};
+use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::{
-    CW_USEDEFAULT, CreateWindowExW, DefWindowProcW, DestroyWindow, GWL_EXSTYLE, GetWindowLongPtrW,
-    HWND_NOTOPMOST, HWND_TOPMOST, RegisterClassW, SW_HIDE, SWP_NOACTIVATE, SWP_SHOWWINDOW,
-    SetWindowPos, ShowWindow, ULW_ALPHA, UpdateLayeredWindow, WM_CLOSE, WNDCLASSW, WS_EX_LAYERED,
+    CW_USEDEFAULT, CreateWindowExW, DestroyWindow, GWL_EXSTYLE, GetWindowLongPtrW, HWND_NOTOPMOST,
+    HWND_TOPMOST, SW_HIDE, SWP_NOACTIVATE, SWP_SHOWWINDOW, SetWindowPos, ShowWindow, WS_EX_LAYERED,
     WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_EX_TRANSPARENT, WS_POPUP,
 };
 use windows::core::PCWSTR;
 
 use crate::error::OrPlatform;
 
-/// RGB color parsed from a hex string.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Color {
-    pub r: u8,
-    pub g: u8,
-    pub b: u8,
-}
+use class::{CLASS_NAME, ensure_class_registered};
 
-impl Color {
-    /// Parses a hex color string like "#00b4d8" or "00b4d8".
-    pub fn from_hex(hex: &str) -> Option<Self> {
-        let hex = hex.trim_start_matches('#');
-        if hex.len() != 6 {
-            return None;
-        }
-        Some(Self {
-            r: u8::from_str_radix(&hex[0..2], 16).ok()?,
-            g: u8::from_str_radix(&hex[2..4], 16).ok()?,
-            b: u8::from_str_radix(&hex[4..6], 16).ok()?,
-        })
-    }
-}
+/// The color type borders and the bar draw with, which lives in core.
+pub(crate) use mosaico_core::config::Color;
 
 /// A transparent overlay window that displays a colored border.
 ///
@@ -46,57 +23,6 @@ impl Color {
 /// is needed on the creating thread.
 pub struct Border {
     hwnd: HWND,
-}
-
-static REGISTER_CLASS: Once = Once::new();
-const CLASS_NAME: &[u16] = &[
-    b'M' as u16,
-    b'o' as u16,
-    b's' as u16,
-    b'a' as u16,
-    b'i' as u16,
-    b'c' as u16,
-    b'o' as u16,
-    b'B' as u16,
-    b'o' as u16,
-    b'r' as u16,
-    b'd' as u16,
-    b'e' as u16,
-    b'r' as u16,
-    0,
-];
-
-fn ensure_class_registered() {
-    REGISTER_CLASS.call_once(|| {
-        let wc = WNDCLASSW {
-            lpfnWndProc: Some(border_wnd_proc),
-            lpszClassName: PCWSTR(CLASS_NAME.as_ptr()),
-            ..Default::default()
-        };
-        // SAFETY: RegisterClassW is called once (guarded by Once) to
-        // register the border window class with a valid WNDCLASSW.
-        unsafe {
-            RegisterClassW(&wc);
-        }
-    });
-}
-
-unsafe extern "system" fn border_wnd_proc(
-    hwnd: HWND,
-    msg: u32,
-    wparam: WPARAM,
-    lparam: LPARAM,
-) -> LRESULT {
-    // Borders are owned by the tiling manager and destroyed in Drop when
-    // their window leaves the active workspace. Now that the owning
-    // thread dispatches messages, DefWindowProcW would act on WM_CLOSE by
-    // destroying the window behind the owner's back, leaving a dangling
-    // handle. Ignore the request instead.
-    if msg == WM_CLOSE {
-        return LRESULT(0);
-    }
-    // SAFETY: DefWindowProcW is the default handler required by WNDPROC.
-    unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) }
 }
 
 impl Border {
@@ -198,122 +124,6 @@ impl Border {
             let _ = ShowWindow(self.hwnd, SW_HIDE);
         }
     }
-
-    /// Renders the border bitmap and applies it via `UpdateLayeredWindow`.
-    #[allow(clippy::too_many_arguments)]
-    fn render(&self, x: i32, y: i32, w: i32, h: i32, color: Color, bw: i32, r: i32) {
-        if w <= 0 || h <= 0 {
-            return;
-        }
-
-        // SAFETY: This block creates a temporary memory DC + DIB section,
-        // renders the border pixels, and calls UpdateLayeredWindow to apply
-        // the bitmap atomically. All GDI handles are released before return.
-        unsafe {
-            let screen_dc = GetDC(None);
-            let mem_dc = CreateCompatibleDC(Some(screen_dc));
-
-            let bmi = BITMAPINFO {
-                bmiHeader: BITMAPINFOHEADER {
-                    biSize: mem::size_of::<BITMAPINFOHEADER>() as u32,
-                    biWidth: w,
-                    biHeight: -h, // top-down
-                    biPlanes: 1,
-                    biBitCount: 32,
-                    biCompression: BI_RGB.0,
-                    ..Default::default()
-                },
-                ..Default::default()
-            };
-
-            let mut bits = std::ptr::null_mut();
-            let Ok(bmp) = CreateDIBSection(Some(mem_dc), &bmi, DIB_RGB_COLORS, &mut bits, None, 0)
-            else {
-                let _ = DeleteDC(mem_dc);
-                let _ = ReleaseDC(None, screen_dc);
-                return;
-            };
-            if bits.is_null() {
-                let _ = DeleteObject(bmp.into());
-                let _ = DeleteDC(mem_dc);
-                let _ = ReleaseDC(None, screen_dc);
-                return;
-            }
-
-            let old = SelectObject(mem_dc, bmp.into());
-
-            // SAFETY: `bits` is non-null (checked above) and points to
-            // `w * h` pixels allocated by CreateDIBSection.
-            let pixel = 0xFF00_0000
-                | (u32::from(color.r) << 16)
-                | (u32::from(color.g) << 8)
-                | u32::from(color.b);
-            let buf = std::slice::from_raw_parts_mut(bits as *mut u32, (w * h) as usize);
-            let iw = w - 2 * bw;
-            let ih = h - 2 * bw;
-            let ir = (r - bw).max(0);
-            for py in 0..h {
-                for px in 0..w {
-                    let in_outer = in_rounded_rect(px, py, w, h, r);
-                    let in_inner = in_rounded_rect(px - bw, py - bw, iw, ih, ir);
-                    buf[(py * w + px) as usize] = if in_outer && !in_inner { pixel } else { 0 };
-                }
-            }
-
-            let pt_dst = windows::Win32::Foundation::POINT { x, y };
-            let size = windows::Win32::Foundation::SIZE { cx: w, cy: h };
-            let pt_src = windows::Win32::Foundation::POINT::default();
-            let blend = windows::Win32::Graphics::Gdi::BLENDFUNCTION {
-                BlendOp: 0,               // AC_SRC_OVER
-                SourceConstantAlpha: 255, // fully opaque border
-                AlphaFormat: 1,           // AC_SRC_ALPHA
-                ..Default::default()
-            };
-
-            let _ = UpdateLayeredWindow(
-                self.hwnd,
-                Some(screen_dc),
-                Some(&pt_dst),
-                Some(&size),
-                Some(mem_dc),
-                Some(&pt_src),
-                windows::Win32::Foundation::COLORREF(0),
-                Some(&blend),
-                ULW_ALPHA,
-            );
-
-            SelectObject(mem_dc, old);
-            let _ = DeleteObject(bmp.into());
-            let _ = DeleteDC(mem_dc);
-            let _ = ReleaseDC(None, screen_dc);
-        }
-    }
-}
-
-/// Tests if local coordinate `(lx, ly)` is inside a rounded rectangle
-/// of size `(w, h)` with corner radius `r`.
-fn in_rounded_rect(lx: i32, ly: i32, w: i32, h: i32, r: i32) -> bool {
-    if lx < 0 || lx >= w || ly < 0 || ly >= h {
-        return false;
-    }
-    if r <= 0 {
-        return true;
-    }
-    // Determine which corner zone the pixel falls in.
-    let (cx, cy) = if lx < r && ly < r {
-        (r, r) // top-left
-    } else if lx >= w - r && ly < r {
-        (w - r - 1, r) // top-right
-    } else if lx < r && ly >= h - r {
-        (r, h - r - 1) // bottom-left
-    } else if lx >= w - r && ly >= h - r {
-        (w - r - 1, h - r - 1) // bottom-right
-    } else {
-        return true; // not in a corner zone
-    };
-    let dx = lx - cx;
-    let dy = ly - cy;
-    dx * dx + dy * dy <= r * r
 }
 
 impl Drop for Border {
@@ -323,132 +133,5 @@ impl Drop for Border {
         unsafe {
             let _ = DestroyWindow(self.hwnd);
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use windows::Win32::UI::WindowsAndMessaging::{IsWindow, SendMessageW};
-
-    #[test]
-    fn parse_hex_color() {
-        // Assert
-        assert_eq!(
-            Color::from_hex("#00b4d8"),
-            Some(Color {
-                r: 0x00,
-                g: 0xB4,
-                b: 0xD8
-            })
-        );
-        assert_eq!(
-            Color::from_hex("2d6a4f"),
-            Some(Color {
-                r: 0x2D,
-                g: 0x6A,
-                b: 0x4F
-            })
-        );
-        assert_eq!(Color::from_hex("bad"), None);
-    }
-
-    #[test]
-    fn rounded_rect_zero_radius_is_full_rect() {
-        // Arrange / Act / Assert
-        assert!(in_rounded_rect(0, 0, 10, 10, 0));
-        assert!(in_rounded_rect(9, 9, 10, 10, 0));
-    }
-
-    #[test]
-    fn rounded_rect_outside_is_false() {
-        // Arrange / Act / Assert
-        assert!(!in_rounded_rect(-1, 0, 10, 10, 2));
-        assert!(!in_rounded_rect(0, -1, 10, 10, 2));
-        assert!(!in_rounded_rect(10, 0, 10, 10, 2));
-        assert!(!in_rounded_rect(0, 10, 10, 10, 2));
-    }
-
-    #[test]
-    fn rounded_rect_center_is_inside() {
-        // Arrange / Act / Assert
-        assert!(in_rounded_rect(5, 5, 10, 10, 4));
-    }
-
-    #[test]
-    fn rounded_rect_corner_pixel_outside_circle() {
-        // Arrange -- top-left corner (0,0) with radius 5
-        // Distance from center (5,5): sqrt(25+25) > 5
-
-        // Act / Assert
-        assert!(!in_rounded_rect(0, 0, 10, 10, 5));
-    }
-
-    #[test]
-    fn rounded_rect_edge_not_in_corner_is_inside() {
-        // Arrange -- pixel on the top edge but not in a corner zone
-
-        // Act / Assert
-        assert!(in_rounded_rect(5, 0, 10, 10, 3));
-    }
-
-    /// Creates a window of the real border class, so a message sent to
-    /// it goes through the registered window procedure.
-    ///
-    /// Returns `None` when the window cannot be created, so a machine
-    /// with no interactive desktop skips instead of failing.
-    fn border_class_window() -> Option<HWND> {
-        ensure_class_registered();
-
-        // SAFETY: creates a small popup of the already registered border
-        // class. The caller destroys it.
-        let hwnd = unsafe {
-            CreateWindowExW(
-                WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT,
-                PCWSTR(CLASS_NAME.as_ptr()),
-                PCWSTR::null(),
-                WS_POPUP,
-                0,
-                0,
-                1,
-                1,
-                None,
-                None,
-                None,
-                None,
-            )
-        }
-        .ok()?;
-
-        (!hwnd.is_invalid()).then_some(hwnd)
-    }
-
-    #[test]
-    fn wm_close_does_not_destroy_the_border() {
-        // Arrange
-        let Some(hwnd) = border_class_window() else {
-            return;
-        };
-
-        // Act -- the daemon thread pumps now, so this message reaches the
-        // window procedure instead of sitting in the queue.
-        // SAFETY: sending a message to a window this thread created.
-        unsafe {
-            SendMessageW(hwnd, WM_CLOSE, None, None);
-        }
-
-        // SAFETY: reading the state of a window this thread owns.
-        let alive = unsafe { IsWindow(Some(hwnd)).as_bool() };
-
-        // SAFETY: destroying a window this thread created.
-        unsafe {
-            let _ = DestroyWindow(hwnd);
-        }
-
-        // Assert
-        assert!(
-            alive,
-            "WM_CLOSE destroyed the border, which the tiling manager still holds a handle to"
-        );
     }
 }

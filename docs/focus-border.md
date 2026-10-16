@@ -16,13 +16,55 @@ Unfocused borders can be turned off entirely (see
 
 | File | Purpose |
 |------|---------|
-| `crates/mosaico-windows/src/border.rs` | `Border` struct, `Color` struct, rendering logic |
+| `crates/mosaico-core/src/decoration.rs` | `Decorations`, the contract for borders and window corners |
+| `crates/mosaico-core/src/tiler/decoration_effects.rs` | `apply_decoration_effect`, which carries out border and corner effects |
+| `crates/mosaico-core/src/config/color.rs` | `Color` struct and its hex parser |
 | `crates/mosaico-core/src/config/mod.rs` | `BorderConfig` for color and width settings |
+| `crates/mosaico-windows/src/decorations.rs` | `Win32Decorations`, the Win32 implementation |
+| `crates/mosaico-windows/src/border.rs` | `Border` struct: creating, placing and hiding the overlay |
+| `crates/mosaico-windows/src/border/render.rs` | Painting the border bitmap |
+| `crates/mosaico-windows/src/border/class.rs` | The `MosaicoBorder` window class and its window procedure |
 
 ### Key Types
 
+- `Decorations` -- the core trait the tiler's border and corner effects go through
+- `Win32Decorations` -- one `Border` per bordered window, plus the DWM corner preference
 - `Border` -- wraps a layered `HWND` overlay window
-- `Color` -- `r`, `g`, `b` fields with `from_hex()` parser
+- `Color` -- `r`, `g`, `b` fields with `from_hex()` parser, in `mosaico-core`
+
+## Contract
+
+Borders and window corners reach the platform through the `Decorations`
+trait in `mosaico-core`:
+
+```rust
+pub trait Decorations {
+    fn show_border(&mut self, window: WindowId, style: &BorderStyle) -> Result<()>;
+    fn hide_border(&mut self, window: WindowId) -> Result<()>;
+    fn drop_border(&mut self, window: WindowId) -> Result<()>;
+    fn set_corners(&mut self, window: WindowId, corners: CornerStyle) -> Result<()>;
+    fn reset_corners(&mut self, window: WindowId) -> Result<()>;
+}
+```
+
+The contract, in the trait's docs, spells out what the tiler relies on:
+
+- A border surrounds the window's visible bounds, the same bounds
+  `WindowControl` places windows at, with its stroke outside them.
+- A border never takes focus or input, never shows in the taskbar or the
+  window switcher, and never causes a window event.
+- Each time it is drawn, a border goes directly behind its window.
+- Hiding or dropping the border of a window that has none does nothing.
+- Drawing a border fails only when the border cannot be created. A window
+  that closed in the meantime is not an error.
+- A platform that cannot draw borders, or cannot change the corners of
+  windows, returns `Error::Unsupported`.
+
+`tiler::apply_decoration_effect` carries out the `Border`, `DropBorder`,
+`Decorate` and `Undecorate` effects through it. A border that cannot be
+created is logged as a warning, unless the platform has no borders at all;
+other failures, such as a window that closed in the meantime, are logged
+for debugging.
 
 ## Border Window
 
@@ -65,7 +107,8 @@ a stale bitmap from the previous size would briefly appear at the new position.
 
 ## Color
 
-The `Color` struct represents an RGB color:
+The `Color` struct (`mosaico_core::config::Color`) represents an RGB
+color. The bar draws with it too.
 
 - `Color::from_hex(s)` -- parses `"#RRGGBB"` or `"RRGGBB"` format strings
 - Default focused color: theme-resolved (Mocha: `#89b4fa` blue)
@@ -75,19 +118,27 @@ The `Color` struct represents an RGB color:
 The literal `"none"` on `unfocused` disables unfocused borders;
 `BorderColors::unfocused_enabled()` reports the toggle state.
 
+The tiler parses the configured value when it decides how a border is
+drawn, and sends the platform a `Color` in `BorderStyle`. A value that is
+still not a hex color after theme resolution, such as a name the theme
+does not know or `"none"` on `focused` or `monocle`, is drawn in
+`BorderColors::FALLBACK` (`#00b4d8`).
+
 ## Integration
 
-The applier in `mosaico-windows` keeps a `HashMap<WindowId, Border>` keyed by window id,
-with one entry per visible tiled window. The lifecycle is unified
-through a single entry point:
+The tiler decides every border and emits it as an effect; in
+`mosaico-windows`, the applier's `Win32Decorations` keeps a
+`HashMap<WindowId, Border>` keyed by window id, with one entry per
+visible tiled window. The lifecycle is unified through a single entry
+point:
 
 - `update_border()` -- called after every layout, focus, workspace, or
   display event. It snapshots the active workspace on every monitor,
   drops borders for windows that are no longer visible, creates
   borders for new windows, and recolors each surviving border based on
   whether it owns focus.
-- `hide_border()` -- hides every overlay without dropping them
-  (used on pause and shutdown).
+- `hide_borders()` -- hides every border without dropping it, when the
+  tiler stops.
 
 Color selection per window:
 
@@ -129,8 +180,20 @@ tiled windows themselves.
 | `"small"` | Subtle rounding (8 px) | `ROUNDSMALL` (~4 px) |
 | `"round"` | Standard rounding (16 px) | `ROUND` (~8 px) |
 
-On Windows 10, the DWM attribute is silently ignored — only the border
-overlay is affected.
+Windows 10 does not have the DWM attribute, so there only the border
+overlay is affected: changing corners is reported as unsupported, and
+logged at debug level.
+
+The tiler gives the configured corners to the windows it takes in, and
+gives the system's corners back only to the windows it gave them to:
+when they hide or close, when a rule reload lets go of them, and when
+the tiler stops. Menus and windows the rules leave alone keep the
+corners they chose.
+
+Two gaps remain. A window adopted after being dragged does not get the
+configured corners until the config is reloaded. A managed window that
+is minimized keeps the tiler's corners when the tiler stops, and when
+the rules change to leave it alone while it is minimized.
 
 ## Design Decisions
 
@@ -158,3 +221,9 @@ overlay is affected.
 `RRGGBB` formats. Theme tests assert that `border_focused`,
 `border_monocle`, and `border_unfocused` are distinct per flavor and
 match their Catppuccin palette values.
+
+In `mosaico-core`, `tiler/tests/decoration_effects_tests.rs` drives
+`apply_decoration_effect` against a platform that records what it is
+asked to draw, `tiler/tests/border_tests.rs` checks the colors borders are
+drawn in, including the fallback and `"none"`, and
+`tiler/tests/corner_tests.rs` checks which windows get their corners back.

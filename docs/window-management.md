@@ -85,9 +85,10 @@ The contract, in the trait's docs, spells out what callers rely on:
 is applied, against the `Desktop` as it is then: a window already in place is
 left alone unless it is maximized, a placement is followed by a repaint even
 when the move fails, and when the pointer follows focus it goes to the center
-of the window. Borders and window corners are not window changes and stay with
-the platform's applier. `debug move` places windows through
-`WindowControl::place` as well.
+of the window. Borders and window corners are not window changes: they go
+through `Decorations` and `tiler::apply_decoration_effect` (see
+[focus-border.md](focus-border.md#contract)). `debug move` places windows
+through `WindowControl::place` as well.
 
 Window ids typed by the user, such as the `--window` of `debug move`, are read
 with `WindowId::parse`, which takes the `0x` hex form ids are printed in, or

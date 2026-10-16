@@ -10,10 +10,10 @@ impl Tiler {
     /// Shows every window on every workspace and gives each its normal
     /// frame back, so nothing is left hidden when the tiler stops.
     /// Borders are hidden first so they do not linger over windows.
-    pub(super) fn restore_all_windows(&self, plan: &mut Plan) {
+    pub(super) fn restore_all_windows(&mut self, plan: &mut Plan) {
         self.hide_borders(plan);
         for window in self.all_windows() {
-            plan.emit(Effect::Undecorate { window });
+            self.undecorate(plan, window);
             plan.emit(Effect::Reveal { window });
         }
     }
@@ -63,7 +63,7 @@ impl Tiler {
 
         let mut affected: Vec<usize> = Vec::new();
         for (mi, wi, window) in removals {
-            plan.emit(Effect::Undecorate { window });
+            self.undecorate(plan, window);
             self.monitors[mi].workspaces[wi].remove(window);
             crate::log_info!("-rule {window} (unmanaged by new rules)");
             if !affected.contains(&mi) {

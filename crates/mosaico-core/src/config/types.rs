@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::action::MAX_WORKSPACES;
+use crate::config::Color;
 use crate::layout::LayoutKind;
 
 use super::{HidingBehaviour, report};
@@ -165,7 +166,9 @@ impl Default for BorderConfig {
 /// color. Empty strings resolve to the active theme's defaults during
 /// validation. The `unfocused` field also accepts the literal value
 /// `"none"` to disable rendering borders around unfocused windows
-/// (only the focused window will then have a border).
+/// (only the focused window will then have a border). A value that is
+/// still not a hex color after that, such as a name the theme does not
+/// know, is drawn in [`BorderColors::FALLBACK`].
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct BorderColors {
@@ -183,6 +186,14 @@ impl BorderColors {
     /// Sentinel value for `unfocused` meaning "no border around
     /// unfocused windows".
     pub const NONE: &'static str = "none";
+
+    /// The color a border is drawn in when its configured value is not
+    /// a hex color. Matches the historical default focused color.
+    pub const FALLBACK: Color = Color {
+        r: 0x00,
+        g: 0xB4,
+        b: 0xD8,
+    };
 
     /// Returns true when unfocused borders should be rendered.
     pub fn unfocused_enabled(&self) -> bool {

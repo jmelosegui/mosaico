@@ -1,4 +1,5 @@
 use crate::Direction;
+use crate::config::Color;
 
 use super::*;
 
@@ -69,7 +70,6 @@ fn the_focus_border_follows_focus_immediately() {
     let mut settings = Settings::default();
     settings.borders.colors.focused = "#111111".into();
     settings.borders.colors.unfocused = "#222222".into();
-    let colors = settings.borders.colors.clone();
     let mut h = Harness::with_settings(settings, 1, &[(1, 0), (2, 0)]);
 
     // Act
@@ -79,13 +79,13 @@ fn the_focus_border_follows_focus_immediately() {
     let color_of = |w: u64| {
         effects.iter().rev().find_map(|e| match e {
             Effect::Border { window, style } if *window == wid(w) => {
-                style.as_ref().map(|s| s.color.clone())
+                style.as_ref().map(|s| s.color)
             }
             _ => None,
         })
     };
-    assert_eq!(color_of(2), Some(colors.focused));
-    assert_eq!(color_of(1), Some(colors.unfocused));
+    assert_eq!(color_of(2), Color::from_hex("#111111"));
+    assert_eq!(color_of(1), Color::from_hex("#222222"));
 }
 
 #[test]

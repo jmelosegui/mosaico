@@ -144,14 +144,6 @@ impl Tiler {
         );
     }
 
-    /// Applies the configured corners to a window that became managed.
-    pub(super) fn decorate(&self, plan: &mut Plan, window: WindowId) {
-        plan.emit(Effect::Decorate {
-            window,
-            corners: self.border_config.corner_style,
-        });
-    }
-
     /// Moves a window that has been created but not shown yet into the
     /// slot it would get, so its first frame is already in place.
     ///

@@ -11,6 +11,8 @@
 mod adopt;
 mod borders;
 mod coalesce;
+mod corners;
+mod decoration_effects;
 mod desktop;
 mod display;
 mod display_rebuild;
@@ -44,6 +46,7 @@ use crate::config::{
 use crate::{HidingSupport, LayoutKind, WindowId};
 
 pub use coalesce::Coalescer;
+pub use decoration_effects::apply_decoration_effect;
 pub use desktop::{Desktop, Display, WindowFacts};
 pub use echo::{Expectations, HIDE_FOCUS_ECHO_TTL};
 pub use echo_focus::FOCUS_ECHO_TTL;
@@ -97,6 +100,11 @@ pub struct Tiler {
     /// Windows that currently have a border, so the ones that leave the
     /// screen can have theirs destroyed.
     bordered: HashSet<WindowId>,
+    /// Windows given the configured corners, so that only those get the
+    /// system's corners back. A minimized window leaves the layout but
+    /// stays here; one dropped from it for no longer being shown does
+    /// not.
+    decorated: HashSet<WindowId>,
     mouse_follows_focus: bool,
     focused_monitor: usize,
     focused_window: Option<WindowId>,
@@ -156,6 +164,7 @@ impl Tiler {
             rules: settings.rules,
             border_config: settings.borders,
             bordered: HashSet::new(),
+            decorated: HashSet::new(),
             mouse_follows_focus: settings.mouse_follows_focus,
             focused_monitor: 0,
             focused_window: None,

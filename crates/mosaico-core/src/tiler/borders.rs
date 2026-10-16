@@ -1,13 +1,15 @@
 //! Focus borders around tiled windows.
 //!
 //! The focused window's border is drawn in the focused (or monocle)
-//! color; the rest in the unfocused color when that is enabled. Borders
+//! color; the rest in the unfocused color when that is enabled. A color
+//! that does not parse is drawn in [`BorderColors::FALLBACK`]. Borders
 //! are created as windows appear on a visible workspace and destroyed
 //! when they leave it.
 
 use std::collections::HashSet;
 
 use crate::Rect;
+use crate::config::{BorderColors, Color};
 
 use crate::WindowId;
 
@@ -115,7 +117,7 @@ impl Tiler {
         };
         Some(BorderStyle {
             rect,
-            color: color.clone(),
+            color: Color::from_hex(color).unwrap_or(BorderColors::FALLBACK),
             width: self.border_config.width,
             radius: self.border_config.corner_style.border_radius(),
         })

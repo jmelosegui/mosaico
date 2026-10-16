@@ -15,6 +15,14 @@ use crate::{Action, MonitorId, MonitorKey, Rect, WindowEvent, WindowId, Workspac
 
 use super::*;
 
+#[path = "tests/border_tests.rs"]
+mod border_tests;
+#[path = "tests/corner_tests.rs"]
+mod corner_tests;
+#[path = "tests/corner_tracking_tests.rs"]
+mod corner_tracking_tests;
+#[path = "tests/decoration_effects_tests.rs"]
+mod decoration_effects_tests;
 #[path = "tests/display_tests.rs"]
 mod display_tests;
 #[path = "tests/empty_focus_tests.rs"]

@@ -28,6 +28,9 @@ pub mod ctrl_c;
 /// Daemon main loop.
 pub mod daemon;
 
+/// Focus borders and window corners through Win32.
+mod decorations;
+
 /// DPI awareness setup.
 pub mod dpi;
 

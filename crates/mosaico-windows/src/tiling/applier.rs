@@ -1,11 +1,12 @@
 //! Applies the tiler's effects on the Windows desktop.
 //!
 //! Effects that change a window or move the pointer are carried out by
-//! [`apply_window_effect`] through the [`WindowControl`] it is given;
-//! borders and window corners are drawn here. Most effects are applied
-//! as they arrive. Two kinds are held back while the user is still
-//! pressing keys, and only the latest of each is applied once input
-//! goes quiet:
+//! [`apply_window_effect`] through the [`WindowControl`] it is given,
+//! and borders and window corners by [`apply_decoration_effect`]
+//! through the applier's own [`Win32Decorations`]. Most effects are
+//! applied as they arrive. Two kinds are held back while the user is
+//! still pressing keys, and only the latest of each is applied once
+//! input goes quiet:
 //!
 //! - focus changes, because `SetForegroundWindow` is a cross-process
 //!   call that often takes 50-150 ms;
@@ -16,34 +17,23 @@
 //! Every applied effect is recorded in [`Expectations`] so the events it
 //! causes can be told apart from the user's.
 
-use std::collections::HashMap;
 use std::time::Instant;
 
-use mosaico_core::config::BorderColors;
 use mosaico_core::tiler::{
-    BorderStyle, Coalescer, Desktop, Effect, Expectations, HiddenWindows, apply_window_effect,
+    Coalescer, Desktop, Effect, Expectations, HiddenWindows, apply_decoration_effect,
+    apply_window_effect,
 };
 use mosaico_core::{HidingSupport, WindowControl, WindowId};
 
-use crate::border::{Border, Color};
-use crate::frame;
-use crate::window::Window;
+use crate::decorations::Win32Decorations;
 
 use super::hidden_file::HiddenFile;
-
-/// Border color used when a configured value does not parse. Matches
-/// the historical default focused color.
-const FALLBACK_COLOR: Color = Color {
-    r: 0,
-    g: 0xB4,
-    b: 0xD8,
-};
 
 /// Executes effects and remembers what the OS should report back.
 #[derive(Default)]
 pub(super) struct Applier {
-    /// One overlay per bordered window, created on first use.
-    borders: HashMap<WindowId, Border>,
+    /// The border overlays, and the corners of managed windows.
+    decorations: Win32Decorations,
     /// Effects held back until input goes quiet.
     held: Coalescer,
     expectations: Expectations,
@@ -171,54 +161,14 @@ impl Applier {
             | Effect::Close { .. }
             | Effect::Minimize { .. }
             | Effect::Repaint { .. } => apply_window_effect(effect, desktop, control),
-            Effect::Decorate { window, corners } => {
-                frame::set_corner_preference(Window::from_id(*window).hwnd(), *corners);
-            }
-            Effect::Undecorate { window } => {
-                frame::reset_corner_preference(Window::from_id(*window).hwnd());
-            }
-            Effect::Border { window, style } => self.draw_border(*window, style.as_ref()),
-            Effect::DropBorder { window } => {
-                // Dropping destroys the overlay window.
-                self.borders.remove(window);
-            }
+            Effect::Decorate { .. }
+            | Effect::Undecorate { .. }
+            | Effect::Border { .. }
+            | Effect::DropBorder { .. } => apply_decoration_effect(effect, &mut self.decorations),
         }
         self.expectations.applied(effect, now);
         if self.hidden.applied(effect, |w| desktop.identity(w)) {
             self.save_hidden();
         }
     }
-
-    fn draw_border(&mut self, window: WindowId, style: Option<&BorderStyle>) {
-        let Some(style) = style else {
-            if let Some(border) = self.borders.get(&window) {
-                border.hide();
-            }
-            return;
-        };
-        let border = match self.borders.get(&window) {
-            Some(b) => b,
-            None => match Border::new() {
-                Ok(b) => self.borders.entry(window).or_insert(b),
-                Err(e) => {
-                    mosaico_core::log_warn!("border.create failed for {}: {}", window, e);
-                    return;
-                }
-            },
-        };
-        border.show(
-            &style.rect,
-            parse_color(&style.color),
-            style.width,
-            style.radius,
-            Window::from_id(window).hwnd(),
-        );
-    }
-}
-
-fn parse_color(hex: &str) -> Color {
-    if hex == BorderColors::NONE {
-        return FALLBACK_COLOR;
-    }
-    Color::from_hex(hex).unwrap_or(FALLBACK_COLOR)
 }

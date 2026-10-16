@@ -144,6 +144,11 @@ impl Tiler {
     /// Some applications close without reporting it, and a window can
     /// be minimized without a report, for example before it was
     /// adopted. Either would leave an empty slot in the layout.
+    ///
+    /// A window that is no longer shown is also forgotten as decorated,
+    /// so a later window given its id does not get the system's corners
+    /// back for it. A minimized one keeps the tiler's corners until it
+    /// hides or closes.
     fn prune_stale_handles(&mut self, plan: &Plan, monitor_idx: usize) {
         let Some(state) = self.monitors.get_mut(monitor_idx) else {
             return;
@@ -157,6 +162,9 @@ impl Tiler {
             .collect();
         for window in stale {
             state.active_ws_mut().remove(window);
+            if !plan.is_visible(window) {
+                self.decorated.remove(&window);
+            }
             crate::log_info!("-prune {} (stale or minimized)", window);
         }
     }
