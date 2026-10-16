@@ -11,61 +11,96 @@ release zip, the same `mosaico.exe`, the same config and data folders.
 Today a user runs `irm .../docs/install.ps1 | iex`. The script downloads
 `mosaico-windows-amd64.zip` from the latest GitHub release, copies
 `mosaico.exe` into `%LOCALAPPDATA%\mosaico`, unblocks it and adds that folder
-to the user `PATH`. `mosaico update` replaces the running executable in place
-with the one from the newest release (phase 22). There is no uninstall, and
-the script is a channel only this project maintains.
+to the user `PATH`. The same folder holds mosaico's data: the PID file,
+`hidden-windows.json` and the `instances` folders. `mosaico update` replaces
+the running executable in place with the one from the newest release (phase
+22). There is no uninstall, and the script is a channel only this project
+maintains.
 
 winget installs a zip that holds a portable executable (`InstallerType: zip`,
 `NestedInstallerType: portable`, since winget 1.4). It extracts the exe into a
-folder of its own, puts a `mosaico` command on the `PATH`, records the version,
-and upgrades and uninstalls it. The release zip already has that shape, so
-mosaico needs no installer of its own. This phase publishes each release to
-winget, makes `mosaico update` hand a winget install over to winget, and turns
-the install script into a move to winget.
+folder of its own, puts a `mosaico` command on the `PATH`, records the version
+in an Uninstall entry, and upgrades and uninstalls it. The release zip already
+has that shape, so mosaico needs no installer of its own.
 
-Like the script, winget downloads the zip itself, not through a browser, so
-the executable carries no Mark of the Web and SmartScreen does not prompt. The
-one check it does not avoid is Windows 11 Smart App Control, which blocks
-unsigned executables wherever they come from; 30.5 signs the executable for
-it.
+Three things stand between that and a working channel:
+
+1. A portable package cannot be replaced while its executable runs. winget
+   deletes the old file and copies the new one, so `winget upgrade` fails while
+   the daemon runs, and so does an upgrade started by `mosaico update`, whose
+   own process is that file. A failed upgrade also removes the `mosaico` link,
+   or the package folder's `PATH` entry, before it gives up.
+2. mosaico must know when winget installed it. `mosaico update` replaces the
+   executable in place, and doing that to winget's file makes winget refuse
+   to upgrade or uninstall the package without `--force`.
+3. The first version on winget has to be one that already knows (2), so the
+   code ships in a release before anything is submitted.
+
+This phase makes mosaico aware of how it was installed, publishes each release
+to winget, and turns the install script into a move to winget.
+
+The zip winget downloads gets the Mark of the Web, and winget has it scanned,
+but the executable it extracts from it carries none, so SmartScreen does not
+prompt. Windows 11 Smart App Control is another matter: on devices that have it
+on, it blocks unsigned executables wherever they come from. 30.5 signs the
+executable for it.
 
 The work splits into five steps, one PR each where there is code (see Tasks).
-30.1 is done by hand once; 30.2 to 30.4 can merge in any order after it; 30.5
-is optional and can come at any time.
+They go in order: 30.1 ships in a release, 30.2 submits that release by hand,
+30.3 automates every release after it, and 30.4 sends users to winget once the
+package is live. 30.5 is optional and can come at any time.
+
+## Decisions for the Owner
+
+1. **Run the daemon from a copy (recommended).** `mosaico start` launches the
+   daemon from a copy of the executable in the data folder, one per version,
+   instead of from the installed file. Nothing holds the installed file then,
+   so `winget upgrade`, `winget upgrade --all` and an uninstall from Settings
+   work while mosaico runs. The daemon keeps running the version it started
+   with until it is restarted, and `mosaico doctor` and the bar say when a newer
+   version is installed. This is the one place the phase goes beyond the
+   channel. Without it, the docs have to tell users to run `mosaico stop`
+   before every winget upgrade, and `winget upgrade --all` fails for mosaico
+   while it runs.
+2. **Keep today's install as the script's fallback.** On LTSC, Server, or
+   machines where policy blocks the Store or winget, the script installs as it
+   does today instead of failing.
+
+The rest of the plan assumes both.
 
 ## Design Goals
 
 - What is installed does not change: one `mosaico.exe`, config in
   `~/.config/mosaico`, data in `%LOCALAPPDATA%\mosaico`, autostart through the
-  same `HKCU` Run entry. Only the channel that puts it there changes.
+  same `HKCU` Run entry. Only the channel that puts it there changes, and,
+  with decision 1, where the daemon runs from.
 - The release zip stays a release asset, unchanged. winget installs it, and
-  `mosaico update` still uses it for installs made by the old script.
-- A winget install is only ever changed by winget, so winget's record of the
-  installed version is always right: `mosaico update` never writes into
-  winget's folder.
-- The daemon is never left stopped by an update: it is stopped before winget
-  replaces the executable, which winget cannot do while it runs, and started
-  again afterwards whatever happened.
+  `mosaico update` still uses it for installs that are not winget's.
+- A winget install is only ever changed by winget. `mosaico update` never
+  writes into winget's folder, and never runs winget itself, since its own
+  process is the file winget would replace.
+- Nothing stops the daemon for an upgrade that is not there: mosaico compares
+  versions before it suggests anything.
 - Every release reaches winget without a manual step after the first one, and
   a failure to submit never blocks the GitHub release.
-- Core stays portable: deciding how mosaico was installed is a pure function
-  in core over paths the platform gives it, and running the package manager is
-  a contract in core with a Windows implementation. Core never names winget.
-- Everything is testable: the decision and the update flow run against fakes,
-  the script's move runs in CI against a fake old install, and the package is
-  checked by installing it in a clean sandbox before it is submitted.
+- Core stays portable. Deciding how mosaico was installed, which version to
+  offer and when to refresh the daemon's copy are pure functions in core over
+  facts the platform reads. Core never names winget.
+- Everything is testable: the decisions and the commands run against fakes,
+  the script runs under Pester in CI, and the package is checked in a sandbox
+  before it is submitted and from the community source after.
 
 ## The Package
 
 | Field | Value |
 | --- | --- |
 | `PackageIdentifier` | `jmelosegui.mosaico` |
-| `Moniker` | `mosaico`, so `winget install mosaico` finds it |
+| `PackageVersion` | the release tag without its `v` |
+| `Moniker` | `mosaico` |
 | `InstallerType` / `NestedInstallerType` | `zip` / `portable` |
 | `NestedInstallerFiles` | `mosaico.exe`, with `PortableCommandAlias: mosaico` |
-| `Architecture` | `x64` (the only build today) |
+| `Architecture` | `x64`, the only build today; ARM64 runs it under emulation |
 | `InstallerUrl` | the release's `mosaico-windows-amd64.zip` |
-| `MinimumOSVersion` | `10.0.17763.0`, the oldest Windows winget runs on |
 | `License` | MIT |
 | `Commands` | `mosaico` |
 
@@ -73,160 +108,194 @@ The manifests live in `microsoft/winget-pkgs`, not in this repository: that
 repository is their source of truth, and each new version is made from the
 last one there.
 
-Where winget puts a portable package, to confirm in 30.1:
+Where winget puts a portable package, to confirm in 30.2:
 
-- per user (the default): the executable in
-  `%LOCALAPPDATA%\Microsoft\WinGet\Packages\jmelosegui.mosaico_<source>\` and a
-  link in `%LOCALAPPDATA%\Microsoft\WinGet\Links\`, a folder winget adds to the
+- the executable goes in
+  `%LOCALAPPDATA%\Microsoft\WinGet\Packages\jmelosegui.mosaico_Microsoft.Winget.Source_8wekyb3d8bbwe\`,
+  or under `%ProgramFiles%\WinGet\Packages\` with `--scope machine`, or where
+  `--location` or the `portablePackageUserRoot` and `portablePackageMachineRoot`
+  settings say. The folder name carries no version, so it stays the same
+  across upgrades;
+- with Developer Mode on or an elevated install, a `mosaico` link goes in
+  `%LOCALAPPDATA%\Microsoft\WinGet\Links\`, which winget adds to the user
+  `PATH`. Otherwise, the common case, the package folder itself goes on the
   user `PATH`;
-- per machine (`--scope machine`): the same layout under
-  `%ProgramFiles%\WinGet\`.
-
-The package folder carries no version, so its path stays the same across
-upgrades, and an autostart entry made from it keeps working.
+- an Uninstall entry, `jmelosegui.mosaico_Microsoft.Winget.Source_8wekyb3d8bbwe`
+  under `HKCU` (or `HKLM`), holds `InstallLocation` and `DisplayVersion`, and
+  its `UninstallString` runs `winget uninstall --product-code` with that name.
 
 ## What Users Do
 
 | Task | Command |
 | --- | --- |
-| Install | `winget install jmelosegui.mosaico` |
-| Upgrade | `mosaico update`, or `winget upgrade jmelosegui.mosaico` with the daemon stopped |
-| Uninstall | `mosaico autostart disable`, `mosaico stop`, then `winget uninstall jmelosegui.mosaico` |
+| Install | `winget install jmelosegui.mosaico`, then open a new terminal |
+| Upgrade | `winget upgrade jmelosegui.mosaico` (or `--all`), then `mosaico stop` and `mosaico start` to run the new version |
+| Uninstall | `mosaico autostart disable` and `mosaico stop`, then `winget uninstall jmelosegui.mosaico` or Settings > Apps |
 
 Uninstalling leaves the config and data folders, as uninstallers usually do,
 and the docs say where they are. winget cannot run a step of mosaico's own on
 uninstall, so the docs list the two commands to run first. Without them, the
-uninstall fails on the running executable, or a Run entry is left pointing at
-a file that is gone.
+Run entry is left pointing at a file that is gone.
 
 ## Architecture
 
-### Knowing how mosaico was installed (core)
+### Knowing how mosaico was installed
 
-- `update::Channel`: `SelfReplace`, as today, or `PackageManager`: the
-  executable belongs to the system's package manager.
-- `update::channel(exe, roots)`: a pure function. `exe` is the running
-  executable's path, and `roots` are the folders the platform says its package
-  manager installs into. An executable under one of them, compared without
-  regard to case and after resolving `.`, `..` and links, is the package
-  manager's. Anything else, the old script's folder, a `cargo` build or a copy
-  somewhere else, replaces itself.
-- Tests cover the old script's folder, each package root, a link in the
-  package manager's link folder, a build in `target`, a path that only starts
-  with a root's name, and different case.
+- The platform reads the facts: the Uninstall entry winget wrote for
+  `jmelosegui.mosaico`, per user and per machine (`InstallLocation`,
+  `DisplayVersion`), and where the running executable really is, with links
+  and 8.3 names resolved. A new `FileProbe` method, next to `same_file`, says
+  whether a file is inside a folder, by the platform's rules for paths.
+- Core decides. `update::installed_by(facts)` is `Install::Package { location,
+  version }` when the running executable is inside the package's
+  `InstallLocation`, and `Install::Standalone` otherwise: the old script's
+  folder, a `cargo` build, or a copy somewhere else.
+- Tests on fakes cover a package install run through its link, through the
+  folder on `PATH` and from the package folder; a standalone install while a
+  package install also exists; a machine install; a `--location` install; and
+  no package install at all.
 
-### Running the package manager (contract in core)
+### The daemon's copy (decision 1)
 
-```rust
-/// The system's package manager, for an install it made.
-///
-/// # Contract for platform implementations
-/// - `roots` lists the folders packages are installed into for this user
-///   and for the machine; empty when there is no package manager.
-/// - `upgrade` installs the newest version the package manager knows of,
-///   without asking the user anything, and returns once it is done. It
-///   reports whether a newer version was installed, whether none was
-///   available yet, and any failure with the package manager's own output.
-pub trait PackageManager {
-    fn roots(&self) -> Vec<PathBuf>;
-    fn upgrade(&self) -> Result<Upgraded>;
-}
-```
-
-On Windows, `roots` are the two `WinGet\Packages` folders above, and
-`upgrade` runs `winget upgrade --id jmelosegui.mosaico --exact --silent
---disable-interactivity --accept-source-agreements --accept-package-agreements`
-and reads its exit code. The CLI gets it through its `Context`, like the
-`Installer` it already has, and tests give it a fake.
+- `mosaico start` copies the running executable to
+  `<data dir>\bin\<version>\mosaico.exe` when that file is missing, and starts
+  the daemon from it. Each version has its own folder, so a copy is never
+  written while a daemon runs from it. Copies of other versions that no process
+  runs are removed at the next start, best effort.
+- Core decides what to copy, where and what to remove, from the version and
+  the folder listing; the platform copies, lists and launches. The launch path
+  stops being `current_exe()` for the daemon.
+- The Run entry and every command still name the installed executable, so
+  autostart keeps working across upgrades.
+- The daemon reports its version over IPC. `mosaico doctor` and the bar say
+  when the installed executable is newer than the running daemon, and how to
+  restart it.
+- A named instance (`MOSAICO_INSTANCE`) keeps its copies in its own data folder.
 
 ### `mosaico update`
 
-1. Find the newest release tag, as today.
-2. Decide the channel. For `SelfReplace`, everything goes on as today.
-3. For `PackageManager`:
-   - stop the daemon if it runs;
-   - run `upgrade`;
-   - start the daemon again if it ran before, whatever the upgrade did;
-   - report what happened.
+- `Install::Standalone`: as today. Once the package is live (30.4), it also
+  says that mosaico is on winget and how to move to it.
+- `Install::Package`: it never replaces the executable and never runs winget.
+  It reads the newest version winget offers, from the package's folder in
+  `microsoft/winget-pkgs` through the GitHub API (one request, with the HTTP
+  client `update` already uses, parsed in core), and the latest GitHub tag. Then
+  it prints one of:
+  - mosaico is up to date;
+  - winget offers vY: run `winget upgrade jmelosegui.mosaico`, then
+    `mosaico stop` and `mosaico start`;
+  - vX is released and on its way to winget, which still offers vY.
+- `--force` prints the `winget install --force` command instead.
+- The start banner and the bar announce, for a package install, only a version
+  winget offers, with the winget command, so nobody is told to update before
+  winget can.
 
-   A release reaches winget only once its manifest is merged, often hours
-   after the GitHub release. So when GitHub has a newer tag and winget has no
-   upgrade yet, `mosaico update` says that the release is on its way to winget
-   and to try again later. It does not fall back to replacing the executable.
-4. `--force` reinstalls through winget too.
+### `mosaico doctor`
 
-`mosaico doctor` gains one line: how mosaico was installed and from where.
-If another `mosaico.exe` is on the `PATH`, such as one left by the old script,
-it warns that the copy on the `PATH` may not be the one that runs.
+- How mosaico was installed, from where, and, with decision 1, the version
+  the daemon runs against the one installed.
+- A warning when another `mosaico.exe` is on the `PATH`, such as one left by
+  the old script. The CLI passes `PATH` in, the check splits it with
+  `std::env::split_paths`, and `FileProbe::same_file` keeps a link and its
+  target from counting as two copies.
+- A warning when a package install's `mosaico` command is missing from the
+  `PATH`, which a failed winget upgrade leaves behind.
 
 ### The install script
 
 `docs/install.ps1` keeps its URL, since the one-line install is published in
-many places, but it no longer installs anything itself:
+many places. Users also rerun it to update, so a rerun has to work. It runs in
+Windows PowerShell 5.1, the default for `irm | iex`.
 
-1. Without winget, it says how to get it (App Installer from the Microsoft
-   Store) and where the release zip is, and stops.
-2. If the old script's install is there, it moves it over:
-   - it stops the daemon;
+1. If winget is missing or blocked, it installs as it does today (decision 2),
+   and says that winget is the way once it is available.
+2. It runs `winget install --id jmelosegui.mosaico --exact --source winget
+   --accept-source-agreements --accept-package-agreements
+   --disable-interactivity`. It checks `$LASTEXITCODE`: 0, "no applicable
+   upgrade" (`0x8A15002B`) and "already installed" (`0x8A150061`) are success,
+   anything else stops the script with the old install untouched.
+3. It finds the new executable from the Uninstall entry's `InstallLocation`
+   and runs it by full path from then on, since the `PATH` of this session does
+   not have it yet.
+4. If the old script's install is there, it moves it over:
+   - it notes whether a daemon runs and whether autostart is on and points at
+     the old executable (`mosaico autostart status`);
+   - it stops the daemon with the old executable's `mosaico stop`, so hidden
+     windows are restored, and waits for the process to exit;
    - it removes `mosaico.exe` and `mosaico.exe.old` from
      `%LOCALAPPDATA%\mosaico` and keeps everything else there, which is
      mosaico's data;
-   - it removes that folder from the user `PATH`;
-   - it notes whether autostart pointed at the old executable.
-3. It runs `winget install --id jmelosegui.mosaico --exact`.
-4. If autostart pointed at the old executable, it runs `mosaico autostart
-   enable` with the new one, so the Run entry names the winget path.
-5. It prints `mosaico --version` from the new install.
+   - it removes that folder from the user `PATH`, reading the raw value with
+     `DoNotExpandEnvironmentNames`, keeping its `REG_EXPAND_SZ` type and
+     matching whole entries only;
+   - if autostart was on, it runs `mosaico autostart enable` with the new
+     executable. One that was turned off in Task Manager stays as it is.
+5. It starts the daemon again with the new executable if one was running, and
+   prints `mosaico --version`.
 
-Each step says what it does, and a failure stops the script before the next
-step, with the old install either still there or already gone, never half
-removed. After a few releases the docs stop mentioning the script, and the
-script stays for whoever still has the old line.
+A failure stops the script with a message and no `exit`, which under `iex`
+would close the user's window. Every step before the old install is removed
+leaves it working.
 
 ### Releases
 
-A `winget` job runs after the `release` job of `.github/workflows/release.yml`,
-for `v*` tags that are not prereleases. It runs
-`vedantmgoyal2009/winget-releaser`, which makes the new version's manifests
-from the last ones in `microsoft/winget-pkgs`, with the new URL and SHA-256,
-and opens the pull request there. It needs a `WINGET_TOKEN` secret: a classic
-personal access token with the `public_repo` scope, for an account with a fork
-of `microsoft/winget-pkgs`. The job is not required for the release to succeed,
-so a failed submission shows up as a failed job and can be retried.
-
-The `publish-install-script` job checks the new script instead of the old one:
-that it names the package identifier and the old install folder.
+- The `release` job sets `prerelease` from the tag (a tag with a `-` is a
+  prerelease), never overwrites assets (`overwrite_files: false`), and fails
+  when the tag is not `v` followed by the version in
+  `crates/mosaico/Cargo.toml`.
+- A `winget` job runs after it, for tags that are not prereleases, with
+  `permissions: contents: read`. It runs `vedantmgoyal9/winget-releaser`,
+  pinned to a commit SHA, with `identifier: jmelosegui.mosaico` and
+  `installers-regex: '\.zip$'`. The action makes the new version's manifests
+  from the last ones in `microsoft/winget-pkgs` and opens the pull request
+  there.
+- The pull request comes from a fork owned by a separate bot account
+  (`fork-user`), with that account's classic token (`public_repo` and
+  `workflow` scopes) in `WINGET_TOKEN`. So the token cannot push to this
+  repository, whose `main` serves the install script.
+- The job is not required for the release. A failed submission is retried with
+  "Re-run failed jobs" only: rebuilding the zip would change the SHA-256 of a
+  version winget may already have.
+- The script's tests run in `ci.yml` on every pull request that touches the
+  script, since users fetch it from `main` as soon as it merges. The asset name
+  check moves there too.
 
 ## Edge Cases
 
-1. **The daemon runs during `winget upgrade` or `winget uninstall`.** winget
-   cannot replace or remove a running executable. `mosaico update` stops the
-   daemon first; the docs say to run `mosaico stop` before running winget
-   yourself.
-2. **Autostart.** The Run entry holds the path `mosaico autostart enable` was
-   run from. The package folder does not change across upgrades, so the entry
-   stays right. The script moves an old entry over (step 4 above).
-3. **Two copies.** A user who installs with winget and keeps the old script's
-   copy has two `mosaico.exe` on the `PATH`. `mosaico doctor` warns about it,
-   and the script removes the old one.
-4. **winget is behind GitHub.** See `mosaico update` step 3.
-5. **No winget.** Windows 10 before 1809, LTSC and Server images may lack it.
-   The script says how to get it, and the release zip still works for a
-   manual install.
-6. **A custom portable root.** winget can be set to install portable packages
-   somewhere else (`portablePackageUserRoot`). Such an install is taken for a
-   copy of its own and replaces itself, which works but leaves winget's
-   record behind. The docs say so; reading winget's settings is left for
-   later.
-7. **Machine scope.** An install made with `--scope machine` lives under
-   `%ProgramFiles%`. Upgrading it needs an elevated prompt; `mosaico update`
-   reports winget's failure and says to run it elevated.
-8. **Smart App Control.** It blocks unsigned executables on the Windows 11
-   devices that have it on, wherever they came from. Until 30.5 the docs say
-   so.
+1. **winget upgrades while mosaico runs.** With decision 1 nothing holds the
+   installed file, so the upgrade works and the daemon keeps running the old
+   version until it is restarted. Without it, the upgrade fails and the
+   `mosaico` command drops off the `PATH` until one succeeds.
+2. **A failed upgrade removes the command.** `mosaico doctor` warns, and the
+   docs say a successful `winget upgrade` or `winget install --force` puts it
+   back.
+3. **Autostart.** The Run entry names the package file, not the link, since
+   the link is what a failed upgrade removes. The package folder stays the
+   same across upgrades, so the entry stays right.
+4. **Two copies.** A user who installs with winget and keeps the old script's
+   copy has two `mosaico.exe` on the `PATH`. `mosaico doctor` warns, and the
+   script removes the old one.
+5. **winget is behind GitHub.** Each winget-pkgs pull request waits for a
+   moderator, often hours or days. `mosaico update`, the banner and the bar
+   only offer what winget has.
+6. **No winget.** The script falls back to today's install (decision 2).
+7. **Machine scope.** Upgrading an install made with `--scope machine` needs
+   an elevated prompt. The docs say to run winget elevated and then
+   `mosaico start` from a normal prompt, since a daemon started elevated
+   manages a different set of windows.
+8. **Uninstall from Settings.** It runs `winget uninstall` without
+   `mosaico stop` or `mosaico autostart disable`. With decision 1 the
+   uninstall works while the daemon runs; the Run entry is left behind, and the
+   docs say so.
+9. **Smart App Control.** It blocks unsigned executables on the Windows 11
+   devices that have it on. Until 30.5 the docs say so.
+10. **Prereleases.** A tag with a `-` is published to GitHub as a prerelease
+    and never submitted to winget.
 
 ## Later
 
+- `mosaico update` running the winget upgrade for the user, from a copy of
+  itself that waits for it to exit.
 - An MSI, if mosaico ever needs install or uninstall steps of its own: stopping
   the daemon and removing the Run entry on uninstall.
 - An ARM64 build, as a second installer in the same manifest.
@@ -239,66 +308,85 @@ that it names the package identifier and the old install folder.
 
 | File | Change |
 | --- | --- |
-| `crates/mosaico-core/src/update/channel.rs` | `Channel` and `channel()` |
-| `crates/mosaico-core/src/update/package_manager.rs` | `PackageManager` contract and `Upgraded` |
-| `crates/mosaico-windows/src/package_manager.rs` | winget roots and `winget upgrade` |
-| `crates/mosaico/src/commands/update.rs` | the package manager path |
-| `crates/mosaico/src/commands/doctor_*.rs` | the install line and the second-copy warning |
-| `docs/install.ps1` | the move to winget |
-| `.github/workflows/release.yml` | the `winget` job, the script check |
+| `crates/mosaico-core/src/update/installed.rs` | `Install` and `installed_by()` |
+| `crates/mosaico-core/src/update/offered.rs` | the newest version winget offers, parsed from the API |
+| `crates/mosaico-core/src/update/daemon_copy.rs` | what to copy and remove for the daemon |
+| `crates/mosaico-windows/src/package_entry.rs` | reading winget's Uninstall entry |
+| `crates/mosaico-windows/src/` file probe and process launch | inside-folder check, copies, launching the daemon from its copy |
+| `crates/mosaico/src/commands/update_package.rs` | `mosaico update` for a package install |
+| `crates/mosaico/src/commands/start.rs`, `doctor_*.rs` | the daemon's copy, the install lines and warnings |
+| `docs/install.ps1`, `tests/install/*.Tests.ps1` | the move to winget and its tests |
+| `.github/workflows/release.yml`, `ci.yml` | the `winget` job, prereleases, the version check, the script tests |
 | `README.md`, `website/src/guide/installation.md`, `website/src/README.md`, `docs/` | winget as the way to install, upgrade and uninstall |
 
 ## Tasks
 
-Every step with code runs fmt, clippy, the safe test suites and
-`cargo xtask metrics`, and records its metrics.
+Every step with code runs fmt, clippy, the safe test suites, `cargo xtask
+metrics` and `cargo xtask size`, and records its metrics.
 
-### 30.1 The first version on winget (by hand)
+### 30.1 mosaico knows how it was installed
+
+This ships in a release before anything is submitted to winget.
+
+- [ ] Winget's Uninstall entry and the inside-folder check on Windows;
+      `Install` and `installed_by()` in core, with tests for every case above
+- [ ] The daemon's copy: copying, launching, cleaning up, the version over IPC,
+      and tests on fakes, including a named instance (decision 1)
+- [ ] The newest version winget offers, parsed in core, with tests for a
+      package folder with several versions, none, and an API failure
+- [ ] `mosaico update` for a package install, with tests for each message and
+      `--force`; a test that it never replaces a package's executable
+- [ ] The banner and the bar for a package install
+- [ ] `mosaico doctor`: the install, the daemon's version, a second copy on the
+      `PATH`, a missing command
+- [ ] docs/cli.md, docs/daemon.md and the guide's CLI page
+
+### 30.2 The first version on winget (by hand)
 
 - [ ] Choose the package identifier and moniker (`jmelosegui.mosaico`,
       `mosaico`)
-- [ ] Make the manifests for the latest release with `komac new` or
+- [ ] Make the manifests for the release with 30.1, with `komac new` or
       `wingetcreate new`, from the release zip
-- [ ] `winget validate` them, then in Windows Sandbox install with
-      `winget install --manifest`, run `mosaico --version` and `mosaico start`,
-      upgrade from the previous release's manifest, and uninstall; record where
-      winget put the executable and the link
-- [ ] Check that a winget install raises no SmartScreen prompt, and what Smart
-      App Control does with it where it is on
-- [ ] Submit them to `microsoft/winget-pkgs` and see the pull request merged
+- [ ] `winget validate` them and test them with winget-pkgs'
+      `Tools/SandboxTest.ps1`: install, `mosaico --version`, `mosaico start`,
+      uninstall
+- [ ] Sign the contributor license agreement and submit them to
+      `microsoft/winget-pkgs`
+- [ ] Once merged, as a standard user and from the community source: record
+      the install folder, the `PATH` entry or the link, and the Uninstall
+      entry, with and without Developer Mode; upgrade from the previous
+      version with the daemon running; uninstall from Settings > Apps
+- [ ] Check that a winget install raises no SmartScreen prompt; on a device
+      with Smart App Control on, if one is at hand, record what it does
+- [ ] Check what a standard user's upgrade of a machine-scope install does:
+      a UAC prompt or a failure
 
-### 30.2 Every release on winget
+### 30.3 Every release on winget
 
-- [ ] The `winget` job in the release workflow, for `v*` tags that are not
-      prereleases, not required for the release
-- [ ] The `WINGET_TOKEN` secret and a fork of `microsoft/winget-pkgs` for it
+- [ ] Prereleases, `overwrite_files: false` and the version check in the
+      `release` job
+- [ ] The `winget` job, pinned, read-only, not required for the release
+- [ ] The bot account, its fork of `microsoft/winget-pkgs`, and `WINGET_TOKEN`
 - [ ] Check it on the next release: the pull request is opened with the right
       URL and SHA-256
 
-### 30.3 `mosaico update` for winget installs
-
-- [ ] `update::Channel` and `channel()` in core, with tests for every path in
-      the list above
-- [ ] The `PackageManager` contract in core, its Windows implementation, and a
-      fake for the CLI tests
-- [ ] The package manager path in `mosaico update`, with tests: daemon running
-      or not, upgraded, nothing new yet, a failure, `--force`; the daemon is
-      always started again when it ran before
-- [ ] The install line and the second-copy warning in `mosaico doctor`
-- [ ] docs/cli.md and the guide's CLI page
-- [ ] Manual test: `mosaico update` on a winget install, with the daemon running
-
 ### 30.4 winget as the way to install
 
-- [ ] `docs/install.ps1` as the move to winget, with each step above
-- [ ] A CI job that runs the script against a fake old install in a temporary
-      `LOCALAPPDATA`, with winget stubbed: the old executable is gone, the data
-      files stay, the `PATH` entry is gone, winget was called with the package
-      identifier, and autostart is moved over
-- [ ] The release workflow's script check updated
+This merges only once a version with 30.1 is on winget.
+
+- [ ] `docs/install.ps1` as the move to winget, with today's install as the
+      fallback
+- [ ] Pester tests in `ci.yml`, under Windows PowerShell 5.1, with `winget`
+      mocked and a built `mosaico.exe` and Uninstall entry where the script
+      looks: a fresh install, a move from the old install with the daemon
+      running and autostart on, autostart turned off in Task Manager, a rerun,
+      winget missing, and winget failing
+- [ ] The asset name check moved to `ci.yml`
+- [ ] `mosaico update` on a standalone install points to winget
 - [ ] README, the guide's installation page and the docs: install, upgrade and
-      uninstall with winget, where the config and data folders are, and what to
-      run before uninstalling
+      uninstall with winget, a new terminal after installing, Settings > Apps,
+      where the config and data folders are, and what to run before
+      uninstalling
 - [ ] Manual test: the one-line install on a machine with the old install and
       autostart on
 
@@ -306,9 +394,12 @@ Every step with code runs fmt, clippy, the safe test suites and
 
 - [ ] Apply to the SignPath Foundation, which signs open source projects for
       free from GitHub Actions builds, with the certificate in its name
-- [ ] The code signing policy page it asks for
-- [ ] Sign `mosaico.exe` in the release workflow before it is zipped, so the
-      zip, its SHA-256 and the winget manifest all carry the signed executable
+- [ ] Its code signing policy page: team roles with MFA, and a privacy
+      statement. mosaico checks GitHub for updates when it starts and downloads
+      the community window rules, so say so, or let users turn both off
+- [ ] Build, upload the unsigned `mosaico.exe`, have SignPath sign it, then zip,
+      release and let winget hash the published zip. Each signing request waits
+      for an approver, so a release now has one manual step; give it a timeout
 - [ ] Check the signature with `Get-AuthenticodeSignature` in the workflow, and
       check `mosaico update` still installs the signed executable
 - [ ] Update the docs' notes on SmartScreen and Smart App Control
