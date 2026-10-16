@@ -2,8 +2,8 @@ use std::time::{Duration, Instant};
 
 use crate::WindowEvent;
 use crate::config::HidingBehaviour;
-
 use crate::id::wid;
+use crate::tiler::echo_focus::FOCUS_ECHO_TTL;
 
 use super::*;
 
@@ -68,11 +68,12 @@ fn hide_report_for_a_cloaked_window_comes_from_the_application() {
 }
 
 #[test]
-fn showing_a_window_ends_the_hide_expectation() {
-    // Arrange
+fn showing_a_window_whose_hide_was_reported_ends_the_hide_expectation() {
+    // Arrange -- the hide was reported.
     let now = Instant::now();
     let mut ex = Expectations::default();
     ex.applied(&hide(1, HidingBehaviour::Hide), now);
+    ex.echo(&WindowEvent::Hidden { window: wid(1) }, now);
 
     // Act
     ex.applied(
@@ -84,10 +85,8 @@ fn showing_a_window_ends_the_hide_expectation() {
     );
 
     // Assert
-    assert!(
-        ex.echo(&WindowEvent::Hidden { window: wid(1) }, now)
-            .is_none()
-    );
+    let report = WindowEvent::Hidden { window: wid(1) };
+    assert!(ex.echo(&report, now).is_none());
 }
 
 #[test]

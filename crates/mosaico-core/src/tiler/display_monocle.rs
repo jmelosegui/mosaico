@@ -31,19 +31,14 @@ impl Tiler {
         rect: Rect,
         timing: Timing,
     ) {
-        let waiting = self.monitors[monitor_idx]
-            .active_ws_mut()
-            .take_waiting(front);
+        let state = &mut self.monitors[monitor_idx];
+        let waiting = state.active_ws_mut().take_waiting(front);
         for behind in waiting {
             plan.emit(Effect::PutBehind {
                 window: behind,
                 other: front,
             });
-            plan.emit(Effect::Place {
-                window: behind,
-                rect,
-                timing,
-            });
+            plan.place(behind, rect, timing, state.id);
         }
     }
 

@@ -23,6 +23,8 @@ The daemon uses a multi-thread architecture:
    reloads the config files that changed
 7. **Tick thread** -- sends a `DaemonMsg::Tick` every 1 second for bar
    widget refresh (clock, CPU, RAM)
+8. **Frame pacer thread** -- sends a `DaemonMsg::Frame` on every display
+   refresh while windows move, and is parked otherwise (`FramePacer`)
 
 Three additional bridge threads forward events, actions, and config reloads
 from separate `mpsc` channels into the unified `DaemonMsg` channel.
@@ -34,7 +36,7 @@ from separate `mpsc` channels into the unified `DaemonMsg` channel.
 | `crates/mosaico-core/src/lifecycle.rs` | `run()`, `Startup` -- what the daemon does before and after its loop |
 | `crates/mosaico-windows/src/daemon.rs` | `serve()`, `daemon_loop()`, `ipc_loop()`, `DaemonMsg` |
 | `crates/mosaico-windows/src/daemon_loop_run.rs` | The main loop: waits for messages and runs the scheduler's steps |
-| `crates/mosaico-windows/src/daemon_loop_task.rs` | `Task` -- every `DaemonMsg` except a window event, as the main loop runs it |
+| `crates/mosaico-windows/src/daemon_loop_task.rs` | `Task` -- every `DaemonMsg` except a window event or a frame, as the main loop runs it |
 | `crates/mosaico-windows/src/daemon_loop_pump.rs` | `pump_thread_messages()`, `PUMP_INTERVAL` -- keeps the bar and border windows responsive |
 | `crates/mosaico-windows/src/daemon_loop_commands.rs` | `carry_out()`, `handle_action()`, `handle_command()` -- hotkey actions and CLI commands |
 | `crates/mosaico-core/src/daemon/` | `Scheduler` -- decides what the main loop runs, and when; `FrameClock` -- the contract for waking the loop on display frames; `FramePacer`, `FrameToken` -- a `FrameClock` on a thread of its own, paced through a `FrameWait` |
@@ -49,12 +51,15 @@ from separate `mpsc` channels into the unified `DaemonMsg` channel.
 
 ### Key Types
 
-- `DaemonMsg` -- unified message enum with five variants:
+- `DaemonMsg` -- unified message enum with these variants:
   - `Event(WindowEvent)` -- window state change from Win32
+  - `Frame(FrameToken)` -- a display frame from the frame pacer, while
+    windows move
   - `Action(Action)` -- user action from hotkey
   - `Command(Command, ResponseSender)` -- CLI command from IPC with reply channel
   - `Reload(Box<ConfigReload>)` -- validated config change from file watcher
   - `Tick` -- 1-second timer for bar widget refresh
+  - `IpcFailed` -- the IPC listener died, so the daemon stops
 - `Inputs` -- holds the `EventWatch` of the event source, the `HotkeyWatch`
   of the hotkey source and `FocusFollowsMouse`, and starts the sources
   through the `EventSource` and `HotkeySource` traits; `.stop()` stops all
@@ -116,7 +121,11 @@ order, it:
 12. Start the config file watcher thread
 13. Start a reload bridge thread to forward `ConfigReload` into `DaemonMsg`
 14. Start the tick thread (1-second interval for bar refresh)
-15. Enter the main receive loop
+15. Start the frame pacer, which sends `DaemonMsg::Frame` while windows move
+    (`daemon_frames.rs`). A pacer that cannot start is logged as a warning
+    that transitions are unavailable, and the daemon runs without it:
+    `TilingManager::turn_off_transitions()` has every placement snap
+16. Enter the main receive loop
 
 ## Main Loop
 
@@ -144,9 +153,16 @@ back, in order:
    held moves back to the cap.
 2. **Rebuild for the monitors** once a display change has settled. A
    `DisplayChanged` event only starts or extends a 750 ms settle window, see
-   [monitor-management.md](monitor-management.md). While effects are held,
-   the loop waits for the flush first, so a change that settles meanwhile is
-   rebuilt for right after it.
+   [monitor-management.md](monitor-management.md). As it arrives, ahead of
+   the flush, it stops every window transition where it is
+   (`TilingManager::display_changing()`), each window keeping its target,
+   and every placement snaps until the rebuild. After the rebuild, or when
+   the monitors cannot be read and it is skipped
+   (`TilingManager::display_change_skipped()`), each window stopped that
+   nothing placed meanwhile is placed at its target. A change that comes as
+   another is rebuilt for is noted again after the rebuild, as it is still
+   settling. While effects are held, the loop waits for the flush first, so
+   a change that settles meanwhile is rebuilt for right after it.
 3. **Run each task**, that is every message other than a window event, in
    arrival order and ahead of the window events that arrived with it, so
    hotkeys and commands stay responsive while windows flood the queue.
@@ -154,18 +170,24 @@ back, in order:
    Each window keeps only its last `LocationChanged` and its last
    `TitleChanged` of the batch, which can turn hundreds of events into a
    handful.
-5. **Take the frame step**, which moves the windows of transitions on: once
-   per wake that brought display frames, however many, and once the wait
-   reaches the earliest end of a motion after the last frame step
-   (`Scheduler::last_frame_step`), which `begin_wait` is given, so a
-   transition ends on time even when no frame comes. An end at or before the
-   last frame step has had its step and is let go, so one left in the past
-   never makes the loop spin, nor keeps the wait from ending for the ends
-   after it. Frames are not input either. They come from the platform's
-   `FrameClock` (`mosaico_core::daemon`), which wakes the loop about once per
-   display refresh while it wants frames, and never has more than one waiting
-   in the queue. The loop does not ask for frames yet, and gives no motion
-   deadline.
+5. **Take the frame step** (`TilingManager::frame()`), which moves the
+   windows of transitions on: once per wake that brought display frames,
+   however many, and once the wait reaches the earliest end of a motion
+   after the last frame step (`Scheduler::last_frame_step`), which
+   `begin_wait` is given, so a transition ends on time even when no frame
+   comes. The same goes for the end of the wait by time for a window to
+   land where a posted placement takes it (see
+   [tiling-layout.md](tiling-layout.md#placements-that-animate)). An end
+   at or before the last frame step has had its step and is let go, so one
+   left in the past never makes the loop spin, nor keeps the wait from
+   ending for the ends after it. Frames are not input either.
+   They come from the platform's `FrameClock` (`mosaico_core::daemon`),
+   which wakes the loop about once per display refresh while it wants
+   frames, and never has more than one waiting in the queue. Before every
+   wait the loop tells the clock whether it wants frames, while
+   `TilingManager::wants_frames()` says windows are moving, and gives
+   `begin_wait` what `TilingManager::frame_due()` says is due after the last
+   frame step.
 
 Input that ends a wait only finds what was due when it began: a message
 that arrives during the quiet window ends it without a flush, and the next
@@ -195,7 +217,8 @@ Tasks are dispatched like this:
   widgets (clock, CPU, RAM)
 
 Window events (`DaemonMsg::Event`) go to `TilingManager::handle_event()` in
-step 4. The wait ends as soon as any message arrives.
+step 4, and display frames (`DaemonMsg::Frame`) fold into the frame step of
+step 5. The wait ends as soon as any message arrives.
 
 ## Input Threads
 
@@ -354,8 +377,13 @@ and ended with it:
   at most, so a `DwmFlush` that does not come back never holds up a shutdown.
 
 The pacer's logic is in core, tested against waits of the tests' own, so its
-tests run without DWM. The daemon does not start a pacer yet: nothing in the
-loop asks for frames until transitions do.
+tests run without DWM. The daemon starts one pacer on `DisplayWait` with the
+main loop, sending each frame as `DaemonMsg::Frame(token)` on the daemon's
+channel. Turning a message into the scheduler's `Message::Frame` drops the
+token, which lets the next frame go. The loop calls `want_frames` before
+every wait, with whether windows are moving, and drops the pacer as soon as
+it returns, before it restores the windows. Without a pacer, it asks a clock
+that never sends a frame, so the loop runs the same.
 
 ## Shutdown
 
@@ -363,8 +391,11 @@ Shutdown is triggered by:
 
 - A `Stop` command received via IPC
 - The main loop breaks, which triggers cleanup:
-  - `TilingManager::restore_all_windows()` -- shows all hidden workspace
-    windows so they are not left invisible after exit
+  - The frame pacer is dropped, which stops its thread within a frame
+  - `TilingManager::restore_all_windows()` -- places every window still in
+    a transition at its target, behind any frame on its way to it, then
+    shows all hidden workspace windows so they are not left invisible after
+    exit
   - `BarManager::hide_all()` -- hides all status bar overlay windows
   - `Inputs::stop()` posts `WM_QUIT` to the window event thread, which
     destroys its hidden window and removes its hooks, then to the hotkey

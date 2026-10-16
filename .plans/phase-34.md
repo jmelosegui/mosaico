@@ -48,8 +48,8 @@ The work splits into four steps, one PR each (see Tasks).
 - While a window moves, its motion is the tiler's record of where it is going.
   The only reads mid-flight are the frame outcomes the platform reports.
 - A window's position reports never count as input activity, whoever moved it.
-- Borders follow the window, not the frame posted to it, and are never
-  rendered again on a frame.
+- Borders follow the window, never ahead of a slow one nor a frame behind one
+  that keeps up, and are never rendered again on a frame.
 - The Windows "Animation effects" setting is honoured.
 - Turning animations off at runtime, by a reload or the system's setting,
   does not undo what was posted: the tiler settles windows while they stay
@@ -59,12 +59,19 @@ The work splits into four steps, one PR each (see Tasks).
   posted until it responds. Once every window has settled so, as from
   startup, the next goal holds.
 - With animations off nothing is posted, so the tiler emits the same effects
-  and the platform makes the same calls as today, at once. Two things change,
-  both in the scheduler's timing (34.2): position reports no longer count as
-  input activity, so held moves are released after the quiet window instead
-  of being pushed to its cap while some window reports its position; and the
+  and the platform makes the same calls as today, at once. Two things change
+  in the scheduler's timing (34.2): position reports no longer count as input
+  activity, so held moves are released after the quiet window instead of
+  being pushed to its cap while some window reports its position; and the
   start of a drag now reaches the scheduler, as input, so it starts the quiet
-  window over.
+  window over. Three change in the reports the tiler acts on (34.3): it
+  ignores a minimize reported for a window that is no longer minimized, as
+  it ignores a hide reported for one still shown; the echo filter takes a
+  workspace switch's hide reported after the window was shown again for
+  the tiler's own, so going away and straight back keeps a window tiled;
+  and a user's restore within 1.5 s of a show that restored nothing, as of
+  a window restored from the taskbar before the switch, is now seen as the
+  user's, where it was taken for the tiler's.
 
 ## Configuration
 
@@ -149,9 +156,9 @@ Scheduler frame step  -> Applier::frame(now)                        on a frame, 
   the target.
 - `Motions`: the table of moving windows. `retarget` is a no-op when the target
   is unchanged; `frame(now)` returns the frames to post and the motions that
-  are due to finish; the table remembers each window's outcome, counts the
-  frames it has been pending, and gives the earliest deadline. The last frame
-  of a motion is exactly its target.
+  are due to finish; the table remembers each window's outcome and when it
+  was last seen to move, and gives the earliest deadline. The last frame of a
+  motion is followed by today's placement at its target, which ends it.
 - `policy`: the rules in "What Animates", as two pure functions over plain
   facts: the step decision and the apply-time check.
 
@@ -173,17 +180,25 @@ Scheduler frame step  -> Applier::frame(now)                        on a frame, 
   first (below), then places as today.
 - The frame step posts every frame due in one `place_frames` call and acts on
   each outcome:
-  - handled: the border moves to the rect the window reached;
-  - pending: the border stays; a window pending for 3 frames in a row makes
-    every motion of its step finish at once;
+  - handled: the border moves to the rect the window reached, or, if it took
+    the frame posted before exactly, to the frame now posted;
+  - pending: the border stays; a window not seen to move for 50 ms
+    (`MAX_LAG`) since it handled its first frame makes every motion of its
+    step finish at once;
   - maximized or minimized: the motion stops, and nothing forces the window
     back;
   - gone: the motion is dropped.
 - Finishing a motion: at its deadline, today's `place` and `repaint` at the
   target, then its border, drawn once at the final rect. The platform posts
   both behind any frame still queued for the window, so they land after it
-  and nothing waits for a frame to land: no finishing state, no waiting, and
-  no check after the final placement. A `Snap` placement of a window with
+  and nothing waits for a frame to land: no finishing state, and no waiting.
+  A posted placement that finds the window elsewhere, or not where its last
+  frame took it, to the pixel, has the window repainted again, and the
+  border drawn, once the window reports being there, as a posted repaint
+  only repairs what was wrong before the changes queued ahead of it; or
+  `LANDING_WAIT` (500 ms) after it, if the window has moved since or is
+  there. One that has not moved lands on its next report, and its border
+  stays where it was found until then. A `Snap` placement of a window with
   frames on their way orders itself the same way.
 - Stopping a motion: the window stays where it is.
 - What ends a motion:
@@ -191,7 +206,11 @@ Scheduler frame step  -> Applier::frame(now)                        on a frame, 
     or restored later is placed again by the tiler, and that placement snaps.
   - `Close` leaves it running: the application may refuse to close, and its
     `Destroyed` or `Hidden` ends it.
-  - `Untile`, `Reveal`, a display change and shutdown finish it at the target.
+  - `Untile`, `Reveal` and shutdown finish it at the target. A display
+    change stops it where it is as soon as it is noted, keeping its target,
+    and placements snap until the rebuild. After the rebuild, or when the
+    monitors cannot be read and it is skipped, a window nothing placed
+    meanwhile is placed at its target.
   - `Destroyed` drops it in `Applier::echo`, with everything held for the
     window.
 - `Focus` and `PutBehind` apply at once, and are never held for a motion.
@@ -221,7 +240,8 @@ Scheduler frame step  -> Applier::frame(now)                        on a frame, 
 ### Borders
 
 `LastDrawn::needs_render` already ignores position, so moving a border is not a
-render. During a motion a border moves to the rect its window reached, with a
+render. During a motion a border moves to the rect its window reached, or to
+the frame now posted once the window took the one before exactly, with a
 position-only move, and stays put while the window is pending. A window that
 resizes hides its border at the start and gets it back, drawn once, at the
 final rect: rendering is a CPU loop that takes about 30 ms for half a 4K
@@ -313,9 +333,9 @@ screen, too slow for every frame.
 1. Rapid input: a target that changes mid-flight retargets from the window's
    rect and speed without overshooting; the same target again is a no-op.
 2. Slow or hung applications: frames never block, and a slow application gets
-   at most one frame per `PENDING_LIMIT`. A window pending for 3 frames makes
-   its step finish at once, and its final placement is posted behind its
-   frames, so it lands after them.
+   at most one frame per `PENDING_LIMIT`. A window not seen to move for 50 ms
+   makes its step finish at once, at any refresh rate, and its final
+   placement is posted behind its frames, so it lands after them.
 3. Minimum sizes: frames and the final `place` skip the application's minimum
    size alike, so nothing stops short and jumps at the end.
 4. The user grabs a moving window: `MoveStarted` stops its motion.
@@ -325,11 +345,19 @@ screen, too slow for every frame.
    hidden, so a refused close still ends in the slot.
 7. Hide, minimize or a workspace switch mid-flight: the motion stops, and the
    hide or minimize is posted behind the frames on their way, landing after
-   them. The window is placed again, snapping, when it comes back.
-8. Display change mid-flight: every motion finishes at its target, and the
-   rebuild snaps.
-9. Config reload mid-flight: motions finish with the settings they started
-   with.
+   them. The window is placed again, snapping, when it comes back. The
+   reports of the hide and of the show can come after the show, and are taken
+   for the tiler's own for up to `ASYNC_GRACE` after it, the restore only when
+   the show restores the window. Until a posted hide, minimize or show lands,
+   the tiler's view has the window as the change leaves it.
+8. Display change mid-flight: every motion stops where it is as soon as the
+   change is noted, and placements snap while it settles. The rebuild places
+   the windows it lays out, and every window stopped that nothing placed
+   meanwhile is placed at its target, after the rebuild or when the monitors
+   cannot be read and it is skipped.
+9. Config reload mid-flight: a reload never changes a motion in flight. A
+   target it moves starts a new segment with the new settings, and a reload
+   that turns transitions off snaps the windows in flight.
 10. Monocle: turning it on grows the front window to the monocle rect, and
     turning it off shrinks it back to its tile. The other windows do not move.
 11. Focus follows mouse: hover reports are dropped while windows move.
@@ -438,29 +466,55 @@ that changes them.
 
 ### 34.3 Transitions in the tiler and the applier
 
-- [ ] `[animations]` in `Settings` and reload (left out of 34.1, where nothing
+- [x] `[animations]` in `Settings` and reload (left out of 34.1, where nothing
       read it yet)
-- [ ] `Motions` gives its earliest deadline and takes the frame outcomes of
+- [x] `Motions` gives its earliest deadline and takes the frame outcomes of
       34.2
-- [ ] `Place { transition }`, set by the step decision in `Plan::finish` and kept
+- [x] `Place { transition }`, set by the step decision in `Plan::finish` and kept
       by the coalescer
-- [ ] Marked placements become motions; the frame step posts frames, acts on
-      outcomes and finishes motions only once their last frame has landed
-- [ ] What ends a motion, effect by effect, and the cursor rules
-- [ ] Borders follow the reached rect, hide during resizes and are drawn once at
+- [x] Marked placements become motions; the frame step posts frames, acts on
+      outcomes, and finishes each motion at its deadline with `place` and
+      `repaint`, which land behind its frames
+- [x] What ends a motion, effect by effect, and the cursor rules
+- [x] `Minimized` ignored for a window that is no longer minimized
+- [x] A display change keeps the targets of the motions it stops, and placements
+      snap until it is rebuilt for
+- [x] Borders follow the reached rect, hide during resizes and are drawn once at
       the end
-- [ ] `MouseHover` dropped while windows move
-- [ ] The daemon loop starts the pacer and takes `DaemonMsg::Frame` (left out
+- [x] No placement skipped for a window `posts_behind` holds for, or whose
+      motion just ended or stopped
+- [x] The pointer aimed at the rect last placed, and a new motion started there
+- [x] A posted hide, minimize or show that changes something kept in the plan's
+      view until it lands, a show as long as the late report of its hide is
+      still expected
+- [x] A late hide kept expected across a show, and a restore only from a show
+      that restores the window
+- [x] A window a posted placement takes elsewhere, by as little as a pixel,
+      repainted again, and its kept border drawn, once it reports being within
+      4 px of it, or `LANDING_WAIT` after it if it moved since or is there;
+      one that has not moved by then lands on its next report; one the
+      placement finds there, where its last frame took it, bordered at once;
+      a new motion, a stop on the way and a grab end the wait
+- [x] A border decided while a posted placement is on its way, one that snaps
+      too, drawn once the window lands, around where it was placed
+- [x] `FrameControl::settle_responding` called as transitions turn off, and at
+      the start of every step and flush after while a window given frames is
+      still posted to
+- [x] A window placed out of view while its changes are posted counted as
+      maximized as the desktop says, and a display change shows a hidden
+      maximized one before it places it, not a cloaked one
+- [x] `MouseHover` dropped while windows move
+- [x] The daemon loop starts the pacer and takes `DaemonMsg::Frame` (left out
       of 34.2, where nothing asked for frames yet)
-- [ ] The daemon loop asks for frames while anything moves and runs the frame
+- [x] The daemon loop asks for frames while anything moves and runs the frame
       step on frames and deadlines
-- [ ] Tiler tests on the fake clock: a swap moves both windows in lockstep and
+- [x] Tiler tests on the fake clock: a swap moves both windows in lockstep and
       ends with exact placements; a second swap mid-flight retargets without a
-      jump; frames that land late delay the final place; a window pending for
-      3 frames finishes its step; each ending rule; monocle off shrinks the
-      front window back to its tile
-- [ ] A metrics scenario for a swap with animations on
-- [ ] With animations off, the tiler and platform calls of every existing test
+      jump; the final place lands after frames that land late; a window not
+      seen to move for 50 ms finishes its step; each ending rule; monocle off
+      shrinks the front window back to its tile
+- [x] A metrics scenario for a swap with animations on
+- [x] With animations off, the tiler and platform calls of every existing test
       are unchanged
 
 ### 34.4 Verification and docs

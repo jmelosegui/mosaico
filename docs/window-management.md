@@ -465,6 +465,59 @@ at once, as it always did, whether its application responds or not; one that
 was gets its changes posted while its application does not respond, as a
 change made at once would wait for it.
 
+### How the Tiler Uses Frames
+
+The tiling manager keeps every moving window in `motion::Motions`, and takes a
+frame step on every display frame while windows move (see
+[tiling-layout.md](tiling-layout.md#placements-that-animate)):
+
+- It posts every frame due in one `place_frames` call, and moves each moving
+  window's border to where the outcome found the window, or to the frame now
+  posted when the window took the one before exactly.
+- A motion ends at its end time with `place` and `repaint` at its exact
+  target, as a placement without a transition is. It does not wait for its
+  last frames to land: the platform orders the placement behind them.
+- A window found `Pending` and not seen to move for 50 ms since it handled
+  its first frame ends every motion of its step at once, through the same
+  `place`. One whose application stopped responding after it was given
+  frames needs nothing more: its placement is posted behind them. One that
+  had stopped before any was gets nothing posted, its placement included,
+  which is made at once, as it is without transitions.
+- A window found `Maximized`, `Minimized` or `Gone` is left alone: its motion
+  stops where the window is, and nothing forces it back.
+- Hiding or minimizing a moving window stops its frames first: a frame
+  posted after the change would land after it.
+- Only the first frame of a motion is marked `first`. A new target mid-flight
+  goes on with the same motion, so the platform keeps what it knows of the
+  frame on its way.
+- `Unsupported` turns transitions off: the windows in flight are placed at
+  their targets at once, and every later placement snaps. Any other error
+  places the windows the frames were for at their targets, and transitions
+  stay on.
+- While `posts_behind` holds for a window, the tiler does not read what it
+  sent back as done (`applier_posted.rs`), and it asks right after each
+  change it keeps a record of. A placement is not skipped because the
+  desktop has the window in place already, unless the window was last sent
+  there too, by a placement or a frame. `Focus { move_cursor: true }` and
+  `CenterCursor` aim at the center of where the window was last sent, and a
+  new motion starts from there. A posted placement that finds the window
+  there already, within 4 pixels, where the last thing sent took it, to
+  the pixel, moves nothing and reports nothing, so the window has its
+  border drawn at once. Any other is repainted again, and has its border
+  drawn, once the window reports being within 4 pixels of it, as a posted
+  repaint asks, or 500 ms after it if the window has moved since or is
+  there; one that has not moved lands on its next report. A posted hide,
+  minimize or show that changes something keeps the window as it leaves it
+  in the tiler's view of the desktop until it lands. A window placed while
+  it is out of view, or is to be, with its changes posted, counts as
+  maximized as long as the desktop says so, and a display change shows
+  such a window, if it is hidden, before it places it.
+- Once transitions are off, by the config, by the system's setting, or as
+  the platform has no frames, the tiler calls `settle_responding` as they
+  turn off and at the start of every step after, before the tiler reads
+  the desktop, and of every flush, for as long as a window it gave frames
+  to is still posted to.
+
 ### Invisible Frame Compensation
 
 On Windows 10/11, windows have invisible extended borders that are part of the

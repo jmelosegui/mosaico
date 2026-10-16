@@ -48,6 +48,7 @@ pub(super) fn handle_event(
             }
             Err(e) => {
                 mosaico_core::log_warn!("Failed to re-enumerate monitors: {}", e);
+                manager.display_change_skipped();
                 false
             }
         },

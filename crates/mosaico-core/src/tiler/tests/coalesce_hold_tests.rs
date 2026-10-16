@@ -10,6 +10,7 @@ fn moved(window: u64) -> Effect {
         window: wid(window),
         rect: Rect::new(0, 0, 100, 100),
         timing: Timing::Coalesced,
+        transition: Transition::Snap,
     }
 }
 

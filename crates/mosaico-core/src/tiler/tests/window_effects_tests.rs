@@ -32,11 +32,7 @@ fn desktop() -> FakeDesktop {
 }
 
 fn place(rect: Rect) -> Effect {
-    Effect::Place {
-        window: wid(1),
-        rect,
-        timing: Timing::Now,
-    }
+    Effect::snap(wid(1), rect, Timing::Now)
 }
 
 fn focus(move_cursor: bool) -> Effect {

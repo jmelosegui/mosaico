@@ -1,5 +1,7 @@
 use windows::Win32::Foundation::RECT;
-use windows::Win32::UI::WindowsAndMessaging::{GetWindowRect, IsWindowVisible};
+use windows::Win32::UI::WindowsAndMessaging::{
+    GetWindowRect, IsWindowVisible, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOZORDER, SetWindowPos,
+};
 
 use super::*;
 
@@ -88,4 +90,28 @@ fn a_hidden_border_restacked_at_another_slot_shows_only_there() {
         bounds(&border),
         Rect::new(OFF_SCREEN.x + 96, OFF_SCREEN.y - 4, 48, 38)
     );
+}
+
+#[test]
+fn moving_a_border_changes_where_it_is_and_nothing_else() {
+    // Arrange -- an overlay of our own, given a size but never shown, as
+    // a hidden border is. Without a desktop to make it on, skip.
+    let Ok(border) = Border::new() else {
+        return;
+    };
+    // SAFETY: SetWindowPos only sizes an overlay this thread owns, and
+    // leaves it hidden.
+    unsafe {
+        let flags = SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOZORDER;
+        let _ = SetWindowPos(border.hwnd, None, 0, 0, 48, 38, flags);
+    }
+    let rect = Rect::new(OFF_SCREEN.x + 100, OFF_SCREEN.y, 40, 30);
+
+    // Act
+    border.move_to(&rect, 4);
+
+    // Assert -- around the rect, with the size it had, and still hidden.
+    let around = Rect::new(OFF_SCREEN.x + 96, OFF_SCREEN.y - 4, 48, 38);
+    assert_eq!(bounds(&border), around);
+    assert!(!visible(&border), "moving the border showed it");
 }

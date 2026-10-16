@@ -135,6 +135,7 @@ impl Harness {
                     window,
                     rect,
                     timing,
+                    ..
                 } => Some((window.raw(), rect, timing)),
                 _ => None,
             })

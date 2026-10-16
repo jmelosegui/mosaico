@@ -11,6 +11,7 @@ use crate::http::WinHttpClient;
 use crate::system_info::Win32SystemInfo;
 use crate::tiling::{TilingManager, Win32Platform};
 
+use super::daemon_frames;
 use super::daemon_inputs::Inputs;
 use super::daemon_loop_run;
 use super::daemon_threads;
@@ -108,15 +109,21 @@ pub(super) fn daemon_loop(pipe_name: &str, store: &ConfigStore) -> Result<()> {
     // 1-second tick for bar system widget refresh (clock, RAM).
     let tick_thread = daemon_threads::spawn_tick_thread(tx.clone(), watcher_stop.clone());
 
+    // Display frames, sent while windows move. Without them, windows are
+    // placed at once, and the daemon runs all the same.
+    let frames = daemon_frames::start(tx.clone(), &mut manager);
+
     daemon_loop_run::run(
         &rx,
         &mut manager,
         &mut bar_mgr,
         &mut current_theme,
         &mut inputs,
+        &frames,
         &get_update,
     );
 
+    drop(frames);
     manager.restore_all_windows();
     bar_mgr.hide_all();
     inputs.stop();

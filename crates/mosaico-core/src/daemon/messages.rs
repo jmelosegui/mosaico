@@ -95,6 +95,10 @@ impl<T> Batch<T> {
 pub enum Step<T> {
     /// Apply the effects the tiler is holding back.
     Flush,
+    /// The display configuration changed, and is rebuilt for once it has
+    /// settled ([`RebuildMonitors`](Self::RebuildMonitors)): stop what moves
+    /// to where the old layout sent it.
+    DisplayChanging,
     /// The display configuration has settled since it last changed:
     /// read the monitors again and rebuild for them.
     RebuildMonitors,

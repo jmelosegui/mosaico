@@ -6,7 +6,7 @@ use crate::WindowId;
 use crate::config::HidingBehaviour;
 
 use super::removal::untile;
-use super::{Effect, Plan, Tiler, Timing};
+use super::{Plan, Tiler, Timing};
 
 /// The rect a monocle window fills, given a work area and a gap.
 pub(super) fn monocle_rect_for(work_area: &Rect, gap: i32) -> Rect {
@@ -75,6 +75,7 @@ impl Tiler {
         let Some(state) = self.monitors.get(monitor_idx) else {
             return;
         };
+        let monitor = state.id;
         if state.active_ws().monocle() {
             // The monocle window fills the work area. Fall back to the
             // focused window when monocle was toggled without a target.
@@ -83,22 +84,14 @@ impl Tiler {
                 && state.active_ws().contains(front)
             {
                 let rect = self.monocle_rect(monitor_idx);
-                plan.emit(Effect::Place {
-                    window: front,
-                    rect,
-                    timing,
-                });
+                plan.place(front, rect, timing, monitor);
                 self.show_border_for(plan, front, rect, monitor_idx);
                 self.place_waiting_behind(plan, monitor_idx, front, rect, timing);
                 return;
             }
         }
         for (window, rect) in self.compute_positions(monitor_idx) {
-            plan.emit(Effect::Place {
-                window,
-                rect,
-                timing,
-            });
+            plan.place(window, rect, timing, monitor);
             self.show_border_for(plan, window, rect, monitor_idx);
         }
     }

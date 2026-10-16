@@ -114,6 +114,13 @@ pub fn still_animates(facts: &ApplyFacts) -> bool {
         && travel(facts.from, facts.to) > i64::from(MIN_TRAVEL)
 }
 
+/// Whether no edge of a window is more than [`MIN_TRAVEL`] pixels from where
+/// it is in `a` to where it is in `b`: a move that small does not animate,
+/// and a window that close to where it was placed is taken to be there.
+pub fn hardly_apart(a: Rect, b: Rect) -> bool {
+    travel(a, b) <= i64::from(MIN_TRAVEL)
+}
+
 /// How far the edge of a window that travels furthest goes from `from` to
 /// `to`, in pixels.
 fn travel(from: Rect, to: Rect) -> i64 {

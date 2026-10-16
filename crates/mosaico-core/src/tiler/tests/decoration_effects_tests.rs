@@ -186,11 +186,7 @@ fn window_changes_are_left_to_apply_window_effect() {
     // Act
     let calls = apply(
         &[
-            Effect::Place {
-                window,
-                rect: AT,
-                timing: Timing::Now,
-            },
+            Effect::snap(window, AT, Timing::Now),
             Effect::PrePlace { window, rect: AT },
             Effect::Hide { window, how },
             Effect::Show { window, how },

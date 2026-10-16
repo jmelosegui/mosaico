@@ -16,8 +16,8 @@ mod frame;
 /// Before each wait for messages the loop calls [`Scheduler::begin_wait`]
 /// with the time, what
 /// [`Coalescer::held_since`](crate::tiler::Coalescer::held_since)
-/// reports and the earliest end of a motion after the last frame step, then
-/// hands whatever ended the wait to [`Scheduler::step`].
+/// reports and the first frame step due after the last one, as at the end
+/// of a motion, then hands whatever ended the wait to [`Scheduler::step`].
 ///
 /// - Held effects are flushed once the loop has waited
 ///   [`QUIET`](crate::tiler::QUIET) with no input arriving, and at the
@@ -44,9 +44,10 @@ mod frame;
 /// - A display change is rebuilt for once it has been quiet for
 ///   [`SETTLE`](super::SETTLE). While effects are held the wait is for
 ///   them alone, so a change that settles meanwhile follows the flush.
-/// - What was due when the wait began runs before the messages that
-///   ended it: first the flush, then the rebuild. A wait that ran either
-///   is over, as one that input ended is.
+/// - A display change in the wake comes first, to stop what moves. Then
+///   what was due when the wait began runs, before the messages that ended
+///   it: the flush, then the rebuild, after which the change is noted again
+///   as it still settles. A wait that ran either is over, as one input ends.
 /// - Tasks run next, in arrival order, so hotkeys and commands stay
 ///   responsive while windows flood the queue. The batch's window events
 ///   come last, as one step, keeping only the last position change and
@@ -74,9 +75,9 @@ impl Scheduler {
     /// given, unless the last wait goes on, and returns how long it may
     /// wait for messages, or `None` when nothing is due until one
     /// arrives. `held_since` is when the effects the tiling manager holds
-    /// started being held, if any, and `frame_due` the earliest end of a
-    /// motion after the [`last_frame_step`](Self::last_frame_step): the
-    /// wait ends by then with a frame step. One at or before it is let go.
+    /// started being held, if any, and `frame_due` the first frame step due
+    /// after the [`last_frame_step`](Self::last_frame_step), as at the end of
+    /// a motion: the wait ends by then with it. One at or before it is let go.
     pub fn begin_wait(
         &mut self,
         held_since: Option<Instant>,
@@ -108,31 +109,30 @@ impl Scheduler {
     /// order.
     pub fn step<T>(&mut self, wake: Wake<T>, now: Instant) -> Vec<Step<T>> {
         let release = self.release.take();
-        // Input ends the wait before anything else comes due, so it only
-        // finds what was due already when the wait began. Anything else
-        // finds what is due by now.
+        // Input ends the wait before anything else comes due, so it only finds
+        // what was due when the wait began; anything else, what is due by now.
         let input = wake.brought_input();
         let due_by = match self.waiting_since {
             Some(since) if input => since,
             _ => now,
         };
-
-        let mut steps = Vec::new();
-        if release.is_some_and(|release| due_by >= release) {
-            steps.push(Step::Flush);
-        }
-        if self.settle.take_due(due_by) {
-            steps.push(Step::RebuildMonitors);
-        }
-        if input || !steps.is_empty() {
-            self.waiting_since = None;
-        }
         let motion_due = self.frame_due.take().is_some_and(|due| now >= due);
         let mut batch = wake.into_batch();
         dedup(&mut batch.events);
-        if batch.take_display_changes() {
+        let changing = batch.take_display_changes();
+        let flush = release.is_some_and(|release| due_by >= release);
+        let rebuild = self.settle.take_due(due_by);
+        if changing {
             self.settle.note(now);
         }
+        if input || flush || rebuild {
+            self.waiting_since = None;
+        }
+        let mut steps = Vec::new();
+        steps.extend(changing.then_some(Step::DisplayChanging));
+        steps.extend(flush.then_some(Step::Flush));
+        steps.extend(rebuild.then_some(Step::RebuildMonitors));
+        steps.extend((changing && rebuild).then_some(Step::DisplayChanging));
         steps.extend(batch.tasks.into_iter().map(Step::Run));
         if !batch.events.is_empty() {
             steps.push(Step::Events(batch.events));

@@ -99,6 +99,17 @@ place = 2
 repaint = 2
 show_border = 4
 
+[move_once_animated]
+border_renders = 2
+calls = 24
+focus = 1
+hide_border = 2
+move_cursor = 2
+place = 2
+place_frames = 11
+repaint = 2
+show_border = 4
+
 [open_next_to_1]
 border_renders = 2
 calls = 10

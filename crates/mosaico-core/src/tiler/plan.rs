@@ -19,6 +19,12 @@ use super::{Desktop, Effect, WindowFacts};
 
 #[path = "plan_borders.rs"]
 mod borders;
+#[path = "plan_maximized.rs"]
+mod maximized;
+#[path = "plan_transitions.rs"]
+mod transitions;
+
+pub(super) use transitions::StepKind;
 
 /// What a window will look like after this step's effects.
 #[derive(Debug, Default, Clone, Copy)]
@@ -34,6 +40,8 @@ pub(super) struct Plan<'a> {
     now: Instant,
     effects: Vec<Effect>,
     planned: HashMap<WindowId, Planned>,
+    /// What the step did that decides which placements may animate.
+    placements: transitions::Placements,
 }
 
 impl<'a> Plan<'a> {
@@ -43,6 +51,7 @@ impl<'a> Plan<'a> {
             now,
             effects: Vec::new(),
             planned: HashMap::new(),
+            placements: transitions::Placements::default(),
         }
     }
 
@@ -83,10 +92,12 @@ impl<'a> Plan<'a> {
         self.effects.push(effect);
     }
 
-    /// Ends the step, returning its effects in order, with at most one
-    /// border per window: the last one decided, see
+    /// Ends the step, returning its effects in order, with the placements
+    /// that may animate marked so, see [`mark`](transitions::mark), and at
+    /// most one border per window: the last one decided, see
     /// [`keep_last_borders`](borders::keep_last_borders).
-    pub(super) fn finish(self) -> Vec<Effect> {
+    pub(super) fn finish(mut self, step: &StepKind) -> Vec<Effect> {
+        transitions::mark(&mut self.effects, &self.placements, step, self.desktop);
         borders::keep_last_borders(self.effects)
     }
 
@@ -104,11 +115,6 @@ impl<'a> Plan<'a> {
         self.planned(window)
             .minimized
             .unwrap_or_else(|| self.desktop.is_minimized(window))
-    }
-
-    pub(super) fn is_maximized(&self, window: WindowId) -> bool {
-        // A window placed this step is no longer maximized.
-        self.planned(window).rect.is_none() && self.desktop.is_maximized(window)
     }
 
     pub(super) fn rect(&self, window: WindowId) -> Option<Rect> {

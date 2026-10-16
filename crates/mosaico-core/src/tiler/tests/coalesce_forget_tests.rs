@@ -17,6 +17,7 @@ fn forgetting_a_destroyed_window_drops_only_what_was_held_for_it() {
                 window,
                 rect,
                 timing: Timing::Coalesced,
+                transition: Transition::Snap,
             },
             t0,
         );
@@ -34,6 +35,7 @@ fn forgetting_a_destroyed_window_drops_only_what_was_held_for_it() {
                 window: wid(2),
                 rect,
                 timing: Timing::Now,
+                transition: Transition::Snap,
             },
             Effect::CenterCursor { window: wid(2) },
         ]
@@ -53,6 +55,7 @@ fn untiling_a_window_drops_only_what_was_held_for_it() {
                 window,
                 rect,
                 timing: Timing::Coalesced,
+                transition: Transition::Snap,
             },
             t0,
         );
@@ -71,6 +74,7 @@ fn untiling_a_window_drops_only_what_was_held_for_it() {
                 window: wid(2),
                 rect,
                 timing: Timing::Now,
+                transition: Transition::Snap,
             },
             Effect::CenterCursor { window: wid(2) },
         ]
@@ -129,6 +133,7 @@ fn a_placement_made_now_keeps_the_focus_change_held_for_its_window() {
             window: wid(1),
             rect: Rect::new(0, 0, 100, 100),
             timing: Timing::Now,
+            transition: Transition::Snap,
         },
         t0,
     );

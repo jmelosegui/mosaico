@@ -46,6 +46,7 @@ impl Tiler {
             && self.workspace_mode != WorkspaceMode::Global;
         self.workspace_mode = config.workspaces.mode;
         self.border_config = config.borders.clone();
+        self.animations = config.animations.clone();
         self.mouse_follows_focus = config.mouse.follows_focus;
         for window in self.all_windows() {
             self.decorate(plan, window);

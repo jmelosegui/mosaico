@@ -15,6 +15,7 @@ fn move_to(window: u64, x: i32) -> Effect {
         window: wid(window),
         rect: Rect::new(x, 0, 100, 100),
         timing: Timing::Coalesced,
+        transition: Transition::Snap,
     }
 }
 
@@ -24,6 +25,7 @@ fn placed(window: u64, x: i32) -> Effect {
         window: wid(window),
         rect: Rect::new(x, 0, 100, 100),
         timing: Timing::Now,
+        transition: Transition::Snap,
     }
 }
 

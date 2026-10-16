@@ -31,6 +31,7 @@ fn kind(call: &Call) -> &'static str {
         Call::MoveCursor(..) => "move_cursor",
         Call::ShowBorder(..) => "show_border",
         Call::HideBorder(..) => "hide_border",
+        Call::MoveBorder(..) => "move_border",
         Call::DropBorder(..) => "drop_border",
         Call::SetCorners(..) => "set_corners",
         Call::ResetCorners(..) => "reset_corners",

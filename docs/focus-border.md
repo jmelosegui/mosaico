@@ -20,6 +20,7 @@ Unfocused borders can be turned off entirely (see
 | `crates/mosaico-core/src/tiler/decoration_effects.rs` | `apply_decoration_effect`, which carries out border and corner effects |
 | `crates/mosaico-core/src/tiler/plan_borders.rs` | Keeping one border per window in a step, and where it goes |
 | `crates/mosaico-core/src/tiler/last_drawn.rs` | `LastDrawn`, the style a border was last drawn with |
+| `crates/mosaico-core/src/tiler/applier_borders.rs` | The borders of moving windows, drawn once each window is in place |
 | `crates/mosaico-core/src/config/color.rs` | `Color` struct and its hex parser |
 | `crates/mosaico-core/src/config/mod.rs` | `BorderConfig` for color and width settings |
 | `crates/mosaico-windows/src/decorations.rs` | `Win32Decorations`, the Win32 implementation |
@@ -47,6 +48,7 @@ trait in `mosaico-core`:
 pub trait Decorations {
     fn show_border(&mut self, window: WindowId, style: &BorderStyle) -> Result<()>;
     fn hide_border(&mut self, window: WindowId) -> Result<()>;
+    fn move_border(&mut self, window: WindowId, rect: Rect) -> Result<()>; // Unsupported by default
     fn drop_border(&mut self, window: WindowId) -> Result<()>;
     fn forget_drawn(&mut self);
     fn set_corners(&mut self, window: WindowId, corners: CornerStyle) -> Result<()>;
@@ -67,6 +69,13 @@ The contract, in the trait's docs, spells out what the tiler relies on:
 - A platform may keep what it drew of a border, and only move it when
   the border is drawn again the same way. After `forget_drawn`, the next
   drawing of each border starts from scratch.
+- `move_border` only moves a border, as it was last drawn, to surround
+  another rect: it keeps its picture, its size and its place in the
+  stacking order, and a hidden border stays hidden. It is for the border of
+  a window that keeps its size on its way through a transition, which is
+  drawn with `show_border` once the window is in place. A platform that
+  cannot move a border without drawing it again keeps the default, which
+  returns `Error::Unsupported`.
 - A platform that cannot draw borders, or cannot change the corners of
   windows, returns `Error::Unsupported`.
 
@@ -119,6 +128,11 @@ a stale bitmap from the previous size would briefly appear at the new position.
   window's topmost band, then just behind its window at `rect`, and only
   then shows it, with the bitmap it already has, so a hidden border never
   shows where it was hidden
+- `Border::move_to(rect, width)` -- only moves the overlay around `rect`,
+  with `SetWindowPos` and `SWP_NOZORDER | SWP_NOSIZE | SWP_NOACTIVATE`: its
+  bitmap, size, place in the z-order and visibility stay as they are.
+  `Win32Decorations::move_border` uses it with the stroke width the border
+  was last shown with
 - `Border::hide()` -- hides the overlay window via `ShowWindow(SW_HIDE)`
 
 `Win32Decorations` remembers the style each overlay was last rendered with,
@@ -194,6 +208,48 @@ While a burst of moves is held until input goes quiet, each window's
 border is held with its move: only the latest style, drawn around the slot
 the move lands in. That holds even when a later step, such as a focus
 change, decided the border from where the window still was.
+
+### Borders of Moving Windows
+
+Drawing a border can take tens of milliseconds for a large window, too long
+for a frame of a transition, so a border is never drawn while its window
+moves (`tiler/applier_borders.rs`). A `Border` effect for a moving window
+only replaces the style that is drawn once the window is in place, around
+the rect it ends at; a hide happens at once, since it costs nothing. On the
+way, the border follows the window: each frame step moves it with
+`move_border` to where the platform found the window, or, when the window
+took the frame posted at the step before exactly, to the frame now posted.
+So it neither trails a window that keeps up nor runs ahead of a slow
+application, and it stays where it is while the window is still to handle
+its frame. A window whose size changes on its way has its border hidden as
+its motion starts, since the border could not follow it, and drawn once at
+the end. The placement that ends a motion usually finds the window there
+already, as its last frame took it to its target, and the border is drawn
+at once. When the placement is posted behind what is still on its way to
+the window, and the window is not there yet, within 4 pixels on every
+edge, or its last frame took it elsewhere, if only a pixel short, the
+border is drawn once the window reports being there
+(`tiler/applier_landing.rs`). As a placement that moves nothing reports
+nothing, the border of a window that has not reported half a second after
+the placement is drawn then, if the window has moved since or is there.
+One that has not moved, as its application has not got to the placement,
+has its border drawn once it reports where it is next. Until then the
+border stays where the window was last found, so it never runs ahead of a
+window that fell behind. A `Border` effect for a window still to land that
+way, after any placement posted behind frames, one that snaps too,
+replaces the style drawn then, around where the window was placed; a hide
+happens at once. A new motion of the window, or the user grabbing it, ends
+the wait. A window whose motion stops on the way, as when it is hidden,
+maximized or minimized, or the user grabs it, gets no border drawn for that
+motion, and what its motion kept for the border is dropped with it: what
+the tiler decides for it next is drawn as it comes. Nor does one the tiler
+lets go of while it moves: it is placed where it was going, and the step
+drops its border. One a display change stops keeps the style until it is
+placed at its target, after the rebuild, and has it drawn there, unless the
+tiler placed it or took it out of view meanwhile; a `Border` effect for it
+meanwhile replaces the style, as for a moving window. `DropBorder` forgets
+the style a motion kept, or one kept for a window still to land, so a
+border dropped meanwhile is not drawn again.
 
 Color selection per window:
 

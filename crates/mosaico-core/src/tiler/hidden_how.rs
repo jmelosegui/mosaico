@@ -59,6 +59,20 @@ impl HiddenHow {
         as_left.then_some(how)
     }
 
+    /// Whether a window about to be shown with its workspace is shown
+    /// before it is placed rather than after: one the tiler minimized, and
+    /// that is still minimized, as its slot cannot be set while minimized,
+    /// and one maximized and hidden whose changes are posted, as a
+    /// placement while it is out of view could leave it maximized, and the
+    /// show would bring it back where it was before it was maximized. A
+    /// cloaked window counts as shown, and a posted placement ends its
+    /// maximized state as it does a shown window's.
+    pub(super) fn shown_first(&self, plan: &Plan, window: WindowId) -> bool {
+        let hidden = !plan.is_visible(window);
+        let maximized = plan.is_maximized(window) && plan.changes_posted(window);
+        self.still_hidden(plan, window) == Some(HidingBehaviour::Minimize) || (hidden && maximized)
+    }
+
     /// Shows a window the tiler is letting go of, the way it hid it, so
     /// it is not left out of view with nothing to bring it back. Does
     /// nothing for a window the tiler did not hide.

@@ -11,7 +11,7 @@ use super::fake_platform::FakePlatform;
 
 /// Starts a tiling manager on `platform` with `config` and no window
 /// rules, keeping its record of hidden windows in `hidden`.
-pub(super) fn start(
+pub(in crate::tiler) fn start(
     platform: &FakePlatform,
     hidden: Option<HiddenFile>,
     config: &Config,
@@ -20,7 +20,7 @@ pub(super) fn start(
 }
 
 /// Windows the manager tiles on the active workspace of monitor `mon`.
-pub(super) fn tiled(manager: &TilingManager<FakePlatform>, mon: usize) -> Vec<u64> {
+pub(in crate::tiler) fn tiled(manager: &TilingManager<FakePlatform>, mon: usize) -> Vec<u64> {
     manager.tiler().monitors()[mon]
         .active()
         .windows()

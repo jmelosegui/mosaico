@@ -2,7 +2,7 @@ use std::time::Instant;
 
 use crate::Rect;
 use crate::id::wid;
-use crate::motion::test_support::{ms, spec};
+use crate::motion::test_support::{flights, ms, spec};
 use crate::motion::{Easing, Segment};
 
 use super::super::Motions;
@@ -39,7 +39,7 @@ fn frames_follow_the_clock_however_many_are_missed() {
     // Assert -- each frame has the window where it is at its own time.
     for (i, frame) in steady_frames.iter().chain(&missing_frames) {
         assert_eq!(
-            frame.in_flight,
+            flights(frame),
             vec![(wid(1), path.rect_at(t0 + ms(*i)))],
             "at {i} ms"
         );
@@ -63,9 +63,9 @@ fn a_frame_only_moves_the_windows_whose_rect_changed() {
 
     // Assert -- not even to where it starts, which is where it is.
     assert_eq!(at_start, Tick::default());
-    assert_eq!(moved.in_flight, vec![(wid(1), Rect::new(1, 0, 400, 400))]);
+    assert_eq!(flights(&moved), vec![(wid(1), Rect::new(1, 0, 400, 400))]);
     assert_eq!(same, Tick::default());
-    assert_eq!(next.in_flight, vec![(wid(1), Rect::new(2, 0, 400, 400))]);
+    assert_eq!(flights(&next), vec![(wid(1), Rect::new(2, 0, 400, 400))]);
 }
 
 #[test]
@@ -86,7 +86,7 @@ fn ending_a_motion_stops_its_frames() {
     assert_eq!(motions.end(wid(1)), None, "it has ended already");
     assert_eq!(motions.end(wid(3)), None, "it never moved");
     let frame = motions.frame(t0 + ms(100));
-    assert_eq!(frame.in_flight, vec![(wid(2), Rect::new(400, 0, 400, 400))]);
+    assert_eq!(flights(&frame), vec![(wid(2), Rect::new(400, 0, 400, 400))]);
     assert_eq!(motions.frame(t0 + ms(200)).finished, vec![(wid(2), left)]);
 }
 
@@ -101,8 +101,8 @@ fn clearing_the_table_stops_every_motion_and_gives_back_the_targets() {
     // Act
     let targets = motions.clear();
 
-    // Assert -- for the caller to place each window at its target, as a
-    // display change and shutdown do.
+    // Assert -- for the caller to place each window at its target, as
+    // shutdown does, or to leave it where it is, as a display change does.
     let crept = Rect::new(10, 0, 400, 400);
     assert_eq!(targets, vec![(wid(1), crept), (wid(2), to)]);
     assert!(motions.is_empty());

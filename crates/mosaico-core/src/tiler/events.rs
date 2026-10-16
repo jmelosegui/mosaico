@@ -45,7 +45,15 @@ impl Tiler {
                 self.undecorate(plan, window);
                 self.remove_from_tiling(plan, window, "hide", false);
             }
-            WindowEvent::Minimized { window } => self.remove_from_tiling(plan, window, "min", true),
+            WindowEvent::Minimized { window } => {
+                // A minimize reported once the window was restored again
+                // leaves it where it is.
+                if !plan.is_minimized(window) {
+                    crate::log_debug!("min-ignored {} (not minimized)", window);
+                    return;
+                }
+                self.remove_from_tiling(plan, window, "min", true);
+            }
             // Nothing in the layout changes until the drag ends, with
             // `Moved`.
             WindowEvent::MoveStarted { .. } => {}

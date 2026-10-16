@@ -19,13 +19,20 @@ impl<P: Platform> TilingManager<P> {
     }
 
     /// Shows every window again and restores their frames. Called on
-    /// shutdown so nothing is left hidden.
+    /// shutdown so nothing is left hidden. Windows still moving are placed
+    /// in their slots first, behind the frames on their way to them, and
+    /// have no border drawn there: the tiler hides them all.
     pub fn restore_all_windows(&mut self) {
+        self.applier.finish_motions(&mut self.platform);
         self.step(Input::Shutdown);
     }
 
-    /// Applies a new layout, border and mouse config, then retiles.
+    /// Applies a new layout, border, mouse and animation config, then
+    /// retiles. A window already moving keeps its duration and easing
+    /// while its target stays; one the retile sends elsewhere turns with
+    /// the new ones, and with transitions off it snaps there.
     pub fn reload_config(&mut self, config: &Config) {
+        self.applier.set_animations(&config.animations);
         self.step(Input::Config(Box::new(config.clone())));
     }
 
@@ -35,7 +42,29 @@ impl<P: Platform> TilingManager<P> {
         self.step(Input::Rules(rules));
     }
 
+    /// Stops every motion where its window is, as soon as a display change
+    /// is noted, and has every placement snap until the layout is rebuilt
+    /// for it, once it settles
+    /// ([`handle_display_change`](Self::handle_display_change)). The
+    /// windows it stops are placed at their targets after the rebuild, or
+    /// when there is none ([`display_change_skipped`](Self::display_change_skipped)),
+    /// unless something placed them or took them out of view meanwhile.
+    pub fn display_changing(&mut self) {
+        self.applier.display_changing();
+    }
+
+    /// Ends a display change the daemon does not rebuild for, as when it
+    /// cannot read the monitors: the windows it stopped are placed at their
+    /// targets, and placements may animate again.
+    pub fn display_change_skipped(&mut self) {
+        self.applier.display_changed(&mut self.platform);
+    }
+
     /// Rebuilds the monitor state after a display configuration change.
+    /// The rebuild places the windows it lays out at once, which ends the
+    /// motions of the windows still moving, in their new slots. Then the
+    /// windows the change stopped that nothing placed are placed at their
+    /// targets.
     ///
     /// `new_monitors` are left to right, as
     /// [`Enumerator::monitors`](crate::tiler::Enumerator::monitors)
@@ -50,6 +79,7 @@ impl<P: Platform> TilingManager<P> {
             monitors: new_monitors,
             bar: bar(bar_height, bar_monitor_indices),
         });
+        self.applier.display_changed(&mut self.platform);
     }
 
     /// Reserves the bar height at the top of each bar monitor, then

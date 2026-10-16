@@ -27,6 +27,8 @@ pub(crate) use calls::Call;
 mod calls;
 #[path = "fake_platform_control.rs"]
 mod control;
+#[path = "fake_platform_decorations.rs"]
+mod decorations;
 #[path = "fake_platform_desktop.rs"]
 mod desktop;
 #[path = "fake_platform_frames.rs"]
@@ -45,6 +47,8 @@ struct Shared {
     monitors_fail: Cell<bool>,
     /// Whether a move that does not wait lands at once.
     pre_places_land: Cell<bool>,
+    /// How `place_frames` fails, if it does.
+    frame_fault: Cell<frames::FrameFault>,
     /// How each border was last drawn.
     drawn: RefCell<HashMap<WindowId, LastDrawn>>,
     /// The windows whose border was drawn from scratch, in order.
@@ -75,6 +79,7 @@ impl FakePlatform {
                 hiding: Cell::new(HidingSupport::default()),
                 monitors_fail: Cell::new(false),
                 pre_places_land: Cell::new(false),
+                frame_fault: Cell::new(frames::FrameFault::Works),
                 drawn: RefCell::new(HashMap::new()),
                 renders: RefCell::new(Vec::new()),
             }),

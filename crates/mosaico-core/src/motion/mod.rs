@@ -27,9 +27,10 @@ mod test_support;
 
 pub use bezier::CubicBezier;
 pub use easing::Easing;
-pub use motions::{Motions, Tick};
+pub use motions::{MAX_LAG, Motions, Tick};
 pub use policy::{
-    ApplyFacts, MAX_ANIMATED_WINDOWS, MIN_TRAVEL, StepFacts, step_animates, still_animates,
+    ApplyFacts, MAX_ANIMATED_WINDOWS, MIN_TRAVEL, StepFacts, hardly_apart, step_animates,
+    still_animates,
 };
 pub use segment::Segment;
 pub use spec::MotionSpec;
