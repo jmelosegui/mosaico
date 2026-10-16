@@ -7,11 +7,15 @@
 //! [`Segment`](crate::motion::Segment) one rect moving along it, and
 //! [`Motions`](crate::motion::Motions) the table of moving windows that
 //! each display frame asks where the windows are.
+//! [`step_animates`](crate::motion::step_animates) and
+//! [`still_animates`](crate::motion::still_animates) decide which
+//! placements move that way.
 
 mod bezier;
 mod easing;
 mod easing_names;
 mod motions;
+mod policy;
 mod segment;
 mod shape;
 mod spec;
@@ -24,6 +28,9 @@ mod test_support;
 pub use bezier::CubicBezier;
 pub use easing::Easing;
 pub use motions::{Motions, Tick};
+pub use policy::{
+    ApplyFacts, MAX_ANIMATED_WINDOWS, MIN_TRAVEL, StepFacts, step_animates, still_animates,
+};
 pub use segment::Segment;
 pub use spec::MotionSpec;
 pub use velocity::Velocity;

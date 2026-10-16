@@ -358,7 +358,7 @@ that changes them.
       and target
 - [x] `Motions` table, with tests for the no-op retarget, dropped frames and
       sizes never below 1
-- [ ] The step decision and the apply-time check, with a test for every rule
+- [x] The step decision and the apply-time check, with a test for every rule
 - [ ] `[animations]` config: types, defaults, validation and parsing, `Settings`
       and reload
 
