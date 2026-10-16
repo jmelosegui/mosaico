@@ -47,6 +47,8 @@ pub mod system;
 pub mod tiler;
 /// Finding newer releases of mosaico and installing them.
 pub mod update;
+/// Where the platform keeps the user's config and data.
+pub mod user_dirs;
 /// Build-time version information.
 pub mod version;
 /// The contract for changing windows through the platform.

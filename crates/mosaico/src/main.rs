@@ -149,8 +149,9 @@ fn main() {
     let cli = Cli::parse();
 
     // Refuse to run on a mistyped instance rather than fall back to the
-    // user's own daemon and config.
-    if let Err(e) = mosaico_core::Instance::current() {
+    // user's own daemon and config, or when there is nowhere to keep the
+    // instance's files.
+    if let Err(e) = platform::resolve_instance() {
         eprintln!("Error: {e}");
         std::process::exit(2);
     }

@@ -145,8 +145,13 @@ manage = false
 
 ## Config Directory
 
-The configuration directory is `~/.config/mosaico/`, resolved via
-`dirs::home_dir()`. The `config_dir()` function returns this path.
+The configuration directory is the config directory of the instance,
+`~/.config/mosaico/` for the default instance. The platform crate says where
+the user's configuration lives (the `UserDirs` contract in
+`mosaico_core::user_dirs`; on Windows `.config` in the profile folder,
+`%USERPROFILE%`), and core adds `mosaico` and, for a named instance,
+`instances\<name>`. `MOSAICO_CONFIG_DIR` replaces the whole path; see
+Instances in [cli.md](cli.md). The `config_dir()` function returns this path.
 
 Individual file paths:
 - `config_path()` -> `~/.config/mosaico/config.toml`

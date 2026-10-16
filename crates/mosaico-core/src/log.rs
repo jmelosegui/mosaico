@@ -1,9 +1,8 @@
 //! File-based logger with size-based rotation.
 //!
-//! Logs are written to the instance's log directory,
-//! `~/.config/mosaico/logs/mosaico.log` for the default instance. When
-//! the file exceeds the configured max size, it is rotated to
-//! `mosaico.log.1` (one backup kept).
+//! Logs are written to `logs/mosaico.log` in the instance's config
+//! directory. When the file exceeds the configured max size, it is
+//! rotated to `mosaico.log.1` (one backup kept).
 //!
 //! Lines logged before [`init`](crate::log::init) are kept and written
 //! when it runs, if logging is enabled. The daemon reads its config, and
@@ -88,13 +87,13 @@ impl Level {
 /// log directory. Call once at daemon startup.
 ///
 /// Does nothing if `config.enabled` is `false`, other than drop the
-/// lines logged so far. Otherwise the lines logged so far follow its
-/// own first line, filtered by the configured level. Only the first
-/// call has any effect.
+/// lines logged so far, and the same when the instance of this process
+/// has not been resolved, since its log directory is not known.
+/// Otherwise the lines logged so far follow its own first line,
+/// filtered by the configured level. Only the first call has any
+/// effect.
 pub fn init(config: &LogConfig) {
-    let log_dir = crate::Instance::current()
-        .ok()
-        .map(|instance| instance.log_dir());
+    let log_dir = crate::Instance::current().map(|instance| instance.log_dir());
     start(config, log_dir.as_deref());
 }
 
