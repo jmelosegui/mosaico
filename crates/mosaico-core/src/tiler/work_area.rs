@@ -14,6 +14,16 @@ impl Tiler {
         self.retile_all(plan);
     }
 
+    /// Reserves the bar like [`reserve_bar`](Self::reserve_bar), but only
+    /// retiles when that moves a monitor's tiling area.
+    pub(super) fn reserve_bar_if_moved(&mut self, plan: &mut Plan, bar: &BarReservation) {
+        let before: Vec<Rect> = self.monitors.iter().map(|m| m.work_area).collect();
+        apply_bar_reservation(&mut self.monitors, bar.height, &bar.monitors);
+        if self.monitors.iter().map(|m| m.work_area).ne(before) {
+            self.retile_all(plan);
+        }
+    }
+
     /// Takes fresh OS work areas, then reserves the bar and retiles.
     pub(super) fn reset_work_areas(
         &mut self,

@@ -5,6 +5,9 @@ use crate::bar::fakes::BarEvent::{Created, Dropped, Hidden, RendererDropped};
 use crate::bar::fakes::{FakeRenderer, FakeSystem};
 use crate::config::CatppuccinFlavor;
 
+#[path = "height_tests.rs"]
+mod height_tests;
+
 pub(super) const MOCHA: Theme = Theme::Catppuccin(CatppuccinFlavor::Mocha);
 
 pub(super) fn left() -> Rect {

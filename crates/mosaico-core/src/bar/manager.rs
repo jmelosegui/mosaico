@@ -64,12 +64,14 @@ impl BarManager {
         manager
     }
 
-    /// Returns the bar height if the bar is enabled, 0 otherwise.
+    /// Returns the space the bars take at the top of their monitors: the
+    /// bar height while a monitor has a bar, 0 otherwise, since the tiler
+    /// reads the empty list of bar monitors as every monitor.
     pub fn bar_height(&self) -> i32 {
-        if self.config.enabled {
-            self.config.height
-        } else {
+        if self.bars.is_empty() {
             0
+        } else {
+            self.config.height
         }
     }
 
@@ -176,3 +178,7 @@ mod tests;
 #[cfg(test)]
 #[path = "tests/manager_update_tests.rs"]
 mod update_tests;
+
+#[cfg(test)]
+#[path = "tests/reservation_tests.rs"]
+mod reservation_tests;
