@@ -50,6 +50,10 @@ impl Tiler {
     /// Redraws the border of a window that was just placed, so the two
     /// land on screen together. Borders that do not exist yet are left
     /// to `update_border`.
+    ///
+    /// When the step decides the border again later, after focus moves
+    /// for example, that decision is drawn here instead, once: see
+    /// [`Plan::finish`](super::Plan::finish).
     pub(super) fn show_border_for(
         &self,
         plan: &mut Plan,

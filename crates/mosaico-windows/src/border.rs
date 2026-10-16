@@ -1,12 +1,12 @@
 mod class;
 mod render;
+mod stack;
 
 use mosaico_core::{Rect, Result};
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::{
-    CW_USEDEFAULT, CreateWindowExW, DestroyWindow, GWL_EXSTYLE, GetWindowLongPtrW, HWND_NOTOPMOST,
-    HWND_TOPMOST, SW_HIDE, SWP_NOACTIVATE, SWP_SHOWWINDOW, SetWindowPos, ShowWindow, WS_EX_LAYERED,
-    WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_EX_TRANSPARENT, WS_POPUP,
+    CW_USEDEFAULT, CreateWindowExW, DestroyWindow, SW_HIDE, ShowWindow, WS_EX_LAYERED,
+    WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT, WS_POPUP,
 };
 use windows::core::PCWSTR;
 
@@ -57,64 +57,31 @@ impl Border {
 
     /// Shows the border around the given rectangle with the specified color.
     ///
-    /// `target` is the focused window's HWND. The border is placed just
+    /// `target` is the HWND of the window the border surrounds, focused
+    /// or not. The border is placed just
     /// behind it in z-order and inherits its topmost state so it stays
     /// visible with topmost windows without flickering for normal ones.
     ///
     /// Renders the bitmap before making the window visible to avoid
     /// flickering caused by a stale bitmap being shown at the new size.
-    pub(crate) fn show(&self, rect: &Rect, color: Color, width: i32, radius: i32, target: HWND) {
+    /// Fails when the new bitmap does not reach the overlay; the overlay
+    /// is put in place either way.
+    pub(crate) fn show(
+        &self,
+        rect: &Rect,
+        color: Color,
+        width: i32,
+        radius: i32,
+        target: HWND,
+    ) -> Result<()> {
         let w = rect.width + width * 2;
         let h = rect.height + width * 2;
 
         // Render the new bitmap first so `UpdateLayeredWindow` atomically
         // sets position, size, and pixel content in one call.
-        self.render(rect.x - width, rect.y - width, w, h, color, width, radius);
-
-        // Match the target window's topmost state, then place the border
-        // just behind it so the border is visible around the window but
-        // never covers it or other windows that should be in front.
-        // SAFETY: GetWindowLongPtrW reads the extended style of the target
-        // window to determine whether it is topmost. The HWND is provided
-        // by the caller (the focused window).
-        let target_topmost = unsafe {
-            let ex = GetWindowLongPtrW(target, GWL_EXSTYLE) as u32;
-            (ex & WS_EX_TOPMOST.0) != 0
-        };
-        let insert_after = if target_topmost {
-            HWND_TOPMOST
-        } else {
-            HWND_NOTOPMOST
-        };
-
-        // SAFETY: SetWindowPos repositions the border overlay. The border
-        // HWND is owned by this struct and the target HWND is the caller's
-        // focused window.
-        unsafe {
-            // First set the topmost/non-topmost band.
-            let _ = SetWindowPos(
-                self.hwnd,
-                Some(insert_after),
-                0,
-                0,
-                0,
-                0,
-                SWP_NOACTIVATE
-                    | SWP_SHOWWINDOW
-                    | windows::Win32::UI::WindowsAndMessaging::SWP_NOMOVE
-                    | windows::Win32::UI::WindowsAndMessaging::SWP_NOSIZE,
-            );
-            // Then position just behind the target window.
-            let _ = SetWindowPos(
-                self.hwnd,
-                Some(target),
-                rect.x - width,
-                rect.y - width,
-                w,
-                h,
-                SWP_NOACTIVATE | SWP_SHOWWINDOW,
-            );
-        }
+        let rendered = self.render(rect.x - width, rect.y - width, w, h, color, width, radius);
+        self.restack(rect, width, target);
+        rendered
     }
 
     /// Hides the border.
@@ -135,3 +102,7 @@ impl Drop for Border {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "border/show_tests.rs"]
+mod tests;

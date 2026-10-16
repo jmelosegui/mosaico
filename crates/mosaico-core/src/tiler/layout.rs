@@ -56,7 +56,8 @@ impl Tiler {
     }
 
     /// Emits a placement for every window on the monitor's active
-    /// workspace, each followed by its border so both land together.
+    /// workspace, each followed by its border so both land together. A
+    /// border decided again later in the step is drawn in that place.
     ///
     /// Every window gets a placement, even one already in place: those
     /// are skipped when they are applied, against the window's real

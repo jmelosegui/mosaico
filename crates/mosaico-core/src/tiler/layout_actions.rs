@@ -35,6 +35,13 @@ impl Tiler {
         self.apply_layout_on(plan, mon_idx);
     }
 
+    /// Lays out every monitor again.
+    ///
+    /// Each border keeps what the platform drew of it when it still looks
+    /// the same. Only the user's retile and a display change that changes
+    /// anything have every border drawn from scratch, see
+    /// [`Effect::RedrawBorders`]: a work area or the bar read again, which
+    /// a taskbar change reports several times, draws nothing again.
     pub(super) fn retile_all(&mut self, plan: &mut Plan) {
         for i in 0..self.monitors.len() {
             self.apply_layout_on(plan, i);

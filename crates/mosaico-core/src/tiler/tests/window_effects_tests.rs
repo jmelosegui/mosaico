@@ -294,6 +294,7 @@ fn borders_and_decorations_are_left_to_the_caller() {
                 style: None,
             },
             Effect::DropBorder { window },
+            Effect::RedrawBorders,
             Effect::Undecorate { window },
         ],
         &desktop(),

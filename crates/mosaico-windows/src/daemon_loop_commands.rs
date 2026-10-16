@@ -64,7 +64,9 @@ fn toggle_pause(inputs: &Inputs, hotkeys_paused: &mut bool) {
 /// Retile re-reads the OS work areas and re-reserves the bar before
 /// laying windows out again, so it repairs a tiling area that went stale
 /// (e.g. after a monitor reconnect) instead of re-applying it. When the
-/// monitors cannot be read it still retiles, and reports why.
+/// monitors cannot be read it still retiles, and reports why. The
+/// retile itself then runs as the action, which also has every border
+/// drawn from scratch.
 fn run_action(
     action: &mosaico_core::Action,
     manager: &mut TilingManager,
@@ -74,6 +76,7 @@ fn run_action(
         mosaico_core::log_info!("Retile: re-reading work areas");
         let indices = bar_mgr.bar_monitor_indices().to_vec();
         let reread = manager.reset_and_adjust_work_areas(bar_mgr.bar_height(), &indices);
+        manager.handle_action(action);
         manager.refresh_visible_windows();
         return reread;
     }

@@ -115,6 +115,15 @@ pub enum Effect {
         /// The window the border surrounded.
         window: WindowId,
     },
+    /// Draw each border from scratch the next time it is drawn, even
+    /// one that would look as it does now.
+    ///
+    /// A platform may keep what it drew of a border and only move it
+    /// when the border is drawn again the same way, and what it kept can
+    /// be lost outside mosaico, as when the display changes. The tiler
+    /// asks for this ahead of the borders of a retile the user asks for
+    /// and of a display change that changes anything.
+    RedrawBorders,
 }
 
 /// When a [`Effect::Place`] has to reach the screen.

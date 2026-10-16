@@ -17,6 +17,12 @@ mod adopt_order_kept_tests;
 mod adopt_order_support;
 #[path = "tests/adopt_order_tests.rs"]
 mod adopt_order_tests;
+#[path = "tests/border_once_tests.rs"]
+mod border_once_tests;
+#[path = "tests/border_order_tests.rs"]
+mod border_order_tests;
+#[path = "tests/border_redraw_tests.rs"]
+mod border_redraw_tests;
 #[path = "tests/border_tests.rs"]
 mod border_tests;
 #[path = "tests/corner_tests.rs"]
@@ -45,6 +51,8 @@ mod focus_tests;
 mod global_lineup_tests;
 #[path = "tests/harness.rs"]
 mod harness;
+#[path = "tests/held_border_tests.rs"]
+mod held_border_tests;
 #[path = "tests/hidden_how_tests.rs"]
 mod hidden_how_tests;
 #[path = "tests/hiding_change_record_tests.rs"]

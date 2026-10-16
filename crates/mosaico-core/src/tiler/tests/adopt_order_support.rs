@@ -24,7 +24,7 @@ pub(super) fn posted_move(effects: &[Effect], window: u64) -> Option<Rect> {
 pub(super) fn moves(effects: &[Effect]) -> Vec<String> {
     effects
         .iter()
-        .filter(|e| !matches!(e, Effect::Border { .. }))
+        .filter(|e| !matches!(e, Effect::Border { .. } | Effect::RedrawBorders))
         .map(|e| match *e {
             Effect::PrePlace { window, .. } => format!("post move {}", window.raw()),
             Effect::Place { window, .. } => format!("place {}", window.raw()),

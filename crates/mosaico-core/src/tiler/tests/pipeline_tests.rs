@@ -4,7 +4,7 @@
 use crate::Direction;
 use crate::config::Config;
 
-use super::fake_platform::FakePlatform;
+use super::fake_platform::{Call, FakePlatform};
 use super::manager_support::start;
 use super::*;
 
@@ -63,4 +63,30 @@ fn closing_a_window_right_after_a_move_leaves_no_border_behind() {
         platform.borders()
     );
     assert_eq!(platform.showing_borders(), vec![2]);
+}
+
+#[test]
+fn a_burst_of_moves_draws_each_border_once_when_input_goes_quiet() {
+    // Arrange -- #125
+    let platform = FakePlatform::new(1, &[(1, 0), (2, 0), (3, 0)]);
+    let mut manager = start(&platform, None, &Config::default());
+    platform.take_calls();
+
+    // Act -- two moves of the focused window before input goes quiet.
+    manager.handle_action(&Action::Move(Direction::Right));
+    manager.handle_action(&Action::Move(Direction::Down));
+    manager.flush_pending();
+
+    // Assert
+    let calls = platform.take_calls();
+    for window in [1, 2, 3] {
+        let drawn = calls
+            .iter()
+            .filter(|c| matches!(c, Call::ShowBorder(w, _) if *w == wid(window)))
+            .count();
+        assert_eq!(
+            drawn, 1,
+            "border of {window} drawn {drawn} times: {calls:?}"
+        );
+    }
 }

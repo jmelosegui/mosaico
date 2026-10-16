@@ -88,7 +88,16 @@ impl WindowControl for FakePlatform {
 }
 
 impl Decorations for FakePlatform {
+    /// Draws the border from scratch only when it would look different
+    /// from how it was last drawn.
     fn show_border(&mut self, window: WindowId, style: &BorderStyle) -> Result<()> {
+        let mut drawn = self.shared.drawn.borrow_mut();
+        let last = drawn.entry(window).or_default();
+        if last.needs_render(style) {
+            last.rendered(style, true);
+            self.shared.renders.borrow_mut().push(window);
+        }
+        drop(drawn);
         let call = Call::ShowBorder(window, style.clone());
         let style = Some(style.clone());
         self.change(call, Effect::Border { window, style })
@@ -100,7 +109,12 @@ impl Decorations for FakePlatform {
     }
 
     fn drop_border(&mut self, window: WindowId) -> Result<()> {
+        self.shared.drawn.borrow_mut().remove(&window);
         self.change(Call::DropBorder(window), Effect::DropBorder { window })
+    }
+
+    fn forget_drawn(&mut self) {
+        self.shared.drawn.borrow_mut().clear();
     }
 
     fn set_corners(&mut self, window: WindowId, corners: CornerStyle) -> Result<()> {

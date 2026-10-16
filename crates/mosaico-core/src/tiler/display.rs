@@ -8,7 +8,7 @@ use crate::WindowId;
 
 use super::display_monocle::join_monocle;
 use super::display_rebuild::rebuild_monitors;
-use super::{BarReservation, Display, Plan, Tiler};
+use super::{BarReservation, Display, Effect, Plan, Tiler};
 
 impl Tiler {
     /// Rebuilds the monitor state after the set of monitors changed.
@@ -47,6 +47,9 @@ impl Tiler {
             self.monitors.len(),
             displays.len()
         );
+        // What a platform kept of a border may be lost with the change, so
+        // every border is drawn from scratch.
+        plan.emit(Effect::RedrawBorders);
 
         let focused = self.focused_monitor;
         let in_view = self.monitors.get(focused).map(|m| m.active_workspace);

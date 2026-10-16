@@ -18,17 +18,23 @@ Unfocused borders can be turned off entirely (see
 |------|---------|
 | `crates/mosaico-core/src/decoration.rs` | `Decorations`, the contract for borders and window corners |
 | `crates/mosaico-core/src/tiler/decoration_effects.rs` | `apply_decoration_effect`, which carries out border and corner effects |
+| `crates/mosaico-core/src/tiler/plan_borders.rs` | Keeping one border per window in a step, and where it goes |
+| `crates/mosaico-core/src/tiler/last_drawn.rs` | `LastDrawn`, the style a border was last drawn with |
 | `crates/mosaico-core/src/config/color.rs` | `Color` struct and its hex parser |
 | `crates/mosaico-core/src/config/mod.rs` | `BorderConfig` for color and width settings |
 | `crates/mosaico-windows/src/decorations.rs` | `Win32Decorations`, the Win32 implementation |
 | `crates/mosaico-windows/src/border.rs` | `Border` struct: creating, placing and hiding the overlay |
 | `crates/mosaico-windows/src/border/render.rs` | Painting the border bitmap |
+| `crates/mosaico-windows/src/border/stack.rs` | Putting the overlay just behind its window |
 | `crates/mosaico-windows/src/border/class.rs` | The `MosaicoBorder` window class and its window procedure |
 
 ### Key Types
 
 - `Decorations` -- the core trait the tiler's border and corner effects go through
-- `Win32Decorations` -- one `Border` per bordered window, plus the DWM corner preference
+- `Win32Decorations` -- one overlay per bordered window, a `Border` and the
+  `LastDrawn` style its bitmap shows, plus the DWM corner preference
+- `LastDrawn` -- in `mosaico-core`, decides whether a border needs drawing
+  again or only putting back in place
 - `Border` -- wraps a layered `HWND` overlay window
 - `Color` -- `r`, `g`, `b` fields with `from_hex()` parser, in `mosaico-core`
 
@@ -42,6 +48,7 @@ pub trait Decorations {
     fn show_border(&mut self, window: WindowId, style: &BorderStyle) -> Result<()>;
     fn hide_border(&mut self, window: WindowId) -> Result<()>;
     fn drop_border(&mut self, window: WindowId) -> Result<()>;
+    fn forget_drawn(&mut self);
     fn set_corners(&mut self, window: WindowId, corners: CornerStyle) -> Result<()>;
     fn reset_corners(&mut self, window: WindowId) -> Result<()>;
 }
@@ -57,14 +64,17 @@ The contract, in the trait's docs, spells out what the tiler relies on:
 - Hiding or dropping the border of a window that has none does nothing.
 - Drawing a border fails only when the border cannot be created. A window
   that closed in the meantime is not an error.
+- A platform may keep what it drew of a border, and only move it when
+  the border is drawn again the same way. After `forget_drawn`, the next
+  drawing of each border starts from scratch.
 - A platform that cannot draw borders, or cannot change the corners of
   windows, returns `Error::Unsupported`.
 
 `tiler::apply_decoration_effect` carries out the `Border`, `DropBorder`,
-`Decorate` and `Undecorate` effects through it. A border that cannot be
-created is logged as a warning, unless the platform has no borders at all;
-other failures, such as a window that closed in the meantime, are logged
-for debugging.
+`RedrawBorders`, `Decorate` and `Undecorate` effects through it. A border
+that cannot be created is logged as a warning, unless the platform has no
+borders at all; other failures, such as a window that closed in the
+meantime, are logged for debugging.
 
 ## Border Window
 
@@ -102,8 +112,25 @@ a stale bitmap from the previous size would briefly appear at the new position.
 
 - `Border::new()` -- creates the overlay window (initially hidden)
 - `Border::show(rect, color, width)` -- renders the border bitmap and
-  positions the overlay window over the target rectangle
+  positions the overlay window over the target rectangle; it fails when
+  the bitmap does not reach the overlay, which keeps the one it had and
+  is still put in place
+- `Border::restack(rect, width, target)` -- puts the overlay in its
+  window's topmost band, then just behind its window at `rect`, and only
+  then shows it, with the bitmap it already has, so a hidden border never
+  shows where it was hidden
 - `Border::hide()` -- hides the overlay window via `ShowWindow(SW_HIDE)`
+
+`Win32Decorations` remembers the style each overlay was last rendered with,
+in a `LastDrawn` from `mosaico-core`, which makes the decision: a border
+shown again with a rect of the same size, and the same color, width and
+radius, is only restacked at its rect, because its window may have moved
+in the z-order or to another slot, and a hidden one is shown again by
+that. A layered window keeps the bitmap `UpdateLayeredWindow` gave it when
+it is moved or hidden. Rendering takes tens of milliseconds for a large
+tile, about 30 ms for half a 4K screen in a release build.
+`forget_drawn` starts a new `LastDrawn` for every overlay, so each one
+renders its bitmap the next time it is drawn.
 
 ## Color
 
@@ -132,9 +159,9 @@ does not know or `"none"` on `focused` or `monocle`, is drawn in
 The tiler decides every border and emits it as an effect; in
 `mosaico-windows`, the `Win32Decorations` that `Win32Platform` hands the
 tiling manager keeps a
-`HashMap<WindowId, Border>` keyed by window id, with one entry per
-visible tiled window. The lifecycle is unified through a single entry
-point:
+`HashMap<WindowId, Overlay>` keyed by window id, with one entry per
+visible tiled window: its `Border` and the `LastDrawn` style its bitmap
+shows. The lifecycle is unified through a single entry point:
 
 - `update_border()` -- called after every layout, focus, workspace, or
   display event. It snapshots the active workspace on every monitor,
@@ -143,6 +170,30 @@ point:
   whether it owns focus.
 - `hide_borders()` -- hides every border without dropping it, when the
   tiler stops.
+
+One step often decides a window's border more than once: when the layout
+places the window, when `update_border()` runs after the layout, and again
+after focus moves. The step draws only the last decision for each window,
+once, in the place of its first border after the last `Place` or
+`DropBorder` of that window that comes before that decision. So each
+border lands right after its own window, never before the
+placement it was decided for, and a hide or drop wins over an earlier
+draw.
+
+The user's retile and a display change that changes anything draw every
+border from scratch. They start with `RedrawBorders`, which has the
+platform forget how it drew each border: what it kept may be lost by
+then, as when the display changes, and a retile is how the user sets a
+stale desktop right. The daemon runs the retile action after reading the
+work areas again. Other steps draw from scratch only the borders that
+look different, even when they lay out every window again: reading the
+work areas again, which a taskbar change reports several times,
+reserving the bar and reloading the config.
+
+While a burst of moves is held until input goes quiet, each window's
+border is held with its move: only the latest style, drawn around the slot
+the move lands in. That holds even when a later step, such as a focus
+change, decided the border from where the window still was.
 
 Color selection per window:
 
@@ -234,3 +285,24 @@ In `mosaico-core`, `tiler/tests/decoration_effects_tests.rs` drives
 asked to draw, `tiler/tests/border_tests.rs` checks the colors borders are
 drawn in, including the fallback and `"none"`, and
 `tiler/tests/corner_tests.rs` checks which windows get their corners back.
+`tiler/tests/border_once_tests.rs` checks that opening a window, a retile,
+a focus change and a workspace switch decide each border once, after its
+window's last placement, and `tiler/tests/border_order_tests.rs` that each
+border is drawn right after its own window. `tiler/tests/plan_borders_tests.rs` and
+`tiler/tests/coalesce_border_tests.rs` check which border is kept, in a
+step and while a burst of moves is held. `tiler/tests/held_border_tests.rs`
+checks that a focus change or a border refresh before a held move lands
+still draws each border around its window's new slot, in the right color.
+
+`tiler/tests/last_drawn_tests.rs` checks when a border needs drawing
+again. `tiler/tests/border_redraw_tests.rs` runs the tiling manager on a
+platform that keeps what it drew, and checks that a retile, also after
+reading the work areas again as the daemon runs it, and a display change
+draw every border from scratch, while reading the work areas again,
+reserving the bar and a display change that changes nothing draw none
+again, and a focus change draws only the borders that change. In
+`mosaico-windows`, `border/show_tests.rs` checks that restacking a hidden
+border, as drawing it again the same way does, shows it again, and only
+once it is at its new rect, with overlays of its own off screen, and
+`decorations_tests.rs` that
+forgetting how the borders were drawn renders every one again.

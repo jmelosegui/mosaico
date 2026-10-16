@@ -59,6 +59,19 @@ pub trait Decorations {
     /// drops the border of a window that leaves the screen.
     fn drop_border(&mut self, window: WindowId) -> Result<()>;
 
+    /// Forgets how every border was drawn, so that the next
+    /// [`show_border`](Self::show_border) for each window draws it from
+    /// scratch, even when it would look as it does now. Borders on screen
+    /// stay as they are until then.
+    ///
+    /// A platform may keep what it drew of a border and, when the border
+    /// is drawn again the same way, only move it. What it kept can be
+    /// lost outside mosaico, as when the display changes, so the tiler
+    /// asks for this on a retile the user asks for and on a display change
+    /// that changes anything. A platform that draws every border from
+    /// scratch has nothing to forget.
+    fn forget_drawn(&mut self);
+
     /// Draws the corners of `window` the way `corners` says, see
     /// [`CornerStyle`].
     fn set_corners(&mut self, window: WindowId, corners: CornerStyle) -> Result<()>;
