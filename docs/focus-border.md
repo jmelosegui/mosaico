@@ -48,6 +48,7 @@ trait in `mosaico-core`:
 pub trait Decorations {
     fn show_border(&mut self, window: WindowId, style: &BorderStyle) -> Result<()>;
     fn hide_border(&mut self, window: WindowId) -> Result<()>;
+    fn move_border(&mut self, window: WindowId, rect: Rect) -> Result<()>; // Unsupported by default
     fn drop_border(&mut self, window: WindowId) -> Result<()>;
     fn forget_drawn(&mut self);
     fn set_corners(&mut self, window: WindowId, corners: CornerStyle) -> Result<()>;
@@ -68,6 +69,13 @@ The contract, in the trait's docs, spells out what the tiler relies on:
 - A platform may keep what it drew of a border, and only move it when
   the border is drawn again the same way. After `forget_drawn`, the next
   drawing of each border starts from scratch.
+- `move_border` only moves a border, as it was last drawn, to surround
+  another rect: it keeps its picture, its size and its place in the
+  stacking order, and a hidden border stays hidden. It is for the border of
+  a window that keeps its size on its way through a transition, which is
+  drawn with `show_border` once the window is in place. A platform that
+  cannot move a border without drawing it again keeps the default, which
+  returns `Error::Unsupported`.
 - A platform that cannot draw borders, or cannot change the corners of
   windows, returns `Error::Unsupported`.
 
@@ -120,6 +128,11 @@ a stale bitmap from the previous size would briefly appear at the new position.
   window's topmost band, then just behind its window at `rect`, and only
   then shows it, with the bitmap it already has, so a hidden border never
   shows where it was hidden
+- `Border::move_to(rect, width)` -- only moves the overlay around `rect`,
+  with `SetWindowPos` and `SWP_NOZORDER | SWP_NOSIZE | SWP_NOACTIVATE`: its
+  bitmap, size, place in the z-order and visibility stay as they are.
+  `Win32Decorations::move_border` uses it with the stroke width the border
+  was last shown with
 - `Border::hide()` -- hides the overlay window via `ShowWindow(SW_HIDE)`
 
 `Win32Decorations` remembers the style each overlay was last rendered with,

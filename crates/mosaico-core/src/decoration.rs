@@ -3,7 +3,7 @@
 
 use crate::config::CornerStyle;
 use crate::tiler::BorderStyle;
-use crate::{Result, WindowId};
+use crate::{Rect, Result, WindowId};
 
 /// What the platform draws on and around managed windows: a border
 /// around each one, and the style of its corners.
@@ -53,6 +53,30 @@ pub trait Decorations {
     /// Hides the border around `window`, keeping it to draw again. Does
     /// nothing for a window that has no border.
     fn hide_border(&mut self, window: WindowId) -> Result<()>;
+
+    /// Moves the border around `window`, as it was last drawn, so that it
+    /// surrounds `rect`, the window's visible bounds.
+    ///
+    /// Drawing a border can take tens of milliseconds for a large window,
+    /// and moving one costs about what moving a window does. So the tiler
+    /// moves the border of a window that keeps its size on its way through
+    /// a transition along with it, and draws it with
+    /// [`show_border`](Self::show_border) once the window is in place.
+    ///
+    /// - Only where the border is changes. It keeps the picture and the
+    ///   size it was drawn with, its place in the stacking order, and
+    ///   stays hidden if it is hidden.
+    /// - Does nothing for a window that has no border.
+    /// - A platform that cannot move a border without drawing it again
+    ///   returns [`Error::Unsupported`](crate::Error::Unsupported), which
+    ///   is the default. Such a border stays where it is until it is drawn
+    ///   again.
+    fn move_border(&mut self, window: WindowId, rect: Rect) -> Result<()> {
+        let _ = (window, rect);
+        Err(crate::Error::Unsupported(
+            "moving a border without drawing it",
+        ))
+    }
 
     /// Removes the border around `window` for good, releasing what it
     /// holds. Does nothing for a window that has no border. The tiler

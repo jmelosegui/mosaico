@@ -1,15 +1,28 @@
-//! Putting a border overlay just behind the window it surrounds.
+//! Putting a border overlay just behind the window it surrounds, or
+//! only moving it.
 
 use mosaico_core::Rect;
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::{
     GWL_EXSTYLE, GetWindowLongPtrW, HWND_NOTOPMOST, HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE,
-    SWP_NOSIZE, SWP_SHOWWINDOW, SetWindowPos, WS_EX_TOPMOST,
+    SWP_NOSIZE, SWP_NOZORDER, SWP_SHOWWINDOW, SetWindowPos, WS_EX_TOPMOST,
 };
 
 use super::Border;
 
 impl Border {
+    /// Moves the border so it surrounds `rect` with a stroke `width`
+    /// wide, and changes nothing else: its size, its bitmap, its place in
+    /// the z-order and whether it shows stay as they are.
+    pub(crate) fn move_to(&self, rect: &Rect, width: i32) {
+        let flags = SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOSIZE;
+        // SAFETY: SetWindowPos only moves the border overlay, which this
+        // struct owns.
+        unsafe {
+            let _ = SetWindowPos(self.hwnd, None, rect.x - width, rect.y - width, 0, 0, flags);
+        }
+    }
+
     /// Puts the border just behind `target` and shows it, around `rect`
     /// with a stroke `width` wide, with the bitmap it has.
     ///

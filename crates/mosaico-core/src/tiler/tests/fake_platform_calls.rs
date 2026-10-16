@@ -23,6 +23,7 @@ pub(crate) enum Call {
     MoveCursor(i32, i32),
     ShowBorder(WindowId, BorderStyle),
     HideBorder(WindowId),
+    MoveBorder(WindowId, Rect),
     DropBorder(WindowId),
     SetCorners(WindowId, CornerStyle),
     ResetCorners(WindowId),

@@ -27,6 +27,8 @@ pub(crate) use calls::Call;
 mod calls;
 #[path = "fake_platform_control.rs"]
 mod control;
+#[path = "fake_platform_decorations.rs"]
+mod decorations;
 #[path = "fake_platform_desktop.rs"]
 mod desktop;
 #[path = "fake_platform_frames.rs"]

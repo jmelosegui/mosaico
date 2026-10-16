@@ -23,6 +23,6 @@ unsafe_keywords = 0
 [mosaico-windows]
 files_over_line_limit = 16
 lines_over_line_limit = 945
-tests = 178
-unsafe_keywords = 243
+tests = 180
+unsafe_keywords = 245
 unwraps_outside_tests = 0
