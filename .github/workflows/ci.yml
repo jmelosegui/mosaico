@@ -51,6 +51,11 @@ jobs:
       - name: Metrics
         run: cargo xtask metrics
 
+      # Builds the release binary the way the release workflow does and
+      # fails when it is over its size ceiling.
+      - name: Binary size
+        run: cargo xtask size
+
       - name: CLI tests
         run: cargo test -p mosaico --test cli
 

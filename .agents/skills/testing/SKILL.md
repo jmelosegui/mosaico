@@ -79,6 +79,11 @@ added), record it with `cargo xtask metrics --bless` and commit the baseline wit
 it. An improvement fails until it is recorded, so it cannot slip back unnoticed. Add a scenario for any new kind of
 work the tiler does.
 
+`cargo xtask size` builds the release binary as the release workflow does and fails when it is over 2,000,000
+bytes (`MAX_BYTES` in `xtask/src/size.rs`). It is a ceiling, not a baseline, because the size changes with every
+Rust toolchain. It takes a release build, so CI runs it rather than every local check. When it fails, find what grew
+with `cargo bloat --release -p mosaico --crates`.
+
 ## Design for isolation
 
 Every component must be testable on its own: no desktop, network, real config directory or running daemon.

@@ -40,7 +40,8 @@ Ground rules:
 - Every bug fix starts with a test that reproduces the reported behaviour and fails on `main`. The fix then makes it
   pass without editing the test. See [fixing-a-bug](.agents/skills/fixing-a-bug/SKILL.md).
 - Keep warnings at zero: `cargo fmt --all -- --check` and `cargo clippy --all-targets -- -D warnings` must pass.
-- Metrics must not regress: `cargo xtask metrics` must pass. See [testing](.agents/skills/testing/SKILL.md#metrics).
+- Metrics must not regress: `cargo xtask metrics` must pass, and the release binary must stay under 2,000,000 bytes
+  (`cargo xtask size`). See [testing](.agents/skills/testing/SKILL.md#metrics).
 - Never run `cargo test` or `cargo test --workspace` unfiltered. Some suites start a real daemon that tiles the
   live desktop. See [testing](.agents/skills/testing/SKILL.md) for the safe set.
 - Do not commit unless the user asks. Commits are GPG-signed conventional commits.
