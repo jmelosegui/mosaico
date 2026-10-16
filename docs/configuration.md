@@ -196,9 +196,8 @@ All loaders follow the same pattern:
    the theme, so `load_config()` validates the defaults it falls back to as
    well. The bar defaults are within every limit already, so the bar falls
    back to them as they are. Its colors are filled from the theme when the
-   bar is created, reloaded or rebuilt, for a loaded bar and the defaults
-   alike; widget colors given by name are not refilled after a theme change
-   (#109)
+   bar is created, reloaded or rebuilt, and again when the theme changes,
+   for a loaded bar and the defaults alike
 
 ### Files a Newer Version Updates
 
@@ -320,7 +319,8 @@ same way.
 - **config.toml**: gap/ratio, hiding behaviour, border settings, and theme
   are reloaded. The tiling manager calls `reload_config()` which updates the
   layout gap/ratio, hiding strategy, and `BorderConfig`, then retiles all
-  windows. If the theme changed, bar colors are re-resolved. Hiding changes
+  windows. Bar colors, the `[colors]` table and each widget's `color`, are
+  resolved again against the theme, so they follow a theme change. Hiding changes
   take effect on the next workspace switch; a strategy the platform does not
   have is swapped for one it has, with a warning in the log, as at startup.
   The workspace mode

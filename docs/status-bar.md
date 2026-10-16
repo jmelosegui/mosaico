@@ -234,19 +234,18 @@ its side is added back on the next start; to hide a widget, set
   bar, 0 otherwise, so a bar that no monitor gets reserves no space (the
   tiler reads an empty monitor list as every monitor)
 - `bar_monitor_indices()` -- returns which monitor indices have bars
-- `resolve_colors(theme)` -- re-resolves the `[colors]` table on theme
-  change (widget colors keep their shade, see below)
+- `resolve_colors(theme)` -- re-resolves every color on theme change, the
+  `[colors]` table and each widget's `color`
 - `rebuild_for_monitors(monitor_rects, theme)` -- replaces the bars after a
   display change
 - `reload(config)` -- recreates bars with new config, returns new height
 - `hide_all()` -- hides all bars on shutdown
 
 A monitor whose bar cannot be made goes without one, and the failure is
-logged. The manager keeps the `[colors]` table as loaded (`raw_colors`)
-apart from the resolved one, so a theme change re-resolves those colors
-from the file. Widget colors are not kept that way: a widget `color` given
-by name keeps the shade of the theme it was first resolved with until the
-daemon restarts (#109). The daemon creates the manager with
+logged. The manager keeps the config as loaded (`raw_config`) apart from
+the resolved one, so a theme change resolves every color again from what
+`bar.toml` says: a color given by name follows the new theme, and an empty
+one takes the new theme's default. The daemon creates the manager with
 `Win32BarRenderer` and `Win32SystemInfo`.
 
 ## Work Area Reservation
@@ -298,6 +297,6 @@ See [configuration.md](configuration.md) for the full `bar.toml` format.
   so every monitor shows the same CPU, memory and time.
 - **One `Bar` per monitor** rather than a single shared bar, because each
   monitor has independent workspace state and work area.
-- **Raw `[colors]` stored separately** from the resolved ones lets a theme
-  change re-resolve them without re-reading `bar.toml`. Widget colors are
-  not stored that way yet (#109).
+- **The raw config stored separately** from the resolved one lets a theme
+  change re-resolve every color, widget colors included, without
+  re-reading `bar.toml`.
