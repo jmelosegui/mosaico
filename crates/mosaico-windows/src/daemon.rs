@@ -1,7 +1,9 @@
 use mosaico_core::pid;
+use mosaico_core::update::Installer;
 use mosaico_core::{Instance, Result};
 
 use crate::dpi;
+use crate::install::RenameInstaller;
 use crate::instance_guard::InstanceGuard;
 
 #[path = "daemon_inputs.rs"]
@@ -47,17 +49,15 @@ pub fn run() -> Result<()> {
     result
 }
 
-/// Removes a leftover `.exe.old` backup from a previous self-update.
+/// Removes what a previous self-update left beside the executable.
 ///
-/// The update command renames the current binary to `.exe.old` before
-/// writing the new one. On Windows the `.old` file may still be locked
-/// at update time, so we retry deletion here at the next daemon start.
+/// The update command replaces the running binary, and the old file may
+/// still be locked at update time, so its deletion is retried here at
+/// the next daemon start. Best effort, as before: a leftover only takes
+/// disk space, and the next start tries again.
 fn clean_old_binary() {
     if let Ok(exe) = std::env::current_exe() {
-        let old = exe.with_extension("exe.old");
-        if old.exists() {
-            let _ = std::fs::remove_file(&old);
-        }
+        let _ = RenameInstaller.remove_leftovers(&exe);
     }
 }
 

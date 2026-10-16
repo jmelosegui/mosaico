@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -5,18 +6,25 @@ use std::sync::mpsc;
 use std::thread;
 
 use mosaico_core::Action;
+use mosaico_core::http::HttpClient;
+use mosaico_core::{community_rules, config, update};
 
 use crate::config_watcher::ConfigReload;
 
 use super::daemon_ipc;
 use super::daemon_types::DaemonMsg;
 
+/// The folder of the mosaico-rules repository with the rules for Windows.
+const COMMUNITY_RULE_SET: &str = "windows";
+
 /// Spawns a background thread for the version check and returns the shared text.
-pub(super) fn spawn_version_check() -> Arc<Mutex<String>> {
+///
+/// The thread takes `http` with it, so the client must be `Send`.
+pub(super) fn spawn_version_check(http: impl HttpClient + Send + 'static) -> Arc<Mutex<String>> {
     let update_text: Arc<Mutex<String>> = Arc::new(Mutex::new(String::new()));
     let update_text_writer = update_text.clone();
     thread::spawn(move || {
-        if let Some(tag) = crate::version_check::check_for_update()
+        if let Ok(Some(tag)) = update::newer_release(&http, env!("CARGO_PKG_VERSION"))
             && let Ok(mut text) = update_text_writer.lock()
         {
             *text = format!("{tag} available");
@@ -25,10 +33,21 @@ pub(super) fn spawn_version_check() -> Arc<Mutex<String>> {
     update_text
 }
 
-/// Spawns a background thread to download community rules.
-pub(super) fn spawn_rules_download(tx: mpsc::Sender<DaemonMsg>) {
+/// Spawns a background thread that downloads the community rules to
+/// `cache` and then reloads the merged rules.
+///
+/// Without a `cache` there is nowhere to keep them, so nothing is
+/// downloaded. The thread takes `http` with it, so the client must be
+/// `Send`.
+pub(super) fn spawn_rules_download(
+    http: impl HttpClient + Send + 'static,
+    cache: Option<PathBuf>,
+    tx: mpsc::Sender<DaemonMsg>,
+) {
     thread::spawn(move || {
-        if let Some(rules) = crate::community_rules::download() {
+        let Some(cache) = cache else { return };
+        if community_rules::download(&http, COMMUNITY_RULE_SET, &cache).is_ok() {
+            let rules = config::load_merged_rules();
             let _ = tx.send(DaemonMsg::Reload(Box::new(ConfigReload::Rules(rules))));
         }
     });

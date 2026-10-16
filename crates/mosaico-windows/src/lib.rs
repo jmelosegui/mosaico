@@ -16,9 +16,6 @@ pub mod bar_manager;
 /// Border overlay windows for visual focus indicators.
 pub mod border;
 
-/// Downloads community rules from the mosaico-rules repository.
-pub mod community_rules;
-
 /// Config file watcher for hot-reloading.
 pub mod config_watcher;
 
@@ -46,7 +43,7 @@ pub mod files;
 /// Window frame and border offset helpers.
 mod frame;
 
-/// Minimal HTTPS GET client using WinHTTP.
+/// The HTTP client, through WinHTTP.
 pub mod http;
 
 /// Global hotkeys registered with `RegisterHotKey`.
@@ -60,6 +57,9 @@ mod keys;
 
 /// Win32 event translation.
 mod event;
+
+/// Installing a downloaded release over the running executable.
+pub mod install;
 
 /// Single-instance daemon guard (named kernel mutex).
 pub mod instance_guard;
@@ -93,9 +93,6 @@ pub mod process;
 
 /// Tiling manager that applies layouts to managed windows.
 pub mod tiling;
-
-/// GitHub release version check.
-pub mod version_check;
 
 /// Window type wrapping a Win32 `HWND`.
 pub mod window;

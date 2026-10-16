@@ -4,6 +4,8 @@
 
 /// User-triggerable actions (focus, move, workspace switch).
 pub mod action;
+/// Downloading the community window rules.
+pub mod community_rules;
 /// Configuration loading and types.
 pub mod config;
 /// The contract for drawing borders and corners on windows.
@@ -16,6 +18,8 @@ pub mod event;
 pub mod hiding;
 /// Hotkeys: key names, and the contract for claiming them.
 pub mod hotkey;
+/// Fetching files from web servers.
+pub mod http;
 /// Opaque window and monitor ids.
 pub mod id;
 /// Which daemon instance a process belongs to.
@@ -38,6 +42,8 @@ pub mod spatial;
 pub mod system;
 /// The tiling state machine.
 pub mod tiler;
+/// Finding newer releases of mosaico and installing them.
+pub mod update;
 /// Build-time version information.
 pub mod version;
 /// The contract for changing windows through the platform.

@@ -1,13 +1,16 @@
-//! Fakes for testing commands without a daemon, processes or registry.
+//! Fakes for testing commands without a daemon, processes, registry or
+//! network.
 //!
 //! [`World`] stands in for everything outside the CLI at once (the
 //! daemon, the process table, the autostart registration, program files,
-//! the desktop and the clock) so a test can describe a situation, such
-//! as "the daemon stopped answering but its process is still alive", in
-//! a few fields.
+//! the desktop, GitHub and the clock) so a test can describe a
+//! situation, such as "the daemon stopped answering but its process is
+//! still alive", in a few fields.
 
 #[path = "test_support_autostart.rs"]
 mod autostart_fake;
+#[path = "test_support_release.rs"]
+mod release;
 mod windows;
 
 use std::cell::{Cell, RefCell};
@@ -25,6 +28,7 @@ use super::context::{Clock, Context, Daemon, Exit};
 use super::fake_desktop::FakeDesktop;
 
 pub use autostart_fake::{EXE, MOVED_AWAY};
+pub use release::{ASSET, BINARY, FakeInstaller, Releases};
 
 /// How long a fake process stays alive.
 #[derive(Debug, Clone, Copy)]
@@ -82,6 +86,10 @@ pub struct World {
     pub files: RefCell<Vec<PathBuf>>,
     /// Whether the executable commands run from cannot be found.
     pub exe_missing: Cell<bool>,
+    /// The releases GitHub has published.
+    pub releases: Releases,
+    /// How releases are installed.
+    pub installer: FakeInstaller,
     /// The fake time.
     pub now: Cell<Instant>,
 }
@@ -103,6 +111,8 @@ impl Default for World {
             place_error: RefCell::default(),
             files: RefCell::default(),
             exe_missing: Cell::new(false),
+            releases: Releases::default(),
+            installer: FakeInstaller::default(),
             now: Cell::new(Instant::now()),
         }
     }
@@ -248,7 +258,8 @@ impl Harness {
             pid_file: self.pid_file.clone(),
             config_dir: "C:\\config\\mosaico".into(),
             clock: &self.world,
-            check_update: &|| None,
+            http: &self.world.releases,
+            installer: &self.world.installer,
             logo: &|_| {},
             out: &mut self.out,
             err: &mut self.err,

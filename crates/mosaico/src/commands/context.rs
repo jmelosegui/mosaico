@@ -1,20 +1,22 @@
 //! What a command needs from the outside world.
 //!
 //! Commands take a [`Context`] instead of reaching for the daemon, the
-//! process table, the registry, the desktop, the clock or the terminal
-//! directly, and return an [`Exit`] instead of ending the process.
-//! `main` builds the real context and turns the exit into a status code;
-//! the unit tests build one from fakes.
+//! process table, the registry, the desktop, the network, the clock or
+//! the terminal directly, and return an [`Exit`] instead of ending the
+//! process. `main` builds the real context and turns the exit into a
+//! status code; the unit tests build one from fakes.
 
 use std::io::Write;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 use mosaico_core::WindowControl;
+use mosaico_core::http::HttpClient;
 use mosaico_core::ipc::{Command, IpcClient, IpcError, Response};
 use mosaico_core::pid::PidFile;
 use mosaico_core::system::{Autostart, FileProbe, ProcessControl};
 use mosaico_core::tiler::Enumerator;
+use mosaico_core::update::Installer;
 
 /// How a command ended.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -103,7 +105,7 @@ pub struct Context<'a> {
     /// the system scales them for such a process.
     pub desktop: &'a dyn Enumerator,
     /// Finds the mosaico executable this command runs from, which is what
-    /// autostart registers.
+    /// autostart registers and what `update` replaces.
     pub current_exe: &'a dyn Fn() -> std::io::Result<PathBuf>,
     /// Looks at program files without waiting on the network, for telling
     /// whether autostart starts this mosaico.
@@ -114,8 +116,10 @@ pub struct Context<'a> {
     pub config_dir: PathBuf,
     /// Time, for polling.
     pub clock: &'a dyn Clock,
-    /// Looks up a newer release, returning its tag.
-    pub check_update: &'a dyn Fn() -> Option<String>,
+    /// The web, for looking up and downloading releases.
+    pub http: &'a dyn HttpClient,
+    /// How this platform's release is packaged and installed.
+    pub installer: &'a dyn Installer,
     /// Draws the mosaico logo.
     pub logo: &'a dyn Fn(&mut dyn Write),
     /// Standard output.

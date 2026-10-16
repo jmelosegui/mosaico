@@ -1,5 +1,7 @@
 use std::time::Duration;
 
+use mosaico_core::update;
+
 use super::context::{Context, Exit, complain, say};
 
 /// How long to wait for a freshly launched daemon to answer.
@@ -97,7 +99,7 @@ fn print_banner(cx: &mut Context, pid: u32) {
     say!(cx, "  {d}Repo{r}     https://github.com/jmelosegui/mosaico");
     say!(cx, "  {d}Tip{r}      {tip}");
 
-    if let Some(remote) = (cx.check_update)() {
+    if let Ok(Some(remote)) = update::newer_release(cx.http, env!("CARGO_PKG_VERSION")) {
         let y = "\x1b[33m"; // Yellow
         let local = env!("CARGO_PKG_VERSION");
         say!(cx, "");

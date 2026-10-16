@@ -1,167 +1,105 @@
 //! Self-update command: downloads and installs the latest release.
 //!
 //! Checks GitHub for a newer version, stops the daemon if running,
-//! downloads the release zip, replaces the binary via rename-then-copy,
-//! and restarts the daemon if it was running before the update.
+//! downloads this platform's release archive, has the platform replace
+//! the running binary with the one in it, and restarts the daemon if it
+//! was running before the update.
 
-use std::io::Read;
+use std::fmt::Display;
 
-use super::context::{Context, Exit};
+use mosaico_core::update;
 
-const GITHUB_HOST: &str = "github.com";
-const DOWNLOAD_TIMEOUT_MS: i32 = 60_000;
+use super::context::{Context, Exit, complain, say};
 
 /// Runs the full update cycle.
 pub fn execute(cx: &mut Context, force: bool) -> Exit {
     // 1. Check for update.
-    print!("Checking for updates...");
-    let tag = match mosaico_windows::version_check::fetch_latest_tag() {
-        Some(t) => t,
-        None => {
-            println!(" failed.");
-            eprintln!("Error: could not reach GitHub to check for updates.");
+    let _ = write!(cx.out, "Checking for updates...");
+    let tag = match update::latest_tag(cx.http) {
+        Ok(t) => t,
+        Err(_) => {
+            say!(cx, " failed.");
+            complain!(cx, "Error: could not reach GitHub to check for updates.");
             return Exit::Failure;
         }
     };
 
-    let remote = tag.strip_prefix('v').unwrap_or(&tag);
     let local = env!("CARGO_PKG_VERSION");
-    let is_update = mosaico_core::version::is_newer(remote, local);
+    let is_update = update::is_newer_tag(&tag, local);
 
     if !is_update && !force {
-        println!();
-        println!("You are already on the latest version (v{local}).");
+        say!(cx, "");
+        say!(cx, "You are already on the latest version (v{local}).");
         return Exit::Success;
     }
 
     if is_update {
-        println!(" v{local} -> {tag}.");
+        say!(cx, " v{local} -> {tag}.");
     } else {
-        println!(" reinstalling v{local}.");
+        say!(cx, " reinstalling v{local}.");
     }
 
-    // 2. Was the daemon running?
-    let daemon_was_running = cx.daemon.is_running();
+    // 2. Make sure this platform can install it before stopping anything.
+    if let Err(e) = cx.installer.asset_name() {
+        return fail(cx, e, false);
+    }
 
     // 3. Stop daemon if running.
+    let daemon_was_running = cx.daemon.is_running();
     if daemon_was_running {
-        println!("Stopping daemon...");
+        say!(cx, "Stopping daemon...");
         super::stop::execute(cx);
     }
 
-    // 4. Download the release zip.
-    println!("Downloading {tag}...");
-    let zip_bytes = match download_release(&tag) {
+    // 4. Download this platform's release and take the binary out of it.
+    say!(cx, "Downloading {tag}...");
+    let exe_bytes = match update::download_binary(cx.http, cx.installer, &tag) {
         Ok(bytes) => bytes,
-        Err(e) => {
-            eprintln!("Error: {e}");
-            print_recovery_hint(daemon_was_running);
-            return Exit::Failure;
-        }
+        Err(e) => return fail(cx, e, daemon_was_running),
     };
 
-    // 5. Extract mosaico.exe from the zip.
-    let exe_bytes = match extract_exe(&zip_bytes) {
-        Ok(bytes) => bytes,
-        Err(e) => {
-            eprintln!("Error: {e}");
-            print_recovery_hint(daemon_was_running);
-            return Exit::Failure;
-        }
-    };
-
-    // 6. Replace the running binary.
-    let current_exe = match std::env::current_exe() {
+    // 5. Replace the running binary.
+    let current_exe = match (cx.current_exe)() {
         Ok(p) => p,
         Err(e) => {
-            eprintln!("Error: cannot determine current exe path: {e}");
-            print_recovery_hint(daemon_was_running);
-            return Exit::Failure;
+            let reason = format!("cannot determine current exe path: {e}");
+            return fail(cx, reason, daemon_was_running);
         }
     };
 
-    println!("Installing to {}...", current_exe.display());
-    if let Err(e) = install_exe(&current_exe, &exe_bytes) {
-        eprintln!("Error: {e}");
-        print_recovery_hint(daemon_was_running);
-        return Exit::Failure;
+    say!(cx, "Installing to {}...", current_exe.display());
+    if let Err(e) = cx.installer.replace(&current_exe, &exe_bytes) {
+        return fail(cx, e, daemon_was_running);
     }
 
     if is_update {
-        println!("Updated successfully: v{local} -> {tag}.");
+        say!(cx, "Updated successfully: v{local} -> {tag}.");
     } else {
-        println!("Reinstalled v{local}.");
+        say!(cx, "Reinstalled v{local}.");
     }
 
-    // 7. Restart daemon if it was running.
+    // 6. Restart daemon if it was running.
     if daemon_was_running {
-        println!("Restarting daemon...");
+        say!(cx, "Restarting daemon...");
         return super::start::execute(cx);
     }
     Exit::Success
 }
 
-/// Downloads the release zip from GitHub.
-fn download_release(tag: &str) -> Result<Vec<u8>, String> {
-    let path = format!("/jmelosegui/mosaico/releases/download/{tag}/mosaico-windows-amd64.zip");
-    mosaico_windows::http::get_bytes(GITHUB_HOST, &path, DOWNLOAD_TIMEOUT_MS)
-}
-
-/// Extracts `mosaico.exe` from a zip archive.
-fn extract_exe(zip_bytes: &[u8]) -> Result<Vec<u8>, String> {
-    let reader = std::io::Cursor::new(zip_bytes);
-    let mut archive =
-        zip::ZipArchive::new(reader).map_err(|e| format!("invalid zip archive: {e}"))?;
-
-    for i in 0..archive.len() {
-        let mut file = archive
-            .by_index(i)
-            .map_err(|e| format!("cannot read zip entry: {e}"))?;
-
-        let name = file.name().to_lowercase();
-        if name == "mosaico.exe" || name.ends_with("/mosaico.exe") {
-            let mut buf = Vec::with_capacity(file.size() as usize);
-            file.read_to_end(&mut buf)
-                .map_err(|e| format!("cannot extract mosaico.exe: {e}"))?;
-            return Ok(buf);
-        }
-    }
-
-    Err("mosaico.exe not found in zip archive".into())
-}
-
-/// Replaces the current binary using rename-then-write.
-///
-/// Windows allows renaming a running `.exe` but not overwriting it.
-/// We rename the current binary to `.old`, write the new one, then
-/// try to delete the backup.
-fn install_exe(current_exe: &std::path::Path, exe_bytes: &[u8]) -> Result<(), String> {
-    let backup = current_exe.with_extension("exe.old");
-
-    // Remove leftover backup from a previous update.
-    let _ = std::fs::remove_file(&backup);
-
-    // Rename the running binary out of the way.
-    std::fs::rename(current_exe, &backup).map_err(|e| format!("cannot rename current exe: {e}"))?;
-
-    // Write the new binary.
-    if let Err(e) = std::fs::write(current_exe, exe_bytes) {
-        // Attempt rollback.
-        let _ = std::fs::rename(&backup, current_exe);
-        return Err(format!("cannot write new exe: {e}"));
-    }
-
-    // Try to delete the backup (may fail if still locked).
-    let _ = std::fs::remove_file(&backup);
-
-    Ok(())
-}
-
-/// Prints a hint about recovery when the update fails after the
-/// daemon was stopped.
-fn print_recovery_hint(daemon_was_running: bool) {
+/// Reports why the update failed and, when the daemon was stopped for
+/// it, how to get it back.
+fn fail(cx: &mut Context, reason: impl Display, daemon_was_running: bool) -> Exit {
+    complain!(cx, "Error: {reason}");
     if daemon_was_running {
-        eprintln!("The daemon was stopped before the update failed.");
-        eprintln!("Run 'mosaico start' to restart with the current version.");
+        complain!(cx, "The daemon was stopped before the update failed.");
+        complain!(
+            cx,
+            "Run 'mosaico start' to restart with the current version."
+        );
     }
+    Exit::Failure
 }
+
+#[cfg(test)]
+#[path = "tests/update_tests.rs"]
+mod tests;

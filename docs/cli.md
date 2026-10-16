@@ -39,9 +39,12 @@ Commands do not reach for the OS themselves. They take a
 (`mosaico_core::system::Autostart`), window control
 (`mosaico_core::WindowControl`), the windows and monitors on the desktop
 (`mosaico_core::tiler::Enumerator`), the path of the running executable
-(`current_exe`, which is what autostart registers), file checks that never
-wait on the network (`mosaico_core::system::FileProbe`, for the autostart
-check), the instance's `PidFile`, a clock, the update check, the logo, and
+(`current_exe`, which is what autostart registers and what `update`
+replaces), file checks that never wait on the network
+(`mosaico_core::system::FileProbe`, for the autostart check), the
+instance's `PidFile`, a clock, the HTTP client that looks up and downloads
+releases (`mosaico_core::http::HttpClient`), how this platform's release is
+packaged and installed (`mosaico_core::update::Installer`), the logo, and
 the output and error streams. They return an `Exit` (`Success` or
 `Failure`), and only `main` calls `std::process::exit`.
 
@@ -50,16 +53,17 @@ in the CLI that picks a platform implementation. Commands that move windows
 or show where windows and monitors are run through `platform::run_on_desktop`,
 which first makes the process DPI aware so coordinates match the daemon's.
 The unit tests build one from `commands/test_support.rs`, a fake `World`
-standing in for the daemon, processes, registry, desktop and clock, and
-`commands/fake_desktop.rs`, a fake list of windows and monitors, so `start`,
-`stop`, `status`, `autostart`, `action`, `pause`, `debug move`, `debug list`
-and `doctor`'s autostart, daemon and monitor checks are tested without a
-daemon or a desktop.
+standing in for the daemon, processes, registry, program files, desktop,
+GitHub, the release installer and clock, and `commands/fake_desktop.rs`, a
+fake list of windows and monitors, so `start`, `stop`, `status`,
+`autostart`, `action`,
+`pause`, `update`, `debug move`, `debug list` and `doctor`'s autostart,
+daemon and monitor checks are tested without a daemon, a desktop or a
+network.
 
-Still calling the platform crate directly: `daemon` (it is the daemon),
-`debug events`' Ctrl+C handler and window titles, and `update`'s version
-lookup and download, which wait for the signal (#48) and HTTP (#54)
-contracts. `debug events` gets its event source from
+Still calling the platform crate directly: `daemon` (it is the daemon), and
+`debug events`' Ctrl+C handler and window titles, which wait for the signal
+contract (#48). `debug events` gets its event source from
 `platform::event_source()`.
 
 ### Key Types
@@ -95,8 +99,9 @@ binary with the hidden `daemon` subcommand using Windows process creation flags
 On success, prints a startup banner showing the ASCII logo, config directory,
 PID, repository URL, and a rotating tip. Tips cycle based on the current
 timestamp so users see a different one each launch. After the banner, a
-version check queries the GitHub releases API (via `version_check` module)
-and prints an update notice if a newer release exists.
+version check queries the GitHub releases API (`update::newer_release` in
+`mosaico-core`, through the platform's HTTP client) and prints an update
+notice if a newer release exists.
 
 If a daemon is already running (detected via IPC pipe check), it reports the
 existing state instead of starting a second instance.
@@ -188,10 +193,18 @@ it was running before.
 The `--force` flag reinstalls even if already on the latest version, useful for
 recovering a corrupted binary or verifying the update mechanism.
 
-The self-replacement works by renaming the running `mosaico.exe` to
-`mosaico.exe.old` (Windows allows renaming but not overwriting a locked file),
-then writing the new binary in its place. The `.old` backup is cleaned up
-immediately or on the next daemon start.
+The command itself is the same on every platform. Which release archive it
+downloads, which file in it is the binary, and how that binary replaces the
+running one come from the platform's `Installer` (`mosaico_core::update`). On a
+platform that cannot update itself, it says so before it stops the daemon or
+downloads anything.
+
+On Windows the archive is the one for the CPU the build is for:
+`mosaico-windows-amd64.zip` for x86-64, the only one published so far, or
+`mosaico-windows-arm64.zip` for ARM64. The self-replacement
+works by renaming the running `mosaico.exe` to `mosaico.exe.old` (Windows allows
+renaming but not overwriting a locked file), then writing the new binary in its
+place. The `.old` backup is cleaned up immediately or on the next daemon start.
 
 ### `mosaico pause`
 
