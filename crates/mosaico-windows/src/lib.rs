@@ -49,23 +49,32 @@ pub mod http;
 /// Global hotkey registration.
 pub mod hotkey;
 
+/// The thread that owns the global hotkeys.
+mod hotkey_thread;
+
 /// Key name to virtual key code mapping.
 pub mod keys;
 
 /// Win32 event translation.
-pub mod event;
+mod event;
 
 /// Single-instance daemon guard (named kernel mutex).
 pub mod instance_guard;
 
-/// Win32 event loop (SetWinEventHook + message pump).
-pub mod event_loop;
+/// Window events from Win32 event hooks and broadcasts.
+pub mod event_source;
 
 /// IPC via Named Pipes.
 pub mod ipc;
 
+/// Threads that own Win32 state delivered through a message queue.
+mod message_thread;
+
 /// Monitor work area queries.
 mod monitor;
+
+/// The window under the mouse pointer, for focus-follows-mouse.
+pub mod pointer;
 
 /// Workarounds for Chromium-based windows.
 mod chromium;

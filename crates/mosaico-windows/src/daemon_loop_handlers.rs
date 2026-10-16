@@ -5,6 +5,8 @@ use crate::bar_manager::BarManager;
 use crate::enumerate::WindowsEnumerator;
 use crate::tiling::TilingManager;
 
+use super::daemon_inputs::Inputs;
+
 /// Processes a single event. Returns `true` if the bar should be refreshed.
 ///
 /// Bar updates are deferred to the caller so the bar is only refreshed
@@ -56,17 +58,17 @@ pub(super) fn handle_action(
     action: mosaico_core::Action,
     manager: &mut TilingManager,
     bar_mgr: &mut BarManager,
-    event_loop: &crate::event_loop::EventLoopHandle,
+    inputs: &Inputs,
     hotkeys_paused: &mut bool,
     get_update: &dyn Fn() -> String,
 ) {
     if action == mosaico_core::Action::TogglePause {
         if *hotkeys_paused {
-            event_loop.unpause_hotkeys();
+            inputs.unpause_hotkeys();
             *hotkeys_paused = false;
             mosaico_core::log_info!("Hotkeys unpaused");
         } else {
-            event_loop.pause_hotkeys();
+            inputs.pause_hotkeys();
             *hotkeys_paused = true;
             mosaico_core::log_info!("Hotkeys paused");
         }
@@ -97,7 +99,7 @@ pub(super) fn handle_command(
     command: &Command,
     manager: &mut TilingManager,
     bar_mgr: &mut BarManager,
-    event_loop: &crate::event_loop::EventLoopHandle,
+    inputs: &Inputs,
     hotkeys_paused: &mut bool,
     get_update: &dyn Fn() -> String,
 ) -> Option<Response> {
@@ -124,7 +126,7 @@ pub(super) fn handle_command(
         Command::Inspect => Some(Response::ok_with_message(manager.inspect_state())),
         Command::PauseHotkeys => {
             if !*hotkeys_paused {
-                event_loop.pause_hotkeys();
+                inputs.pause_hotkeys();
                 *hotkeys_paused = true;
                 mosaico_core::log_info!("Hotkeys paused via CLI");
             }
@@ -133,7 +135,7 @@ pub(super) fn handle_command(
         }
         Command::UnpauseHotkeys => {
             if *hotkeys_paused {
-                event_loop.unpause_hotkeys();
+                inputs.unpause_hotkeys();
                 *hotkeys_paused = false;
                 mosaico_core::log_info!("Hotkeys unpaused via CLI");
             }
@@ -148,7 +150,7 @@ pub(super) fn handle_reload(
     manager: &mut TilingManager,
     bar_mgr: &mut BarManager,
     current_theme: &mut mosaico_core::config::Theme,
-    event_loop: &crate::event_loop::EventLoopHandle,
+    inputs: &mut Inputs,
     hotkeys_paused: bool,
     get_update: &dyn Fn() -> String,
 ) {
@@ -156,7 +158,7 @@ pub(super) fn handle_reload(
         crate::config_watcher::ConfigReload::Config(cfg) => {
             *current_theme = cfg.theme.resolve();
             manager.reload_config(&cfg);
-            event_loop.toggle_focus_follows_mouse(cfg.mouse.focus_follows_mouse);
+            inputs.set_focus_follows_mouse(cfg.mouse.focus_follows_mouse);
             // Theme may have changed — re-resolve bar colors.
             bar_mgr.resolve_colors(*current_theme);
             bar_mgr.update(&manager.bar_states(&get_update(), hotkeys_paused));

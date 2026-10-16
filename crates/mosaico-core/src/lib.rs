@@ -10,7 +10,7 @@ pub mod config;
 pub mod decoration;
 /// The error type shared by core and the platform contracts.
 pub mod error;
-/// Window lifecycle events from the platform.
+/// Window events, and the sources that report them.
 pub mod event;
 /// The ways a platform can hide windows, and what each one reports.
 pub mod hiding;

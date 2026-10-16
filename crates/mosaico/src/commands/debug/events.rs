@@ -1,23 +1,22 @@
 use std::sync::mpsc;
 
+use mosaico_core::event::EventSource;
 use mosaico_windows::Window as WinWindow;
 
 /// Watches window events in real time. Press Ctrl+C to stop.
-pub fn execute() {
+pub fn execute(source: &dyn EventSource) {
     println!("Watching window events (press Ctrl+C to stop)...\n");
 
     let (tx, rx) = mpsc::channel();
-    // Action channel is unused in debug mode — no hotkeys needed.
-    let (action_tx, _action_rx) = mpsc::channel();
 
-    let event_loop = match mosaico_windows::event_loop::start(tx, action_tx, Vec::new(), false) {
-        Ok(handle) => handle,
+    let watch = match source.start(tx) {
+        Ok(watch) => watch,
         Err(e) => {
             eprintln!("Failed to start event loop: {e}");
             return;
         }
     };
-    if let Some(e) = event_loop.sink_error() {
+    if let Some(e) = watch.display_error() {
         eprintln!("warning: display and work area changes will not be shown: {e}");
     }
 
@@ -47,5 +46,5 @@ pub fn execute() {
         }
     }
 
-    event_loop.stop();
+    watch.stop();
 }

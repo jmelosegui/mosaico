@@ -163,7 +163,7 @@ fn main() {
         Commands::Debug {
             command: DebugCommands::Events,
         } => {
-            commands::debug::events::execute();
+            commands::debug::events::execute(&platform::event_source());
             Exit::Success
         }
         Commands::Debug {

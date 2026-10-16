@@ -3,7 +3,8 @@ use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::{
     EVENT_OBJECT_CREATE, EVENT_OBJECT_DESTROY, EVENT_OBJECT_HIDE, EVENT_OBJECT_LOCATIONCHANGE,
     EVENT_OBJECT_NAMECHANGE, EVENT_OBJECT_SHOW, EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_MINIMIZEEND,
-    EVENT_SYSTEM_MINIMIZESTART, EVENT_SYSTEM_MOVESIZEEND,
+    EVENT_SYSTEM_MINIMIZESTART, EVENT_SYSTEM_MOVESIZEEND, SPI_SETWORKAREA, WM_DISPLAYCHANGE,
+    WM_SETTINGCHANGE,
 };
 
 /// Object ID indicating the event applies to the window itself,
@@ -21,7 +22,14 @@ const OBJID_WINDOW: i32 = 0;
 /// events with non-zero `id_object` for their main window. For those
 /// event types we skip the filter and let downstream handlers
 /// (`is_tileable`) decide whether the window is real.
-pub fn translate(event: u32, hwnd: HWND, id_object: i32) -> Option<WindowEvent> {
+///
+/// Reports that name no window are dropped first. The mouse pointer
+/// reports being shown and changing shape with a null handle, and the
+/// relaxed filter would pass those on as window `0x0`.
+pub(crate) fn translate(event: u32, hwnd: HWND, id_object: i32) -> Option<WindowEvent> {
+    if hwnd.is_invalid() {
+        return None;
+    }
     let is_window = id_object == OBJID_WINDOW;
     let window = crate::window::Window::new(hwnd).id();
 
@@ -45,3 +53,24 @@ pub fn translate(event: u32, hwnd: HWND, id_object: i32) -> Option<WindowEvent> 
         _ => None,
     }
 }
+
+/// Translates a message broadcast to every top-level window into a
+/// platform-agnostic `WindowEvent`.
+///
+/// `WM_DISPLAYCHANGE` reports a monitor change. `WM_SETTINGCHANGE` is
+/// sent for every system setting, and only `SPI_SETWORKAREA` (a taskbar
+/// shown, hidden, moved or resized) concerns tiling. Everything else
+/// returns `None`.
+pub(crate) fn translate_broadcast(msg: u32, wparam: usize) -> Option<WindowEvent> {
+    if msg == WM_DISPLAYCHANGE {
+        Some(WindowEvent::DisplayChanged)
+    } else if msg == WM_SETTINGCHANGE && wparam == SPI_SETWORKAREA.0 as usize {
+        Some(WindowEvent::WorkAreaChanged)
+    } else {
+        None
+    }
+}
+
+#[cfg(test)]
+#[path = "event_tests.rs"]
+mod tests;

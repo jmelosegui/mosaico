@@ -204,7 +204,7 @@ the rules change to leave it alone while it is minimized.
   interferes with interaction on the focused window.
 - **`WS_EX_TOOLWINDOW`** hides the border from taskbar and Alt+Tab,
   preventing it from appearing as an application to the user.
-- **`WINEVENT_SKIPOWNPROCESS`** in the event loop ensures the border window
+- **`WINEVENT_SKIPOWNPROCESS`** on the window event hooks ensures the border window
   does not trigger tiling events -- without this, creating/moving the border
   would cause recursive tiling loops.
 - **DIB section rendering** gives full control over per-pixel alpha without

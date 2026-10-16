@@ -65,13 +65,13 @@ Streams real-time window events to stdout.
 
 ### Behavior
 
-1. Enables DPI awareness
-2. Creates an event channel
-3. Starts the Win32 event loop (without hotkey registration). If the hidden
-   window that receives display and work area changes cannot be created, it
-   prints a warning saying why and goes on without those events
-4. Registers a Ctrl+C handler that gracefully stops the event loop
-5. Prints each received event: event name, HWND (hex), and window title
+1. Creates an event channel
+2. Starts the platform's window event source, which `platform.rs` picks
+   (no hotkeys and no focus-follows-mouse). If the hidden window that
+   receives display and work area changes cannot be created, it prints a
+   warning saying why and goes on without those events
+3. Registers a Ctrl+C handler that gracefully stops the event source
+4. Prints each received event: event name, HWND (hex), and window title
 
 ### Output Format
 
@@ -88,9 +88,10 @@ This command is useful for:
 
 ### Graceful Shutdown
 
-The `ctrlc` crate is used to register a signal handler. On Ctrl+C, the handler
-calls `EventLoopHandle::stop()`, which posts `WM_QUIT` to the event loop
-thread, causing a clean exit.
+A console control handler, installed with `SetConsoleCtrlHandler` in
+`ctrl_c.rs`, reports Ctrl+C to the command. The command then stops its
+`EventWatch`, which posts `WM_QUIT` to the window event thread. The thread
+removes its hooks and hidden window before the command exits.
 
 ## `mosaico debug move --window <id> --x <x> --y <y> --w <width> --h <height>`
 
