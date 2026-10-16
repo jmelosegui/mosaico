@@ -59,10 +59,12 @@ The work splits into four steps, one PR each (see Tasks).
   posted until it responds. Once every window has settled so, as from
   startup, the next goal holds.
 - With animations off nothing is posted, so the tiler emits the same effects
-  and the platform makes the same calls as today, at once. The one change is
-  timing: position reports no longer count as input activity (34.2), so held
-  moves are released after the quiet window instead of being pushed to its
-  cap while some window reports its position.
+  and the platform makes the same calls as today, at once. Two things change,
+  both in the scheduler's timing (34.2): position reports no longer count as
+  input activity, so held moves are released after the quiet window instead
+  of being pushed to its cap while some window reports its position; and the
+  start of a drag now reaches the scheduler, as input, so it starts the quiet
+  window over.
 
 ## Configuration
 
@@ -428,7 +430,7 @@ that changes them.
 - [x] `FrameClock` contract and the Windows pacer, tested against an injected
       wait
 - [x] `Desktop::animations_allowed` and its Windows implementation
-- [ ] `WindowEvent::MoveStarted` from `EVENT_SYSTEM_MOVESIZESTART`
+- [x] `WindowEvent::MoveStarted` from `EVENT_SYSTEM_MOVESIZESTART`
 - [x] Scheduler: position reports and frames are not activity, motion
       deadlines, one frame step per wake; tests at explicit times
 - [x] Fakes record frames, can make frames land late, and can say whether

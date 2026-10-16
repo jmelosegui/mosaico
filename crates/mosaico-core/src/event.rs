@@ -81,6 +81,18 @@ pub enum WindowEvent {
         window: WindowId,
     },
 
+    /// The user started moving or resizing a window by dragging it.
+    ///
+    /// Reported once, when the drag starts, and followed by
+    /// [`Moved`](Self::Moved) when it ends, however it ends. Never
+    /// reported for moves that programs make, the tiler's own placements
+    /// included. A platform that cannot tell when a drag starts leaves it
+    /// out.
+    MoveStarted {
+        /// The window.
+        window: WindowId,
+    },
+
     /// The user finished moving or resizing a window by dragging it.
     ///
     /// Reported once, when the drag ends. Never reported for moves that

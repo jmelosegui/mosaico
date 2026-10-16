@@ -1,6 +1,6 @@
 //! The tiling manager on a fake platform, as the daemon uses it: the
 //! room it keeps for the bar, when what is held back started waiting,
-//! and the state of the bars.
+//! the state of the bars, and the events that change nothing.
 
 use std::time::Duration;
 
@@ -8,8 +8,25 @@ use crate::Direction;
 use crate::config::Config;
 
 use super::fake_platform::FakePlatform;
-use super::manager_support::start;
+use super::manager_support::{start, tiled};
 use super::*;
+
+#[test]
+fn a_drag_that_starts_changes_nothing() {
+    // Arrange
+    let platform = FakePlatform::new(1, &[(1, 0), (2, 0)]);
+    let mut manager = start(&platform, None, &Config::default());
+    platform.take_calls();
+    let held = manager.held_since();
+
+    // Act -- the layout changes once the drag ends, with `Moved`.
+    manager.handle_event(&WindowEvent::MoveStarted { window: wid(1) });
+
+    // Assert -- nothing applied, and nothing held back either.
+    assert!(platform.calls().is_empty(), "{:?}", platform.calls());
+    assert_eq!(tiled(&manager, 0), vec![1, 2]);
+    assert_eq!(manager.held_since(), held);
+}
 
 #[test]
 fn the_bar_keeps_its_room_on_every_monitor_through_a_display_change() {

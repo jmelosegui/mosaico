@@ -12,6 +12,17 @@ fn window_events_carry_their_window() {
 }
 
 #[test]
+fn a_drag_that_starts_is_shown_with_its_window() {
+    // Arrange -- as `debug events` prints it.
+    let window = WindowId::from_raw(0x10);
+    let event = WindowEvent::MoveStarted { window };
+
+    // Act / Assert
+    assert_eq!(event.window(), Some(window));
+    assert_eq!(event.to_string(), "MoveStarted 0x10");
+}
+
+#[test]
 fn display_events_have_no_window() {
     // Arrange
     let event = WindowEvent::DisplayChanged;
