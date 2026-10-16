@@ -24,8 +24,12 @@ impl<P: Platform> TilingManager<P> {
         self.step(Input::Shutdown);
     }
 
-    /// Applies a new layout, border and mouse config, then retiles.
+    /// Applies a new layout, border, mouse and animation config, then
+    /// retiles. A window already moving keeps its duration and easing
+    /// while its target stays; one the retile sends elsewhere turns with
+    /// the new ones, and with transitions off it snaps there.
     pub fn reload_config(&mut self, config: &Config) {
+        self.applier.set_animations(&config.animations);
         self.step(Input::Config(Box::new(config.clone())));
     }
 

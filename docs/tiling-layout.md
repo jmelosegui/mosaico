@@ -29,6 +29,7 @@ contracts the manager runs on.
 | `crates/mosaico-core/src/tiler/workspace.rs` | `goto_workspace()`, `send_to_workspace()` -- workspace switching |
 | `crates/mosaico-core/src/tiler/manager.rs`, `manager_inputs.rs` | `TilingManager` -- runs the tiler on a `Platform`, event/action dispatch |
 | `crates/mosaico-core/src/tiler/applier.rs` | Applies effects, holds focus changes and moves back, drops their echoes |
+| `crates/mosaico-core/src/tiler/applier_motion.rs` | Placements that animate: the motions they become, and their ends |
 | `crates/mosaico-core/src/tiler/platform.rs` | `Platform` -- what the tiling manager needs from the OS |
 | `crates/mosaico-windows/src/tiling/platform.rs` | `Win32Platform` -- the Win32 implementation of each of those contracts |
 
@@ -325,6 +326,25 @@ the ones it allows `Animate`. It needs facts only the step has:
 With transitions off nothing is marked and no desktop is asked anything, so
 the effects are the same as before apart from the field. The coalescer keeps
 the mark of each placement it holds and releases it with it.
+
+The applier checks a marked placement again as it applies it
+(`applier_motion.rs`), against what the desktop says then, with
+`motion::still_animates`: the system allows animations (while `follow_system`
+is on), the window is neither minimized nor maximized, some edge of it travels
+more than 4 pixels, and the platform can move windows through frames. A
+placement that passes becomes a motion in the applier's `Motions` table,
+starting from where the window's motion has it if it is moving, otherwise from
+where the desktop has it, with the duration and easing configured then. The
+applier takes the `[animations]` settings at start and from every reload. A
+motion in flight keeps the duration and easing it started with while its
+target stays; one that a reload's retile sends elsewhere turns towards its new
+target with the new ones, and with transitions off it snaps there. Any other
+placement of a moving window ends its motion and places it at once, in full.
+
+`TilingManager::wants_frames()` says whether any window is moving,
+`frame_due(after)` when the first motion is due to end, after `after`, the
+last frame step, and `frame()` takes the frame step, which ends every motion
+at its target with a full placement.
 
 ### Window Tileability
 

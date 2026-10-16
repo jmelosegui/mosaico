@@ -11,7 +11,7 @@ use super::fake_platform::FakePlatform;
 
 /// Starts a tiling manager on `platform` with `config` and no window
 /// rules, keeping its record of hidden windows in `hidden`.
-pub(super) fn start(
+pub(in crate::tiler) fn start(
     platform: &FakePlatform,
     hidden: Option<HiddenFile>,
     config: &Config,

@@ -328,8 +328,9 @@ screen, too slow for every frame.
    them. The window is placed again, snapping, when it comes back.
 8. Display change mid-flight: every motion finishes at its target, and the
    rebuild snaps.
-9. Config reload mid-flight: motions finish with the settings they started
-   with.
+9. Config reload mid-flight: a reload never changes a motion in flight. A
+   target it moves starts a new segment with the new settings, and a reload
+   that turns transitions off snaps the windows in flight.
 10. Monocle: turning it on grows the front window to the monocle rect, and
     turning it off shrinks it back to its tile. The other windows do not move.
 11. Focus follows mouse: hover reports are dropped while windows move.

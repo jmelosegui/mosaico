@@ -10,6 +10,8 @@ use crate::{Action, HidingSupport, Result, WindowEvent};
 use super::applier::Applier;
 use super::{HiddenFile, Input, Platform, Settings, Tiler};
 
+#[path = "manager_frames.rs"]
+mod frames;
 #[path = "manager_inputs.rs"]
 mod inputs;
 
@@ -44,6 +46,7 @@ impl<P: Platform> TilingManager<P> {
         // at the windows, so they are found and adopted like any other.
         let hiding = HidingSupport::new(|how| platform.control().hiding_events(how));
         let mut applier = Applier::new(hidden, hiding);
+        applier.set_animations(&config.animations);
         let now = platform.now();
         applier.restore_previous(&mut platform, now);
 

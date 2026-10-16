@@ -102,3 +102,24 @@ fn a_motion_keeps_the_duration_it_started_with() {
     assert!(motions.is_moving(wid(2)));
     assert_eq!(motions.frame(t0 + ms(410)).finished, vec![(wid(2), long)]);
 }
+
+#[test]
+fn the_table_is_due_a_frame_when_its_first_motion_ends() {
+    // Arrange -- a long motion, then a short one that ends first.
+    let t0 = Instant::now();
+    let (from, to) = (Rect::new(0, 0, 500, 500), Rect::new(500, 0, 500, 500));
+    let mut motions = Motions::default();
+    let before = motions.deadline();
+    motions.retarget(wid(1), from, to, t0, spec(400, Easing::default()));
+    motions.retarget(wid(2), to, from, t0 + ms(50), spec(100, Easing::default()));
+
+    // Act
+    let both = motions.deadline();
+    motions.end(wid(2));
+    let one = motions.deadline();
+
+    // Assert
+    assert_eq!(before, None);
+    assert_eq!(both, Some(t0 + ms(150)));
+    assert_eq!(one, Some(t0 + ms(400)));
+}

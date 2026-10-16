@@ -119,6 +119,12 @@ impl Motions {
         self.moving.is_empty()
     }
 
+    /// When the first motion to end is due to, or `None` when no window
+    /// is moving: a frame is due by then, even if no display frame comes.
+    pub fn deadline(&self) -> Option<Instant> {
+        self.moving.iter().map(|m| m.segment.end()).min()
+    }
+
     fn motion(&self, window: WindowId) -> Option<&Motion> {
         self.moving.iter().find(|m| m.window == window)
     }
