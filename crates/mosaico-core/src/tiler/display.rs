@@ -2,7 +2,6 @@
 
 use std::collections::HashSet;
 
-use crate::Monitor;
 use crate::config::{HidingBehaviour, WorkspaceMode};
 
 use crate::WindowId;
@@ -48,9 +47,8 @@ impl Tiler {
             displays.len()
         );
 
-        let before = self.monitors.get(self.focused_monitor);
-        let focused_key = before.map(|m| m.key.clone());
-        let in_view = before.map(|m| m.active_workspace);
+        let focused = self.focused_monitor;
+        let in_view = self.monitors.get(focused).map(|m| m.active_workspace);
         let old = std::mem::take(&mut self.monitors);
         let rebuilt =
             rebuild_monitors(old, &displays, &self.workspace_layouts, &mut self.reconnect);
@@ -61,18 +59,14 @@ impl Tiler {
         self.empty_focus_claim = None;
 
         // Stay on the same physical monitor if it is still connected,
-        // otherwise follow the windows to the primary monitor.
-        let primary = displays.iter().position(Display::is_primary).unwrap_or(0);
-        self.focused_monitor = focused_key
-            .and_then(|key| {
-                self.monitors
-                    .iter()
-                    .position(|m| m.key == key && !key.is_unknown())
-            })
-            .or_else(|| {
-                (self.focused_monitor < self.monitors.len()).then_some(self.focused_monitor)
-            })
-            .unwrap_or(primary);
+        // followed through the pairing, since its key can change while it
+        // stays connected. Otherwise follow its windows to the primary
+        // monitor, which took them in (#129).
+        self.focused_monitor = rebuilt
+            .pairs
+            .iter()
+            .position(|&old| old == Some(focused))
+            .unwrap_or(rebuilt.host);
 
         // In global mode the monitors are always in step: every switch
         // moves all of them, and a reload that turns the mode on lines them
@@ -104,14 +98,17 @@ impl Tiler {
         let mut seen = HashSet::new();
         moved.retain(|&window| seen.insert(window));
 
-        // Windows that landed on an inactive workspace are hidden before
-        // the retile; the ones on an active workspace are shown after it,
-        // so they appear in their final place. One the tiler minimized,
-        // and that is still minimized, is restored before it instead, as
-        // a workspace switch does: its slot cannot be set while minimized.
+        // Focus settles first, so a focused window about to be hidden has
+        // handed it on and the system's own pick is not followed. Windows
+        // that landed on an inactive workspace are hidden before the
+        // retile; the ones on an active workspace are shown after it, so
+        // they appear in their final place. One the tiler minimized, and
+        // that is still minimized, is restored before it instead, as a
+        // workspace switch does: its slot cannot be set while minimized.
         let (shown, hidden): (Vec<WindowId>, Vec<WindowId>) = moved
             .into_iter()
             .partition(|&w| self.is_on_active_workspace(w));
+        self.settle_focus(plan, &hidden);
         let how = self.layout.hiding;
         for &window in &hidden {
             self.hidden_how.hide(plan, window, how);
@@ -129,23 +126,6 @@ impl Tiler {
             self.hidden_how.show(plan, window, how);
         }
         self.repaint_visible(plan);
-
-        // Follow the focused window if it is still on screen on another
-        // monitor; if it ended up on a hidden workspace, focus falls back
-        // to the focused monitor.
-        if let Some((mi, _)) = self
-            .focused_window
-            .filter(|&w| self.is_on_active_workspace(w))
-            .and_then(|w| self.find_window(w))
-        {
-            self.focused_monitor = mi;
-        } else if self.focused_window.is_some_and(|w| hidden.contains(&w)) {
-            let ws = self.monitors[self.focused_monitor].active_ws();
-            self.focused_window = ws
-                .last_focused()
-                .filter(|&w| ws.contains(w))
-                .or_else(|| ws.windows().first().copied());
-        }
         self.update_border(plan);
     }
 }

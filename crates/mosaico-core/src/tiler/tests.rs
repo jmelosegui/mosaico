@@ -23,6 +23,8 @@ mod corner_tests;
 mod corner_tracking_tests;
 #[path = "tests/decoration_effects_tests.rs"]
 mod decoration_effects_tests;
+#[path = "tests/display_focus_tests.rs"]
+mod display_focus_tests;
 #[path = "tests/display_tests.rs"]
 mod display_tests;
 #[path = "tests/empty_focus_tests.rs"]

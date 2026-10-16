@@ -15,6 +15,11 @@ pub(super) struct Rebuilt {
     /// Windows that changed monitor or workspace, whose visibility has to
     /// be brought in line with their new workspace.
     pub(super) moved: Vec<WindowId>,
+    /// For each new monitor, the index of the old monitor it continues.
+    pub(super) pairs: Vec<Option<usize>>,
+    /// The primary monitor, which took in the windows of the monitors
+    /// that went away.
+    pub(super) host: usize,
 }
 
 /// Builds the monitor list for a new display configuration.
@@ -95,6 +100,8 @@ pub(super) fn rebuild_monitors(
     Rebuilt {
         monitors: states,
         moved,
+        pairs,
+        host,
     }
 }
 
