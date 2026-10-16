@@ -523,7 +523,7 @@ that changes them.
       existing configs
 - [ ] A debug log line per transition: windows, frames posted, pending and
       handled, and the slowest window (no log line per frame)
-- [ ] `mosaico doctor` shows the animation settings and whether Windows allows
+- [x] `mosaico doctor` shows the animation settings and whether Windows allows
       animations
 - [ ] `docs/animations.md`, and the changes in `docs/daemon.md`,
       `docs/window-management.md` and `docs/window-events.md`

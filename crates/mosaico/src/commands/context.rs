@@ -6,9 +6,11 @@
 //! process. `main` builds the real context and turns the exit into a
 //! status code; the unit tests build one from fakes.
 
+#[path = "context_clock.rs"]
+mod clock;
+
 use std::io::Write;
 use std::path::PathBuf;
-use std::time::{Duration, Instant};
 
 use mosaico_core::WindowControl;
 use mosaico_core::config::ConfigStore;
@@ -16,8 +18,10 @@ use mosaico_core::http::HttpClient;
 use mosaico_core::ipc::{Command, IpcClient, IpcError, Response};
 use mosaico_core::pid::PidFile;
 use mosaico_core::system::{Autostart, FileProbe, ProcessControl};
-use mosaico_core::tiler::Enumerator;
+use mosaico_core::tiler::{Desktop, Enumerator};
 use mosaico_core::update::Installer;
+
+pub use clock::{Clock, SystemClock};
 
 /// How a command ended.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -60,28 +64,6 @@ impl<T: IpcClient> Daemon for T {
     }
 }
 
-/// The time source commands poll with.
-pub trait Clock {
-    /// The current time.
-    fn now(&self) -> Instant;
-
-    /// Waits for `duration`.
-    fn sleep(&self, duration: Duration);
-}
-
-/// The real clock.
-pub struct SystemClock;
-
-impl Clock for SystemClock {
-    fn now(&self) -> Instant {
-        Instant::now()
-    }
-
-    fn sleep(&self, duration: Duration) {
-        std::thread::sleep(duration);
-    }
-}
-
 /// Everything a command may use.
 pub struct Context<'a> {
     /// The daemon of this instance.
@@ -104,6 +86,11 @@ pub struct Context<'a> {
     /// up first (`platform::init()`, which makes it DPI aware), `doctor`
     /// included.
     pub desktop: &'a dyn Enumerator,
+    /// The desktop as the tiler reads it, which also says whether the
+    /// system lets windows be animated. It is made the first time a
+    /// command asks for it, as only `doctor` does: it costs more to make
+    /// than the rest of the context.
+    pub tiler_desktop: &'a dyn Fn() -> &'a dyn Desktop,
     /// Finds the mosaico executable this command runs from, which is what
     /// autostart registers and what `update` replaces.
     pub current_exe: &'a dyn Fn() -> std::io::Result<PathBuf>,

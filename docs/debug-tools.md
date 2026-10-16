@@ -15,6 +15,7 @@ troubleshooting.
 | `crates/mosaico/src/commands/debug/events.rs` | `mosaico debug events` handler |
 | `crates/mosaico/src/commands/debug/move_window.rs` | `mosaico debug move` handler |
 | `crates/mosaico/src/commands/doctor.rs` | `mosaico doctor` handler |
+| `crates/mosaico/src/commands/doctor_animations.rs` | What `mosaico doctor` says about window transitions |
 | `crates/mosaico-core/src/tiler/enumerator.rs` | `Enumerator`, which `debug list` and `doctor` list windows and monitors through, and `debug events` reads window titles through |
 
 ## `mosaico debug list`
@@ -159,6 +160,14 @@ colored status tags:
 10. **Monitors** -- lists all connected monitors left to right via the
    context's `Enumerator::monitors()` and prints per-monitor dimensions and
    positions, in the physical pixels the daemon and `debug list` use
+11. **Window transitions** -- says whether windows move to their new place in
+   transitions, and prints the `[animations]` settings (the defaults, said to
+   be so, when `config.toml` is invalid), whether the system lets windows be
+   animated now (the context's `tiler_desktop`, `Desktop::animations_allowed`)
+   and whether this desktop can move windows frame by frame (`place_frames`
+   with no frames). It warns when transitions are enabled but windows would
+   snap anyway, and says why, or that it cannot tell when the desktop cannot
+   be asked about frames
 
 ## Design Decisions
 

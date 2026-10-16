@@ -1,9 +1,9 @@
 # Measured by `cargo xtask metrics --bless`. A change here comes from a new measurement.
 
 [mosaico]
-files_over_line_limit = 17
-lines_over_line_limit = 2092
-tests = 127
+files_over_line_limit = 16
+lines_over_line_limit = 2035
+tests = 134
 unsafe_keywords = 51
 
 [mosaico-core]

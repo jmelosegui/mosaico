@@ -21,6 +21,7 @@ dedicated handler module under `crates/mosaico/src/commands/`.
 | `crates/mosaico/src/commands/stop.rs` | `mosaico stop` handler |
 | `crates/mosaico/src/commands/status.rs` | `mosaico status` handler |
 | `crates/mosaico/src/commands/doctor.rs` | `mosaico doctor` handler |
+| `crates/mosaico/src/commands/doctor_animations.rs` | What `mosaico doctor` says about window transitions |
 | `crates/mosaico/src/commands/daemon.rs` | `mosaico daemon` handler (hidden) |
 | `crates/mosaico/src/commands/action.rs` | `mosaico action <verb>` handler |
 | `crates/mosaico/src/commands/pause.rs` | `mosaico pause` / `mosaico unpause` handler |
@@ -38,7 +39,10 @@ Commands do not reach for the OS themselves. They take a
 (`mosaico_core::system::ProcessControl`), start at login
 (`mosaico_core::system::Autostart`), window control
 (`mosaico_core::WindowControl`), the windows and monitors on the desktop
-(`mosaico_core::tiler::Enumerator`), the path of the running executable
+(`mosaico_core::tiler::Enumerator`), the desktop as the tiler reads it
+(`tiler_desktop`, a `mosaico_core::tiler::Desktop` made the first time a
+command asks for it, which also says whether the system lets windows be
+animated), the path of the running executable
 (`current_exe`, which is what autostart registers and what `update`
 replaces), file checks that never wait on the network
 (`mosaico_core::system::FileProbe`, for the autostart check), the
@@ -53,14 +57,17 @@ that the `daemon` subcommand hands to `mosaico_core::lifecycle::run()`; it is
 the one place in the CLI that picks a platform implementation. Before any
 command runs, `main` sets the process up through `platform::init()`, which
 makes it DPI aware, so the coordinates commands move windows to or show match
-the daemon's. The unit tests build one from `commands/test_support.rs`, a
-fake `World` standing in for the daemon, processes, registry, program files,
+the daemon's. The real context makes the tiler's `Desktop`, from a
+`Win32Platform`, only when a command asks for it, as only `doctor` does. The
+unit tests build one with the `Harness` in `commands/test_support/harness.rs`,
+from `commands/test_support.rs`, a fake
+`World` standing in for the daemon, processes, registry, program files,
 desktop, GitHub, the release installer and clock, and
 `commands/fake_desktop.rs`, a fake list of windows and monitors, so `start`,
 `stop`, `status`, `autostart`, `action`, `pause`, `update`, `debug move`,
-`debug list` and `doctor`'s autostart, daemon and monitor checks are tested
-without a daemon, a desktop or a network. `daemon` is tested with a fake lock
-and loop.
+`debug list` and `doctor`'s autostart, daemon, monitor and window transition
+checks are tested without a daemon, a desktop or a network. `daemon` is tested
+with a fake lock and loop.
 
 No command calls the platform crate itself. The two that run without a
 context get what they need from `platform.rs` as well: `daemon` its
@@ -173,6 +180,19 @@ Checks performed:
    stale PID files
 10. **Monitors** -- enumerates monitors and reports count with per-monitor
    dimensions and positions
+11. **Window transitions** -- reports whether windows move to their new place
+   in transitions, then the `[animations]` settings the daemon starts with
+   (`enabled`, `duration`, `easing`, `follow_system`; the defaults when
+   `config.toml` is missing or invalid, said to be the defaults for an
+   invalid file), whether the system lets windows be animated now
+   (`Desktop::animations_allowed`), and whether this desktop can move windows
+   frame by frame (`place_frames` with no frames, which moves nothing,
+   returns `Ok` or `Error::Unsupported`). `[warn]` when transitions are
+   enabled but windows snap anyway, naming the first reason: a duration of
+   0, the system's setting while `follow_system` is on, or a desktop without
+   frames (`Error::Unsupported`). When the desktop cannot be asked about
+   frames, for any other error, `[fail]` with the error, and a `[warn]` that
+   whether windows can move frame by frame is unknown
 
 ### `mosaico action <verb> [direction]`
 

@@ -5,6 +5,7 @@ pub mod context;
 pub mod daemon;
 pub mod debug;
 pub mod doctor;
+mod doctor_animations;
 mod doctor_runtime;
 pub mod init;
 pub mod pause;

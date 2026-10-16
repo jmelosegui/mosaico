@@ -18,6 +18,8 @@ It checks:
 3. All keybinding key names resolve to valid key codes
 4. Daemon status (running, stopped, or stale)
 5. Monitor enumeration and dimensions
+6. Window transitions: the `[animations]` settings, whether Windows allows
+   animations right now, and whether windows can move frame by frame
 
 Issues are reported with colored tags: `[ok]`, `[warn]`, `[fail]`, or
 `[fixed]`.
