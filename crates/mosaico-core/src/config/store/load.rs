@@ -36,7 +36,8 @@ impl ConfigStore {
     }
 
     /// Loads `config.toml` like [`try_load_config`](Self::try_load_config),
-    /// falling back to the defaults.
+    /// falling back to the defaults, validated as a loaded file is, so
+    /// their border colors come from the theme.
     ///
     /// A missing file silently gives the defaults; any other failure is
     /// reported as a warning, on standard error and in the log.
@@ -44,7 +45,11 @@ impl ConfigStore {
         load_or_default(
             &self.config_path(),
             || self.try_load_config(),
-            Config::default,
+            || {
+                let mut config = Config::default();
+                config.validate();
+                config
+            },
         )
     }
 
@@ -149,6 +154,9 @@ impl ConfigStore {
     }
 }
 
+#[cfg(test)]
+#[path = "tests/defaults_tests.rs"]
+mod defaults_tests;
 #[cfg(test)]
 #[path = "tests/load_tests.rs"]
 mod tests;
