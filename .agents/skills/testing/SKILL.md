@@ -70,7 +70,10 @@ them, in either direction:
 - `metrics/tiler.toml`: what the tiling manager asks of the platform in common situations (opening a window,
   a burst of moves, a workspace switch, a display change), by kind of call, plus borders drawn from scratch.
   The scenarios are in `crates/mosaico-core/src/tiler/tests/metrics_scenarios.rs` and run on `FakePlatform`,
-  after coalescing and echo handling. Fewer is better.
+  after coalescing and echo handling. Fewer is better. Those named `_animated` (a move, a window opening next to
+  three, one of four closing, a layout cycle, and monocle on and off) run with transitions on, as users get them
+  by default, and count every call until the windows have settled, frames included. All the others run with
+  transitions off (`manager_support::still()`), so they measure what the tiler asks of the platform without them.
 - `metrics/code.toml`: per crate, tests (more is better), files and lines over the 150 line limit, `unsafe`
   keywords, `.unwrap()`/`.expect(` outside tests in the library crates, and OS names in `mosaico-core` (fewer is
   better).

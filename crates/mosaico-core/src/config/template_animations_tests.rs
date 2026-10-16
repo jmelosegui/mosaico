@@ -46,7 +46,7 @@ fn config_template_writes_out_every_animation_setting_at_its_default() {
     keys.sort_unstable();
     assert_eq!(keys, ["duration", "easing", "enabled", "follow_system"]);
     assert_eq!(config.animations, AnimationConfig::default());
-    assert!(!config.animations.enabled, "transitions stay opt-in");
+    assert!(config.animations.enabled, "transitions are on by default");
 }
 
 #[test]

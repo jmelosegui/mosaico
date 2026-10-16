@@ -92,12 +92,7 @@ fn animation_lines(settings: &Settings, allowed: bool, frames: &Result<()>) -> V
 fn status_line(settings: &Settings, allowed: bool, frames: &Result<()>) -> String {
     let animations = &settings.animations;
     if !animations.enabled {
-        let why = if settings.defaults_for_invalid_file {
-            "the default, as config.toml is invalid"
-        } else {
-            "[animations] enabled = false"
-        };
-        return format!("  {OK} Window transitions are off ({why})");
+        return format!("  {OK} Window transitions are off ([animations] enabled = false)");
     }
     let why = if !animations.is_on() {
         "they take no time (duration = 0)"

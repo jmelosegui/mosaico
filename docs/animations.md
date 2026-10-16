@@ -8,20 +8,20 @@ moves. Other placements snap into place as before, such as those of a window
 that just opened and of the windows a workspace switch shows (see
 [What Animates and What Snaps](#what-animates-and-what-snaps)).
 
-Transitions are off by default, and stay off by default until they have been
-checked on a live desktop: the manual tests in `.plans/phase-34.md` decide
-whether `enabled` defaults to `true`. With them off from the start, nothing is
-posted to any window, so every change is made at once, and the tiler emits
-the effects and the platform gets the calls they always did, but for what
-came with transitions and holds either way. A window's report that its
-position changed is no longer input that keeps the tiler's held-back moves
-waiting, and the start of a drag is input, so it starts that wait over. A
-report that a window was minimized is ignored once the window is no longer
-minimized. A workspace switch takes a hide reported after it showed the
-window again for its own. It takes a restore for its own up to
-`ASYNC_GRACE` (5 s) after a show that restores the window, where it used to
-take one up to 1.5 s after any show, so a restore the user makes within
-1.5 s of a show that restored nothing is now seen.
+Transitions are on by default. With `follow_system`, also on by default,
+windows still snap into place while the system's own setting turns
+animations off, and in a remote session. With `enabled = false` from the
+start, nothing is posted to any window, so every change is made at once,
+and the tiler emits the effects and the platform gets the calls they always
+did, but for what came with transitions and holds either way. A window's
+report that its position changed is no longer input that keeps the tiler's
+held-back moves waiting, and the start of a drag is input, so it starts
+that wait over. A report that a window was minimized is ignored once the
+window is no longer minimized. A workspace switch takes a hide reported
+after it showed the window again for its own. It takes a restore for its
+own up to `ASYNC_GRACE` (5 s) after a show that restores the window, where
+it used to take one up to 1.5 s after any show, so a restore the user makes
+within 1.5 s of a show that restored nothing is now seen.
 
 Everything that decides lives in `mosaico-core` and runs on the time it is
 given: which placements animate, the curve, a new target mid-flight, when a
@@ -344,7 +344,7 @@ another window and back.
 
 ```toml
 [animations]
-enabled = false           # opt-in until checked on a live desktop
+enabled = true            # on by default
 duration = 180            # milliseconds, 0 to 1000
 easing = "ease-out-cubic" # linear, ease-out-quad, ease-out-cubic,
                           # ease-in-out-cubic, ease-out-expo, or
@@ -535,10 +535,15 @@ targets they kept, after it or as the daemon stops; and of windows that
 land on a report, once the wait for them is over, on their next report after
 it, or away from their placements (`motion_log_tests.rs` and the
 `motion_log_*_tests.rs` it declares). What the step decision tells the log
-is tested on made-up steps (`plan_transitions_log_tests.rs`). The
-`move_once_animated` scenario in `metrics/tiler.toml` counts what a swap with
-transitions on asks of the platform. `frames/tests/` checks the outcomes the
-frame table decides and what it posts behind frames, and
+is tested on made-up steps (`plan_transitions_log_tests.rs`). The tests of
+the tiling pipeline itself run with transitions off
+(`manager_support::still()`), as they check placements made at once, and
+the regression tests of #71, #125, #133 and #135 run again with transitions
+on, once the windows have settled. In `metrics/tiler.toml`, the scenarios
+named `_animated` count what a move, a window opening, one closing, a layout
+cycle, and monocle on and off ask of the platform with transitions on, and
+the others what the tiler asks without them. `frames/tests/` checks the
+outcomes the frame table decides and what it posts behind frames, and
 `crates/mosaico-windows` checks them on hidden windows of threads that pump
 late or never. `mosaico doctor`'s report is tested against the fake `World`
 in `crates/mosaico/src/commands/tests/doctor_animations_tests.rs` and

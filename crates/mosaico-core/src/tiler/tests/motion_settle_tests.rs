@@ -2,10 +2,10 @@
 //! forget them as soon as it can, so changes to them are made at once
 //! again, and is not asked once it has.
 
-use crate::config::Config;
 use crate::frames::{ASYNC_GRACE, FrameControl};
 use crate::id::wid;
 use crate::tiler::tests::fake_platform::Call;
+use crate::tiler::tests::manager_support::still;
 use crate::{Action, Direction};
 
 use super::{FakePlatform, Manager, animated, settle, swap, two};
@@ -37,7 +37,7 @@ fn turning_transitions_off_has_the_platform_forget_the_windows_it_can_until_it_h
 
     // Act -- a reload turns transitions off; seconds later, the layout is
     // laid out again twice.
-    manager.reload_config(&Config::default());
+    manager.reload_config(&still());
     let reloaded = platform.take_calls();
     platform.advance(ASYNC_GRACE * 2);
     manager.handle_action(&Action::Retile);
@@ -60,7 +60,7 @@ fn a_window_forgotten_once_transitions_are_off_is_placed_at_once_while_it_hangs(
     let (platform, mut manager) = swapped();
     let right = platform.window(1).rect;
     let left = platform.window(2).rect;
-    manager.reload_config(&Config::default());
+    manager.reload_config(&still());
     platform.advance(ASYNC_GRACE * 2);
     manager.handle_action(&Action::Retile);
     platform.edit(1, |w| w.hung = true);

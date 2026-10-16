@@ -2,9 +2,10 @@
 
 Mosaico can move windows to their new place over a short time instead of
 having them jump there: windows you swap, and the windows a layout change,
-monocle mode, or a window that opens or closes moves. Transitions are off by
-default for now. They stay off by default until they have been tried out on
-more desktops.
+monocle mode, or a window that opens or closes moves. Transitions are on by
+default. Windows still snap into place while the Windows "Animation
+effects" setting is off, and in a remote desktop session, unless
+`follow_system` is turned off.
 
 ## Configuration
 
@@ -12,14 +13,14 @@ Transitions are configured in the `[animations]` section of `config.toml`:
 
 ```toml
 [animations]
-enabled = true            # Off by default
+enabled = true            # On by default
 duration = 180            # How long a transition takes, in milliseconds (0-1000)
 easing = "ease-out-cubic" # How windows speed up and slow down on the way
 follow_system = true      # Snap while Windows turns animations off,
                           # and in a remote session
 ```
 
-- **enabled** -- set to `true` to turn transitions on.
+- **enabled** -- `true` by default; set it to `false` to turn transitions off.
 - **duration** -- how long a transition takes, from 0 to 1000 milliseconds.
   Longer values are clamped to 1000, and `0` turns transitions off.
 - **easing** -- the curve windows follow:

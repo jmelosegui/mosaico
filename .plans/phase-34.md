@@ -77,7 +77,7 @@ The work splits into four steps, one PR each (see Tasks).
 
 ```toml
 [animations]
-enabled = false          # opt-in until verified on the live desktop
+enabled = true           # on by default
 duration = 180           # milliseconds, 0 to 1000
 easing = "ease-out-cubic"
 # linear, ease-out-quad, ease-out-cubic, ease-in-out-cubic, ease-out-expo,
@@ -540,5 +540,5 @@ that changes them.
 - [ ] Manual test: an application that stops responding mid-transition
 - [ ] Manual test: Windows "Animation effects" off disables transitions
 - [ ] Manual test: CPU use while animating and when idle
-- [ ] Decide whether `enabled` defaults to true
+- [x] Decide whether `enabled` defaults to true: it does
 - [ ] Update `.plans/plan.md`

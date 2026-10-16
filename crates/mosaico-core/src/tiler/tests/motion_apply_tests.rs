@@ -1,7 +1,7 @@
 //! Which placements become motions as they are applied.
 
-use crate::config::Config;
 use crate::tiler::tests::fake_platform::Call;
+use crate::tiler::tests::manager_support::still;
 use crate::{Action, Rect};
 
 use super::{animated, placements, settle, swap, two};
@@ -34,7 +34,7 @@ fn a_swap_that_may_animate_is_left_to_the_frame_step() {
 #[test]
 fn with_animations_off_a_swap_is_placed_at_once() {
     // Arrange
-    let (platform, mut manager) = two(&Config::default());
+    let (platform, mut manager) = two(&still());
     let (left, right) = (platform.window(1).rect, platform.window(2).rect);
 
     // Act

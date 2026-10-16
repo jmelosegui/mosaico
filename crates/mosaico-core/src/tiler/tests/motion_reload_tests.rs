@@ -2,10 +2,11 @@
 
 use std::time::Duration;
 
-use crate::config::{Config, WindowRule};
+use crate::config::WindowRule;
 use crate::id::wid;
 use crate::tiler::Platform;
 use crate::tiler::tests::fake_platform::Call;
+use crate::tiler::tests::manager_support::still;
 use crate::{Action, Direction};
 
 use super::{animated, placements, settle, swap, two};
@@ -39,7 +40,7 @@ fn a_reload_changes_the_transitions_that_start_after_it_not_those_in_flight() {
 fn a_reload_that_turns_animations_off_places_the_next_swap_at_once() {
     // Arrange
     let (platform, mut manager) = two(&animated());
-    manager.reload_config(&Config::default());
+    manager.reload_config(&still());
     platform.take_calls();
 
     // Act

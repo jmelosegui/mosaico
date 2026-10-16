@@ -23,6 +23,18 @@ fn animated() -> Settings {
     }
 }
 
+/// Settings with transitions off.
+fn still() -> Settings {
+    let animations = AnimationConfig {
+        enabled: false,
+        ..AnimationConfig::default()
+    };
+    Settings {
+        animations,
+        ..Settings::default()
+    }
+}
+
 /// Each placement of `effects`: its window and whether it may animate.
 fn marks(effects: &[Effect]) -> Vec<(u64, Transition)> {
     let mark = |e: &Effect| match *e {
@@ -51,7 +63,7 @@ fn every_placement_snaps_while_transitions_are_off_or_take_no_time() {
     // Arrange
     let mut instant = animated();
     instant.animations.duration = 0;
-    let mut off = Harness::new(1, &[(1, 0), (2, 0)]);
+    let mut off = Harness::with_settings(still(), 1, &[(1, 0), (2, 0)]);
     let mut no_time = Harness::with_settings(instant, 1, &[(1, 0), (2, 0)]);
 
     // Act

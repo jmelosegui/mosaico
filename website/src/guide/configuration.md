@@ -49,7 +49,7 @@ unfocused = "#6c7086"  # Color drawn around unfocused tiled windows;
                        # set to "none" to disable unfocused borders
 
 [animations]
-enabled = false           # Move windows to their new place over time (off by default)
+enabled = true            # Move windows to their new place over time (on by default)
 duration = 180            # How long a transition takes, in milliseconds (0-1000)
 easing = "ease-out-cubic" # linear, ease-out-quad, ease-out-cubic, ease-in-out-cubic,
                           # ease-out-expo, or "cubic-bezier(x1, y1, x2, y2)"
@@ -68,7 +68,7 @@ level = "info"     # Log level: debug, info, warn, error
 max_file_mb = 10   # Max log file size before rotation
 ```
 
-The `[animations]` section turns on window transitions, which are off by
+The `[animations]` section sets up window transitions, which are on by
 default. See [Window Transitions](animations.md) for what moves, the easings
 and troubleshooting.
 

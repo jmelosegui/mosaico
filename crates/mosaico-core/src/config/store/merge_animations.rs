@@ -14,7 +14,7 @@ pub(super) const ANIMATIONS_HINT_SNIPPET: &str = r##"
 # The [animations] section moves windows to their new place over a short
 # time when they swap, move or resize, and when the layout changes,
 # instead of jumping there. Recognized keys:
-#   enabled        true to turn transitions on, false to keep them off.
+#   enabled        whether windows move this way: true or false.
 #   duration       how long a transition takes, in milliseconds, 0 to
 #                  1000.
 #   easing         "linear", "ease-out-quad", "ease-out-cubic",
@@ -25,9 +25,9 @@ pub(super) const ANIMATIONS_HINT_SNIPPET: &str = r##"
 #                  turned off in the system's settings, and in a remote
 #                  session.
 #
-# Example:
+# Example, to have windows jump into place:
 #   [animations]
-#   enabled = true
+#   enabled = false
 "##;
 
 /// Appends a comment block about window transitions to the config at

@@ -24,7 +24,7 @@ fn checked(test: &str, contents: &str, setup: impl FnOnce(&Harness)) -> Vec<Stri
 }
 
 #[test]
-fn transitions_are_reported_off_by_default_with_every_setting() {
+fn transitions_are_reported_on_by_default_with_every_setting() {
     // Arrange / Act -- no config.toml, on a desktop with frames.
     let lines = checked("doctor-animations-default", "", |h| {
         h.world.frames.set(Frames::Supported);
@@ -34,14 +34,31 @@ fn transitions_are_reported_off_by_default_with_every_setting() {
     assert_eq!(
         lines,
         [
-            format!("  {OK} Window transitions are off ([animations] enabled = false)"),
-            "       enabled = false, duration = 180 ms, easing = ease-out-cubic, \
+            format!("  {OK} Window transitions are on"),
+            "       enabled = true, duration = 180 ms, easing = ease-out-cubic, \
              follow_system = true"
                 .to_string(),
             "       The system allows animations".to_string(),
             "       This desktop moves windows frame by frame".to_string(),
         ]
     );
+}
+
+#[test]
+fn transitions_the_file_turns_off_are_reported_off_with_its_settings() {
+    // Arrange / Act
+    let lines = checked(
+        "doctor-animations-off",
+        "[animations]\nenabled = false\n",
+        |h| h.world.frames.set(Frames::Supported),
+    );
+
+    // Assert -- off, with the file's settings.
+    let off = "Window transitions are off ([animations] enabled = false)";
+    assert_eq!(lines[0], format!("  {OK} {off}"));
+    let values = "       enabled = false, duration = 180 ms, easing = ease-out-cubic, \
+                  follow_system = true";
+    assert_eq!(lines[1], values);
 }
 
 #[test]
@@ -90,14 +107,15 @@ fn enabled_transitions_on_a_desktop_that_cannot_be_asked_are_neither_on_nor_snap
 #[test]
 fn an_invalid_config_is_reported_with_the_defaults_named_as_such() {
     // Arrange -- an easing mosaico does not take makes the file invalid.
-    let contents = "[animations]\nenabled = true\neasing = \"bounce\"\n";
+    let contents = "[animations]\nenabled = false\neasing = \"bounce\"\n";
 
     // Act
-    let lines = checked("doctor-animations-invalid", contents, |_| {});
+    let lines = checked("doctor-animations-invalid", contents, |h| {
+        h.world.frames.set(Frames::Supported);
+    });
 
     // Assert -- not as the file's own values.
-    let off = format!("  {OK} Window transitions are off (the default, as config.toml is invalid)");
-    assert_eq!(lines[0], off);
-    let defaults = "       The defaults, as config.toml is invalid: enabled = false,";
+    assert_eq!(lines[0], format!("  {OK} Window transitions are on"));
+    let defaults = "       The defaults, as config.toml is invalid: enabled = true,";
     assert!(lines[1].starts_with(defaults), "{lines:?}");
 }

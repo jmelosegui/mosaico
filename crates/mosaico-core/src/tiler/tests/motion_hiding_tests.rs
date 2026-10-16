@@ -8,7 +8,7 @@ use std::time::Duration;
 use crate::config::{Config, HidingBehaviour};
 use crate::id::wid;
 use crate::tiler::tests::fake_desktop::Queued;
-use crate::tiler::tests::manager_support::tiled;
+use crate::tiler::tests::manager_support::{still, tiled};
 use crate::{Action, WindowEvent};
 
 use super::{REFRESH, animated, settle, swap, two};
@@ -120,7 +120,7 @@ fn a_window_restored_from_the_taskbar_then_minimized_and_restored_is_tiled_again
     // and both windows are hidden on workspace 1 while the user is on
     // workspace 2. The user picks window 2 on the taskbar, which restores
     // it, and the tiler switches to it.
-    let mut config = Config::default();
+    let mut config = still();
     config.layout.hiding = HidingBehaviour::Minimize;
     let (platform, mut manager) = two(&config);
     manager.handle_action(&Action::GoToWorkspace(2));

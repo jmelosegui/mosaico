@@ -69,7 +69,7 @@ focus_follows_mouse = false
 # Window transitions: windows move to their new place over a short time
 # when they swap, move or resize, and when the layout changes, instead of
 # jumping there.
-enabled = false
+enabled = true
 # How long a transition takes, in milliseconds (0 to 1000).
 duration = 180
 # How windows speed up and slow down on the way: "linear", "ease-out-quad",

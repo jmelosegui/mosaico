@@ -3,12 +3,12 @@
 //! window given frames that got none posted, as its application did not
 //! respond.
 
-use crate::config::{Config, HidingBehaviour, WorkspaceMode};
+use crate::config::{HidingBehaviour, WorkspaceMode};
 use crate::frames::ASYNC_GRACE;
 use crate::id::wid;
 use crate::tiler::tests::displays;
 use crate::tiler::tests::fake_platform::Call;
-use crate::tiler::tests::manager_support::start;
+use crate::tiler::tests::manager_support::{start, still};
 use crate::{Action, Direction, WindowEvent};
 
 use super::super::{FakePlatform, animated, settle, swap, two};
@@ -61,7 +61,7 @@ fn a_flush_past_the_grace_with_transitions_off_makes_its_changes_at_once() {
     // after them goes behind them until the windows are forgotten.
     let (platform, mut manager) = swapped();
     let left = platform.window(2).rect;
-    manager.reload_config(&Config::default());
+    manager.reload_config(&still());
     manager.handle_action(&Action::Move(Direction::Left));
     platform.advance(ASYNC_GRACE * 2);
 
@@ -83,7 +83,7 @@ fn a_window_given_frames_while_it_did_not_respond_is_forgotten_once_it_responds(
     platform.edit(1, |w| w.hung = true);
     swap(&mut manager);
     settle(&platform, &mut manager);
-    manager.reload_config(&Config::default());
+    manager.reload_config(&still());
     platform.advance(ASYNC_GRACE * 2);
     manager.handle_action(&Action::Retile);
     platform.take_calls();

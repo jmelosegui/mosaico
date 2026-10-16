@@ -47,7 +47,7 @@ All settings have sensible defaults, so configuration files are optional.
   muted gray). The literal `"none"` on `unfocused` disables borders
   for unfocused windows entirely; `BorderColors::unfocused_enabled()`
   reports the toggle state
-- `AnimationConfig` -- `enabled: bool` (default false), `duration: i32` in
+- `AnimationConfig` -- `enabled: bool` (default true), `duration: i32` in
   milliseconds (default 180), `easing: Easing` (default `ease-out-cubic`),
   `follow_system: bool` (default true: no transitions while the system's
   settings turn animations off, or in a remote session). `is_on()` says
@@ -108,7 +108,7 @@ unfocused = "#6c7086"  # Color drawn around unfocused tiled windows
                        # (set to "none" to disable unfocused borders)
 
 [animations]
-enabled = false           # Move windows to their new place over time (off by default)
+enabled = true            # Move windows to their new place over time (on by default)
 duration = 180            # How long a transition takes, in milliseconds (0-1000)
 easing = "ease-out-cubic" # linear, ease-out-quad, ease-out-cubic, ease-in-out-cubic,
                           # ease-out-expo, or "cubic-bezier(x1, y1, x2, y2)"

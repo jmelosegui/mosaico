@@ -7,14 +7,14 @@ use crate::motion::{CubicBezier, Easing};
 use super::*;
 
 #[test]
-fn transitions_are_off_by_default_and_last_180_ms_easing_out() {
+fn transitions_are_on_by_default_and_last_180_ms_easing_out() {
     // Act
     let mut config = Config::default();
     config.validate();
 
     // Assert
     let animations = &config.animations;
-    assert!(!animations.enabled);
+    assert!(animations.enabled);
     assert_eq!(animations.duration, 180);
     assert_eq!(animations.easing, Easing::EaseOutCubic);
     assert!(animations.follow_system);
@@ -141,5 +141,5 @@ fn transitions_that_take_no_time_count_as_off() {
         animations.duration = duration;
         assert!(!animations.is_on(), "duration = {duration}");
     }
-    assert!(!AnimationConfig::default().is_on());
+    assert!(AnimationConfig::default().is_on());
 }
