@@ -352,7 +352,7 @@ that changes them.
 
 - [x] `Easing` presets and `cubic-bezier` (y from 0 to 1), with tests for the
       endpoints, monotonic presets and solver accuracy
-- [ ] `Segment` with eased and monotone Hermite segments, with tests that the
+- [x] `Segment` with eased and monotone Hermite segments, with tests that the
       last frame is exactly the target, that a retarget keeps position and
       speed continuous, and that frames never leave the box of start, retarget
       and target
