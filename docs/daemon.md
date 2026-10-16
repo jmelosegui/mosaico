@@ -37,7 +37,8 @@ from separate `mpsc` channels into the unified `DaemonMsg` channel.
 | `crates/mosaico-windows/src/daemon_loop_task.rs` | `Task` -- every `DaemonMsg` except a window event, as the main loop runs it |
 | `crates/mosaico-windows/src/daemon_loop_pump.rs` | `pump_thread_messages()`, `PUMP_INTERVAL` -- keeps the bar and border windows responsive |
 | `crates/mosaico-windows/src/daemon_loop_commands.rs` | `carry_out()`, `handle_action()`, `handle_command()` -- hotkey actions and CLI commands |
-| `crates/mosaico-core/src/daemon/` | `Scheduler` -- decides what the main loop runs, and when |
+| `crates/mosaico-core/src/daemon/` | `Scheduler` -- decides what the main loop runs, and when; `FrameClock` -- the contract for waking the loop on display frames; `FramePacer`, `FrameToken` -- a `FrameClock` on a thread of its own, paced through a `FrameWait` |
+| `crates/mosaico-windows/src/frame_clock.rs` | `DisplayWait` -- the Win32 `FrameWait`: `DwmFlush` and a high-resolution timer |
 | `crates/mosaico-windows/src/daemon_inputs.rs` | `Inputs` -- starts and stops window events, hotkeys and focus-follows-mouse |
 | `crates/mosaico-windows/src/event_source.rs` | `WindowsEventSource` -- the WinEvent hooks and the broadcast window |
 | `crates/mosaico-windows/src/hotkey_thread.rs` | `WindowsHotkeySource` -- registers and dispatches hotkeys on a thread of its own |
@@ -320,6 +321,41 @@ watcher follows it to its new location while the daemon keeps reading the
 old path. Nothing is logged when it moves, and hot-reload stops working
 until the daemon restarts: a later change in the moved directory finds no
 files at the old path, and reloads as if they had been deleted.
+
+## Frame Pacer
+
+`FramePacer` (`mosaico_core::daemon`) implements core's `FrameClock`, which
+wakes the main loop on display frames while windows move. It waits on the
+display through a `FrameWait` of the platform's, `DisplayWait`
+(`frame_clock.rs`) on Windows, and owns one thread, started with the pacer
+and ended with it:
+
+- While no frames are wanted, the thread is parked and costs nothing.
+  `want_frames` only sets a flag, and unparks the thread to start it, so it
+  never blocks.
+- While frames are wanted, the thread waits for the display's next frame,
+  which `DisplayWait` does with `DwmFlush`, and hands a frame to the sender it
+  was started with. `DwmFlush` fails where nothing is composed, and returns
+  at once while the display sleeps or the session is locked. A wait that
+  ends sooner after the last frame than half a refresh, the refresh being
+  what `DwmGetCompositionTimingInfo` reports, or than 1 ms when it reports
+  none, is waited once more on the display, as one does after a frame the
+  thread was woken for late. Only when that one ends too soon as well, or the
+  display cannot be waited for, is the rest of a refresh, or of a frame at
+  about 60 a second when none is reported, waited out on a high-resolution
+  waitable timer.
+- Each frame comes with a `FrameToken`, and no other is sent until the token
+  is dropped, which the loop does as it takes the frame out of its queue. So
+  at most one frame waits in the queue, however busy the loop is.
+- The sender says whether the frame reached the loop. When it did not, as
+  once the loop is gone, the thread parks until frames are asked for again,
+  instead of trying on every frame.
+- Dropping the pacer stops the thread within a frame, and waits for it 100 ms
+  at most, so a `DwmFlush` that does not come back never holds up a shutdown.
+
+The pacer's logic is in core, tested against waits of the tests' own, so its
+tests run without DWM. The daemon does not start a pacer yet: nothing in the
+loop asks for frames until transitions do.
 
 ## Shutdown
 

@@ -40,6 +40,9 @@ pub mod files;
 /// Window frame and border offset helpers.
 mod frame;
 
+/// The wait the core `FramePacer` paces the frames of transitions with.
+pub mod frame_clock;
+
 /// The HTTP client, through WinHTTP.
 pub mod http;
 

@@ -283,14 +283,20 @@ screen, too slow for every frame.
   `SWP_ASYNCWINDOWPOS` too.
   Cloaking does not go through the window's queue, and is unaffected.
 - `FrameClock::want_frames(bool)`: while on, the loop is woken about once per
-  display refresh. One long-lived pacer, parked while frames are not wanted;
-  `want_frames` only sets a flag and never blocks; at most one frame message
-  waits in the queue. Windows: a thread that waits on `DwmFlush`, falling back
-  to a high-resolution waitable timer at about 60 Hz when `DwmFlush` fails or
-  returns within a few ms (it can return at once while the display sleeps or
-  the session is locked). The loop is written against an injected wait so it is
-  tested without DWM, and stopping the daemon never waits on `DwmFlush` longer
-  than a frame.
+  display refresh. One long-lived pacer, core's `FramePacer`, parked while
+  frames are not wanted; `want_frames` only sets a flag and never blocks; at
+  most one frame message waits in the queue, and a frame the loop could not
+  be given parks the pacer. It waits on the display through the platform's
+  `FrameWait`. A wait that ends sooner after the last frame than half a
+  refresh (1 ms when the refresh is not known) is waited once more, as after
+  a late wake; only after two such waits in a row, or when the display cannot
+  be waited for, is the rest of a refresh, or of a frame at about 60 Hz when
+  none is known, waited out on the timer. Windows: `DisplayWait`, `DwmFlush`
+  and a high-resolution waitable timer, with the refresh from
+  `DwmGetCompositionTimingInfo` (`DwmFlush` can return at once while the
+  display sleeps or the session is locked). The pacer is tested against
+  injected waits, without DWM, and stopping the daemon never waits on
+  `DwmFlush` longer than a frame.
 - `Desktop::animations_allowed() -> bool`: whether the user allows animations,
   read when a transition starts. Windows:
   `SystemParametersInfoW(SPI_GETCLIENTAREAANIMATION)`, the setting behind both
@@ -357,6 +363,8 @@ crates/
     tiler/manager_inputs.rs    # reloads reach the applier
     daemon/scheduler.rs        # position reports and frames are not activity; deadlines
     daemon/frame_clock.rs      # NEW: FrameClock
+    daemon/frame_pacer.rs      # NEW: FramePacer, FrameToken
+    daemon/frame_wait.rs       # NEW: FrameWait, and the next frame from it
     frames.rs, frames/         # FrameControl, Frame, FrameOutcome, FrameTable, FrameProbe
     tiler/desktop.rs           # animations_allowed
     event.rs, event/naming.rs  # MoveStarted
@@ -371,7 +379,7 @@ crates/
     window_control/frames.rs   # NEW: frames that never wait, one per limit to a window that has not moved
     window_control.rs          # place_frames; placements posted behind frames
     window_control/hiding.rs   # show state changes posted behind what was posted
-    frame_clock.rs             # NEW: the pacer thread
+    frame_clock.rs             # NEW: DisplayWait, the Win32 FrameWait
     system_settings.rs         # NEW: the Windows animation setting
     event.rs, event_source.rs  # EVENT_SYSTEM_MOVESIZESTART
     daemon_types.rs            # DaemonMsg::Frame
@@ -417,8 +425,8 @@ that changes them.
       `FrameControl::posts_behind` tells the caller; focus never is; and
       `FrameControl::settle_responding` lets windows go back to changes made
       at once once transitions are off
-- [ ] `FrameClock` contract and the Windows pacer, tested against an injected
-      wait; `DaemonMsg::Frame`
+- [x] `FrameClock` contract and the Windows pacer, tested against an injected
+      wait
 - [ ] `Desktop::animations_allowed` and its Windows implementation
 - [ ] `WindowEvent::MoveStarted` from `EVENT_SYSTEM_MOVESIZESTART`
 - [x] Scheduler: position reports and frames are not activity, motion
@@ -440,6 +448,8 @@ that changes them.
 - [ ] Borders follow the reached rect, hide during resizes and are drawn once at
       the end
 - [ ] `MouseHover` dropped while windows move
+- [ ] The daemon loop starts the pacer and takes `DaemonMsg::Frame` (left out
+      of 34.2, where nothing asked for frames yet)
 - [ ] The daemon loop asks for frames while anything moves and runs the frame
       step on frames and deadlines
 - [ ] Tiler tests on the fake clock: a swap moves both windows in lockstep and

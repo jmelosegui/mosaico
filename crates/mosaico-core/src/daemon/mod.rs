@@ -10,15 +10,21 @@
 //! never reads the clock. The platform loop tells it when it starts
 //! waiting, hands it whatever ended the wait, and runs the
 //! [`Step`](crate::daemon::Step)s it gets back. The frames come from the
-//! platform's [`FrameClock`](crate::daemon::FrameClock).
+//! platform's [`FrameClock`](crate::daemon::FrameClock), which can be a
+//! [`FramePacer`](crate::daemon::FramePacer) waiting on the display
+//! through a [`FrameWait`](crate::daemon::FrameWait) of the platform's.
 
 mod dedup;
 mod frame_clock;
+mod frame_pacer;
+mod frame_wait;
 mod messages;
 mod scheduler;
 mod settle;
 
 pub use frame_clock::FrameClock;
+pub use frame_pacer::{FramePacer, FrameToken};
+pub use frame_wait::FrameWait;
 pub use messages::{Message, Step, Wake};
 pub use scheduler::Scheduler;
 pub use settle::SETTLE;
