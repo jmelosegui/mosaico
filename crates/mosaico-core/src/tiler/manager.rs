@@ -55,6 +55,7 @@ impl<P: Platform> TilingManager<P> {
             borders: config.borders.clone(),
             rules,
             mouse_follows_focus: config.mouse.follows_focus,
+            animations: config.animations.clone(),
             hiding_support: hiding,
         };
         let now = platform.now();

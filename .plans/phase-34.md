@@ -438,11 +438,11 @@ that changes them.
 
 ### 34.3 Transitions in the tiler and the applier
 
-- [ ] `[animations]` in `Settings` and reload (left out of 34.1, where nothing
+- [x] `[animations]` in `Settings` and reload (left out of 34.1, where nothing
       read it yet)
 - [ ] `Motions` gives its earliest deadline and takes the frame outcomes of
       34.2
-- [ ] `Place { transition }`, set by the step decision in `Plan::finish` and kept
+- [x] `Place { transition }`, set by the step decision in `Plan::finish` and kept
       by the coalescer
 - [ ] Marked placements become motions; the frame step posts frames, acts on
       outcomes and finishes motions only once their last frame has landed

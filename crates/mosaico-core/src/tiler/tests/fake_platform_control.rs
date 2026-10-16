@@ -11,15 +11,8 @@ use super::{Call, FakePlatform};
 
 impl WindowControl for FakePlatform {
     fn place(&self, window: WindowId, rect: Rect) -> Result<()> {
-        let timing = Timing::Now;
-        self.change(
-            Call::Place(window, rect),
-            Effect::Place {
-                window,
-                rect,
-                timing,
-            },
-        )
+        let effect = Effect::snap(window, rect, Timing::Now);
+        self.change(Call::Place(window, rect), effect)
     }
 
     fn pre_place(&self, window: WindowId, rect: Rect) -> Result<()> {

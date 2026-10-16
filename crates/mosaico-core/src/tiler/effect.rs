@@ -1,5 +1,7 @@
-use crate::config::{Color, CornerStyle, HidingBehaviour};
+use crate::config::{CornerStyle, HidingBehaviour};
 use crate::{Rect, WindowId};
+
+use super::{BorderStyle, Timing, Transition};
 
 /// A change the tiler wants made to the desktop.
 ///
@@ -19,6 +21,8 @@ pub enum Effect {
         rect: Rect,
         /// Whether the move may be held back. See [`Timing`].
         timing: Timing,
+        /// Whether it may move there over time. See [`Transition`].
+        transition: Transition,
     },
     /// Move a window without waiting for its application: one that
     /// exists but has not been shown yet, or one just taken in while it
@@ -131,34 +135,4 @@ pub enum Effect {
     /// asks for this ahead of the borders of a retile the user asks for
     /// and of a display change that changes anything.
     RedrawBorders,
-}
-
-/// When a [`Effect::Place`] has to reach the screen.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Timing {
-    /// Apply it right away.
-    Now,
-    /// The tiling manager keeps only the latest position per window and
-    /// applies it once input goes quiet. Used for moves the user tends
-    /// to repeat quickly, so a burst of key presses repaints once.
-    ///
-    /// Effects that follow for the same window ([`Effect::Border`],
-    /// [`Effect::CenterCursor`]) must wait for the move.
-    Coalesced,
-}
-
-/// How a focus border is drawn. Where the stroke goes is part of the
-/// [`Decorations`](crate::Decorations) contract.
-#[derive(Debug, Clone, PartialEq)]
-pub struct BorderStyle {
-    /// The window's visible bounds, which the border surrounds.
-    pub rect: Rect,
-    /// The stroke color. A configured value that is not a color is
-    /// already replaced by
-    /// [`BorderColors::FALLBACK`](crate::config::BorderColors::FALLBACK).
-    pub color: Color,
-    /// Stroke width in pixels.
-    pub width: i32,
-    /// Radius of the border's outer corners, in pixels.
-    pub radius: i32,
 }

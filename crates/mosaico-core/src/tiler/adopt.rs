@@ -46,6 +46,7 @@ impl Tiler {
             (Some(idx), Some(_)) => self.apply_layout_on(plan, idx),
             (None, Some(to)) if self.is_tileable(plan, window) => {
                 self.monitors[to].active_ws_mut().add(window);
+                plan.take_in(window);
                 self.move_before_layout(plan, to, window);
                 self.apply_layout_on(plan, to);
             }
@@ -69,6 +70,7 @@ impl Tiler {
             return;
         }
         self.log_added("+adopt", plan, window, idx);
+        plan.take_in(window);
         self.move_before_layout(plan, idx, window);
         self.decorate(plan, window);
         self.apply_layout_on(plan, idx);
@@ -90,6 +92,7 @@ impl Tiler {
                 .active_ws_mut()
                 .set_monocle_window(Some(window));
         }
+        plan.take_in(window);
         self.move_before_layout(plan, idx, window);
         self.decorate(plan, window);
         self.apply_layout_on(plan, idx);

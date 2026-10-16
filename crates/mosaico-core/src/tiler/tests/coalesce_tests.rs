@@ -7,11 +7,7 @@ use crate::id::wid;
 use super::*;
 
 fn place(window: u64, x: i32, timing: Timing) -> Effect {
-    Effect::Place {
-        window: wid(window),
-        rect: Rect::new(x, 0, 100, 100),
-        timing,
-    }
+    Effect::snap(wid(window), Rect::new(x, 0, 100, 100), timing)
 }
 
 fn focus(window: u64) -> Effect {

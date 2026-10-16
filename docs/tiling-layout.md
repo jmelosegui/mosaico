@@ -21,7 +21,9 @@ contracts the manager runs on.
 | `crates/mosaico-core/src/workspace/monocle.rs` | Monocle state of a `Workspace`, with the windows a display change brought onto it that wait behind the monocle window |
 | `crates/mosaico-core/src/rect.rs` | `Rect` -- rectangle type with spatial helpers |
 | `crates/mosaico-core/src/spatial.rs` | Pure spatial navigation functions (`find_neighbor`, `find_entry`) |
-| `crates/mosaico-core/src/tiler/mod.rs` | `Tiler` -- every tiling decision, returned as effects; `MonitorState` in `state.rs` |
+| `crates/mosaico-core/src/tiler/mod.rs` | `Tiler` -- every tiling decision, returned as effects; `MonitorState` in `state.rs`; `Tiler::step` in `step.rs` |
+| `crates/mosaico-core/src/tiler/placement.rs` | `Timing` and `Transition` -- when a placement reaches the screen, and whether it may animate |
+| `crates/mosaico-core/src/tiler/plan_transitions.rs` | `Plan::place()` and the step decision that marks the placements that may animate |
 | `crates/mosaico-core/src/tiler/navigation.rs` | `focus_direction()`, `move_direction()` -- spatial navigation and cross-monitor moves |
 | `crates/mosaico-core/src/tiler/layout.rs`, `layout_actions.rs` | `apply_layout_on()`, `retile_all()`, `toggle_monocle()`, `cycle_layout()` -- layout application |
 | `crates/mosaico-core/src/tiler/workspace.rs` | `goto_workspace()`, `send_to_workspace()` -- workspace switching |
@@ -292,6 +294,37 @@ A layout never sets off another one: `WindowEvent::Moved` is only reported
 when the user finishes dragging a window, never for the tiler's own
 placements, and the `LocationChanged` reports they cause are only acted on
 when the focused window is maximized or restored.
+
+### Placements That Animate
+
+Every `Effect::Place` carries a `transition`: `Snap`, the window is put in
+place at once, or `Animate`, it may move there over a short time. The layout
+passes place windows through `Plan::place`, which records the monitor each
+placement lays its window out on, and every placement starts as `Snap`. As
+the step finishes, `Plan::finish` (`plan_transitions.rs`) runs the step
+decision, `motion::step_animates`, over the placements of the step and marks
+the ones it allows `Animate`. It needs facts only the step has:
+
+- whether transitions are on (`[animations]` enabled, with a duration above
+  zero), which the tiler takes from `Settings` at start and from every
+  config reload;
+- whether the step shows the window, moves it ahead of the layout
+  (`PrePlace`) or takes it in (`Plan::take_in`, from `add_and_focus`,
+  `try_adopt` and a window dropped onto a monitor): such a window appears
+  where it goes instead of sliding there;
+- whether the window is put behind another before its placement, as the
+  windows waiting behind a monocle window are;
+- whether the step is a display change, the tiler's start, or the bar
+  reservation right after it (`Tiler::step` in `step.rs`): everything snaps
+  while monitors and work areas are in flux;
+- whether the monitor the placement lays the window out on is the one the
+  desktop has it on: a window that changes monitors snaps;
+- how many windows the step's placements move from where the desktop has
+  them: a step that moves more than 16 snaps them all.
+
+With transitions off nothing is marked and no desktop is asked anything, so
+the effects are the same as before apart from the field. The coalescer keeps
+the mark of each placement it holds and releases it with it.
 
 ### Window Tileability
 

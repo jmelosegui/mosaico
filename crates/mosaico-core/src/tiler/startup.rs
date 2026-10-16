@@ -4,7 +4,7 @@ use std::collections::HashSet;
 use std::time::Instant;
 
 use crate::action::MAX_WORKSPACES;
-use crate::config::{BorderConfig, LayoutConfig, WindowRule, WorkspacesConfig};
+use crate::config::{AnimationConfig, BorderConfig, LayoutConfig, WindowRule, WorkspacesConfig};
 use crate::{HidingSupport, LayoutKind, WindowId};
 
 use super::{Desktop, Display, Effect, MonitorState, Plan, Tiler, hidden_how, reconnect};
@@ -22,6 +22,8 @@ pub struct Settings {
     pub rules: Vec<WindowRule>,
     /// Whether keyboard-driven focus moves the pointer.
     pub mouse_follows_focus: bool,
+    /// Whether windows move to their new place over time, and how.
+    pub animations: AnimationConfig,
     /// The ways the platform can hide windows. A `layout.hiding` it does
     /// not have is swapped for one it has.
     pub hiding_support: HidingSupport,
@@ -71,6 +73,8 @@ impl Tiler {
             workspace_mode: settings.workspaces.mode,
             rules: settings.rules,
             border_config: settings.borders,
+            animations: settings.animations,
+            fresh: true,
             bordered: HashSet::new(),
             decorated: HashSet::new(),
             mouse_follows_focus: settings.mouse_follows_focus,
@@ -92,6 +96,7 @@ impl Tiler {
         }
         tiler.retile_all(&mut plan);
         tiler.focus_initial(&mut plan);
-        (tiler, plan.finish())
+        let start = tiler.step_kind(true);
+        (tiler, plan.finish(&start))
     }
 }
