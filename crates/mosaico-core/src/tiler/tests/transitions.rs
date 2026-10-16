@@ -10,6 +10,8 @@ use crate::{Action, Direction, Rect};
 
 #[path = "motion_apply_tests.rs"]
 mod apply_tests;
+#[path = "motion_border_tests.rs"]
+mod border_tests;
 #[path = "motion_cursor_tests.rs"]
 mod cursor_tests;
 #[path = "motion_display_tests.rs"]

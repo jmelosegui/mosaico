@@ -20,6 +20,7 @@ Unfocused borders can be turned off entirely (see
 | `crates/mosaico-core/src/tiler/decoration_effects.rs` | `apply_decoration_effect`, which carries out border and corner effects |
 | `crates/mosaico-core/src/tiler/plan_borders.rs` | Keeping one border per window in a step, and where it goes |
 | `crates/mosaico-core/src/tiler/last_drawn.rs` | `LastDrawn`, the style a border was last drawn with |
+| `crates/mosaico-core/src/tiler/applier_borders.rs` | The borders of moving windows, drawn once each window is in place |
 | `crates/mosaico-core/src/config/color.rs` | `Color` struct and its hex parser |
 | `crates/mosaico-core/src/config/mod.rs` | `BorderConfig` for color and width settings |
 | `crates/mosaico-windows/src/decorations.rs` | `Win32Decorations`, the Win32 implementation |
@@ -194,6 +195,25 @@ While a burst of moves is held until input goes quiet, each window's
 border is held with its move: only the latest style, drawn around the slot
 the move lands in. That holds even when a later step, such as a focus
 change, decided the border from where the window still was.
+
+### Borders of Moving Windows
+
+Drawing a border can take tens of milliseconds for a large window, too long
+for a frame of a transition, so a border is never drawn while its window
+moves (`tiler/applier_borders.rs`). A `Border` effect for a moving window
+only replaces the style that is drawn once the window is in place, around
+the rect it ends at; a hide happens at once, since it costs nothing. A
+window whose size changes on its way has its border hidden as its motion
+starts, since the border could not follow it, and drawn once at the end.
+A window whose motion stops on the way, as when it is hidden or the user
+grabs it, gets no border drawn for that motion: what the tiler decides for
+it next is drawn as it comes. Nor does one the tiler lets go of while it
+moves: it is placed where it was going, and the step drops its border.
+One a display change stops keeps the style until it is placed at its
+target, after the rebuild, and has it drawn there, unless the tiler placed
+it or took it out of view meanwhile; a `Border` effect for it meanwhile
+replaces the style, as for a moving window. `DropBorder` forgets the style
+a motion kept, so a border dropped meanwhile is not drawn again.
 
 Color selection per window:
 

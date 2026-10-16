@@ -53,15 +53,26 @@ impl Applier {
                 apply_window_effect(effect, platform.desktop(), platform.control())
             }
             // Admitting it dropped what was held for the window. One let go
-            // of while it moves ends in its slot.
+            // of while it moves ends in its slot, without its border.
             Effect::Untile { window } => {
                 self.forget_stopped(window);
-                self.finish_motion(window, platform);
+                self.let_go(window, platform);
+            }
+            // The borders of moving windows are in `applier_borders.rs`. One a
+            // display change stopped keeps its style the same way, to be drawn
+            // once it is placed after the rebuild.
+            Effect::Border { window, ref style }
+                if self.is_moving_window(window) || self.is_stopped(window) =>
+            {
+                self.border_of_moving(window, style, platform.decorations());
+            }
+            Effect::DropBorder { window } => {
+                self.forget_kept_border(window);
+                apply_decoration_effect(effect, platform.decorations());
             }
             Effect::Decorate { .. }
             | Effect::Undecorate { .. }
             | Effect::Border { .. }
-            | Effect::DropBorder { .. }
             | Effect::RedrawBorders => apply_decoration_effect(effect, platform.decorations()),
         }
         self.expectations.applied(effect, now);

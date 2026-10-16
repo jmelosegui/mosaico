@@ -27,6 +27,8 @@ use crate::{HidingSupport, WindowId};
 
 use super::{Coalescer, Effect, Expectations, HiddenFile, HiddenWindows, Platform};
 
+#[path = "applier_borders.rs"]
+mod borders;
 #[path = "applier_display.rs"]
 mod display;
 #[path = "applier_ends.rs"]

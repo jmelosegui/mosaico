@@ -6,12 +6,12 @@
 //! replaced. After the rebuild, or when there is none because the monitors
 //! could not be read, every window stopped that nothing placed or took out
 //! of view meanwhile is placed at its target, which a rebuild that leaves
-//! its monitor as it was leaves as it was too.
+//! its monitor as it was leaves as it was too, and the border its motion
+//! kept is drawn there.
 
 use crate::{Rect, WindowId};
 
 use super::super::Platform;
-use super::super::window_effects::place_and_repaint;
 use super::Applier;
 
 /// A display change the applier is waiting to see rebuilt for.
@@ -36,11 +36,17 @@ impl Applier {
 
     /// Ends a display change, rebuilt for or not: each window it stopped
     /// that nothing placed or took out of view since is placed at its
-    /// target, in full.
+    /// target, in full, and has the border its motion kept drawn there.
     pub(in crate::tiler) fn display_changed(&mut self, platform: &mut dyn Platform) {
         for (window, target) in self.take_stopped() {
-            place_and_repaint(window, target, platform.control());
+            self.in_place(window, target, platform);
         }
+    }
+
+    /// Whether a display change stopped `window`, which is still to be
+    /// placed.
+    pub(super) fn is_stopped(&self, window: WindowId) -> bool {
+        self.display.stopped.iter().any(|&(w, _)| w == window)
     }
 
     /// Ends the display change at once, and gives the windows it stopped,
@@ -51,8 +57,13 @@ impl Applier {
     }
 
     /// Forgets the target a display change kept for `window`, which is
-    /// placed again, taken out of view or gone.
+    /// placed again, taken out of view or gone, and the border its motion
+    /// kept: what the tiler decides next is drawn as it comes.
     pub(super) fn forget_stopped(&mut self, window: WindowId) {
+        let before = self.display.stopped.len();
         self.display.stopped.retain(|&(w, _)| w != window);
+        if self.display.stopped.len() < before {
+            self.forget_kept_border(window);
+        }
     }
 }

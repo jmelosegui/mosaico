@@ -7,6 +7,7 @@
 //! and the frame step moves it on. Any other placement of a window that is
 //! moving ends its motion and places it at once, in full.
 
+use std::collections::HashMap;
 use std::time::Instant;
 
 use crate::config::AnimationConfig;
@@ -16,12 +17,15 @@ use crate::{Rect, WindowId};
 use super::super::window_effects::place_and_repaint;
 use super::super::{Desktop, Effect, Platform, Transition, apply_window_effect};
 use super::Applier;
+use super::borders::MotionBorder;
 
 /// What the applier keeps for the placements that animate.
 #[derive(Debug)]
 pub(super) struct Transitions {
     /// The windows moving to their placements.
     pub(super) motions: Motions,
+    /// What the border of each moving window does until it is in place.
+    pub(super) borders: HashMap<WindowId, MotionBorder>,
     /// How placements animate, as configured.
     pub(super) animations: AnimationConfig,
     /// Whether the platform can move windows through frames.
@@ -32,6 +36,7 @@ impl Default for Transitions {
     fn default() -> Self {
         Self {
             motions: Motions::default(),
+            borders: HashMap::new(),
             animations: AnimationConfig::default(),
             frames_supported: true,
         }
@@ -91,17 +96,19 @@ impl Applier {
             && let Some(from) = self.animates_from(window, rect, platform.desktop(), now)
         {
             let spec = self.transitions.animations.spec();
+            self.border_moves(window, from, rect);
             self.transitions
                 .motions
                 .retarget(window, from, rect, now, spec);
-        } else if self.transitions.motions.end(window).is_some() {
-            place_and_repaint(window, rect, platform.control());
+        } else if self.transitions.motions.is_moving(window) {
+            self.place_now(window, rect, platform);
         } else {
             apply_window_effect(effect, platform.desktop(), platform.control());
         }
     }
 
-    /// Places a window in full, ending its motion if it has one.
+    /// Places a window in full, ending its motion if it has one. The
+    /// border it kept for the motion is left to the effects that follow.
     pub(super) fn place_now(&mut self, window: WindowId, rect: Rect, platform: &mut dyn Platform) {
         self.stop_motion(window);
         place_and_repaint(window, rect, platform.control());

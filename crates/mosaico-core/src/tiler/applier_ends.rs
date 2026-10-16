@@ -7,14 +7,15 @@
 //!   tiler, and that placement snaps.
 //! - A window asked to close keeps moving: the application may refuse,
 //!   and its destruction or hiding ends the motion.
-//! - A window the tiler lets go of and the tiler stopping finish the
-//!   motion at its target. A display change stops every motion where it
-//!   is as soon as it is noted, as `applier_display.rs` says.
+//! - A window the tiler lets go of is placed at its target, without the
+//!   border its motion kept, and the tiler stopping finishes every motion
+//!   at its target. A display change stops every motion where it is as
+//!   soon as it is noted, as `applier_display.rs` says.
 //! - Focusing a moving window with the pointer following, or putting the
 //!   pointer on it, aims at the center of its target, not at where the
 //!   window is on its way there.
 
-use crate::{WindowControl, WindowEvent, WindowId};
+use crate::{Rect, WindowControl, WindowEvent, WindowId};
 
 use super::super::window_effects::{place_and_repaint, report};
 use super::super::{Desktop, Effect, Platform};
@@ -22,9 +23,11 @@ use super::Applier;
 
 impl Applier {
     /// Stops the window's motion where the window is, and forgets the
-    /// target a display change kept for it. It is not placed at its target.
+    /// target a display change kept for it. It is not placed at its target,
+    /// and its border is left to what the tiler decides next.
     pub(super) fn stop_motion(&mut self, window: WindowId) {
         self.transitions.motions.end(window);
+        self.forget_kept_border(window);
         self.forget_stopped(window);
     }
 
@@ -52,21 +55,43 @@ impl Applier {
     }
 
     /// Finishes the window's motion at its target, placing it there in
-    /// full. Does nothing for a window that is not moving.
+    /// full, then drawing its border there. Does nothing for a window that
+    /// is not moving.
     pub(super) fn finish_motion(&mut self, window: WindowId, platform: &mut dyn Platform) {
         if let Some(target) = self.transitions.motions.end(window) {
+            self.in_place(window, target, platform);
+        }
+    }
+
+    /// Places a moving window the tiler lets go of at its target, in full,
+    /// and forgets the border its motion kept: the step that lets go of the
+    /// window drops its border, so drawing it first would be wasted. Does
+    /// nothing for a window that is not moving.
+    pub(super) fn let_go(&mut self, window: WindowId, platform: &mut dyn Platform) {
+        if let Some(target) = self.transitions.motions.end(window) {
+            self.forget_kept_border(window);
             place_and_repaint(window, target, platform.control());
         }
     }
 
     /// Finishes every motion at its target, as the tiler stopping does,
     /// placing each window there in full, the ones a display change stopped
-    /// too.
+    /// too, without the borders they kept.
     pub(in crate::tiler) fn finish_motions(&mut self, platform: &mut dyn Platform) {
-        let stopped = self.take_stopped();
-        for (window, target) in self.transitions.motions.clear().into_iter().chain(stopped) {
+        for (window, target) in self.transitions.motions.clear() {
+            self.in_place(window, target, platform);
+        }
+        for (window, target) in self.take_stopped() {
+            self.forget_kept_border(window);
             place_and_repaint(window, target, platform.control());
         }
+    }
+
+    /// Places a window whose motion is over at `target`, in full, and
+    /// draws the border it kept for the motion around it.
+    pub(super) fn in_place(&mut self, window: WindowId, target: Rect, platform: &mut dyn Platform) {
+        place_and_repaint(window, target, platform.control());
+        self.draw_kept_border(window, target, platform.decorations());
     }
 
     /// Whether `window` is moving to a target.

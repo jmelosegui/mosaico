@@ -362,14 +362,17 @@ Other effects that reach a moving window (`applier_ends.rs`):
   `Destroyed` or `Hidden` report ends the motion.
 - `Untile` and `Reveal` finish the motion at its target with a full
   placement, and so does the tiler stopping, for every moving window and
-  every window a display change stopped, before it restores the windows.
+  every window a display change stopped, before it restores the windows. A
+  window the tiler lets go of gets no border drawn there: the step that lets
+  go of it drops its border.
 - A display change stops every motion where its window is as soon as it is
   noted (`TilingManager::display_changing()`), and each window keeps its
   target (`applier_display.rs`). Until the change is rebuilt for, every
   placement snaps, as the layout it is for is about to be replaced. After
   the rebuild, or when the daemon cannot read the monitors and skips it
   (`TilingManager::display_change_skipped()`), each window stopped that
-  nothing placed or took out of view meanwhile is placed at its target.
+  nothing placed or took out of view meanwhile is placed at its target, and
+  the border its motion kept is drawn there.
 - `Focus { move_cursor: true }` and `CenterCursor` put the pointer at the
   center of the window's target, not where it is on its way there.
 
