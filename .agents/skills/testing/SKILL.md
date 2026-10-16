@@ -24,6 +24,7 @@ cargo test --lib
 cargo test -p mosaico --bins
 cargo test --doc
 cargo test -p mosaico-core --test '*'
+cargo xtask metrics
 cargo test -p mosaico --test cli -- help_exits_successfully version_exits_successfully debug_list_subcommand_runs \
   an_invalid_instance_name_is_refused a_test_instance_does_not_see_other_daemons \
   doctor_and_debug_list_show_monitors_as_the_daemon_sees_them --exact
@@ -59,6 +60,29 @@ must use `TestInstance` and never run `mosaico` without it.
 If you must run one of these, tell the user first, run one suite at a time, and afterwards make sure no daemon
 is left behind (`taskkill /IM mosaico.exe /F`). When asked to "run all the tests", run the safe set and say
 which suites were skipped and why.
+
+## Metrics
+
+`metrics/` holds two committed baselines, and `cargo xtask metrics` (run in CI) fails when a count differs from
+them, in either direction:
+
+- `metrics/tiler.toml`: what the tiling manager asks of the platform in common situations (opening a window,
+  a burst of moves, a workspace switch, a display change), by kind of call, plus borders drawn from scratch.
+  The scenarios are in `crates/mosaico-core/src/tiler/tests/metrics_scenarios.rs` and run on `FakePlatform`,
+  after coalescing and echo handling. Fewer is better.
+- `metrics/code.toml`: per crate, tests (more is better), files and lines over the 150 line limit, `unsafe`
+  keywords, `.unwrap()`/`.expect(` outside tests in the library crates, and OS names in `mosaico-core` (fewer is
+  better).
+
+When a count gets worse, fix the code. When a change is intended (a scenario added, a count improved, tests
+added), record it with `cargo xtask metrics --bless` and commit the baseline with the change, so the review shows
+it. An improvement fails until it is recorded, so it cannot slip back unnoticed. Add a scenario for any new kind of
+work the tiler does.
+
+`cargo xtask size` builds the release binary as the release workflow does and fails when it is over 2,000,000
+bytes (`MAX_BYTES` in `xtask/src/size.rs`). It is a ceiling, not a baseline, because the size changes with every
+Rust toolchain. It takes a release build, so CI runs it rather than every local check. When it fails, find what grew
+with `cargo bloat --release -p mosaico --crates`.
 
 ## Design for isolation
 

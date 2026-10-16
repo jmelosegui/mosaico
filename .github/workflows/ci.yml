@@ -46,6 +46,16 @@ jobs:
       - name: Core integration tests
         run: cargo test -p mosaico-core --test '*'
 
+      # Code health counts and the tiler's work per scenario, against the
+      # baselines committed in metrics/.
+      - name: Metrics
+        run: cargo xtask metrics
+
+      # Builds the release binary the way the release workflow does and
+      # fails when it is over its size ceiling.
+      - name: Binary size
+        run: cargo xtask size
+
       - name: CLI tests
         run: cargo test -p mosaico --test cli
 

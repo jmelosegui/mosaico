@@ -1,0 +1,172 @@
+# Measured by `cargo xtask metrics --bless`. A change here comes from a new measurement.
+
+[bar_reserved]
+border_renders = 4
+calls = 14
+focus = 1
+move_cursor = 1
+place = 4
+repaint = 4
+show_border = 4
+
+[close_one_of_4]
+border_renders = 2
+calls = 11
+drop_border = 1
+focus = 1
+move_cursor = 1
+place = 2
+repaint = 2
+reset_corners = 1
+show_border = 3
+
+[config_reload]
+border_renders = 4
+calls = 18
+focus = 1
+move_cursor = 1
+place = 4
+repaint = 4
+set_corners = 4
+show_border = 4
+
+[cycle_layout]
+border_renders = 3
+calls = 12
+focus = 1
+move_cursor = 1
+place = 3
+repaint = 3
+show_border = 4
+
+[focus_burst_of_9]
+border_renders = 0
+calls = 38
+focus = 1
+move_cursor = 1
+show_border = 36
+
+[focus_once]
+border_renders = 0
+calls = 6
+focus = 1
+move_cursor = 1
+show_border = 4
+
+[monitor_disconnect]
+border_renders = 4
+calls = 18
+focus = 1
+move_cursor = 1
+place = 3
+repaint = 7
+show = 2
+show_border = 4
+
+[monitor_reconnect]
+border_renders = 4
+calls = 16
+place = 3
+repaint = 7
+show = 2
+show_border = 4
+
+[monocle_on_and_off]
+border_renders = 2
+calls = 14
+focus = 1
+hide_border = 3
+move_cursor = 1
+place = 2
+repaint = 2
+show_border = 5
+
+[move_burst_of_9]
+border_renders = 2
+calls = 19
+focus = 1
+move_cursor = 10
+place = 2
+repaint = 2
+show_border = 4
+
+[move_once]
+border_renders = 2
+calls = 11
+focus = 1
+move_cursor = 2
+place = 2
+repaint = 2
+show_border = 4
+
+[open_next_to_1]
+border_renders = 2
+calls = 10
+focus = 1
+move_cursor = 1
+place = 2
+pre_place = 1
+repaint = 2
+set_corners = 1
+show_border = 2
+
+[open_next_to_3]
+border_renders = 2
+calls = 12
+focus = 1
+move_cursor = 1
+place = 2
+pre_place = 1
+repaint = 2
+set_corners = 1
+show_border = 4
+
+[open_next_to_8]
+border_renders = 2
+calls = 17
+focus = 1
+move_cursor = 1
+place = 2
+pre_place = 1
+repaint = 2
+set_corners = 1
+show_border = 9
+
+[retile]
+border_renders = 4
+calls = 6
+focus = 1
+move_cursor = 1
+show_border = 4
+
+[send_to_workspace]
+border_renders = 1
+calls = 12
+drop_border = 3
+focus = 1
+hide = 3
+move_cursor = 1
+place = 1
+repaint = 1
+show = 1
+show_border = 1
+
+[startup_with_4]
+border_renders = 4
+calls = 18
+focus = 1
+move_cursor = 1
+place = 4
+repaint = 4
+set_corners = 4
+show_border = 4
+
+[workspace_there_and_back]
+border_renders = 4
+calls = 18
+drop_border = 4
+focus = 1
+hide = 4
+move_cursor = 1
+show = 4
+show_border = 4

@@ -12,5 +12,8 @@ toml = "0.8"
 toml_edit = "0.22"
 zip = { version = "2", default-features = false, features = ["deflate"] }
 
+[dev-dependencies]
+mosaico-metrics = { path = "../mosaico-metrics" }
+
 [lints]
 workspace = true

@@ -1,0 +1,13 @@
+[package]
+name = "mosaico-metrics"
+version = "0.9.1"
+edition = "2024"
+description = "Metric reports for Mosaico, and the committed baselines they must not fall behind"
+license = "MIT"
+publish = false
+
+[dependencies]
+toml = "0.8"
+
+[lints]
+workspace = true
