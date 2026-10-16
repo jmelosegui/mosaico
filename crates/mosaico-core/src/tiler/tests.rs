@@ -75,6 +75,12 @@ mod manager_record_tests;
 mod manager_support;
 #[path = "tests/manager_tests.rs"]
 mod manager_tests;
+#[path = "tests/metrics_scenarios.rs"]
+mod metrics_scenarios;
+#[path = "tests/metrics_support.rs"]
+mod metrics_support;
+#[path = "tests/metrics_tests.rs"]
+mod metrics_tests;
 #[path = "tests/mode_reload_settings_tests.rs"]
 mod mode_reload_settings_tests;
 #[path = "tests/mode_reload_tests.rs"]

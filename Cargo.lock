@@ -248,11 +248,19 @@ dependencies = [
 name = "mosaico-core"
 version = "0.9.1"
 dependencies = [
+ "mosaico-metrics",
  "serde",
  "serde_json",
  "toml",
  "toml_edit",
  "zip",
+]
+
+[[package]]
+name = "mosaico-metrics"
+version = "0.9.1"
+dependencies = [
+ "toml",
 ]
 
 [[package]]
@@ -569,6 +577,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a5364e9d77fcdeeaa6062ced926ee3381faa2ee02d3eb83a5c27a8825540829"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "xtask"
+version = "0.9.1"
+dependencies = [
+ "mosaico-metrics",
 ]
 
 [[package]]

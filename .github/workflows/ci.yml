@@ -46,6 +46,11 @@ jobs:
       - name: Core integration tests
         run: cargo test -p mosaico-core --test '*'
 
+      # Code health counts and the tiler's work per scenario, against the
+      # baselines committed in metrics/.
+      - name: Metrics
+        run: cargo xtask metrics
+
       - name: CLI tests
         run: cargo test -p mosaico --test cli
 

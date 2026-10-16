@@ -2,7 +2,9 @@
 members = [
     "crates/mosaico",
     "crates/mosaico-core",
+    "crates/mosaico-metrics",
     "crates/mosaico-windows",
+    "xtask",
 ]
 resolver = "3"
 

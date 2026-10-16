@@ -7,6 +7,8 @@ Mosaico is a cross-platform tiling window manager written in Rust. It is a Cargo
 | `crates/mosaico-core` | OS-agnostic traits, types and all decision logic (layouts, workspaces, config, matching) |
 | `crates/mosaico-windows` | Windows implementation of the core traits (Win32, DWM, WinHTTP, registry) |
 | `crates/mosaico` | CLI binary; depends on both |
+| `crates/mosaico-metrics` | Metric reports and the committed baselines they are checked against (dev only) |
+| `xtask` | Development tasks, run with `cargo xtask` (dev only) |
 
 Only Windows ships today, but `mosaico-core` must stay portable so a `mosaico-linux` or `mosaico-macos` crate
 can be added by implementing traits, not by copying logic. Every feature that touches the OS needs a contract
@@ -38,6 +40,7 @@ Ground rules:
 - Every bug fix starts with a test that reproduces the reported behaviour and fails on `main`. The fix then makes it
   pass without editing the test. See [fixing-a-bug](.agents/skills/fixing-a-bug/SKILL.md).
 - Keep warnings at zero: `cargo fmt --all -- --check` and `cargo clippy --all-targets -- -D warnings` must pass.
+- Metrics must not regress: `cargo xtask metrics` must pass. See [testing](.agents/skills/testing/SKILL.md#metrics).
 - Never run `cargo test` or `cargo test --workspace` unfiltered. Some suites start a real daemon that tiles the
   live desktop. See [testing](.agents/skills/testing/SKILL.md) for the safe set.
 - Do not commit unless the user asks. Commits are GPG-signed conventional commits.

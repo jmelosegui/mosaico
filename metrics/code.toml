@@ -1,0 +1,28 @@
+# Measured by `cargo xtask metrics --bless`. A change here comes from a new measurement.
+
+[mosaico]
+files_over_line_limit = 17
+lines_over_line_limit = 2092
+tests = 127
+unsafe_keywords = 51
+
+[mosaico-core]
+files_over_line_limit = 81
+lines_over_line_limit = 5777
+os_names = 0
+tests = 1015
+unsafe_keywords = 0
+unwraps_outside_tests = 0
+
+[mosaico-metrics]
+files_over_line_limit = 0
+lines_over_line_limit = 0
+tests = 12
+unsafe_keywords = 0
+
+[mosaico-windows]
+files_over_line_limit = 16
+lines_over_line_limit = 946
+tests = 129
+unsafe_keywords = 208
+unwraps_outside_tests = 0

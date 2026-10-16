@@ -1,0 +1,13 @@
+[package]
+name = "xtask"
+version = "0.9.1"
+edition = "2024"
+description = "Development tasks for Mosaico, run with `cargo xtask`"
+license = "MIT"
+publish = false
+
+[dependencies]
+mosaico-metrics = { path = "../crates/mosaico-metrics" }
+
+[lints]
+workspace = true
