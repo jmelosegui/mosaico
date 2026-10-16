@@ -18,6 +18,8 @@ mod cursor_tests;
 mod display_tests;
 #[path = "motion_end_tests.rs"]
 mod end_tests;
+#[path = "motion_hover_tests.rs"]
+mod hover_tests;
 #[path = "motion_reload_tests.rs"]
 mod reload_tests;
 #[path = "motion_stop_tests.rs"]

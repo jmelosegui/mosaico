@@ -130,6 +130,11 @@ impl Applier {
             self.release_dropped_focus();
             self.moved_on_screen.remove(&window);
         }
+        // A window that slides under a pointer at rest is not one the user
+        // pointed at.
+        if matches!(event, crate::WindowEvent::MouseHover { .. }) && self.is_moving() {
+            return Some("windows are moving");
+        }
         let echo = self.expectations.echo(event, now);
         self.motion_seen(event, echo.is_some(), desktop);
         echo

@@ -164,8 +164,8 @@ pointer is read with `GetCursorPos`, `WindowFromPoint` and
 | `Destroyed` | Remove window from workspace, re-tile |
 | `Hidden` | Remove the window, if it is really no longer visible, and stop its transition then |
 | `Focused` | Update focus tracking, show/reposition border |
-| `MouseHover` | Focus the window, if it is managed and on the active workspace |
-| `MoveStarted` | Nothing: the layout changes when the drag ends, with `Moved` |
+| `MouseHover` | Focus the window, if it is managed and on the active workspace; dropped while windows move. That rarely matters: a report takes 3 polls, at least 200 ms, longer than a default 180 ms transition, so a window sliding under a pointer at rest is usually reported only once it stops |
+| `MoveStarted` | Stop the window's transition, if it is moving; the layout changes when the drag ends, with `Moved` |
 | `Moved` | Detect monitor reassignment, re-tile if needed |
 | `Minimized` | Remove from workspace, re-tile, and stop the window's transition, if it is really minimized |
 | `Restored` | Re-add to workspace, re-tile |

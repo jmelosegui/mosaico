@@ -462,7 +462,7 @@ that changes them.
       snap until it is rebuilt for
 - [ ] Borders follow the reached rect, hide during resizes and are drawn once at
       the end
-- [ ] `MouseHover` dropped while windows move
+- [x] `MouseHover` dropped while windows move
 - [x] The daemon loop starts the pacer and takes `DaemonMsg::Frame` (left out
       of 34.2, where nothing asked for frames yet)
 - [x] The daemon loop asks for frames while anything moves and runs the frame
