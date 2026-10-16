@@ -350,7 +350,7 @@ that changes them.
 
 ### 34.1 Motion model and config (core only)
 
-- [ ] `Easing` presets and `cubic-bezier` (y from 0 to 1), with tests for the
+- [x] `Easing` presets and `cubic-bezier` (y from 0 to 1), with tests for the
       endpoints, monotonic presets and solver accuracy
 - [ ] `Segment` with eased and monotone Hermite segments, with tests that the
       last frame is exactly the target, that a retarget keeps position and

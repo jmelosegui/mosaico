@@ -38,6 +38,8 @@ pub mod lifecycle;
 pub mod log;
 /// Platform-agnostic monitor identity and matching.
 pub mod monitor;
+/// Window transitions: how windows move to their new place over time.
+pub mod motion;
 /// PID file management for the daemon.
 pub mod pid;
 /// Axis-aligned rectangle type.
