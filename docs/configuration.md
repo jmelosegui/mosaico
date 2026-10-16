@@ -11,6 +11,7 @@ All settings have sensible defaults, so configuration files are optional.
 |------|---------|
 | `crates/mosaico-core/src/config/mod.rs` | `Config`, `LayoutConfig`, `BorderConfig`, `ThemeConfig`, `WindowRule`, `should_manage()` |
 | `crates/mosaico-core/src/config/hiding_behaviour.rs` | `HidingBehaviour`, how windows are hidden on a workspace switch |
+| `crates/mosaico-core/src/config/animations.rs` | `AnimationConfig`, the `[animations]` section: window transitions |
 | `crates/mosaico-core/src/config/store/` | `ConfigStore`: the paths of the config files (`mod.rs`), loading them (`load.rs`), each migration (`migrate*.rs`) and each merge of new defaults (`merge_*.rs`) |
 | `crates/mosaico-core/src/config/reload/` | `ConfigReloader`, `ConfigReload`: which files hot-reload and how (`mod.rs`); `ConfigWatch`: opening the watcher after the files are recorded, and the watch loop (`run.rs`) |
 | `crates/mosaico-core/src/config/keybinding.rs` | `Keybinding`, `Modifier`, `defaults()`, `Keybinding::combo()` |
@@ -22,7 +23,7 @@ All settings have sensible defaults, so configuration files are optional.
 ### Key Types
 
 - `Config` -- top-level config: `layout: LayoutConfig`, `borders: BorderConfig`,
-  `logging: LogConfig`, `theme: ThemeConfig`
+  `animations: AnimationConfig`, `logging: LogConfig`, `theme: ThemeConfig`
 - `LayoutConfig` -- `default: String` (default `"bsp"`), `gap: i32` (default 8),
   `ratio: f64` (default 0.5), `hiding: HidingBehaviour` (default `Cloak`),
   `workspaces: HashMap<u32, String>` (per-workspace layout overrides)
@@ -37,6 +38,15 @@ All settings have sensible defaults, so configuration files are optional.
   muted gray). The literal `"none"` on `unfocused` disables borders
   for unfocused windows entirely; `BorderColors::unfocused_enabled()`
   reports the toggle state
+- `AnimationConfig` -- `enabled: bool` (default false), `duration: i32` in
+  milliseconds (default 180), `easing: Easing` (default `ease-out-cubic`),
+  `follow_system: bool` (default true). `is_on()` says whether transitions
+  are on: enabled, with a duration above zero. `spec()` gives the duration
+  and easing a transition follows (`motion::MotionSpec`)
+- `Easing` (in `mosaico_core::motion`) -- `linear`, `ease-out-quad`,
+  `ease-out-cubic`, `ease-in-out-cubic`, `ease-out-expo`, or
+  `cubic-bezier(x1, y1, x2, y2)` as CSS writes it, with all four numbers
+  within 0 to 1 so that windows never overshoot. Written and stored by name
 - `LogConfig` -- `enabled: bool` (default false), `level: String` (default
   `"info"`), `max_file_mb: u64` (default 10)
 - `WindowRule` -- `match_class: Option<String>`, `match_title: Option<String>`,
@@ -231,7 +241,12 @@ A missing file is never created. Files that exist change in two ways:
 - `gap`: clamped to `[0, 200]`
 - `ratio`: clamped to `[0.1, 0.9]`
 - `border width`: clamped to `[0, 32]`
+- `[animations] duration`: clamped to `[0, 1000]` milliseconds
 - `corner_style`: must be `"square"`, `"small"`, or `"round"`
+- `[animations] easing`: must be one of the names above or a
+  `cubic-bezier(...)` with four numbers within `[0, 1]`. Like an unknown
+  `corner_style`, anything else makes `config.toml` invalid, and the error
+  names the file, the line and the easing
 
 ### Partial Files
 
