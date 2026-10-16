@@ -521,7 +521,7 @@ that changes them.
 
 - [x] The `[animations]` section in the config template, and the hint for
       existing configs
-- [ ] A debug log line per transition: windows, frames posted, pending and
+- [x] A debug log line per transition: windows, frames sent, pending and
       handled, and the slowest window (no log line per frame)
 - [x] `mosaico doctor` shows the animation settings and whether Windows allows
       animations
@@ -531,9 +531,9 @@ that changes them.
       run on demand with the desktop suites: a swap with transitions on is
       seen between the slots, within their box, and ends exactly in them;
       with transitions off it is never seen between them
-- [ ] Run `cargo fmt --all -- --check`
-- [ ] Run `cargo clippy --all-targets -- -D warnings`
-- [ ] Run the safe test suites from the testing skill, and `cargo xtask metrics`
+- [x] Run `cargo fmt --all -- --check`
+- [x] Run `cargo clippy --all-targets -- -D warnings`
+- [x] Run the safe test suites from the testing skill, and `cargo xtask metrics`
 - [ ] Manual test: swap, move, cycle layouts and toggle monocle with 2 to 6
       windows, including a browser (resize frames) and an Electron app
 - [ ] Manual test: a 144 Hz monitor next to a 60 Hz one

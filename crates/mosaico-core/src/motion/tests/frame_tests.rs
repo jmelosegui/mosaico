@@ -8,6 +8,11 @@ use crate::motion::{Easing, Segment};
 use super::super::Motions;
 use super::Tick;
 
+#[path = "behind_report_tests.rs"]
+mod behind_report_tests;
+#[path = "reached_tests.rs"]
+mod reached_tests;
+
 /// A table with one window moving 10 px right in a second, so most
 /// frames find it where the last one left it.
 fn creeping(t0: Instant) -> Motions {

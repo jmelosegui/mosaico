@@ -7,8 +7,12 @@
 //! could not be read, every window stopped that nothing placed or took out
 //! of view meanwhile is placed at its target, which a rebuild that leaves
 //! its monitor as it was leaves as it was too, and the border its motion
-//! kept is drawn there.
+//! kept is drawn there. The log hears of each window as it stops, and as it
+//! is placed at the target it kept.
 
+use std::time::Instant;
+
+use crate::motion::{Ending, Kept, KeptLine, Placed};
 use crate::{Rect, WindowId};
 
 use super::super::Platform;
@@ -26,20 +30,38 @@ pub(super) struct DisplayChange {
 
 impl Applier {
     /// Stops every motion where its window is, as soon as a display change
-    /// is noted, keeping each window's target, and has every placement snap
-    /// until the change is rebuilt for.
-    pub(in crate::tiler) fn display_changing(&mut self) {
+    /// is noted at `now`, keeping each window's target, and has every
+    /// placement snap until the change is rebuilt for.
+    pub(in crate::tiler) fn display_changing(&mut self, now: Instant) {
         self.display.settling = true;
         let stopped = self.transitions.motions.clear();
+        for &(window, _) in &stopped {
+            self.log_end(window, Ending::DisplaysChanged, None, now);
+        }
         self.display.stopped.extend(stopped);
     }
 
-    /// Ends a display change, rebuilt for or not: each window it stopped
-    /// that nothing placed or took out of view since is placed at its
-    /// target, in full, and has the border its motion kept drawn there.
-    pub(in crate::tiler) fn display_changed(&mut self, platform: &mut dyn Platform) {
+    /// Ends a display change at `now`, rebuilt for or not: each window it
+    /// stopped that nothing placed or took out of view since is placed at
+    /// its target, in full, and has the border its motion kept drawn there.
+    pub(in crate::tiler) fn display_changed(&mut self, platform: &mut dyn Platform, now: Instant) {
         for (window, target) in self.take_stopped() {
-            self.in_place(window, target, platform);
+            let placed = self.in_place(window, target, platform);
+            self.log_kept(window, Kept::ChangeOver, placed, now);
+        }
+    }
+
+    /// Logs that `window`, which a display change stopped, was placed at
+    /// the target it kept, `when`, its placement made as `placed` at `now`,
+    /// and has the log hear when it lands, if it is still to.
+    pub(super) fn log_kept(&mut self, window: WindowId, when: Kept, placed: Placed, now: Instant) {
+        self.log(KeptLine {
+            window,
+            when,
+            placed,
+        });
+        if placed == Placed::Landing {
+            self.log_landing(window, now);
         }
     }
 

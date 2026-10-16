@@ -16,6 +16,9 @@
 //!   pointer on it, aims at the center of its target, not at where the
 //!   window is on its way there.
 
+use std::time::Instant;
+
+use crate::motion::{Ending, Placed, Stop};
 use crate::{Rect, WindowControl, WindowEvent, WindowId};
 
 use super::super::window_effects::report;
@@ -23,55 +26,69 @@ use super::super::{Desktop, Effect, Platform};
 use super::Applier;
 
 impl Applier {
-    /// Stops the window's motion where the window is, and forgets the
-    /// target a display change kept for it. It is not placed at its target,
-    /// and its border is left to what the tiler decides next.
-    pub(super) fn stop_motion(&mut self, window: WindowId) {
-        self.transitions.motions.end(window);
-        self.forget_kept_border(window);
-        self.forget_stopped(window);
+    /// Stops the window's motion where the window is, at `now`, for `why`,
+    /// and forgets the target a display change kept for it. It is not
+    /// placed at its target, and its border is left to what the tiler
+    /// decides next.
+    pub(super) fn stop_motion(&mut self, window: WindowId, why: Ending, now: Instant) {
+        self.log_end(window, why, None, now);
+        self.drop_motion(window);
     }
 
-    /// Ends the motion of the window `event` is about, for what the user,
-    /// its application or the system did to it: one destroyed, grabbed by
-    /// the user, or minimized or hidden other than by the tiler stops
-    /// where it is, so the `Untile` that takes it out of the layout has
-    /// nothing to finish. A report counts only when `desktop` agrees: a
+    /// Ends the motion of the window `event` is about, at `now`, for what
+    /// the user, its application or the system did to it: one destroyed,
+    /// grabbed by the user, or minimized or hidden other than by the tiler
+    /// stops where it is, so the `Untile` that takes it out of the layout
+    /// has nothing to finish. A report counts only when `desktop` agrees: a
     /// window that stays shown, as an application recreating its surface
     /// reports, goes on. The tiler's own hide or minimize, which `echo`
     /// says the event is, stopped it already.
-    pub(super) fn motion_seen(&mut self, event: &WindowEvent, echo: bool, desktop: &dyn Desktop) {
-        match *event {
-            WindowEvent::Destroyed { window } | WindowEvent::MoveStarted { window } => {
-                self.stop_motion(window);
-            }
+    pub(super) fn motion_seen(
+        &mut self,
+        event: &WindowEvent,
+        echo: bool,
+        desktop: &dyn Desktop,
+        now: Instant,
+    ) {
+        let (window, why) = match *event {
+            WindowEvent::Destroyed { window } => (window, Ending::Destroyed),
+            WindowEvent::MoveStarted { window } => (window, Ending::Stopped(Stop::Grabbed)),
             WindowEvent::Hidden { window } if !echo && !desktop.is_visible(window) => {
-                self.stop_motion(window);
+                (window, Ending::Stopped(Stop::Hidden))
             }
             WindowEvent::Minimized { window } if !echo && desktop.is_minimized(window) => {
-                self.stop_motion(window);
+                (window, Ending::Stopped(Stop::Minimized))
             }
-            _ => {}
-        }
+            _ => return,
+        };
+        self.stop_motion(window, why, now);
     }
 
-    /// Finishes the window's motion at its target, placing it there in
-    /// full, then drawing its border there. Does nothing for a window that
-    /// is not moving.
-    pub(super) fn finish_motion(&mut self, window: WindowId, platform: &mut dyn Platform) {
+    /// Finishes the window's motion at its target, at `now`, for `why`,
+    /// placing it there in full, then drawing its border there. Does
+    /// nothing for a window that is not moving.
+    pub(super) fn finish_motion(
+        &mut self,
+        window: WindowId,
+        why: Ending,
+        platform: &mut dyn Platform,
+        now: Instant,
+    ) {
         if let Some(target) = self.transitions.motions.end(window) {
-            self.in_place(window, target, platform);
+            let placed = self.in_place(window, target, platform);
+            self.log_end(window, why, Some(placed), now);
         }
     }
 
     /// Places a moving window the tiler lets go of at its target, in full,
-    /// and forgets the border its motion kept: the step that lets go of the
-    /// window drops its border, so drawing it first would be wasted. Does
-    /// nothing for a window that is not moving.
-    pub(super) fn let_go(&mut self, window: WindowId, platform: &mut dyn Platform) {
+    /// at `now`, and forgets the border its motion kept: the step that lets
+    /// go of the window drops its border, so drawing it first would be
+    /// wasted. Does nothing for a window that is not moving.
+    pub(super) fn let_go(&mut self, window: WindowId, platform: &mut dyn Platform, now: Instant) {
         if let Some(target) = self.transitions.motions.end(window) {
             self.forget_kept_border(window);
-            self.send_to(window, target, platform);
+            let placed = self.send_to(window, target, platform);
+            self.log_end(window, Ending::LetGo, Some(placed), now);
         }
     }
 
@@ -79,14 +96,22 @@ impl Applier {
     /// draws the border it kept for the motion around it. The platform
     /// orders the placement behind the frames posted to the window before,
     /// so the border is drawn at once only when the window is there
-    /// already, and otherwise once it lands (`applier_landing.rs`).
-    pub(super) fn in_place(&mut self, window: WindowId, target: Rect, platform: &mut dyn Platform) {
-        if self.send_to(window, target, platform) {
+    /// already, and otherwise once it lands (`applier_landing.rs`). Says how
+    /// the placement was made.
+    pub(super) fn in_place(
+        &mut self,
+        window: WindowId,
+        target: Rect,
+        platform: &mut dyn Platform,
+    ) -> Placed {
+        let placed = self.send_to(window, target, platform);
+        if placed == Placed::Landing {
             let border = self.take_kept_border(window);
             self.defer_border(window, border);
         } else {
             self.draw_kept_border(window, target, platform.decorations());
         }
+        placed
     }
 
     /// Whether `window` is moving to a target.

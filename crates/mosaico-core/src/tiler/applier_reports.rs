@@ -25,22 +25,23 @@ impl Applier {
             self.release_dropped_focus();
             self.moved_on_screen.remove(&window);
         }
-        self.posted_seen(event, platform);
+        self.posted_seen(event, platform, now);
         // A window that slides under a pointer at rest is not one the user
         // pointed at.
         if matches!(event, WindowEvent::MouseHover { .. }) && self.is_moving() {
             return Some("windows are moving");
         }
         let echo = self.expectations.echo(event, now);
-        self.motion_seen(event, echo.is_some(), platform.desktop());
+        self.motion_seen(event, echo.is_some(), platform.desktop(), now);
         echo
     }
 
-    /// Acts on what a report says of what was posted to a window: one that
-    /// reports a show, a hide or a minimize got to it, one that reports where
-    /// it is may be where a posted placement took it, one the user grabs is
-    /// no longer where it was sent, and one destroyed is forgotten.
-    fn posted_seen(&mut self, event: &WindowEvent, platform: &mut dyn Platform) {
+    /// Acts on what a report at `now` says of what was posted to a window:
+    /// one that reports a show, a hide or a minimize got to it, one that
+    /// reports where it is may be where a posted placement took it, one the
+    /// user grabs is no longer where it was sent, and one destroyed is
+    /// forgotten.
+    fn posted_seen(&mut self, event: &WindowEvent, platform: &mut dyn Platform, now: Instant) {
         let posted = &mut self.posted;
         match *event {
             WindowEvent::Restored { window } | WindowEvent::Created { window } => {
@@ -48,7 +49,7 @@ impl Applier {
             }
             WindowEvent::Hidden { window } => posted.reported(window, ShowState::Hidden),
             WindowEvent::Minimized { window } => posted.reported(window, ShowState::Minimized),
-            WindowEvent::LocationChanged { window } => self.landed(window, platform),
+            WindowEvent::LocationChanged { window } => self.landed(window, platform, now),
             WindowEvent::MoveStarted { window } => {
                 posted.sent.remove(&window);
                 posted.placed.remove(&window);

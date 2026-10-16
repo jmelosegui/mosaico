@@ -2,6 +2,8 @@
 
 use std::time::Instant;
 
+use crate::motion::{Ending, Stop};
+
 use super::super::{Effect, Platform, apply_decoration_effect, apply_window_effect};
 use super::Applier;
 use super::shows::left_by;
@@ -20,7 +22,7 @@ impl Applier {
                 apply_window_effect(effect, platform.desktop(), platform.control());
             }
             Effect::Place { window, rect, .. } if self.moved_on_screen.remove(&window) => {
-                self.place_now(window, rect, platform);
+                self.place_now(window, rect, platform, now);
             }
             Effect::Place { window, .. } => {
                 self.forget_stopped(window);
@@ -29,13 +31,17 @@ impl Applier {
             // What ends a motion, effect by effect, is in `applier_ends.rs`,
             // and what is kept of a change on its way in `applier_posted.rs`.
             Effect::Hide { window, .. } | Effect::Minimize { window } => {
-                self.stop_motion(window);
+                let stop = match effect {
+                    Effect::Minimize { .. } => Stop::Minimized,
+                    _ => Stop::Hidden,
+                };
+                self.stop_motion(window, Ending::Stopped(stop), now);
                 apply_window_effect(effect, platform.desktop(), platform.control());
                 self.show_state(window, left_by(effect), platform);
             }
             Effect::Reveal { window } | Effect::Show { window, .. } => {
                 if let Effect::Reveal { .. } = effect {
-                    self.finish_motion(window, platform);
+                    self.finish_motion(window, Ending::Revealed, platform, now);
                 }
                 let minimized = platform.desktop().is_minimized(window);
                 self.expectations.showing(window, minimized);
@@ -63,7 +69,7 @@ impl Applier {
             // of while it moves ends in its slot, without its border.
             Effect::Untile { window } => {
                 self.forget_stopped(window);
-                self.let_go(window, platform);
+                self.let_go(window, platform, now);
             }
             // The borders of moving windows are in `applier_borders.rs`. One a
             // display change stopped keeps its style the same way, to be drawn

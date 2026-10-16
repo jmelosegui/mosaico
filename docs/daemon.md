@@ -142,8 +142,9 @@ order, it:
 15. Start the tick thread (1-second interval for bar refresh)
 16. Start the frame pacer, which sends `DaemonMsg::Frame` while the loop
     wants frames (`daemon_frames.rs`). A pacer that cannot start is logged as
-    a warning that transitions are unavailable, and the daemon runs without
-    it: `TilingManager::turn_off_transitions()` has every placement snap
+    a warning that transitions are off for the session, and the daemon runs
+    without it: `TilingManager::turn_off_transitions()` has every placement
+    snap
 17. Enter the main receive loop
 
 ## Main Loop

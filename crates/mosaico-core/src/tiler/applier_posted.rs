@@ -12,7 +12,8 @@
 //!   and a new motion of the window starts from there.
 //! - A window a posted placement takes somewhere is repainted again once
 //!   it lands there, and the border its motion kept, or the tiler decided
-//!   meanwhile, is drawn there then (`applier_landing.rs`).
+//!   meanwhile, is drawn there then, as the log hears for one that ends a
+//!   transition (`applier_landing.rs`).
 //! - A window a posted hide, minimize or show is to change has the show
 //!   state it leaves the window in, in the tiler's view of the desktop,
 //!   until the change lands (`applier_view.rs`).
@@ -20,6 +21,7 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::frames::{Frame, FrameOutcome};
+use crate::motion::Placed;
 use crate::{Rect, WindowControl, WindowId};
 
 use super::super::Platform;
@@ -86,20 +88,20 @@ impl Applier {
     }
 
     /// Places `window` at `rect` in full, wherever it is, and notes where
-    /// it was sent. Says whether the window is still to land there: the
-    /// placement was posted, as the platform says right after it, and the
-    /// desktop does not have the window there yet, within 4 pixels, or the
-    /// last thing sent to it took it elsewhere, by as little as a pixel, so
-    /// this one moves it. Only one that is there, and was sent there last,
-    /// is not moved, so it reports nothing, and needs no second repaint.
-    /// What was kept for an earlier placement still on its way is dropped:
-    /// the step that places the window decides its border again.
+    /// it was sent. Says how: made at once, or posted, as the platform says
+    /// right after it, and then whether the window is still to land there:
+    /// the desktop does not have it there yet, within 4 pixels, or the last
+    /// thing sent to it took it elsewhere, by as little as a pixel, so this
+    /// one moves it. Only one that is there, and was sent there last, is not
+    /// moved, so it reports nothing, and needs no second repaint. What was
+    /// kept for an earlier placement still on its way is dropped: the step
+    /// that places the window decides its border again.
     pub(super) fn send_to(
         &mut self,
         window: WindowId,
         rect: Rect,
         platform: &dyn Platform,
-    ) -> bool {
+    ) -> Placed {
         place_and_repaint(window, rect, platform.control());
         let before = self.posted.sent.insert(window, rect);
         let posted = platform.control().posts_behind(window);
@@ -115,10 +117,15 @@ impl Applier {
                 from,
                 border: None,
                 until,
+                logged: None,
             };
             self.posted.placed.insert(window, placed);
         }
-        landing
+        match (posted, landing) {
+            (false, _) => Placed::AtOnce,
+            (true, false) => Placed::PostedThere,
+            (true, true) => Placed::Landing,
+        }
     }
 
     /// Where `window` was last sent, while what was sent to it may still

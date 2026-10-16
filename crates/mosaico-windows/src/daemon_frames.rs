@@ -23,16 +23,16 @@ impl FrameClock for Frames {
 
 /// Starts the pacer that sends the loop a `DaemonMsg::Frame` on every
 /// display refresh while it wants frames. When the pacer cannot start, the
-/// daemon runs without frames: a warning says transitions are unavailable,
-/// and `manager` places every window at once from then on, as on a platform
-/// without frames.
+/// daemon runs without frames: a warning says transitions are off for the
+/// session, and `manager` places every window at once from then on, as on a
+/// platform without frames.
 pub(super) fn start(tx: Sender<DaemonMsg>, manager: &mut TilingManager) -> Frames {
     let send = move |token| tx.send(DaemonMsg::Frame(token)).is_ok();
     match FramePacer::start(DisplayWait::new, send) {
         Ok(pacer) => Frames(Some(pacer)),
         Err(e) => {
             mosaico_core::log_warn!(
-                "Transitions are unavailable: display frames cannot be paced ({e})"
+                "Transitions are off for this session: display frames cannot be paced ({e})"
             );
             manager.turn_off_transitions();
             Frames(None)

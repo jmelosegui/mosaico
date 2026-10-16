@@ -101,7 +101,7 @@ impl Applier {
         platform: &mut dyn Platform,
         now: Instant,
     ) {
-        self.transitions.motions.begin_step();
+        self.begin_step();
         for effect in effects {
             if matches!(effect, Effect::Focus { .. }) {
                 self.expectations.held(&effect);
@@ -130,7 +130,7 @@ impl Applier {
 
     /// Applies everything held back, as a step of its own.
     pub(super) fn flush(&mut self, platform: &mut dyn Platform, now: Instant) {
-        self.transitions.motions.begin_step();
+        self.begin_step();
         self.settle_while_off(platform);
         for effect in self.held.take() {
             self.run(&effect, platform, now);

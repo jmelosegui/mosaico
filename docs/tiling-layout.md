@@ -41,8 +41,10 @@ contracts the manager runs on.
 | `crates/mosaico-core/src/tiler/applier_landing.rs` | The windows a posted placement is taking somewhere, until they land: on a report, or at `LANDING_WAIT` |
 | `crates/mosaico-core/src/tiler/applier_shows.rs`, `applier_view.rs` | The changes of show state on their way to windows, and the tiler's view of the desktop with each window as the change leaves it |
 | `crates/mosaico-core/src/tiler/plan_maximized.rs` | Whether a window placed in a step is still maximized after it, with its changes posted |
-| `crates/mosaico-core/src/motion/policy.rs` | `step_animates()`, `still_animates()` -- which placements animate |
+| `crates/mosaico-core/src/tiler/applier_transitions.rs` | What the applier keeps for transitions, and the lines it logs of them |
+| `crates/mosaico-core/src/motion/policy.rs` | `step_animates()`, `still_animates()` -- which placements animate; `step_snap()`, `apply_snap()` in `policy_snap.rs` -- why the others snap |
 | `crates/mosaico-core/src/motion/motions.rs` | `Motions` -- the table of moving windows; each frame and what it found in `motions_frame.rs` |
+| `crates/mosaico-core/src/motion/journal.rs` | `Journal` -- what the log is told of each motion |
 | `crates/mosaico-core/src/tiler/platform.rs` | `Platform` -- what the tiling manager needs from the OS |
 | `crates/mosaico-windows/src/tiling/platform.rs` | `Win32Platform` -- the Win32 implementation of each of those contracts |
 
@@ -325,7 +327,8 @@ only the step has:
 
 - whether transitions are on (`[animations]` enabled, with a duration above
   zero), which the tiler takes from `Settings` at start and from every
-  config reload;
+  config reload, and which stay off in a session without frames, whatever
+  the config says (see below);
 - whether the step shows the window, moves it ahead of the layout
   (`PrePlace`) or takes it in (`Plan::take_in`, from `add_and_focus`,
   `try_adopt` and a window dropped onto a monitor): such a window appears
@@ -468,9 +471,11 @@ time for a window to land ends, after `after`, the last frame step.
 When `place_frames` returns `Unsupported`, the applier logs it once, places
 every moving window at its target at once, and lets nothing animate from
 then on; `TilingManager::turn_off_transitions()` does the same for a daemon
-that cannot have display frames. Any other error is logged once until
-frames work again, and places the windows the frames were for at their
-targets, as placements that snap do.
+that cannot have display frames. Either way the tiler then has transitions
+off in the step decision (`Tiler::turn_off_transitions`), whatever a reload
+says, so every placement is marked to snap. Any other error is logged once
+until frames work again, and places the windows the frames were for at
+their targets, as placements that snap do.
 
 While transitions are off, by the config, by the system's setting it
 follows, or because the platform cannot move windows frame by frame, the
@@ -519,6 +524,20 @@ Other effects that reach a moving window (`applier_run.rs`, with the events in
   polls of the pointer, at least 200 ms, longer than a default 180 ms
   transition, so a window sliding under a pointer at rest is usually
   reported only once it has stopped.
+
+With debug logging, the step decision logs why a step or a placement that
+moves its window snaps, from `motion::step_snap` (`plan_transitions_log.rs`),
+and the applier logs the windows each step sets moving or turns, why a
+placement snaps as it is applied (`motion::apply_snap`), or because a display
+change settles, a window that falls behind, as the frame step decided
+(`Tick::behind`), how each motion ends and how the placement that ended it
+was made, each step once its last motion has ended or a later step has
+turned it, with its slowest window, each window a display change stopped as
+it is placed at the target it kept, and each window a transition placed
+behind what was on its way as it lands, on a report or once the wait for it
+by time is over: from the `motion::Journal` it keeps of each motion and its
+record of what was posted, never a line per frame (see
+[animations.md](animations.md#log-lines)).
 
 ### Window Tileability
 

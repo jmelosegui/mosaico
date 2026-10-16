@@ -5,9 +5,15 @@
 //! checks the placements the tiler let animate again as it applies them,
 //! from what the desktop says then: [`still_animates`]. A placement
 //! animates only when both say so. One that does not is made at once, as
-//! every placement was before transitions.
+//! every placement was before transitions. [`step_snap`] and [`apply_snap`]
+//! say why, for the log.
 
 use crate::Rect;
+
+#[path = "policy_snap.rs"]
+mod snap;
+
+pub use snap::{ApplySnap, StepSnap, apply_snap, step_snap};
 
 /// The most windows a step may move for its placements to animate.
 ///
@@ -30,7 +36,7 @@ pub const MIN_TRAVEL: i32 = 4;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct StepFacts {
     /// Whether transitions are on: enabled in the config, with a duration
-    /// above zero.
+    /// above zero, in a session that has frames.
     pub enabled: bool,
     /// The step showed the window, took it into the layout or placed it
     /// ahead of the layout before it was shown.
@@ -53,7 +59,8 @@ pub struct StepFacts {
 /// hold:
 ///
 /// - Transitions are on: enabled in the config, with a duration above
-///   zero. One that would take no time is a placement made at once.
+///   zero, in a session that has frames. One that would take no time is a
+///   placement made at once.
 /// - The window does not appear in this step. A window shown, taken in or
 ///   placed before it was shown appears where it goes, so it is never seen
 ///   moving there.
@@ -67,12 +74,7 @@ pub struct StepFacts {
 ///   on its own, and core does not know the scales of monitors yet.
 /// - The step moves at most [`MAX_ANIMATED_WINDOWS`] windows.
 pub fn step_animates(facts: &StepFacts) -> bool {
-    facts.enabled
-        && !facts.appears
-        && !facts.behind_monocle
-        && !facts.rebuild
-        && facts.same_monitor
-        && facts.windows_moved <= MAX_ANIMATED_WINDOWS
+    step_snap(facts).is_none()
 }
 
 /// What the applier finds as it applies a placement the tiler let
@@ -91,7 +93,8 @@ pub struct ApplyFacts {
     /// cannot places every window at once.
     pub frames_supported: bool,
     /// Where the window is: where its motion has it if it is moving,
-    /// otherwise where the desktop has it.
+    /// otherwise where it was last sent while that may be on its way, or
+    /// where the desktop has it.
     pub from: Rect,
     /// Where the placement puts it.
     pub to: Rect,
@@ -107,11 +110,7 @@ pub struct ApplyFacts {
 /// - Some edge of the window travels more than [`MIN_TRAVEL`] pixels.
 /// - The platform can move windows through frames.
 pub fn still_animates(facts: &ApplyFacts) -> bool {
-    (facts.system_allows || !facts.follow_system)
-        && !facts.minimized
-        && !facts.maximized
-        && facts.frames_supported
-        && travel(facts.from, facts.to) > i64::from(MIN_TRAVEL)
+    apply_snap(facts).is_none()
 }
 
 /// Whether no edge of a window is more than [`MIN_TRAVEL`] pixels from where

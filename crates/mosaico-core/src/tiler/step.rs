@@ -43,6 +43,14 @@ impl Tiler {
             rebuild,
         }
     }
+
+    /// Turns transitions off in the step decision, whatever the config
+    /// says, for a session with no frames to move windows on: every
+    /// placement is marked to snap, and the log hears of none on its own.
+    /// The manager keeps them off through reloads.
+    pub(super) fn turn_off_transitions(&mut self) {
+        self.animations.enabled = false;
+    }
 }
 
 #[cfg(test)]

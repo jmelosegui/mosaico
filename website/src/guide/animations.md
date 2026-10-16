@@ -91,7 +91,10 @@ enabled.
 
 - **Nothing animates** -- check that `enabled = true` and that `duration` is
   above 0, and with `follow_system = true`, that "Animation effects" is on and
-  you are not in a remote desktop session.
+  you are not in a remote desktop session. With [logging](logging.md) on, a
+  line that starts "Transitions are off" says mosaico turned them off for the
+  session, as it could not have display frames or this desktop cannot move
+  windows frame by frame: windows jump into place until mosaico starts again.
 - **One application moves less smoothly** -- applications that are busy, or
   that do not follow the display's scaling (blurry on a scaled display), take
   fewer or coarser steps. They still end up in their place.
@@ -100,6 +103,14 @@ enabled.
   50 ms, since its transition started or since it took its first frame, every
   window moving with it goes straight to its place, so none slides over a
   window that is still in the way.
+- **Finding out why** -- with [logging](logging.md) enabled at
+  `level = "debug"` when mosaico starts, the log says, while transitions are
+  on, why a window that moved snapped into place instead, in one line for a
+  whole step that snaps, as when the monitors change or a step moves more
+  than 16 windows, and how each transition went: how long it took, how many
+  frames each window was sent and how many found it still busy with the one
+  before, which window was the slowest, and when each window got to its
+  place. With transitions off, it says nothing of placements.
 
 ## Hot-Reload
 

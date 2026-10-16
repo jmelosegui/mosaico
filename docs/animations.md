@@ -40,9 +40,10 @@ wakes the daemon on display frames.
 | `crates/mosaico-core/src/motion/easing.rs`, `bezier.rs`, `easing_names.rs` | `Easing`, the curves, and the names `config.toml` writes them with |
 | `crates/mosaico-core/src/motion/segment.rs` | `Segment`: one rect moving from where it is to where it goes |
 | `crates/mosaico-core/src/motion/motions.rs` | `Motions`, the table of moving windows: new targets and ends; each frame and what it found in `motions_frame.rs` |
-| `crates/mosaico-core/src/motion/policy.rs` | `step_animates` and `still_animates`: which placements animate; `hardly_apart`: how close to a rect a window counts as there |
+| `crates/mosaico-core/src/motion/policy.rs` | `step_animates` and `still_animates`: which placements animate; `step_snap` and `apply_snap` in `policy_snap.rs`, why the others snap; `hardly_apart`: how close to a rect a window counts as there |
+| `crates/mosaico-core/src/motion/journal.rs` | `Journal`: what the log is told of each motion and each step; its lines (`journal_lines.rs`, `journal_lines_end.rs`, `journal_lines_placed.rs`, `journal_ending.rs`), what the frames tell it (`journal_frames.rs`), each motion's end and each step's tally (`journal_steps.rs`), and which placements that snap get a line (`journal_snap.rs`) |
 | `crates/mosaico-core/src/tiler/placement.rs` | `Transition`, which every `Effect::Place` carries |
-| `crates/mosaico-core/src/tiler/plan_transitions.rs` | The step decision, as a step finishes |
+| `crates/mosaico-core/src/tiler/plan_transitions.rs` | The step decision, as a step finishes, from what `plan_transitions_facts.rs` reads of the step, and what it tells the log (`plan_transitions_log.rs`) |
 | `crates/mosaico-core/src/tiler/manager_frames.rs` | `wants_frames()`, `frame_due(after)`, `frame()`, `turn_off_transitions()`: what the daemon drives transitions with |
 | `crates/mosaico-core/src/tiler/applier_run.rs` | Each effect as the applier carries it out, the ones that end a motion included |
 | `crates/mosaico-core/src/tiler/applier_motion.rs` | Placements that become motions, and the apply-time check |
@@ -55,6 +56,7 @@ wakes the daemon on display frames.
 | `crates/mosaico-core/src/tiler/applier_landing.rs` | The windows a posted placement is taking somewhere, until they land: on a report, or at `LANDING_WAIT` |
 | `crates/mosaico-core/src/tiler/applier_shows.rs`, `applier_view.rs` | The changes of show state on their way to windows, and the tiler's view of the desktop with each window as the change leaves it |
 | `crates/mosaico-core/src/tiler/plan_maximized.rs` | Whether a window placed in a step is still maximized after it, with its changes posted |
+| `crates/mosaico-core/src/tiler/applier_transitions.rs` | What the applier keeps for transitions, and the lines it logs of them |
 | `crates/mosaico-core/src/frames/control.rs`, `frames/` | `FrameControl`: `place_frames`, `posts_behind` and `settle_responding`; `Frame`, `FrameOutcome`, and the `FrameTable` platforms decide with |
 | `crates/mosaico-core/src/daemon/scheduler.rs`, `scheduler_frame.rs` | `Scheduler`: when the main loop takes the frame step |
 | `crates/mosaico-core/src/daemon/frame_clock.rs`, `frame_pacer.rs`, `frame_wait.rs` | `FrameClock`; `FramePacer`, which wakes the daemon on display frames; and `FrameWait`, what the pacer waits on |
@@ -82,9 +84,15 @@ wakes the daemon on display frames.
   frame posted to it
 - `Tick` -- what one frame step does: the frames to post (`in_flight`), the
   motions that are over (`finished`), the windows found somewhere new
-  (`reached`), and those found maximized, minimized or gone (`stopped`)
+  (`reached`), those found maximized, minimized or gone (`stopped`), and
+  those that fell behind (`behind`)
 - `Transition` -- on `Effect::Place`: `Snap` or `Animate`
-- `StepFacts`, `ApplyFacts` -- what the two decisions are made from
+- `StepFacts`, `ApplyFacts` -- what the two decisions are made from, and
+  `StepSnap`, `ApplySnap` why a placement snaps
+- `Journal` -- what the log is told of the motions in flight: when each
+  started and is due, the step it belongs to, and how many frames were sent
+  for it, handled and found pending, added up for each step as its motions
+  end, or as a later step turns the last of them
 - `Frame`, `FrameOutcome` -- a window's rect at a moment of its transition,
   and what `place_frames` found of the window: `Handled { reached }`,
   `Pending`, `Maximized`, `Minimized` or `Gone`
@@ -195,17 +203,21 @@ handle its first frame counts from the start of its motion.
   drawn there.
 - When the platform says it cannot move windows frame by frame, transitions
   are off for the rest of the session, logged once: the windows in flight are
-  placed at their targets, and every later placement snaps. So it is when the
-  pacer cannot start, for a daemon without display frames. Any other failure
-  to post frames is logged once until frames work again, and places the
-  windows those frames were for at their targets; transitions stay on.
+  placed at their targets, and from then on the step decision marks every
+  placement to snap, as with `enabled = false`, whatever a reload says. So it
+  is when the pacer cannot start, for a daemon without display frames. Any
+  other failure to post frames is logged once until frames work again, and
+  places the windows those frames were for at their targets; transitions
+  stay on.
 
 ## What Animates and What Snaps
 
 The tiler lets a placement animate (`motion::step_animates`) when all of these
 hold:
 
-- transitions are on: `enabled`, with a `duration` above 0;
+- transitions are on: `enabled`, with a `duration` above 0, and not turned
+  off for the session, as they are without frames (see
+  [What Ends a Motion](#what-ends-a-motion));
 - the window does not appear in this step: one shown, taken into the layout
   or placed before it was shown appears where it goes instead of sliding
   there from where it was hidden or where its application put it;
@@ -228,7 +240,8 @@ do:
   state;
 - some edge of the window travels more than 4 pixels (`MIN_TRAVEL`): a nudge
   would repaint the window on every frame without anyone seeing it move;
-- the platform can move windows frame by frame.
+- transitions were not turned off for the session since the step, which
+  only a placement held back meanwhile can find.
 
 So swaps, moves within a monitor, ratio changes, cycling layouts, monocle on
 and off, and the reflow when a window opens or closes animate. The window that
@@ -355,13 +368,111 @@ frames to as soon as it can, as above.
 appends a comment block about it to an existing file that has none (see
 [configuration.md](configuration.md#files-a-newer-version-updates)).
 
+## Log Lines
+
+With `[logging] enabled = true` and `level = "debug"` as the daemon starts
+(see [logging.md](logging.md)), transitions are logged, but never once per
+frame. Each line comes from what was decided or done, so the log cannot
+disagree with it. The reasons come from the decisions themselves: each is
+what `step_snap` or `apply_snap`, which `step_animates` and `still_animates`
+are made of, gives the placement, and a reason about the step as a whole is
+the one `step_snap` gives a window with no reason of its own to snap. The
+counts come from a `Journal` the applier keeps of each motion, the windows
+that fell behind from what the frame step decided (`Tick::behind`), and how
+a placement was made, and how and when its window landed, from the
+applier's own record of what may be on its way to a window
+(`applier_posted.rs`, `applier_landing.rs`):
+
+- Each step that gives windows a target, before its first frame, or before
+  the next step or the end of a motion when one comes first: the windows
+  that start moving, with the duration and the easing they follow, and the
+  windows already moving that turn towards a new target, over the duration,
+  along a curve that keeps their speed rather than the easing:
+  `transition: 2 window(s) move over 180 ms with ease-out-cubic: 0x2, 0x1`,
+  or `...; 1 window(s) turn to new targets over 180 ms: 0x3`.
+- Each placement that moves its window and snaps although transitions are
+  on, and why: from the step decision, for a window that appears, waits
+  behind the monocle window or moves to another monitor, and from the
+  apply-time check, for the system's setting, a minimized or maximized
+  window, a move of 4 px or less, or transitions turned off for the session
+  while the placement was held back:
+  `transition: 0x1A snaps: it moves to another monitor`. A step that snaps as
+  a whole, as a rebuild or a step that moves more than 16 windows, gets one
+  line instead:
+  `transition: 4 placement(s) snap: the step lays windows out from scratch`.
+  A placement that leaves its window where it is gets none, except while a
+  display change settles: the applier then asks nothing of the window, and
+  every placement the step decision let animate gets
+  `transition: 0x1 snaps: the displays are changing`. With transitions off,
+  by the config or for the session, no placement gets a line.
+- A window that falls behind, not seen to move for `MAX_LAG` (50 ms) since
+  its motion started, or since it handled its first frame, with the frame
+  of its motion it fell behind at, as the frame step decided:
+  `transition: 0x2 fell behind at its frame 4: its step goes straight to its
+  targets`. The lines of the motions of its step, ended with it, follow.
+- Each motion as it ends: how, how long it took against how long it was to
+  take, its frames, and how the placement that ended it was made. The frames
+  sent are every frame given to `place_frames` for the window, whatever
+  became of it; of those, the ones handled found the window had handled the
+  one before (`Handled`: the frame posted, not needed, or refused by the
+  system), and the ones found pending found it still to handle it, so
+  nothing was posted (`Pending`). The placement was made at once, or posted
+  behind what was on its way to the window, which was there already or is
+  still to land: `transition: 0x1 ended at its target after 192 ms of 180:
+  12 frame(s) sent, 12 handled, none found pending; its placement posted
+  behind what was on its way, the window there already`, which a window its
+  last frames took into place gets. It ends at its target; stopped where it
+  was, hidden, minimized, maximized or grabbed by the user, whether the
+  tiler did it, an event reported it or a frame found it; stopped where it
+  was, keeping its target, as the displays changed; with its window gone;
+  with a placement that snaps; or straight to its target as its step fell
+  behind, let go of by the tiler, revealed, as the daemon stopped, as its
+  frames failed, or as transitions turned off.
+- Each step, once the last of its motions has ended, or just before the line
+  of a later step that turns the last of them: the windows whose motions
+  ended in it, the frames sent for them, handled and found pending in all,
+  and the slowest window, the one found pending the most, if any was:
+  `transition: a step of 2 window(s) is done: 0x1, 0x2; 24 frame(s) sent, 21
+  handled, 3 found pending; slowest 0x2, 3 pending`. A window that a later
+  step turns counts in that step.
+- Each window a display change stopped, as it is placed at the target it
+  kept, after the rebuild, once there is none, or as the daemon stops first,
+  and how that placement was made: `transition: 0x1 placed at the target it
+  kept, the display change over`, or `... as the daemon stopped`. One that
+  something placed or took out of view meanwhile gets none.
+- Each window a transition placed behind what was on its way to it that is
+  still to land, at the end of its motion or at the target a display change
+  kept, once it lands, how, and how long after the placement: once it
+  reports being there, within 4 pixels, `transition: 0x1 is in place, 36 ms
+  after its placement was posted`; once the wait for it by time is over,
+  `LANDING_WAIT` (500 ms) after the placement, if it has moved since or is
+  there, `transition: 0x1 is taken to be in place, not reported there 500 ms
+  after its placement was posted`; on its next report, if it had not moved
+  by then, `transition: 0x1 is taken to be in place as it moves at last, 2310
+  ms after its placement was posted`; or, should it report being elsewhere
+  first with nothing posted to it that may still be on its way, `0x1 is not
+  where it was placed, with nothing on its way, ...`. Its border is drawn
+  then. A placement that finds the window there, where the last thing sent
+  to it took it exactly, or with nothing sent to it before, is not waited
+  for and gets none; neither does one that another replaces before it lands,
+  or whose wait a new motion of the window, a stop on its way or the user
+  grabbing it ends, nor one that ends no transition.
+
+A failure to post frames, a platform without frames and a pacer that cannot
+start get a line of their own at a higher level, as often as
+[What Ends a Motion](#what-ends-a-motion) says, the pacer's as a warning,
+`Transitions are off for this session: display frames cannot be paced (...)`;
+the motions they end get theirs at debug level.
+
 ## Troubleshooting
 
 `mosaico doctor` shows the settings the daemon starts with, whether the system
 allows animations now, and whether windows can move frame by frame, and says
 why windows snap when transitions are enabled. Whether the daemon's pacer runs,
 and whether it waits on the display or on its timer, is the daemon's own state,
-which doctor does not ask the daemon for.
+which doctor does not ask the daemon for. With debug logging, the log says why
+each window that moved snapped and how each motion went (see
+[Log Lines](#log-lines)).
 
 - **Windows never animate.** `mosaico doctor` names the first reason that
   holds. `enabled = false`, or a `duration` of 0, turns transitions off. With
@@ -402,21 +513,35 @@ which doctor does not ask the daemon for.
 
 The motion model is tested on its own, against the time it is given
 (`motion/tests/`): easings, segments, new targets that keep position and speed
-without passing the target, frames, outcomes, windows that fall behind, and
-each rule of both decisions. `tiler/tests/` drives the tiling manager with
-transitions on, on the fake platform and its fake clock: a swap moving both
-windows together and ending with exact placements, a second swap mid-flight,
-frames that land late, a window that falls behind or hangs, each way a motion
-ends, a display change that keeps the targets, borders drawn once a posted
-placement lands, on a report or once the wait for it is over, transitions
-turned off while windows are still posted to, the view of posted shows,
-hides and minimizes, the pointer and hover. The `move_once_animated`
-scenario in `metrics/tiler.toml` counts what a swap with transitions on asks
-of the platform. `frames/tests/` checks the outcomes the frame table decides
-and what it posts behind frames, and `crates/mosaico-windows` checks them on
-hidden windows of threads that pump late or never. `mosaico doctor`'s report
-is tested against the fake `World` in
-`crates/mosaico/src/commands/tests/doctor_animations_tests.rs` and
+without passing the target, frames, outcomes, windows that fall behind, each
+rule of both decisions with the reason it gives, and the journal and each of
+its lines. `tiler/tests/` drives the tiling manager with transitions on, on
+the fake platform and its fake clock: a swap moving both windows together and
+ending with exact placements, a second swap mid-flight, frames that land late,
+a window that falls behind or hangs, each way a motion ends, a display change
+that keeps the targets, borders drawn once a posted placement lands, on a
+report or once the wait for it is over, transitions turned off while windows
+are still posted to, the view of posted shows, hides and minimizes, the
+pointer and hover. Through a test hook on the applier, they check what the
+log is told: of a swap; of each step, before its first frame and before the
+next step; of a step whose last motion a later step turns; of each way a
+motion ends, by what the user, its application or the system did, as a
+report says or a frame finds, and by what the tiler or the daemon did; of
+each reason a placement snaps as it is applied, a display change that
+settles among them; of a session without frames, where placements get no
+line; of a step that falls behind and a retile that repeats the targets; of
+a display change, as it stops motions and as the windows are placed at the
+targets they kept, after it or as the daemon stops; and of windows that
+land on a report, once the wait for them is over, on their next report after
+it, or away from their placements (`motion_log_tests.rs` and the
+`motion_log_*_tests.rs` it declares). What the step decision tells the log
+is tested on made-up steps (`plan_transitions_log_tests.rs`). The
+`move_once_animated` scenario in `metrics/tiler.toml` counts what a swap with
+transitions on asks of the platform. `frames/tests/` checks the outcomes the
+frame table decides and what it posts behind frames, and
+`crates/mosaico-windows` checks them on hidden windows of threads that pump
+late or never. `mosaico doctor`'s report is tested against the fake `World`
+in `crates/mosaico/src/commands/tests/doctor_animations_tests.rs` and
 `doctor_animations_check_tests.rs`.
 
 `crates/mosaico/tests/window_transitions.rs` checks transitions on the live
