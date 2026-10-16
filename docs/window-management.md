@@ -12,6 +12,7 @@ which includes invisible frame compensation and DPI awareness.
 | File | Purpose |
 |------|---------|
 | `crates/mosaico-core/src/window.rs` | `WindowControl` trait |
+| `crates/mosaico-core/src/hiding.rs` | `HidingEvents`, `HidingSupport`: the ways of hiding a platform has, and what each reports |
 | `crates/mosaico-core/src/tiler/desktop.rs` | `Desktop` trait, the read side |
 | `crates/mosaico-core/src/tiler/window_effects.rs` | `apply_window_effect()`, which carries out window effects |
 | `crates/mosaico-windows/src/window.rs` | Win32 `Window` struct wrapping an `HWND`, and its basic queries |
@@ -27,6 +28,10 @@ which includes invisible frame compensation and DPI awareness.
 ### Key Types
 
 - `WindowControl` (trait, core) -- changes the platform makes on request
+- `HidingEvents` (struct, core) -- whether hiding a window one way reports it
+  hidden or minimized, and showing it again reports it restored
+- `HidingSupport` (struct, core) -- the platform's `HidingEvents` for every
+  way of hiding, `None` for the ways it does not have
 - `Desktop` (trait, core) -- what the tiler reads about windows and monitors
 - `mosaico_core::Result<T>` -- `Result<T, mosaico_core::Error>`, the error
   type of every platform contract
@@ -50,6 +55,7 @@ pub trait WindowControl {
     fn minimize(&self, window: WindowId) -> Result<()>;
     fn hide(&self, window: WindowId, how: HidingBehaviour) -> Result<()>;
     fn show(&self, window: WindowId, how: HidingBehaviour) -> Result<()>;
+    fn hiding_events(&self, how: HidingBehaviour) -> Option<HidingEvents>;
     fn reveal(&self, window: WindowId) -> Result<()>;
     fn move_cursor(&self, x: i32, y: i32) -> Result<()>;
 }
@@ -64,7 +70,15 @@ The contract, in the trait's docs, spells out what callers rely on:
 - Pre-placement, for windows that exist but are not shown yet, never waits for
   the application, even one that never handles its messages.
 - A minimize is reported back as a `Minimized` event, which is what takes the
-  window out of the layout. Hiding with `Cloak` is not reported as a hide.
+  window out of the layout.
+- `hiding_events` says which ways of hiding the platform has, and whether
+  hiding a window each way reports it hidden or minimized and showing it again
+  reports it restored. `hide` and `show` return `Error::Unsupported` for a way
+  the platform does not have. The tiler hides windows only in ways the
+  platform has, unless it has none, and takes the hide and restore reports it
+  says to expect for its own. Focus reports for a window hidden moments ago
+  are dropped whatever it says (see
+  [workspaces.md](workspaces.md#hidden-window-tracking)).
 - Failures are returned as errors, never panics. Callers log them and carry on.
 
 `tiler::apply_window_effect` makes the decisions that are left until an effect
@@ -120,6 +134,7 @@ to implement the core contracts.
 | `minimize` | `ShowWindow(SW_MINIMIZE)` |
 | `hide` | `Cloak`: ImmersiveShell cloak; `Hide`: `ShowWindow(SW_HIDE)`; `Minimize`: `ShowWindow(SW_MINIMIZE)` |
 | `show` | `Cloak`: uncloak; otherwise `ShowWindow(SW_SHOWNOACTIVATE)` |
+| `hiding_events` | Every way. Cloaking fires no hide or minimize event; `SW_HIDE` fires `EVENT_OBJECT_HIDE`; `SW_MINIMIZE` fires `EVENT_SYSTEM_MINIMIZESTART`, and showing the window again `EVENT_SYSTEM_MINIMIZEEND` |
 | `reveal` | uncloak, then `ShowWindow(SW_SHOW)` |
 | `move_cursor` | `SetCursorPos` |
 

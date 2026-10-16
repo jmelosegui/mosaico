@@ -23,7 +23,8 @@ codes into these events.
 | Variant | Description |
 |---------|-------------|
 | `Created { hwnd }` | A new window appeared on the desktop |
-| `Destroyed { hwnd }` | A window was closed or hidden |
+| `Destroyed { hwnd }` | A window was closed |
+| `Hidden { hwnd }` | A window was hidden, but not necessarily closed |
 | `Focused { hwnd }` | A window received keyboard focus |
 | `Moved { hwnd }` | A window finished a move or resize operation |
 | `Minimized { hwnd }` | A window was minimized |
@@ -45,7 +46,7 @@ codes into these events.
 | `EVENT_OBJECT_SHOW` | `Created` |
 | `EVENT_OBJECT_CREATE` | `Created` |
 | `EVENT_OBJECT_DESTROY` | `Destroyed` |
-| `EVENT_OBJECT_HIDE` | `Destroyed` |
+| `EVENT_OBJECT_HIDE` | `Hidden` |
 | `EVENT_SYSTEM_FOREGROUND` | `Focused` |
 | `EVENT_OBJECT_FOCUS` | `Focused` |
 | `EVENT_SYSTEM_MOVESIZEEND` | `Moved` |

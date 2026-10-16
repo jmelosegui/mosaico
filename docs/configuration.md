@@ -10,6 +10,7 @@ All settings have sensible defaults, so configuration files are optional.
 | File | Purpose |
 |------|---------|
 | `crates/mosaico-core/src/config/mod.rs` | `Config`, `LayoutConfig`, `BorderConfig`, `ThemeConfig`, `WindowRule`, `should_manage()` |
+| `crates/mosaico-core/src/config/hiding_behaviour.rs` | `HidingBehaviour`, how windows are hidden on a workspace switch |
 | `crates/mosaico-core/src/config/loader.rs` | All load/try_load functions and path helpers for all 4 config files |
 | `crates/mosaico-core/src/config/keybinding.rs` | `Keybinding`, `Modifier`, `defaults()` |
 | `crates/mosaico-core/src/config/bar.rs` | `BarConfig`, `BarColors`, `WidgetConfig` |
@@ -24,7 +25,9 @@ All settings have sensible defaults, so configuration files are optional.
 - `LayoutConfig` -- `default: String` (default `"bsp"`), `gap: i32` (default 8),
   `ratio: f64` (default 0.5), `hiding: HidingBehaviour` (default `Cloak`),
   `workspaces: HashMap<u32, String>` (per-workspace layout overrides)
-- `HidingBehaviour` (enum) -- `Cloak`, `Hide`, `Minimize`
+- `HidingBehaviour` (enum) -- `Cloak`, `Hide`, `Minimize`, each described by
+  what the user sees. One the platform does not have falls back to one it
+  has (see [workspaces.md](workspaces.md#hiding-behaviour))
 - `BorderConfig` -- `width: i32` (default 4), `corner_style: CornerStyle`,
   `colors: BorderColors`
 - `BorderColors` -- `focused: String`, `monocle: String`, and
@@ -267,7 +270,9 @@ detected and applied while the daemon is running. The config file watcher
   are reloaded. The tiling manager calls `reload_config()` which updates the
   layout gap/ratio, hiding strategy, and `BorderConfig`, then retiles all
   windows. If the theme changed, bar colors are re-resolved. Hiding changes
-  take effect on the next workspace switch. The workspace mode
+  take effect on the next workspace switch; a strategy the platform does not
+  have is swapped for one it has, with a warning in the log, as at startup.
+  The workspace mode
   (`workspaces.mode`) is reloaded live. Per-workspace layout overrides
   (`[workspaces.layouts]` and `layout.default`) are applied at startup only;
   reloading does not override the active layout chosen via `cycle-layout`

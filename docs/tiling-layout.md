@@ -291,25 +291,11 @@ adjacent monitor, `insert(0, hwnd)` is used when entering from the right
 
 ### Workspace Switching
 
-`goto_workspace(n)` (in `workspace.rs`):
-
-1. If already on workspace N, do nothing
-2. Hide all windows in the current workspace via `Window::hide()`
-3. Record hidden handles in `hidden_by_switch` so that the `Hide` event
-   handler does not remove them from the workspace
-4. Show all windows in the target workspace via `Window::show()`
-5. Update `active_workspace`, retile, and focus the first window
-
-`send_to_workspace(n)` (in `workspace.rs`):
-
-1. Remove the focused window from the current workspace
-2. Add it to the target workspace
-3. Hide the window (it is now on a non-active workspace)
-4. Record the handle in `hidden_by_switch`
-5. Retile and focus the next window on the current workspace
-
-The `hidden_by_switch` set prevents workspace-hidden windows from being
-treated as destroyed when the `EVENT_OBJECT_HIDE` event fires.
+`goto_workspace(n)` and `send_to_workspace(n)` (in
+`crates/mosaico-core/src/tiler/workspace.rs`) are described step by step in
+[workspaces.md](workspaces.md#switching-workspaces). The events that hiding
+and showing windows cause are kept from undoing a switch as described in
+"Hidden Window Tracking" there.
 
 ## Design Decisions
 

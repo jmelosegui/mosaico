@@ -10,6 +10,8 @@ pub mod config;
 pub mod error;
 /// Window lifecycle events from the platform.
 pub mod event;
+/// The ways a platform can hide windows, and what each one reports.
+pub mod hiding;
 /// Opaque window and monitor ids.
 pub mod id;
 /// Which daemon instance a process belongs to.
@@ -43,6 +45,7 @@ pub use action::{Action, Direction};
 pub use config::{BarConfig, Config};
 pub use error::{Error, Result};
 pub use event::WindowEvent;
+pub use hiding::{HidingEvents, HidingSupport};
 pub use id::{MonitorId, WindowId};
 pub use instance::Instance;
 pub use ipc::{Command, Response};

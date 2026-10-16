@@ -23,7 +23,7 @@ use mosaico_core::config::BorderColors;
 use mosaico_core::tiler::{
     BorderStyle, Coalescer, Desktop, Effect, Expectations, HiddenWindows, apply_window_effect,
 };
-use mosaico_core::{WindowControl, WindowId};
+use mosaico_core::{HidingSupport, WindowControl, WindowId};
 
 use crate::border::{Border, Color};
 use crate::frame;
@@ -55,9 +55,11 @@ pub(super) struct Applier {
 }
 
 impl Applier {
-    /// An applier that keeps its record of hidden windows in `file`.
-    pub(super) fn with_hidden_file(file: Option<HiddenFile>) -> Self {
+    /// An applier that keeps its record of hidden windows in `file`, on
+    /// a desktop whose ways of hiding report what `hiding` says.
+    pub(super) fn new(file: Option<HiddenFile>, hiding: HidingSupport) -> Self {
         Self {
+            expectations: Expectations::new(hiding),
             hidden_file: file,
             ..Self::default()
         }

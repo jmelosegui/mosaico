@@ -1,5 +1,5 @@
 use crate::config::HidingBehaviour;
-use crate::{Rect, Result, WindowId};
+use crate::{HidingEvents, Rect, Result, WindowId};
 
 /// Changes the platform makes to windows, and to the pointer.
 ///
@@ -78,15 +78,51 @@ pub trait WindowControl {
     /// Takes a window out of view for a workspace switch, the way `how`
     /// describes. The window stays open and where it is.
     ///
-    /// Hiding with [`HidingBehaviour::Cloak`] must not be reported as the
-    /// window hiding or minimizing: the tiler would take that for the
-    /// application doing it and stop managing the window. The reports
-    /// the other ways cause are expected and ignored.
+    /// - Afterwards the desktop reports the window as the
+    ///   [`HidingBehaviour`] docs say: still shown when cloaked, not
+    ///   shown when hidden, minimized when minimized. The tiler plans
+    ///   the rest of a switch on that.
+    /// - The window is reported hidden or minimized only when
+    ///   [`hiding_events`](Self::hiding_events) says so for `how`.
     fn hide(&self, window: WindowId, how: HidingBehaviour) -> Result<()>;
 
     /// Brings back a window that [`hide`](Self::hide) hid the same way,
     /// without focusing it.
+    ///
+    /// The window is reported restored only when
+    /// [`hiding_events`](Self::hiding_events) says so for `how`.
     fn show(&self, window: WindowId, how: HidingBehaviour) -> Result<()>;
+
+    /// Whether the platform can hide windows `how`, and what hiding and
+    /// showing a window that way reports; `None` when it cannot.
+    ///
+    /// Asked about every way once, when tiling starts, see
+    /// [`HidingSupport`](crate::HidingSupport). The tiler hides windows
+    /// only in ways this answers for, unless it answers `None` for all
+    /// of them, and takes the hide and restore reports it says to expect
+    /// for its own. Focus reports for a window just hidden are taken for
+    /// its own whatever the answer.
+    ///
+    /// - Answer `None` for a way the platform cannot make look the way
+    ///   [`HidingBehaviour`] describes it, rather than carry it out as
+    ///   another way: the tiler chooses what to use instead, and says so.
+    ///   [`hide`](Self::hide) and [`show`](Self::show) return
+    ///   [`Error::Unsupported`](crate::Error::Unsupported) for such a way.
+    /// - The answer must not change while the process runs.
+    /// - Have at least one way, or workspace switches leave the windows
+    ///   of the workspace left on screen.
+    /// - The events must be the ones the platform really reports. One it
+    ///   reports without saying so is taken for the user or the
+    ///   application: a hide can make the tiler stop managing the window,
+    ///   a restore makes it focus the window. One it says so about but
+    ///   never reports makes the tiler ignore the application's own, until
+    ///   the window is shown again for a hide, or briefly after that for
+    ///   a restore.
+    /// - Showing a window may also report it shown, as
+    ///   [`WindowEvent::Created`](crate::WindowEvent::Created). There is
+    ///   nothing to answer about that: the tiler ignores it for a window
+    ///   it already manages.
+    fn hiding_events(&self, how: HidingBehaviour) -> Option<HidingEvents>;
 
     /// Makes a window visible however it was hidden, by this daemon or
     /// an earlier one. Used when the tiler stops, so that nothing is left

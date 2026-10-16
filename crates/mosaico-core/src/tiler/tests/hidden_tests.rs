@@ -141,6 +141,35 @@ fn the_record_survives_a_round_trip_through_text() {
 }
 
 #[test]
+fn a_record_an_earlier_daemon_wrote_still_reads() {
+    // Arrange -- each way of hiding is written under its config name.
+    let text = r#"{"version": 1, "hidden": [
+        {"window": 1, "how": "cloak", "process": 7, "class": "App"},
+        {"window": 2, "how": "hide", "process": 7, "class": "App"},
+        {"window": 3, "how": "minimize", "process": 7, "class": "App"}
+    ]}"#;
+
+    // Act
+    let effects = HiddenWindows::from_text(text)
+        .unwrap()
+        .restore(|_| Some(who(7)));
+
+    // Assert
+    let shown = |window: u64, how: HidingBehaviour| Effect::Show {
+        window: wid(window),
+        how,
+    };
+    assert_eq!(
+        effects,
+        [
+            shown(1, HidingBehaviour::Cloak),
+            shown(2, HidingBehaviour::Hide),
+            shown(3, HidingBehaviour::Minimize),
+        ]
+    );
+}
+
+#[test]
 fn corrupt_or_unknown_text_is_an_error() {
     // Act / Assert
     assert!(HiddenWindows::from_text("not json").is_err());

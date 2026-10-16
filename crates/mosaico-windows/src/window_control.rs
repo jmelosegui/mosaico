@@ -1,7 +1,7 @@
 //! Changes to windows and the pointer, made through Win32.
 
 use mosaico_core::config::HidingBehaviour;
-use mosaico_core::{Error, Rect, Result, WindowControl, WindowId};
+use mosaico_core::{Error, HidingEvents, Rect, Result, WindowControl, WindowId};
 use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
 use windows::Win32::UI::WindowsAndMessaging::{
     PostMessageW, SHOW_WINDOW_CMD, SW_HIDE, SW_MINIMIZE, SW_SHOW, SW_SHOWNOACTIVATE, SetCursorPos,
@@ -65,10 +65,9 @@ impl WindowControl for Win32WindowControl {
 
     /// Cloaking goes through the ImmersiveShell COM interface, the
     /// mechanism Windows uses for its own virtual desktops: the window
-    /// becomes invisible but keeps its taskbar icon, and no
-    /// `EVENT_OBJECT_HIDE` fires. `SW_HIDE` also removes the taskbar
-    /// icon and fires `EVENT_OBJECT_HIDE`; `SW_MINIMIZE` fires
-    /// `EVENT_SYSTEM_MINIMIZESTART`.
+    /// becomes invisible but keeps its taskbar icon. `SW_HIDE` also
+    /// removes the taskbar icon. The events each way fires are listed on
+    /// `hiding_events`.
     fn hide(&self, window: WindowId, how: HidingBehaviour) -> Result<()> {
         let win = existing(window)?;
         match how {
@@ -90,6 +89,24 @@ impl WindowControl for Win32WindowControl {
             }
         }
         Ok(())
+    }
+
+    /// Every way is available. Cloaking and uncloaking fire neither
+    /// `EVENT_OBJECT_HIDE` nor the minimize events. `SW_HIDE` fires
+    /// `EVENT_OBJECT_HIDE`, and showing the window again fires
+    /// `EVENT_OBJECT_SHOW`, which arrives as a new window rather than a
+    /// restore. `SW_MINIMIZE` fires `EVENT_SYSTEM_MINIMIZESTART`, and
+    /// showing the window again `EVENT_SYSTEM_MINIMIZEEND`.
+    fn hiding_events(&self, how: HidingBehaviour) -> Option<HidingEvents> {
+        let (reports_hidden, reports_restored) = match how {
+            HidingBehaviour::Cloak => (false, false),
+            HidingBehaviour::Hide => (true, false),
+            HidingBehaviour::Minimize => (true, true),
+        };
+        Some(HidingEvents {
+            reports_hidden,
+            reports_restored,
+        })
     }
 
     /// Uncloaks, then shows with `SW_SHOW`, which activates more strongly
@@ -134,3 +151,7 @@ fn show_window(window: Window, command: SHOW_WINDOW_CMD) {
         let _ = ShowWindow(window.hwnd(), command);
     }
 }
+
+#[cfg(test)]
+#[path = "window_control_tests.rs"]
+mod tests;

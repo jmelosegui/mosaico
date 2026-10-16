@@ -9,7 +9,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 use crate::action::MAX_WORKSPACES;
 use crate::layout::LayoutKind;
 
-use super::report;
+use super::{HidingBehaviour, report};
 
 /// Layout algorithm settings.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -86,35 +86,22 @@ where
     Ok(out)
 }
 
-/// How windows are hidden when switching away from their workspace.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum HidingBehaviour {
-    /// DWM Cloak: window becomes invisible but keeps its taskbar icon
-    /// and does not fire `EVENT_OBJECT_HIDE`. Recommended default.
-    #[default]
-    Cloak,
-    /// `ShowWindow(SW_HIDE)`: window is fully hidden and loses its
-    /// taskbar icon. Fires `EVENT_OBJECT_HIDE`.
-    Hide,
-    /// `ShowWindow(SW_MINIMIZE)`: window is minimized. Keeps taskbar
-    /// icon but shows minimized state. Fires `EVENT_SYSTEM_MINIMIZESTART`.
-    Minimize,
-}
-
 /// Corner style for borders and tiled windows.
 ///
-/// Controls both the border overlay shape (pixel-exact rounding) and
-/// the DWM corner preference applied to managed windows on Windows 11.
+/// Sets how round the borders drawn around windows are, and how round
+/// the corners of managed windows are on platforms that let windows
+/// choose.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum CornerStyle {
-    /// Sharp rectangular corners (DWM: `DONOTROUND`).
+    /// Sharp, square corners.
     Square,
-    /// Subtle rounding (border: 8 px, DWM: `ROUNDSMALL` ~4 px).
+    /// Slightly rounded corners: an 8 px border radius, and the
+    /// platform's small rounding on windows.
     #[default]
     Small,
-    /// Standard rounding (border: 16 px, DWM: `ROUND` ~8 px).
+    /// More rounded corners: a 16 px border radius, and the platform's
+    /// standard rounding on windows.
     Round,
 }
 

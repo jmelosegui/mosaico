@@ -22,11 +22,19 @@ impl Tiler {
     ///
     /// Per-workspace layouts are left alone: after startup they belong
     /// to the user's `cycle-layout` choices, which a reload must not
-    /// undo. Changes to `[workspaces.layouts]` apply on restart.
+    /// undo. Changes to `[workspaces.layouts]` apply on restart. A
+    /// hiding strategy the platform does not have is swapped for one it
+    /// has, as at startup.
     pub(super) fn reload_config(&mut self, plan: &mut Plan, config: &Config) {
         self.layout.gap = config.layout.gap;
         self.layout.ratio = config.layout.ratio;
-        self.layout.hiding = config.layout.hiding;
+        // What the platform can do never changes, so an unchanged
+        // strategy keeps the choice already made, and its warning is not
+        // logged again on every edit of the config.
+        if config.layout.hiding != self.configured_hiding {
+            self.configured_hiding = config.layout.hiding;
+            self.layout.hiding = self.hiding_support.choose(config.layout.hiding);
+        }
         self.workspace_mode = config.workspaces.mode;
         self.border_config = config.borders.clone();
         self.mouse_follows_focus = config.mouse.follows_focus;
