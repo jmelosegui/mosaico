@@ -1,5 +1,7 @@
 //! Monitors connecting and disconnecting.
 
+use std::collections::HashSet;
+
 use crate::Monitor;
 use crate::config::{HidingBehaviour, WorkspaceMode};
 
@@ -46,10 +48,9 @@ impl Tiler {
             displays.len()
         );
 
-        let focused_key = self
-            .monitors
-            .get(self.focused_monitor)
-            .map(|m| m.key.clone());
+        let before = self.monitors.get(self.focused_monitor);
+        let focused_key = before.map(|m| m.key.clone());
+        let in_view = before.map(|m| m.active_workspace);
         let old = std::mem::take(&mut self.monitors);
         let rebuilt =
             rebuild_monitors(old, &displays, &self.workspace_layouts, &mut self.reconnect);
@@ -74,25 +75,31 @@ impl Tiler {
             .unwrap_or(primary);
 
         // In global mode every monitor shows the same workspace number.
-        // New monitors start on the first one, so line them up.
+        // The one in view before the change stays in view, and monitors
+        // that connect join it, even when the monitor that had focus is
+        // the one that went away (#124). A monitor that still switches
+        // workspace has its windows hidden and shown below, with the
+        // windows that moved.
+        let mut moved = rebuilt.moved;
         if self.workspace_mode == WorkspaceMode::Global
-            && let Some(target) = self
-                .monitors
-                .get(self.focused_monitor)
-                .map(|m| m.active_workspace)
+            && let Some(target) = in_view
         {
             for mon in &mut self.monitors {
-                mon.active_workspace = target;
+                moved.extend(mon.switch_to(target));
             }
         }
+        // A window can be listed twice: parked off a monitor that left and
+        // sent back home to one that returned in the same change, or also
+        // on a workspace a monitor switched. Each is hidden or shown once.
+        let mut seen = HashSet::new();
+        moved.retain(|&window| seen.insert(window));
 
         // Windows that landed on an inactive workspace are hidden before
         // the retile; the ones on an active workspace are shown after it,
         // so they appear in their final place. One the tiler minimized,
         // and that is still minimized, is restored before it instead, as
         // a workspace switch does: its slot cannot be set while minimized.
-        let (shown, hidden): (Vec<WindowId>, Vec<WindowId>) = rebuilt
-            .moved
+        let (shown, hidden): (Vec<WindowId>, Vec<WindowId>) = moved
             .into_iter()
             .partition(|&w| self.is_on_active_workspace(w));
         let how = self.layout.hiding;

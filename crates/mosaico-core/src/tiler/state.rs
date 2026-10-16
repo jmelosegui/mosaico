@@ -42,6 +42,20 @@ impl MonitorState {
         &mut self.workspaces[self.active_workspace]
     }
 
+    /// Puts workspace `idx` on screen and returns the windows of the
+    /// workspace left and of the one now on screen, for the caller to
+    /// hide and show. Returns none, and changes nothing, when `idx` is on
+    /// screen already or is not a workspace of this monitor.
+    pub(super) fn switch_to(&mut self, idx: usize) -> Vec<WindowId> {
+        if idx == self.active_workspace || idx >= self.workspaces.len() {
+            return Vec::new();
+        }
+        let left = std::mem::replace(&mut self.active_workspace, idx);
+        let mut windows = self.workspaces[left].windows().to_vec();
+        windows.extend_from_slice(self.workspaces[idx].windows());
+        windows
+    }
+
     /// Session id of the monitor.
     pub fn id(&self) -> MonitorId {
         self.id

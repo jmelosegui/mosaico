@@ -153,9 +153,9 @@ impl Tiler {
     ///
     /// A window the tiler hid with "hide" is kept while it still exists
     /// and is still hidden: it is out of view by the tiler's doing, and
-    /// the display change that brings it into view shows it after this
-    /// retile (#119). A display change that lines up global workspaces
-    /// brings windows into view without showing them; that is #124.
+    /// the display change that brings it into view, by moving it or by
+    /// switching its monitor's workspace, shows it after this retile
+    /// (#119, #124).
     fn prune_stale_handles(&mut self, plan: &Plan, monitor_idx: usize) {
         let Some(state) = self.monitors.get_mut(monitor_idx) else {
             return;
