@@ -216,8 +216,10 @@ The `TilingManager` supports hot-reloading of configuration:
 
 - `reload_config(config)` -- updates the layout gap/ratio and
   `BorderConfig`, then retiles all windows and updates the border
-- `reload_rules(rules)` -- replaces the window rules used for tileability
-  checks on new windows
+- `reload_rules(rules)` -- replaces the window rules and judges every managed
+  window against them again, letting go of the ones they no longer manage. A
+  window hidden on another workspace is judged by the rules alone and shown
+  again as it is let go (see [configuration.md](configuration.md#hot-reload))
 - `adjust_work_areas_for_bar(height, indices)` -- shrinks work areas on
   monitors that display a bar (offsets `y` and `height` by the bar height)
 - `reset_and_adjust_work_areas(height, indices)` -- resets to original work

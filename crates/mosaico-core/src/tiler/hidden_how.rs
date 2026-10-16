@@ -39,4 +39,18 @@ impl HiddenHow {
     pub(super) fn forget(&mut self, window: WindowId) {
         self.ways.remove(&window);
     }
+
+    /// Whether the tiler hid the window and has not shown it since.
+    pub(super) fn contains(&self, window: WindowId) -> bool {
+        self.ways.contains_key(&window)
+    }
+
+    /// Shows a window the tiler is letting go of, the way it hid it, so
+    /// it is not left out of view with nothing to bring it back. Does
+    /// nothing for a window the tiler did not hide.
+    pub(super) fn release(&mut self, plan: &mut Plan, window: WindowId) {
+        if let Some(how) = self.ways.remove(&window) {
+            plan.emit(Effect::Show { window, how });
+        }
+    }
 }
