@@ -206,8 +206,11 @@ Scheduler frame step  -> Applier::frame(now)                        on a frame, 
   a wake that brought only those counts like a timeout for flushing. Position
   reports still reach the tiler, which needs them to notice a focused window
   being maximized.
-- `begin_wait` waits no longer than the earliest motion deadline, and reaching
-  it runs the frame step.
+- `begin_wait` takes the earliest end of a motion after the last frame step
+  (`Scheduler::last_frame_step`), waits no longer than that, and reaching it
+  runs the frame step. An end at or before the last frame step has had its
+  step and is let go, so one left in the past never makes the loop spin, nor
+  keeps the wait from ending for the ends after it.
 - All frames of a wake fold into one `Step::Frame`, after the wake's tasks and
   events. The frame step takes its time from `Platform::now()`.
 - `MouseHover` is dropped while any motion is in flight, so a window sliding
@@ -418,7 +421,7 @@ that changes them.
       wait; `DaemonMsg::Frame`
 - [ ] `Desktop::animations_allowed` and its Windows implementation
 - [ ] `WindowEvent::MoveStarted` from `EVENT_SYSTEM_MOVESIZESTART`
-- [ ] Scheduler: position reports and frames are not activity, motion
+- [x] Scheduler: position reports and frames are not activity, motion
       deadlines, one frame step per wake; tests at explicit times
 - [ ] Fakes record frames, can make frames land late, and can say whether
       animations are allowed

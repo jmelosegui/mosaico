@@ -2,19 +2,22 @@
 
 use std::time::{Duration, Instant};
 
-use crate::WindowEvent;
 use crate::tiler::release_at;
 
 use super::dedup::dedup;
-use super::messages::{Message, Step, Wake};
+use super::messages::{Step, Wake};
 use super::settle::DisplaySettle;
+
+#[path = "scheduler_frame.rs"]
+mod frame;
 
 /// Decides what the daemon loop runs, and when.
 ///
 /// Before each wait for messages the loop calls [`Scheduler::begin_wait`]
-/// with the time and what
+/// with the time, what
 /// [`Coalescer::held_since`](crate::tiler::Coalescer::held_since)
-/// reports, then hands whatever ended the wait to [`Scheduler::step`].
+/// reports and the earliest end of a motion after the last frame step, then
+/// hands whatever ended the wait to [`Scheduler::step`].
 ///
 /// - Held effects are flushed once the loop has waited
 ///   [`QUIET`](crate::tiler::QUIET) with no input arriving, and at the
@@ -23,14 +26,21 @@ use super::settle::DisplaySettle;
 ///   run, so a slow batch of input, a rebuild or startup never counts as
 ///   quiet or toward the cap. Input ends the wait without a flush, unless
 ///   the cap had already passed.
-/// - A window's report that its position changed is not input, whoever
-///   moved the window: a window that moves reports it many times a
-///   second, the tiler's own placements included. A wake that brought
-///   only such reports counts like a timeout: it finds what is due by
-///   then, and unless something was, the wait goes on, through the batch
-///   that handles the reports, so the time that batch takes counts as
-///   quiet. So a window moving on screen never pushes held effects back
-///   to the cap, and they are flushed once the quiet window has passed.
+/// - Neither a display frame nor a window's report that its position
+///   changed is input, whoever moved the window: a window that moves
+///   reports it many times a second, the tiler's own placements included.
+///   A wake that brought only those counts like a timeout: it finds what
+///   is due by then, and unless something was, the wait goes on, through
+///   the batch that handles them, so the time that batch takes counts as
+///   quiet. So frames and windows moving on screen never push held
+///   effects back to the cap, and they are flushed once the quiet window
+///   has passed.
+/// - The frame step comes once per wake that brought frames, however
+///   many, and once the wait reaches the end of a motion, so motions end
+///   on time even when no frame comes. It runs last, after the tasks and
+///   events of the wake. The loop passes the earliest end of a motion
+///   after the last frame step, and an end at or before it is let go, so
+///   one left in the past never makes the loop spin.
 /// - A display change is rebuilt for once it has been quiet for
 ///   [`SETTLE`](super::SETTLE). While effects are held the wait is for
 ///   them alone, so a change that settles meanwhile follows the flush.
@@ -50,6 +60,11 @@ pub struct Scheduler {
     /// The hold the loop last waited with: when it began, and when the
     /// loop first waited with it.
     hold: Option<(Instant, Instant)>,
+    /// When the current wait has to end for the frame step.
+    frame_due: Option<Instant>,
+    /// When the last frame step was taken: the end of a motion by then
+    /// has had its step.
+    frame_stepped: Option<Instant>,
     /// A display change waiting for the configuration to settle.
     settle: DisplaySettle,
 }
@@ -59,8 +74,15 @@ impl Scheduler {
     /// given, unless the last wait goes on, and returns how long it may
     /// wait for messages, or `None` when nothing is due until one
     /// arrives. `held_since` is when the effects the tiling manager holds
-    /// started being held, if it holds any.
-    pub fn begin_wait(&mut self, held_since: Option<Instant>, now: Instant) -> Option<Duration> {
+    /// started being held, if any, and `frame_due` the earliest end of a
+    /// motion after the [`last_frame_step`](Self::last_frame_step): the
+    /// wait ends by then with a frame step. One at or before it is let go.
+    pub fn begin_wait(
+        &mut self,
+        held_since: Option<Instant>,
+        frame_due: Option<Instant>,
+        now: Instant,
+    ) -> Option<Duration> {
         let waiting_since = *self.waiting_since.get_or_insert(now);
         self.hold = held_since.map(|since| match self.hold {
             Some((seen, first_wait)) if seen == since => (since, first_wait),
@@ -69,13 +91,17 @@ impl Scheduler {
         self.release = self
             .hold
             .map(|(_, first_wait)| release_at(first_wait, waiting_since));
-        if self.settle.is_due(now) {
-            return Some(Duration::ZERO);
-        }
-        match self.release {
-            Some(release) => Some(release.saturating_duration_since(now)),
-            None => self.settle.remaining(now),
-        }
+        self.frame_due = self.not_stepped(frame_due);
+        let due = if self.settle.is_due(now) {
+            Some(Duration::ZERO)
+        } else {
+            match self.release {
+                Some(release) => Some(release.saturating_duration_since(now)),
+                None => self.settle.remaining(now),
+            }
+        };
+        let frame = self.frame_due.map(|due| due.saturating_duration_since(now));
+        due.into_iter().chain(frame).min()
     }
 
     /// Takes what ended the wait at `now`, and returns what to do, in
@@ -101,32 +127,22 @@ impl Scheduler {
         if input || !steps.is_empty() {
             self.waiting_since = None;
         }
-        if let Wake::Received(messages) = wake {
-            let mut events = Vec::new();
-            for message in messages {
-                match message {
-                    Message::Event(event) => events.push(event),
-                    Message::Task(task) => steps.push(Step::Run(task)),
-                }
-            }
-            dedup(&mut events);
-            if take_display_changes(&mut events) {
-                self.settle.note(now);
-            }
-            if !events.is_empty() {
-                steps.push(Step::Events(events));
-            }
+        let motion_due = self.frame_due.take().is_some_and(|due| now >= due);
+        let mut batch = wake.into_batch();
+        dedup(&mut batch.events);
+        if batch.take_display_changes() {
+            self.settle.note(now);
+        }
+        steps.extend(batch.tasks.into_iter().map(Step::Run));
+        if !batch.events.is_empty() {
+            steps.push(Step::Events(batch.events));
+        }
+        if batch.frame || motion_due {
+            self.frame_stepped = Some(now);
+            steps.push(Step::Frame);
         }
         steps
     }
-}
-
-/// Takes the display changes out of `events`, and says whether there
-/// were any.
-fn take_display_changes(events: &mut Vec<WindowEvent>) -> bool {
-    let before = events.len();
-    events.retain(|event| !matches!(event, WindowEvent::DisplayChanged));
-    events.len() != before
 }
 
 #[cfg(test)]

@@ -153,6 +153,18 @@ back, in order:
    Each window keeps only its last `LocationChanged` and its last
    `TitleChanged` of the batch, which can turn hundreds of events into a
    handful.
+5. **Take the frame step**, which moves the windows of transitions on: once
+   per wake that brought display frames, however many, and once the wait
+   reaches the earliest end of a motion after the last frame step
+   (`Scheduler::last_frame_step`), which `begin_wait` is given, so a
+   transition ends on time even when no frame comes. An end at or before the
+   last frame step has had its step and is let go, so one left in the past
+   never makes the loop spin, nor keeps the wait from ending for the ends
+   after it. Frames are not input either. They come from the platform's
+   `FrameClock` (`mosaico_core::daemon`), which wakes the loop about once per
+   display refresh while it wants frames, and never has more than one waiting
+   in the queue. The loop does not ask for frames yet, and gives no motion
+   deadline.
 
 Input that ends a wait only finds what was due when it began: a message
 that arrives during the quiet window ends it without a flush, and the next
