@@ -5,11 +5,11 @@ use std::sync::mpsc;
 use std::thread;
 
 use mosaico_core::Action;
-use mosaico_core::config::ConfigStore;
+use mosaico_core::config::{ConfigReload, ConfigStore, ConfigWatch};
 use mosaico_core::http::HttpClient;
 use mosaico_core::{community_rules, update};
 
-use crate::config_watcher::ConfigReload;
+use crate::directory_watcher::WindowsDirectoryWatcher;
 
 use super::daemon_ipc;
 use super::daemon_types::DaemonMsg;
@@ -100,8 +100,7 @@ pub(super) fn spawn_config_watcher(
     let (reload_tx, reload_rx) = mpsc::channel::<ConfigReload>();
     let watcher_stop = Arc::new(AtomicBool::new(false));
     let watcher_stop_flag = watcher_stop.clone();
-    let watcher_thread =
-        thread::spawn(move || crate::config_watcher::watch(&store, reload_tx, watcher_stop_flag));
+    let watcher_thread = thread::spawn(move || watch_config(store, reload_tx, &watcher_stop_flag));
 
     let reload_bridge = thread::spawn(move || {
         for reload in reload_rx {
@@ -112,6 +111,21 @@ pub(super) fn spawn_config_watcher(
     });
 
     (watcher_stop, watcher_thread, reload_bridge)
+}
+
+/// Sends `reloads` the config files in `store` that change, until `stop`
+/// is set.
+fn watch_config(store: ConfigStore, reloads: mpsc::Sender<ConfigReload>, stop: &AtomicBool) {
+    let watch = match ConfigWatch::open(store, WindowsDirectoryWatcher::new) {
+        Ok(watch) => watch,
+        Err(e) => {
+            mosaico_core::log_info!("FindFirstChangeNotificationW failed, watcher exiting: {e}");
+            return;
+        }
+    };
+    if let Err(e) = watch.run(reloads, stop) {
+        mosaico_core::log_warn!("config watcher stopped: {e}");
+    }
 }
 
 /// Spawns a 1-second tick thread for bar updates.

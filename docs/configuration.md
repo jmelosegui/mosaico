@@ -12,6 +12,7 @@ All settings have sensible defaults, so configuration files are optional.
 | `crates/mosaico-core/src/config/mod.rs` | `Config`, `LayoutConfig`, `BorderConfig`, `ThemeConfig`, `WindowRule`, `should_manage()` |
 | `crates/mosaico-core/src/config/hiding_behaviour.rs` | `HidingBehaviour`, how windows are hidden on a workspace switch |
 | `crates/mosaico-core/src/config/store/` | `ConfigStore`: the paths of the config files (`mod.rs`), loading them (`load.rs`), each migration (`migrate*.rs`) and each merge of new defaults (`merge_*.rs`) |
+| `crates/mosaico-core/src/config/reload/` | `ConfigReloader`, `ConfigReload`: which files hot-reload and how (`mod.rs`); `ConfigWatch`: opening the watcher after the files are recorded, and the watch loop (`run.rs`) |
 | `crates/mosaico-core/src/config/keybinding.rs` | `Keybinding`, `Modifier`, `defaults()`, `Keybinding::combo()` |
 | `crates/mosaico-core/src/config/bar.rs` | `BarConfig`, `BarColors`, `WidgetConfig` |
 | `crates/mosaico-core/src/config/theme.rs` | `ThemeConfig`, `Theme` enum |
@@ -308,10 +309,13 @@ examples. Existing files are not overwritten.
 
 ## Hot-Reload
 
-Changes to `config.toml`, `rules.toml`, and `bar.toml` are automatically
+Changes to `config.toml`, `user-rules.toml`, and `bar.toml` are automatically
 detected and applied while the daemon is running. The config file watcher
-(see [daemon.md](daemon.md)) polls for modification time changes every
-2 seconds.
+(see [daemon.md](daemon.md)) waits for the platform to report a change in
+the config directory, then reloads each of the three files whose
+modification time changed. `ConfigReloader` and `ConfigWatch`
+(`mosaico_core::config`) make these decisions, so every platform reloads the
+same way.
 
 - **config.toml**: gap/ratio, hiding behaviour, border settings, and theme
   are reloaded. The tiling manager calls `reload_config()` which updates the
@@ -324,16 +328,27 @@ detected and applied while the daemon is running. The config file watcher
   (`[workspaces.layouts]` and `layout.default`) are applied at startup only;
   reloading does not override the active layout chosen via `cycle-layout`
   or `set-layout`; restart the daemon to pick up changes.
-- **rules.toml**: window rules are replaced via `reload_rules()`. New rules
-  apply to newly created windows; existing managed windows are not re-evaluated.
+- **user-rules.toml**: the window rules (user rules first, then the community
+  rules from `rules.toml`) are replaced via `reload_rules()`. New rules apply
+  to new windows. Managed windows the new rules no longer manage are released
+  at once, which the log shows as `-rule <window> (unmanaged by new rules)`,
+  and their monitor is retiled. A window the new rules would manage is
+  picked up the next time it gets focus.
+- **rules.toml**: **not** watched. The daemon downloads the community rules
+  at startup and reloads them itself once they are saved, and the next
+  download overwrites hand edits. Put your own rules in `user-rules.toml`.
 - **bar.toml**: the `BarManager` is recreated with `reload()`, colors are
   re-resolved against the current theme, work areas are reset and re-adjusted
   for the new bar height, and all monitors are retiled.
 - **keybindings.toml**: **not** hot-reloaded. Hotkey changes require a daemon
   restart because `RegisterHotKey` binds at the Win32 thread level.
 
-Only valid configurations are applied. If a file change introduces a parse
-error, the watcher logs a warning and keeps the current config.
+Only valid configurations are applied. If a change to `config.toml` or
+`bar.toml` introduces a parse error, the watcher logs it
+(`config.toml invalid, skipping: ...`) and keeps the current config until the
+file changes again. `user-rules.toml` is different: a file that does not
+parse counts as no user rules, as it does at startup, so the community rules
+apply alone until it is fixed.
 
 ## Design Decisions
 
@@ -364,3 +379,9 @@ error, the watcher logs a warning and keeps the current config.
   file, the migrations of `config.toml` with their backups, and each merge of
   new defaults, including what it adds, that a second run changes nothing, and
   the daemon's order of merging before loading
+- Hot-reload tests (`config/reload/tests/`): which file changes reload what
+  and in which order, invalid and deleted files, that only a new modification
+  time counts as a change, and the watch loop against a scripted
+  `DirectoryWatcher` (a change made while the watcher opens is not lost, a
+  stop wins over a change, a quiet wait loads nothing, each wait lasts at
+  most 5 seconds, a failed wait ends the watch)

@@ -19,7 +19,8 @@ The daemon uses a multi-thread architecture:
 4. **Focus-follows-mouse thread** -- polls the pointer every 100 ms, and only
    exists while `focus_follows_mouse` is on (`FocusFollowsMouse`)
 5. **IPC thread** -- runs blocking named pipe server, accepts CLI commands
-6. **Config watcher thread** -- polls config files for changes every 2 seconds
+6. **Config watcher thread** -- waits for changes in the config directory and
+   reloads the config files that changed
 7. **Tick thread** -- sends a `DaemonMsg::Tick` every 1 second for bar
    widget refresh (clock, CPU, RAM)
 
@@ -36,7 +37,8 @@ from separate `mpsc` channels into the unified `DaemonMsg` channel.
 | `crates/mosaico-windows/src/event_source.rs` | `WindowsEventSource` -- the WinEvent hooks and the broadcast window |
 | `crates/mosaico-windows/src/hotkey_thread.rs` | `WindowsHotkeySource` -- registers and dispatches hotkeys on a thread of its own |
 | `crates/mosaico-windows/src/message_thread.rs` | `MessageThread` -- a thread with a message queue, stopped with `WM_QUIT` |
-| `crates/mosaico-windows/src/config_watcher.rs` | `watch()`, `ConfigReload` -- polls config files for changes |
+| `crates/mosaico-core/src/config/reload/` | `ConfigReloader`, `ConfigReload`, `ConfigWatch` -- which config files reload and how, and the watch loop |
+| `crates/mosaico-windows/src/directory_watcher.rs` | `WindowsDirectoryWatcher` -- change notifications on the config directory |
 | `crates/mosaico-windows/src/bar_manager.rs` | `BarManager` -- manages status bar windows across monitors |
 
 ### Key Types
@@ -204,28 +206,58 @@ If the pipe can no longer accept connections, the thread sends
 
 ## Config File Watcher
 
-The config watcher runs on a dedicated thread, polling `config.toml`,
-`rules.toml`, and `bar.toml` for modification time changes every 2 seconds.
+The config watcher runs on a dedicated thread. It sleeps until something in
+the config directory may have changed, then reloads `config.toml`,
+`user-rules.toml` and `bar.toml` if their modification time changed. The
+files are not polled, and nothing waits for a burst of writes to settle.
 
 ### Key Types
 
-- `ConfigReload` (enum) -- `Config(Config)`, `Rules(Vec<WindowRule>)`, or
+- `ConfigReloader` (`mosaico_core::config`) -- decides which files reload and
+  loads them
+- `ConfigWatch` (`mosaico_core::config`) -- `open()` records the files and
+  only then opens the platform watcher, so a change made while the watch
+  starts is not lost; `run()` is the watch loop
+- `ConfigReload` (enum) -- `Config(Box<Config>)`, `Rules(Vec<WindowRule>)`, or
   `Bar(Box<BarConfig>)`
+- `DirectoryWatcher` (`mosaico_core::watch`) -- the platform contract: block
+  until something in a directory may have changed, or until a timeout.
+  `WindowsDirectoryWatcher` implements it with `FindFirstChangeNotificationW`
+  (file names and last writes in the directory, not its subdirectories)
 
 ### Behavior
 
-1. Records the initial modification time of each file
-2. On each poll cycle, compares current mtime with the stored value
-3. If changed, validates the new content using the daemon's `ConfigStore`
-   (`try_load_config()` or `try_load_bar()`), or reloads the merged rules
-   with `load_merged_rules()`
-4. Only valid configs are sent as `ConfigReload` -- invalid files are logged
-   and skipped
-5. The reload is forwarded via a bridge thread to `DaemonMsg::Reload`
+1. Records the modification time of each watched file, then starts watching
+   the directory. A change made in between is reloaded with the first change
+   the platform reports
+2. Waits for a change for up to 5 seconds at a time, and checks between
+   waits whether the daemon is stopping
+3. When the platform reports a change, compares each file's modification time
+   with the last one seen, in the order `config.toml`, `user-rules.toml`,
+   `bar.toml`. A report with nothing changed does nothing
+4. A changed `config.toml` or `bar.toml` is loaded with the daemon's
+   `ConfigStore` (`try_load_config()` or `try_load_bar()`). Only a file that
+   loads is sent as a `ConfigReload`; one that does not is logged and
+   skipped, and is not read again until it changes again
+5. A changed `user-rules.toml` reloads the merged rules with
+   `load_merged_rules()`
+6. The reload is forwarded via a bridge thread to `DaemonMsg::Reload`
 
-Keybindings are **not** hot-reloaded because `RegisterHotKey` requires
-unregistering and re-registering on the hotkey thread. A daemon restart
-is required for keybinding changes.
+`rules.toml` is not watched: the daemon downloads the community rules at
+startup and sends their reload itself. Keybindings are **not** hot-reloaded
+because `RegisterHotKey` requires unregistering and re-registering on the
+hotkey thread. A daemon restart is required for keybinding changes.
+
+If the config directory cannot be watched, for instance because it does not
+exist, the watcher logs `FindFirstChangeNotificationW failed, watcher
+exiting: <reason>` and the daemon runs without hot-reload. If the directory
+is deleted while it is watched, the watcher logs the warning
+`config watcher stopped: <reason>` and ends; restart the daemon once the
+directory is back. If the directory is moved or renamed instead, the
+watcher follows it to its new location while the daemon keeps reading the
+old path. Nothing is logged when it moves, and hot-reload stops working
+until the daemon restarts: a later change in the moved directory finds no
+files at the old path, and reloads as if they had been deleted.
 
 ## Shutdown
 
@@ -244,6 +276,8 @@ Shutdown is triggered by:
   - Once the loop has returned, `lifecycle::run` removes the PID file and then
     releases the single instance lock
   - Bridge threads (event, action, reload) and tick thread are joined
+  - The config watcher thread is joined; while the directory is quiet it
+    checks for the stop every 5 seconds, so this can take that long
 
 ### Unclean exit
 

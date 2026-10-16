@@ -8,6 +8,8 @@ mod hiding_behaviour;
 pub mod keybinding;
 /// Color palette definitions for themes.
 mod palette;
+/// Which config files the daemon reloads while it runs, and when.
+mod reload;
 /// Telling the user about their config while it loads.
 mod report;
 /// Window management rules.
@@ -28,6 +30,7 @@ pub use bar::{BarColors, BarConfig, WidgetConfig};
 pub use color::Color;
 pub use hiding_behaviour::HidingBehaviour;
 pub use keybinding::{Keybinding, Modifier};
+pub use reload::{ConfigReload, ConfigReloader, ConfigWatch};
 pub use rules::{WindowRule, default_rules, matching_rule, should_manage, validate_rules};
 pub use store::ConfigStore;
 pub use theme::{

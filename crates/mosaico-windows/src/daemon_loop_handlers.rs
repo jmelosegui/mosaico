@@ -146,7 +146,7 @@ pub(super) fn handle_command(
 }
 
 pub(super) fn handle_reload(
-    reload: crate::config_watcher::ConfigReload,
+    reload: mosaico_core::config::ConfigReload,
     manager: &mut TilingManager,
     bar_mgr: &mut BarManager,
     current_theme: &mut mosaico_core::config::Theme,
@@ -155,7 +155,7 @@ pub(super) fn handle_reload(
     get_update: &dyn Fn() -> String,
 ) {
     match reload {
-        crate::config_watcher::ConfigReload::Config(cfg) => {
+        mosaico_core::config::ConfigReload::Config(cfg) => {
             *current_theme = cfg.theme.resolve();
             manager.reload_config(&cfg);
             inputs.set_focus_follows_mouse(cfg.mouse.focus_follows_mouse);
@@ -163,10 +163,10 @@ pub(super) fn handle_reload(
             bar_mgr.resolve_colors(*current_theme);
             bar_mgr.update(&manager.bar_states(&get_update(), hotkeys_paused));
         }
-        crate::config_watcher::ConfigReload::Rules(rules) => {
+        mosaico_core::config::ConfigReload::Rules(rules) => {
             manager.reload_rules(rules);
         }
-        crate::config_watcher::ConfigReload::Bar(bar_cfg) => {
+        mosaico_core::config::ConfigReload::Bar(bar_cfg) => {
             let new_height = bar_mgr.reload(*bar_cfg);
             bar_mgr.resolve_colors(*current_theme);
             let indices = bar_mgr.bar_monitor_indices().to_vec();
