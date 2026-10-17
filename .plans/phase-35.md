@@ -1,6 +1,6 @@
 # Phase 35: Mouse Interaction
 
-**Status:** Pending
+**Status:** Complete
 
 **Goal:** Let the mouse drive the tiler: click the bar to change workspaces,
 scroll it to step through them, click its widgets, drag a tiled window onto
@@ -408,7 +408,7 @@ need nothing from phase 34; 35.3 needs `MoveStarted` (34.2); 35.4 needs 35.3.
 - [x] `[mouse] enabled` and `scroll` in bar.toml, templates and hints
 - [x] Metrics scenarios: a click on the focused and on another monitor's bar, and
       a scroll burst
-- [ ] Check wheel input with "Scroll inactive windows when I hover over them"
+- [x] Check wheel input with "Scroll inactive windows when I hover over them"
       off, and document what it needs
 
 ### 35.2 Widget clicks
@@ -447,10 +447,10 @@ need nothing from phase 34; 35.3 needs `MoveStarted` (34.2); 35.4 needs 35.3.
 
 ### Verification
 
-- [ ] Manual test: click and scroll the bar on every monitor, in both workspace
+- [x] Manual test: click and scroll the bar on every monitor, in both workspace
       modes, over a maximized window, and with the bar background transparent
-- [ ] Manual test: drag to swap, to another monitor, cancel with Esc, drop at the
+- [x] Manual test: drag to swap, to another monitor, cancel with Esc, drop at the
       top edge with Snap on, and with window contents hidden while dragging
-- [ ] Manual test: resize splits from every resizable edge in every layout
+- [x] Manual test: resize splits from every resizable edge in every layout
 - [x] Integration test for a bar click
-- [ ] Update `.plans/plan.md`
+- [x] Update `.plans/plan.md`
