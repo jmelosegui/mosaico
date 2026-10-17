@@ -17,11 +17,12 @@ contracts the manager runs on.
 | `crates/mosaico-core/src/layout/vertical_stack.rs` | `VerticalStackLayout` -- master/stack layout |
 | `crates/mosaico-core/src/layout/three_column.rs` | `ThreeColumnLayout` -- center master with side stacks |
 | `crates/mosaico-core/src/layout/tests.rs` | Unit tests for all three layouts and `LayoutKind` |
-| `crates/mosaico-core/src/layout/split_ratios.rs` | `SplitRatios` -- the ratio of each split of a workspace's layouts that the user moved, one set per layout, and the layouts laid out with them |
-| `crates/mosaico-core/src/layout/split_edges.rs`, `split_resize.rs` | Which split each edge of a tile borders; `resized_splits()` -- where the edges of a tile the user resized put those splits |
+| `crates/mosaico-core/src/layout/split_ratios.rs` | `SplitRatios` -- the ratio of each split of a workspace's layouts that the user moved, and the heights of each stack the user resized, one set per layout, and the layouts laid out with them |
+| `crates/mosaico-core/src/layout/column.rs`, `heights.rs`, `split_chains.rs` | A column of windows, shared equally or at its heights; `Heights` -- the heights of a stack the user resized; the splits and the heights kept in step with the windows as they come and go |
+| `crates/mosaico-core/src/layout/split_edges.rs`, `split_resize.rs`, `stack_edge.rs` | Which split each edge of a tile borders; `resized_splits()` -- where the edges of a tile the user resized put those splits, and the heights of a stack an edge between two of its windows trades |
 | `crates/mosaico-core/src/workspace.rs` | `Workspace` -- ordered collection of window handles per monitor, tracks `LayoutKind` |
 | `crates/mosaico-core/src/workspace/monocle.rs` | Monocle state of a `Workspace`, with the windows a display change brought onto it that wait behind the monocle window |
-| `crates/mosaico-core/src/workspace/splits.rs` | `split_ratios()`, `set_split_ratio()` -- the splits the user moved on a `Workspace`, kept in step with its windows |
+| `crates/mosaico-core/src/workspace/splits.rs` | `split_ratios()`, `set_split_ratios()` -- the splits the user moved and the heights of the stacks the user resized on a `Workspace`, kept in step with its windows, and how a resize sets them; `set_split_ratio()` and `set_heights()` are seams for tests |
 | `crates/mosaico-core/src/rect.rs` | `Rect` -- rectangle type with spatial helpers |
 | `crates/mosaico-core/src/spatial.rs` | Pure spatial navigation functions (`find_neighbor`, `find_entry`) |
 | `crates/mosaico-core/src/tiler/mod.rs` | `Tiler` -- every tiling decision, returned as effects; `MonitorState` in `state.rs`; `Tiler::step` in `step.rs` |
@@ -68,14 +69,15 @@ contracts the manager runs on.
   stack right
 - `ThreeColumnLayout` -- implements `Layout`: master pane center, stacks on
   both sides; extra windows alternate left/right
-- `SplitRatios` -- the ratio of each split the user moved, one set per
-  layout: `ratio()`, `set()`, and `apply()`, which lays windows out with them
-  (see [Split Ratios](#split-ratios))
+- `SplitRatios` -- the ratio of each split the user moved, and the heights of
+  each stack the user resized, one set per layout: `ratio()`, `set()`,
+  `heights()`, `set_heights()`, and `apply()`, which lays windows out with
+  them (see [Split Ratios](#split-ratios))
 - `Workspace` -- maintains an ordered `Vec<WindowId>` of the windows on a
   monitor plus a `layout_kind: LayoutKind` field and its `SplitRatios`;
   provides `add()`, `insert()`, `remove()`, `swap()`, `compute_layout()`,
   `layout_kind()` / `set_layout_kind()`, `split_ratios()` /
-  `set_split_ratio()`
+  `set_split_ratios()`
 - `Rect` -- fields: `x`, `y`, `width`, `height`; methods: `center_x()`,
   `center_y()`, `vertical_overlap()`, `horizontal_overlap()`
 - `TilingManager<P: Platform>` -- runs a `Tiler` on the platform `P`: feeds
@@ -112,24 +114,27 @@ its first window, the master in those two, gets.
 
 Each `Workspace` keeps a `SplitRatios` (`layout/split_ratios.rs`), one set
 per layout, with the ratio of each split the user moved, by dragging an edge
-(see [Resizing Splits](#resizing-splits)). Every other split is at `ratio`.
-So cycling layouts finds each layout's own splits again, monocle leaves
-them alone, and a config reload with a new `ratio` moves the splits nobody
-moved and leaves the others where the user put them. A split is kept within
-0.1 and 0.9 (`MIN_SPLIT_RATIO`, `MAX_SPLIT_RATIO`), as nothing tells the
-tiler how small a window can be.
+(see [Resizing Splits](#resizing-splits)), and the heights of each stack the
+user resized (see [Stack Heights](#stack-heights)). Every other split is at
+`ratio`, and every other stack is shared equally. So cycling layouts finds
+each layout's own splits again, monocle leaves them alone, and a config
+reload with a new `ratio` moves the splits nobody moved and leaves the
+others where the user put them. A split is kept within 0.1 and 0.9
+(`MIN_SPLIT_RATIO`, `MAX_SPLIT_RATIO`), as nothing tells the tiler how
+small a window can be.
 
 The user's retile, `Action::Retile` from Alt+Shift+R, the command line or a
 bar click bound to it, is the way back: the workspace on screen of every
-monitor forgets every split the user moved, in all its layouts
-(`SplitRatios::forget`, which keeps a split for each window but the last),
-so each follows `ratio` again, and every monitor is laid out
-(`retile_from_ratio` in `layout_actions.rs`). A workspace out of view keeps
-its own. The other passes that lay every monitor out, as a work area or the
-bar read again, a display change or a reload, keep the splits.
+monitor forgets every split the user moved and the heights of every stack,
+in all its layouts (`SplitRatios::forget`, which keeps a split for each
+window but the last), so each split follows `ratio` and each stack is
+shared equally again, and every monitor is laid out (`retile_from_ratio` in
+`layout_actions.rs`). A workspace out of view keeps its own. The other
+passes that lay every monitor out, as a work area or the bar read again, a
+display change or a reload, keep them.
 
 The workspace keeps the BSP chain in step with its windows
-(`workspace/splits.rs`):
+(`layout/split_chains.rs`):
 
 - a window added or inserted at `k` gets a split at `ratio` at split `k`, or
   at the end of the chain for the last window, and the splits after it go
@@ -144,16 +149,71 @@ keeps its ratio but takes the direction of its new place: side by side at an
 even `k`, one above the other at an odd one. So of three windows, a second
 one given a quarter of the right half's height has a quarter of the width
 once the first one closes. A monitor that disconnects and comes back gives
-its windows back the splits of the chain they had there, once they are all
-back in their places, whichever layout is on screen (`reconnect.rs`,
-`reconnect_restore.rs`).
+its windows back the splits of the chain they had there, and their shares
+of the stacks, once they are all back in their places, whichever layout is
+on screen (`reconnect.rs`, `reconnect_restore.rs`).
 
 The master's ratio in VerticalStack and ThreeColumn is not tied to a window,
 and stays as windows come and go, and while its monitor is away. The
 ThreeColumn master stays centered: its ratio is the share of the width it
 gets, and both its edges move when it changes. A window dropped on another
-monitor gets a split of its own there, at `ratio`, and the slot the preview
-shows for it counts that split.
+monitor gets a split of its own there, at `ratio`, and an equal share of a
+resized stack, and the slot the preview shows for it counts both.
+
+### Stack Heights
+
+The stack of VerticalStack, and each side column of ThreeColumn, where the
+windows after the master alternate between the left column and the right
+one, is a column of windows one above the other, a full gap apart
+(`layout/column.rs`). A column nobody resized is shared equally, and its
+last window takes what rounding leaves, so it is laid out to the pixel as
+stacks always were. Once the user drags an edge between two of its windows,
+it gets heights (`layout/heights.rs`): each window has a share of the
+column's height without its gaps, the shares summing to 1, kept as where
+each window but the last ends. Each window ends that share of the height,
+and those of the windows above it, below the top of the column, to the
+nearest pixel, past the gaps above it, and the last at the bottom of the
+column, so the gaps stay whole and no window leaves the area. An end on
+half a pixel rounds down whatever the last bits of its share, so a monitor
+that comes back in order, or a window that opens and closes again, leaves
+every edge where it was. A resized column keeps its shares when its area
+changes, as when a bar is shown or the monitor changes, so its windows are
+rounded in proportion: two windows nobody resized there can then be a
+pixel or two apart, where a column nobody resized shares the area equally,
+and the column is back as it was once the area is.
+Every window of a resized column keeps at least a tenth (`MIN_SPLIT_RATIO`)
+of an equal share of it, through every change:
+
+- a window that joins the column, at any place, gets an equal share,
+  `1/(n + 1)` of a column of `n` windows, and the others give it up in
+  proportion, each keeping `n/(n + 1)` of its share, so none is squeezed;
+- a window that leaves gives its share to the others in proportion, and
+  one that would fall under the floor is raised back to it, the others
+  giving up what that takes in proportion;
+- in VerticalStack, a window that takes the master's place brings the
+  master to the top of the stack, which it joins there, and a master that
+  leaves brings the top of the stack up, which leaves it;
+- in ThreeColumn, a window that comes or goes before the last side window
+  moves every side window after it to the other column, and both columns
+  go back to equal heights. One that joins after the last side window, or
+  the last one that leaves, changes only its own column, as above, and the
+  other keeps its heights;
+- a swap keeps the heights on their places, so the slots keep their sizes
+  and the windows trade places; cycling layouts, monocle and a reload keep
+  them, and a retile forgets them.
+
+The floor, 26 pixels for four windows stacked on 1080 and 15 once three
+more open, can be under a window's minimum height, and such a window then
+overlaps the one beside it, as one can at BSP's tenth.
+
+A monitor that disconnects and comes back gives each of its windows back
+its share of the stack and of its side column, once they are all back in
+their places: in each column, the windows back keep their shares, and the
+others share what is left, or, with no others, the shares are scaled to
+fill it, so a whole monitor back in order has its heights back. As at
+home, no share of the stack goes to a window back as the master, and a
+window back in the other side column, as when one before it closed while
+the monitor was away, sends both columns back to equal heights.
 
 ### BSP (Binary Space Partitioning)
 
@@ -184,7 +244,8 @@ stacked vertically on the right:
 1. **One window** -- fills the entire area (minus gaps)
 2. **Two or more windows** -- the first window gets the left `ratio` portion
    (the master pane), or the share the user moved its edge to; all remaining
-   windows share the right portion, divided into equal-height slots
+   windows share the right portion, divided into equal-height slots, or at
+   the heights the user gave them (see [Stack Heights](#stack-heights))
 
 ```text
 +-----------+-----------+
@@ -204,7 +265,7 @@ between the left and right stacks:
 3. **Three or more windows** -- the first window occupies the center column
    (width set by `ratio`, or by where the user moved one of its edges);
    subsequent windows alternate into the left and right side columns, each
-   divided into equal-height slots
+   divided into equal-height slots, or at its heights
 
 ```text
 +------+-----------+------+
@@ -826,25 +887,40 @@ drag ends, puts it (`split_resize.rs`):
 | Layout | The edges that move a split |
 |--------|-----------------------------|
 | BSP | the far edge of window `k`, its right one for even `k` and its bottom one for odd `k`, moves split `k`, unless it is the last window; its near edges move splits `k - 1` and `k - 2`, which it lies beyond |
-| VerticalStack | the master's right edge, and the left edge of each window of the stack, move split 0 |
-| ThreeColumn | with two windows, as in VerticalStack; with more, the master's two edges, and the inner edge of each window of a side column, move split 0, and the master stays centered, so both its edges follow |
+| VerticalStack | the master's right edge, and the left edge of each window of the stack, move split 0; down the stack, the top and bottom edges of each window move the split between it and the window above or below it, but at the ends of the stack |
+| ThreeColumn | with two windows, as in VerticalStack; with more, the master's two edges, and the inner edge of each window of a side column, move split 0, and the master stays centered, so both its edges follow; down a column, the top and bottom edges of each window move the split between it and the window above or below it there, two windows before or after it, but at the ends of the column |
 
 A corner where two splits meet moves both. A held edge dropped within 4
 pixels (`motion::MIN_TRAVEL`) of where its slot has it, or of where it was
 as the drag started, moves no split, as a press may wobble that much: a
 corner dragged along one of its edges leaves the other split as it was,
-still at `ratio` when nobody moved it. The new ratio is where the edge is,
-as a share of the split's area, with half a pixel more so that the layout,
-which rounds down, puts the edge back on the pixel it was dropped at, and
-it is kept within 0.1 and 0.9. A window gone or minimized without a report
-leaves the layout first (`prune_stale_handles`), so the splits are worked
-out against the windows that stay. The monitor is then laid out again, the
-resized window included: the windows beyond the split follow the edge, and
-the window's edges that border no split, its outer edges and those between
-two windows of a stack or of a side column, go back. The placements may
-animate like any other, from where the user let go. The ratio comes from
-where the window is, so a resize whose end has no pointer, or that ends
-with the pointer over a bar, moves its split all the same.
+still at `ratio`, or shared equally down a stack, when nobody moved it. The
+new ratio is where the edge is, as a share of the split's area, with half a
+pixel more so that the layout, which rounds down, puts the edge back on the
+pixel it was dropped at, and it is kept within 0.1 and 0.9.
+
+Dragging the edge between two windows of a stack, or of a side column,
+trades height between those two windows only (`stack_edge.rs`): only their
+two shares change, keeping their sum, so every other edge of the column
+stays where it was, to the pixel. A column nobody resized first gets
+heights from where its windows are, so that nothing else moves (see
+[Stack Heights](#stack-heights)). The edge lands where it was dropped,
+rounded as the column rounds it, but stops where either window would have
+less than a tenth (`MIN_SPLIT_RATIO`) of an equal share of the column. As
+every window of a resized column always keeps that much, an edge never
+moves against the drag.
+
+A window gone or minimized without a report leaves the layout first
+(`prune_stale_handles`), so the splits are worked out against the windows
+that stay. `move_splits` sets the splits `resized_splits` returns with
+`Workspace::set_split_ratios`, and logs the layout, each split moved with
+its ratio, and the ends of each stack resized. The monitor is then laid
+out again, the resized window included: the windows beyond the split
+follow the edge, and the window's edges that border no split, its outer
+edges, go back. The placements may animate like any other, from where the
+user let go. The ratio comes from where the window is, so a resize whose
+end has no pointer, or that ends with the pointer over a bar, moves its
+split all the same.
 
 A resize of 4 pixels or less on every edge goes back to the slot, as a
 click or a cancel would: `drag_target::cancelled` takes a window left
@@ -919,11 +995,15 @@ The `Workspace` type maintains window ordering:
 - `swap(a, b)` -- swaps two windows by index
 - `compute_layout(gap, ratio, work_area)` -- lays the windows out with the
   workspace's layout through its `SplitRatios`: each split where the user
-  moved it, or at `ratio`
+  moved it, or at `ratio`, and each stack at its heights, or shared equally
 - `windows()` -- returns a slice of all the windows in the workspace
-- `split_ratios()` and `set_split_ratio(split, ratio)` -- where the user
-  moved the splits; `add`, `insert` and `remove` keep them in step with the
-  windows, and `swap` leaves them (see [Split Ratios](#split-ratios))
+- `split_ratios()` and `set_split_ratios(splits)` -- where the user moved
+  the splits, and the heights the user gave the stacks, and how a resize
+  sets them (`drag_resize.rs`); `add`, `insert` and `remove` keep them in
+  step with the windows, and `swap` leaves them (see
+  [Split Ratios](#split-ratios) and [Stack Heights](#stack-heights)).
+  `set_split_ratio(split, ratio)` and `set_heights(window, shares)` are
+  seams for tests
 
 New windows are always placed on the **focused** monitor's **active
 workspace**, not the OS-determined monitor. When moving a window to an
@@ -1023,18 +1103,37 @@ and showing windows cause are kept from undoing a switch as described in
 - 2 unit tests for `LayoutKind`: cycle order, display names
 - 3 unit tests for `Workspace`: add/remove, insert at position, layout
   delegation, in `workspace_tests.rs`, 8 for its monocle state in
-  `workspace/monocle_tests.rs`, and 6 for what its windows coming, going and
-  trading places do to its splits in `workspace/splits_tests.rs`
+  `workspace/monocle_tests.rs`, and 8 for what its windows coming, going and
+  trading places do to its splits and heights in `workspace/splits_tests.rs`
 - Split tests in `layout/`: each split of the BSP chain and the masters at
   their own ratio, each layout's own set, the bounds, and windows inserted
-  and removed (`split_ratios_tests.rs`, `split_chain_tests.rs`); which split
-  each edge of each window borders in every layout (`split_edges_tests.rs`);
-  and every edge that borders one, and both edges of every corner of every
-  window, dropped in every layout of two to five windows, found where they
-  were dropped once laid out again, the centered master, the bounds, and
-  held edges moved no more than a press wobbles, or put back on their slot
-  or where they started, which move no split (`split_resize_tests.rs`,
-  `split_corner_tests.rs`, `split_clamp_tests.rs`)
+  and removed (`split_ratios_tests.rs`, `split_chain_tests.rs`); the stack
+  and the three columns nobody resized laid out as they always were, over
+  areas from one pixel to screens, gaps from none to odd ones and the 200
+  the config allows, master ratios and up to nine windows, against the code
+  they had before their stacks had heights (`stack_layout_tests.rs`,
+  `stack_reference.rs`); a column shared equally and at its heights, to the
+  nearest pixel and a whole gap apart (`column_tests.rs`); the heights of a
+  column, scaled to sum to 1 and raised to the floor, as windows join and
+  leave, as an edge moves and as windows come back, and kept sound through
+  random changes (`heights_tests.rs`); the heights of the stack and of the
+  columns as windows come, go, take the master's place and come back, with
+  the rule of the three columns (`split_stack_chain_tests.rs`,
+  `split_column_chain_tests.rs`); which split each edge of each window
+  borders in every layout (`split_edges_tests.rs`); every edge that borders
+  one, and both edges of every corner of every window, dropped in every
+  layout of two to five windows, found where they were dropped once laid
+  out again, with every gap down stacks of up to seven, from heights a drag
+  left too, every window but the two beside an edge down a stack kept in
+  its slot and its share, the centered master, the bounds, the floor of a
+  stack, and held edges moved no more than a press wobbles, or put back on
+  their slot or where they started, which move no split
+  (`split_resize_tests.rs`, `split_corner_tests.rs`, `split_clamp_tests.rs`,
+  `split_stack_resize_tests.rs`); and random states that windows coming and
+  going anywhere, retiles, master drags and drags down the stacks reach,
+  over many areas and gaps, where every stack stays sound and filled, a
+  whole gap apart, and every edge goes with its drag
+  (`split_stack_random_tests.rs`)
 - Tiler tests in `crates/mosaico-core/src/tiler/tests/`, against a fake
   desktop: event handling, action dispatch, workspace switching, config
   reload, window restore
@@ -1081,21 +1180,31 @@ and showing windows cause are kept from undoing a switch as described in
   monocle, a swap, a window opening or closing, a config reload, a drop on
   another monitor and a monitor that disconnects and comes back do to the
   splits, with windows that closed or went elsewhere while it was away, a
-  window displaced twice, and its bar over a maximized window
-  (`split_ratio_tests.rs`, `split_retile_tests.rs`,
+  window displaced twice, and its bar over a maximized window, and the same
+  for the heights of the stacks, with windows opening in a resized stack,
+  closing before the last side window of the three columns or after it,
+  and one back in the other column (`split_ratio_tests.rs`,
+  `split_retile_tests.rs`, `split_stack_tests.rs`, `split_column_tests.rs`,
   `drag_drop_monitor_tests.rs`, `reconnect_split_tests.rs`,
-  `reconnect_away_tests.rs`); a resize by an edge and a corner in each
-  layout, the edges that go back, the bounds, a resize with
-  `resize_splits` off or turned off by a reload, cancelled, interrupted by
-  a key or by a click or the wheel on a bar, in monocle, without a pointer
-  or let go over a bar, a corner dragged along one edge, also of a window
-  taller than its slot, an edge that wobbled, Escape on a window wider than
-  its slot, a press let go where it was, a window left maximized, a window
-  gone without a report, a window that reports no grab, resized by either
-  edge or a corner, moved with a rescale, taken off its monitor or moved at
-  its size, with the edges read from its rect alone, and a swap, layouts
-  cycled or a retile after a resize (`drag_resize*_tests.rs`); and, on the
-  tiling manager with transitions on, a window held by its edge that
+  `reconnect_away_tests.rs`, `reconnect_stack_tests.rs`); a resize by an
+  edge and a corner in each layout, the edges down a stack and a column,
+  alone, at a corner with the master's, by a window that reports no grab,
+  and of a resized stack a window was dropped into, one that leaves the
+  edges below it where they are, one dragged to the bottom of the monitor,
+  windows that open below edges dragged down or to the bottom and in a side
+  column, edges next to a window at the floor and dragged back and forth,
+  which never move against the drag, and a window opening after a drag,
+  whatever the stack rounds, the edges that go back, the bounds, a resize
+  with `resize_splits` off or turned off by a reload, cancelled, interrupted
+  by a key or by a click or the wheel on a bar, in monocle, without a
+  pointer or let go over a bar, a corner dragged along one edge, also of a
+  window taller than its slot, an edge that wobbled, Escape on a window
+  wider than its slot, a press let go where it was, a window left maximized,
+  a window gone without a report, a window that reports no grab, resized by
+  either edge or a corner, moved with a rescale, taken off its monitor or
+  moved at its size, with the edges read from its rect alone, and a swap,
+  layouts cycled or a retile after a resize (`drag_resize*_tests.rs`); and,
+  on the tiling manager with transitions on, a window held by its edge that
   nothing places, and the windows a resize moves sliding into their slots
   (`drag_resize_motion_tests.rs`). The metrics scenario `resize_split`
   counts what a resize asks of the platform

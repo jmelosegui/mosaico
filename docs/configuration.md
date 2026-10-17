@@ -193,16 +193,24 @@ of the other monitor's workspace, as before. See
 `resize_splits` (default `true`) turns resizing a tiled window by its edges
 into a layout change. The edge between two tiles moves the split between
 them, and the windows beyond it follow; a corner where two splits meet
-moves both. In the vertical stack only the master's edge resizes, and in
-three columns the master's edges and the inner edges of the side columns,
-with the master staying centered. The edges that border no split, the outer
-ones and those between two windows of a stack or of a side column, go back,
-and a split stops a tenth of its area from either end. Each workspace keeps
-the splits moved for each of its layouts, and a split nobody moved stays at
-`[layout] ratio`, as every split of the workspaces on screen does again
-after a retile (Alt+Shift+R). A resize cancelled with Escape changes
-nothing, and neither does one of 4 pixels or less on every edge, as a
-click. With `false`, a resized window goes back to its slot, as before. See
+moves both. In the vertical stack the master's edge and the edges between
+the windows of the stack resize, and in three columns the master's edges,
+the inner edges of the side columns and the edges between the windows of a
+column, with the master staying centered. The edge between two windows of
+a stack or a column trades height between those two only, and every other
+window keeps its size. The outer edges go back, and a split stops a tenth of
+its area from either end, or down a stack where either of the two windows
+would have less than a tenth of an equal share of the stack, which can be
+under a window's minimum height, so that it overlaps the next, as at the
+tenth of a split. Each workspace keeps the splits moved and the heights of
+the stacks resized, for each of its layouts: a split nobody moved stays at
+`[layout] ratio`, and a stack nobody resized is shared equally, as every
+split and stack of the workspaces on screen is again after a retile
+(Alt+Shift+R). A window that opens in a resized stack gets an equal share of
+it, which the others there give up in proportion. A resize cancelled with
+Escape changes nothing, and neither does one of 4 pixels or less on every
+edge, as a click. With `false`, a resized window goes back to its slot, as
+before. See
 [tiling-layout.md](tiling-layout.md#resizing-splits).
 
 ### `keybindings.toml`
