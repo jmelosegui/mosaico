@@ -413,7 +413,7 @@ need nothing from phase 34; 35.3 needs `MoveStarted` (34.2); 35.4 needs 35.3.
       without position reports, an unmanaged window dragged over tiles,
       adoption on drop, a monocle workspace, global mode, a hotkey and a display
       change mid-drag; metrics scenarios for a swap and a drop on another monitor
-- [ ] Integration test for a drop
+- [x] Integration test for a drop
 
 ### 35.4 Split resizing
 

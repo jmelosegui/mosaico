@@ -54,6 +54,7 @@ unfocused = "#6c7086"  # Color drawn around unfocused tiled windows;
 [mouse]
 follows_focus = true         # Move the pointer to the window that takes focus
 focus_follows_mouse = false  # Focus the window under the pointer without a click
+drag_to_swap = true          # Drop a dragged tiled window on another to swap them
 
 [animations]
 enabled = true            # Move windows to their new place over time (on by default)
@@ -86,8 +87,15 @@ moves along when you move the focused window. Clicking a window leaves the
 pointer where it is. With `focus_follows_mouse`, off by default, resting the
 pointer on a tiled window focuses it without a click: after three checks of
 the pointer, 100 ms apart, as long as the window is on the monitor that has
-focus. A click or a scroll on the status bar never moves the pointer, either
-way.
+focus. A click or a scroll on the status bar never moves the pointer, and
+while you drag a window, the pointer stays with you, either way.
+
+With `drag_to_swap`, on by default, dropping a tiled window you drag by its
+title bar on another tile swaps the two, and dropping it on another monitor
+puts it there before the tile under the pointer, with a preview showing
+where it will land while you drag. With `false`, a dropped window goes back
+to its slot, or joins the end of the other monitor's windows. See
+[Dragging Windows](tiling-layout.md#dragging-windows).
 
 ## `keybindings.toml`
 

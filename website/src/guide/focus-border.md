@@ -64,6 +64,11 @@ unfocused = "#6c7086"  # Color drawn around unfocused tiled windows
 - With [window transitions](animations.md) on, a border follows its window
   to its new place. A window that changes size on the way gets its border
   back once it is in place.
+- Once you drag a tiled window away from where it was, its border is
+  hidden, and a translucent preview in the focused color, as wide and as
+  round as the borders, shows where the window will land (see
+  [Dragging Windows](tiling-layout.md#dragging-windows)). A click on its
+  title bar leaves the border as it is.
 
 ## Using Named Colors
 

@@ -100,6 +100,18 @@ Per-workspace layout overrides are configured under
 | `Alt + Q` | Close focused window | `mosaico action close-focused` |
 | `Alt + M` | Minimize focused window | -- |
 
+## Mouse
+
+Drag a tiled window by its title bar; a preview shows where it will land.
+Set `drag_to_swap = false` under `[mouse]` in `config.toml` to turn this
+off. See [Dragging Windows](tiling-layout.md#dragging-windows).
+
+| Drop it | Result |
+|---------|--------|
+| On another tile | The two swap places |
+| On another monitor | It joins there, before the tile under the pointer |
+| On its own slot, in a gap, or with `Esc` pressed | It goes back to its slot |
+
 ## Daemon
 
 Pause every Mosaico hotkey (including the pause hotkey itself stays
