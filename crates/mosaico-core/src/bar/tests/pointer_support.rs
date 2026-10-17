@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 
 use crate::Action;
 use crate::action::Origin;
-use crate::bar::fakes::layout::{EDGE, INSET, LABEL, LABEL_GAP};
+use crate::bar::fakes::layout::{EDGE, INSET, LABEL, LABEL_GAP, PILL};
 use crate::bar::fakes::{FakeRenderer, FakeSystem};
 use crate::bar::{BarId, BarManager, BarState, Button, PointerEvent};
 use crate::config::BarConfig;
@@ -77,6 +77,22 @@ pub(super) fn click(
     manager.pointer(bar, press(Button::Left, down), now);
     manager.pointer(bar, release(Button::Left, up), now)
 }
+
+/// What a press and a release of `button` at `x` on `bar` ask for.
+pub(super) fn clicked(
+    manager: &mut BarManager,
+    bar: BarId,
+    button: Button,
+    x: i32,
+) -> Option<(Action, Origin)> {
+    let now = Instant::now();
+    manager.pointer(bar, press(button, x), now);
+    manager.pointer(bar, release(button, x), now)
+}
+
+/// The middle of the first pill on the right of a bar 1920 pixels wide,
+/// as the bars of [`drawn`] are.
+pub(super) const FIRST_ON_THE_RIGHT: i32 = 1920 - EDGE - PILL / 2;
 
 /// Turns the wheel by each of `notches` over `bar`, 10 ms apart from
 /// `start`, and returns when the last turn came.

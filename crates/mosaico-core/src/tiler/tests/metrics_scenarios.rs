@@ -59,6 +59,7 @@ pub(super) const SCENARIOS: &[Scenario] = &[
         bar::click_on_the_focused_monitor,
     ),
     ("bar_click_other_monitor", bar::click_on_another_monitor),
+    ("bar_click_layout_widget", bar::click_on_a_widget),
     ("bar_scroll_burst", bar::scroll_burst),
     ("config_reload", config_reload),
     ("bar_reserved", || {

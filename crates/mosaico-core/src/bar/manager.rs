@@ -55,6 +55,7 @@ impl BarManager {
     /// Makes a bar on each monitor the config shows one on, with the
     /// colors resolved against `theme`, reporting what the pointer does on
     /// it to `sink`. A monitor whose bar cannot be made goes without one.
+    /// Each `[[mouse.click]]` entry the bars leave out is logged with why.
     pub fn new(
         renderer: Box<dyn BarRenderer>,
         system: Box<dyn SystemInfo>,
@@ -76,6 +77,7 @@ impl BarManager {
             cpu: None,
         };
         manager.config.resolve_colors(theme);
+        bars::report_clicks(&manager.config);
         manager.create_bars();
         manager.cpu = manager.cpu_tracker();
         manager
@@ -101,9 +103,10 @@ impl BarManager {
     ///
     /// The machine is read once for all bars, and not at all while no
     /// monitor has a bar. A monitor that `states` has no entry for shows
-    /// [`BarState::default`]. Each bar lets the pointer through while
-    /// `[mouse] enabled` is off, and while its state says a maximized or
-    /// fullscreen window is under it; otherwise it takes the pointer.
+    /// [`BarState::default`], and a click on its bar runs nothing. Each
+    /// bar lets the pointer through while `[mouse] enabled` is off, and
+    /// while its state says a maximized or fullscreen window is under it;
+    /// otherwise it takes the pointer.
     pub fn update(&mut self, states: &[BarState]) {
         if self.bars.is_empty() {
             return;
@@ -111,7 +114,9 @@ impl BarManager {
         let readings = SystemReadings::read(self.system.as_ref(), &self.config, self.cpu.as_mut());
         let fallback = BarState::default();
         for bar in &mut self.bars {
-            let state = states.get(bar.id.monitor).unwrap_or(&fallback);
+            let state = states.get(bar.id.monitor);
+            bar.tiled = state.is_some();
+            let state = state.unwrap_or(&fallback);
             bar.let_through(!self.config.mouse.enabled || state.maximized);
             let content = BarContent::build(&self.config, state, &readings);
             bar.draw(&self.config, &content, state);

@@ -9,6 +9,14 @@ hide = 1
 show = 1
 show_border = 2
 
+[bar_click_layout_widget]
+border_renders = 3
+calls = 12
+focus = 1
+place = 3
+repaint = 3
+show_border = 5
+
 [bar_click_other_monitor]
 border_renders = 1
 calls = 6

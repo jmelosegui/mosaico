@@ -7,7 +7,7 @@ use crate::Rect;
 use crate::config::Theme;
 use crate::config::bar::BarConfig;
 
-use super::super::{BarId, CpuTracker};
+use super::super::{BarId, CpuTracker, WidgetClicks};
 use super::BarManager;
 use super::slot::Slot;
 
@@ -44,8 +44,10 @@ impl BarManager {
     /// Replaces the bars with ones for `config` and returns the new bar
     /// height. `config` also becomes the copy that
     /// [`resolve_colors`](Self::resolve_colors) starts from. The colors are
-    /// left as loaded, so resolve them next.
+    /// left as loaded, so resolve them next. Each `[[mouse.click]]` entry
+    /// the bars leave out is logged with why.
     pub fn reload(&mut self, config: BarConfig) -> i32 {
+        report_clicks(&config);
         self.raw_config = config.clone();
         self.config = config;
         self.create_bars();
@@ -87,5 +89,13 @@ impl BarManager {
         self.config
             .has_cpu_widget()
             .then(|| CpuTracker::new(self.system.as_ref()))
+    }
+}
+
+/// Logs each `[[mouse.click]]` entry of `config` the bars leave out, and
+/// why, since nothing else tells the user that a click does not run it.
+pub(super) fn report_clicks(config: &BarConfig) {
+    for rejected in WidgetClicks::rejected(&config.mouse) {
+        crate::log_warn!("bar.toml: {rejected}");
     }
 }

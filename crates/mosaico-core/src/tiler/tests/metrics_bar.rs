@@ -1,13 +1,15 @@
 //! The bar's scenarios: a click on a workspace label of the focused
-//! monitor's bar and of another monitor's, and a burst of wheel turns,
-//! which the bar manager adds up to one switch.
+//! monitor's bar and of another monitor's, a burst of wheel turns, which
+//! the bar manager adds up to one switch, and a click on the layout
+//! widget of another monitor's bar.
 
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 use crate::action::Origin;
+use crate::bar::fakes::layout::{EDGE, PILL};
 use crate::bar::fakes::{FakeRenderer, FakeSystem, NoPointer};
-use crate::bar::{BarManager, PointerEvent, WHEEL_QUIET};
+use crate::bar::{BarManager, Button, PointerEvent, WHEEL_QUIET};
 use crate::config::{BarConfig, Theme};
 use crate::{Action, Direction, Rect};
 
@@ -59,7 +61,7 @@ pub(super) fn click_on_another_monitor() -> Measured {
 pub(super) fn scroll_burst() -> Measured {
     on(fourth_workspaces(), |m| {
         let renderer = FakeRenderer::default();
-        let mut bars = drawn_bars(m, &renderer);
+        let mut bars = drawn_bars(m, &renderer, BarConfig::default());
         let first = renderer.ids()[0];
         let start = Instant::now();
         for i in 0..3 {
@@ -76,15 +78,36 @@ pub(super) fn scroll_burst() -> Measured {
     })
 }
 
-/// A bar on each monitor of `manager`, drawn by `renderer` with what the
-/// manager has on screen.
-fn drawn_bars(manager: &Manager, renderer: &FakeRenderer) -> BarManager {
+/// A left click on the layout widget of the bar of the monitor without
+/// focus, which its bar manager turns into a cycle of that monitor's
+/// layout: focus moves there, and its four windows are laid out again.
+pub(super) fn click_on_a_widget() -> Measured {
+    let platform = FakePlatform::new(2, &[(1, 0), (2, 1), (3, 1), (4, 1), (5, 1)]);
+    let mut manager = start(&platform, None, &still());
+    manager.flush_pending();
+    on((platform, manager), |m| {
+        let renderer = FakeRenderer::default();
+        let config: BarConfig = toml::from_str("left = [{ type = \"layout\" }]").unwrap();
+        let mut bars = drawn_bars(m, &renderer, config);
+        let second = renderer.ids()[1];
+        let (button, x, y) = (Button::Left, EDGE + PILL / 2, 5);
+        let now = Instant::now();
+        bars.pointer(second, PointerEvent::Press { button, x, y }, now);
+        let release = PointerEvent::Release { button, x, y };
+        let asked = bars.pointer(second, release, now);
+        let (action, origin) = asked.expect("a click on the layout widget runs an action");
+        m.handle_action_from(&action, origin);
+    })
+}
+
+/// A bar with `config` on each monitor of `manager`, drawn by `renderer`
+/// with what the manager has on screen.
+fn drawn_bars(manager: &Manager, renderer: &FakeRenderer, config: BarConfig) -> BarManager {
     let areas = vec![
         Rect::new(0, 0, MON_W, MON_H),
         Rect::new(MON_W, 0, MON_W, MON_H),
     ];
     let system = Box::new(FakeSystem::default());
-    let config = BarConfig::default();
     let mut bars = BarManager::new(
         renderer.boxed(),
         system,

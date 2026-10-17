@@ -14,6 +14,9 @@ pub(super) struct Slot {
     pub(super) regions: Vec<ItemRegion>,
     /// The state the bar showed last, which the wheel steps from.
     pub(super) state: BarState,
+    /// Whether the tiler had a state for the bar's monitor as the bar was
+    /// drawn last. A click on a bar it had none for runs nothing.
+    pub(super) tiled: bool,
     /// The press a click on the bar starts with.
     pub(super) press: Press,
     /// The turns of the wheel waiting to be applied.
@@ -33,6 +36,7 @@ impl Slot {
             surface,
             regions: Vec::new(),
             state: BarState::default(),
+            tiled: false,
             press: Press::default(),
             wheel: WheelSteps::default(),
             wheel_from: 0,
