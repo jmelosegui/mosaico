@@ -1,4 +1,5 @@
 mod bsp;
+mod split_ratios;
 mod three_column;
 mod vertical_stack;
 
@@ -7,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::{Rect, WindowId};
 
 pub use bsp::BspLayout;
+pub use split_ratios::{MAX_SPLIT_RATIO, MIN_SPLIT_RATIO, SplitRatios};
 pub use three_column::ThreeColumnLayout;
 pub use vertical_stack::VerticalStackLayout;
 

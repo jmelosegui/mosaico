@@ -1,7 +1,8 @@
 mod monocle;
+mod splits;
 
-use crate::layout::{Layout, LayoutKind};
-use crate::{Rect, WindowId};
+use crate::WindowId;
+use crate::layout::{LayoutKind, SplitRatios};
 
 use monocle::Visits;
 
@@ -26,6 +27,9 @@ pub struct Workspace {
     last_focused: Option<WindowId>,
     /// The active layout algorithm for this workspace.
     layout_kind: LayoutKind,
+    /// Where the user moved the splits of each layout, kept in step with
+    /// `windows` (see `workspace/splits.rs`).
+    splits: SplitRatios,
 }
 
 impl Workspace {
@@ -39,6 +43,7 @@ impl Workspace {
             visits: Visits::default(),
             last_focused: None,
             layout_kind: LayoutKind::default(),
+            splits: SplitRatios::default(),
         }
     }
 
@@ -74,11 +79,7 @@ impl Workspace {
     ///
     /// Returns `false` if the window is already managed.
     pub fn add(&mut self, window: WindowId) -> bool {
-        if self.windows.contains(&window) {
-            return false;
-        }
-        self.windows.push(window);
-        true
+        self.insert(self.windows.len(), window)
     }
 
     /// Inserts a window at a specific position in the workspace.
@@ -90,6 +91,7 @@ impl Workspace {
             return false;
         }
         let pos = index.min(self.windows.len());
+        self.splits.insert(pos, self.windows.len());
         self.windows.insert(pos, window);
         true
     }
@@ -99,6 +101,7 @@ impl Workspace {
     /// Returns `true` if the window was found and removed.
     pub fn remove(&mut self, window: WindowId) -> bool {
         if let Some(pos) = self.windows.iter().position(|&h| h == window) {
+            self.splits.remove(pos, self.windows.len());
             self.windows.remove(pos);
             self.visits.forget(window);
             if self.last_focused == Some(window) {
@@ -130,13 +133,6 @@ impl Workspace {
         &self.windows
     }
 
-    /// Computes the layout for all managed windows in the given work area.
-    ///
-    /// Returns a list of (window, rect) pairs.
-    pub fn compute_layout(&self, layout: &dyn Layout, work_area: &Rect) -> Vec<(WindowId, Rect)> {
-        layout.apply(&self.windows, work_area)
-    }
-
     /// Swaps two windows by their position indices.
     pub fn swap(&mut self, a: usize, b: usize) {
         if a < self.windows.len() && b < self.windows.len() {
@@ -157,62 +153,5 @@ impl Default for Workspace {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::id::{wid, wids};
-    use crate::layout::BspLayout;
-
-    #[test]
-    fn add_and_remove_windows() {
-        // Arrange
-        let mut ws = Workspace::new();
-
-        // Act
-        assert!(ws.add(wid(1)));
-        assert!(ws.add(wid(2)));
-        assert!(!ws.add(wid(1))); // duplicate
-
-        // Assert
-        assert_eq!(ws.len(), 2);
-        assert!(ws.contains(wid(1)));
-        assert!(ws.remove(wid(1)));
-        assert_eq!(ws.len(), 1);
-        assert!(!ws.contains(wid(1)));
-    }
-
-    #[test]
-    fn insert_at_position() {
-        let mut ws = Workspace::new();
-        ws.add(wid(1));
-        ws.add(wid(2));
-
-        // Insert at front
-        assert!(ws.insert(0, wid(3)));
-        assert_eq!(ws.windows(), wids(&[3, 1, 2]));
-
-        // Duplicate rejected
-        assert!(!ws.insert(0, wid(1)));
-
-        // Index clamped to len
-        assert!(ws.insert(100, wid(4)));
-        assert_eq!(ws.windows(), wids(&[3, 1, 2, 4]));
-    }
-
-    #[test]
-    fn compute_layout_delegates_to_layout() {
-        // Arrange
-        let mut ws = Workspace::new();
-        ws.add(wid(100));
-        ws.add(wid(200));
-        let layout = BspLayout { gap: 0, ratio: 0.5 };
-        let area = Rect::new(0, 0, 1920, 1080);
-
-        // Act
-        let positions = ws.compute_layout(&layout, &area);
-
-        // Assert
-        assert_eq!(positions.len(), 2);
-        assert_eq!(positions[0].0, wid(100));
-        assert_eq!(positions[1].0, wid(200));
-    }
-}
+#[path = "workspace_tests.rs"]
+mod tests;

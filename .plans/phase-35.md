@@ -417,7 +417,7 @@ need nothing from phase 34; 35.3 needs `MoveStarted` (34.2); 35.4 needs 35.3.
 
 ### 35.4 Split resizing
 
-- [ ] Split ratios per workspace and layout, with what swap, insert, remove,
+- [x] Split ratios per workspace and layout, with what swap, insert, remove,
       layout cycling, monocle and retile do to them
 - [ ] Edges that resize map to their split; corners move two; the others go back
 - [ ] `[mouse] resize_splits`, templates and hints
