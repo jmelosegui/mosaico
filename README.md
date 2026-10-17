@@ -146,10 +146,11 @@ cargo test -p mosaico-core --test '*'
 ```
 
 Plain `cargo test` also runs the desktop suites (`window_management`,
-`bar_reservation`, `display_change`, `window_transitions`, `drag_and_drop`
-and most of `cli`), which start a real daemon that tiles your desktop, and
-`drag_and_drop` drags windows with the real pointer. Run those only with
-your own daemon stopped, and without touching the mouse.
+`bar_reservation`, `display_change`, `window_transitions`, `drag_and_drop`,
+`bar_click` and most of `cli`), which start a real daemon that tiles your
+desktop. `drag_and_drop` drags windows with the real pointer, and
+`bar_click` clicks and scrolls the bar with it. Run those only with your
+own daemon stopped, and without touching the mouse.
 
 ## License
 

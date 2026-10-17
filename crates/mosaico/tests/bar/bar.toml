@@ -1,0 +1,29 @@
+# The bar the bar click tests draw. Its background is opaque, so all of
+# it takes the pointer, its font is one every Windows has, and its items
+# leave gaps between them that the pointer shows no hand over.
+height = 40
+font = "Consolas"
+font_size = 18
+font_bold = false
+pill_padding = 8
+workspace_gap = 16
+item_gap = 24
+background_opacity = 100
+
+[mouse]
+enabled = true
+scroll = "workspaces"
+
+# The workspace labels, then the layout widget. The window icon is listed,
+# off, so the daemon adds no widget to this file, and the right side keeps
+# its defaults, past where the tests look.
+[[left]]
+type = "workspaces"
+
+[[left]]
+type = "layout"
+icon = ""
+
+[[left]]
+type = "active_window"
+enabled = false
