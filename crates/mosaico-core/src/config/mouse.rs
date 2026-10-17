@@ -17,6 +17,10 @@ pub struct MouseConfig {
     /// before the tile under the pointer. Off, a dropped window goes back
     /// to its slot, or joins the end of the other monitor's workspace.
     pub drag_to_swap: bool,
+    /// Dragging the edge between two tiles moves the split between them,
+    /// and a corner where two splits meet moves both. Off, a tiled window
+    /// the user resizes goes back to its slot.
+    pub resize_splits: bool,
 }
 
 impl Default for MouseConfig {
@@ -25,6 +29,7 @@ impl Default for MouseConfig {
             follows_focus: true,
             focus_follows_mouse: false,
             drag_to_swap: true,
+            resize_splits: true,
         }
     }
 }

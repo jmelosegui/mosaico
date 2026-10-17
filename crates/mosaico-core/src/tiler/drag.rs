@@ -12,7 +12,9 @@
 //!
 //! The drag ends with its `Moved`, and the window lands where it is
 //! dropped (`drag_drop.rs`), or before it, as `drag_end.rs` says. A
-//! preview shows where it would land meanwhile (`drag_preview.rs`).
+//! preview shows where it would land meanwhile (`drag_preview.rs`). A
+//! window resized by edges that border splits moves them instead
+//! (`drag_resize.rs`).
 
 use crate::event::{DragStart, Grab};
 use crate::{Rect, WindowId};
@@ -29,6 +31,8 @@ mod end;
 mod mouse;
 #[path = "drag_preview.rs"]
 mod preview;
+#[path = "drag_resize.rs"]
+mod resize;
 #[path = "drag_slots.rs"]
 mod slots;
 #[path = "drag_target.rs"]
@@ -55,9 +59,9 @@ pub(super) struct Drag {
     /// Whether a report found the window away from where it started: its
     /// border is hidden from then on.
     pub(super) left_start: bool,
-    /// Whether the tiler decides where the window lands, until an action,
-    /// from a key, a command or a bar, or a display change interrupts the
-    /// drag.
+    /// Whether the tiler decides where the window lands, and whether a
+    /// resize moves the splits its edges border, until an action, from a
+    /// key, a command or a bar, or a display change interrupts the drag.
     pub(super) decides: bool,
     /// Where the preview shows the window would land, while it shows.
     pub(super) preview: Option<Rect>,

@@ -419,9 +419,9 @@ need nothing from phase 34; 35.3 needs `MoveStarted` (34.2); 35.4 needs 35.3.
 
 - [x] Split ratios per workspace and layout, with what swap, insert, remove,
       layout cycling, monocle and retile do to them
-- [ ] Edges that resize map to their split; corners move two; the others go back
-- [ ] `[mouse] resize_splits`, templates and hints
-- [ ] Tests for every resizable edge and corner in every layout, outer edges,
+- [x] Edges that resize map to their split; corners move two; the others go back
+- [x] `[mouse] resize_splits`, templates and hints
+- [x] Tests for every resizable edge and corner in every layout, outer edges,
       clamping, and the operations above; a metrics scenario for a resize
 - [ ] Rewrite phase 25 against the model
 
