@@ -67,7 +67,7 @@ Directions parse from and serialize to lowercase strings: `"left"`, `"right"`,
 | `Move(Right)` | Swap/move window right (crosses monitors) | Alt+Shift+L |
 | `Move(Up)` | Swap window up (same monitor only) | Alt+Shift+K |
 | `Move(Down)` | Swap window down (same monitor only) | Alt+Shift+J |
-| `Retile` | Re-apply layout on all monitors | Alt+Shift+R |
+| `Retile` | Re-apply layout on all monitors, with every split of the workspaces on screen back at `[layout] ratio` | Alt+Shift+R |
 | `ToggleMonocle` | Toggle monocle mode on focused monitor | Alt+T |
 | `CycleLayout` | Cycle to the next layout on the focused monitor | Alt+N |
 | `CloseFocused` | Close the focused window via `WM_CLOSE` | Alt+Q |
@@ -158,7 +158,7 @@ first moves focus to the origin's monitor when it should (see
 |--------|--------|
 | `Focus(dir)` | `focus_direction(dir)` (in `navigation.rs`) |
 | `Move(dir)` | `move_direction(dir)` (in `navigation.rs`) |
-| `Retile` | `retile_all()` (in `layout_actions.rs`) |
+| `Retile` | `retile_from_ratio()` (in `layout_actions.rs`) |
 | `ToggleMonocle` | `toggle_monocle()` (in `layout_actions.rs`) |
 | `CycleLayout` | `cycle_layout()` (in `layout_actions.rs`) |
 | `CloseFocused` | asks the platform to close the focused window |

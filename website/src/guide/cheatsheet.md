@@ -19,7 +19,7 @@ Alt + N                  cycle layout (BSP -> VStack -> 3Col)
 Alt + T                  toggle monocle (full-screen one window)
 Alt + M                  minimize focused window
 Alt + Q                  close focused window
-Alt + Shift + R          retile (re-apply current layout)
+Alt + Shift + R          retile (re-apply current layout, splits back)
 Alt + Shift + P          pause / unpause all mosaico hotkeys
 ```
 
@@ -78,7 +78,8 @@ workspaces.
 
 Cycle through Mosaico's three tiling algorithms or switch the focused
 workspace into monocle mode (one window fills the work area). Retile
-forces a fresh re-application of the current layout.
+forces a fresh re-application of the current layout, with every split you
+moved back at the configured ratio.
 
 | Shortcut | Action | CLI |
 |----------|--------|-----|
@@ -111,6 +112,11 @@ off. See [Dragging Windows](tiling-layout.md#dragging-windows).
 | On another tile | The two swap places |
 | On another monitor | It joins there, before the tile under the pointer |
 | On its own slot, in a gap, or with `Esc` pressed | It goes back to its slot |
+
+Drag the edge between two tiles to resize them, or a corner where two
+splits meet to move both; `Alt + Shift + R` puts the splits back. Set
+`resize_splits = false` under `[mouse]` in `config.toml` to turn this off.
+See [Resizing Tiles](tiling-layout.md#resizing-tiles).
 
 ## Daemon
 

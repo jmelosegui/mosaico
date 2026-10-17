@@ -35,14 +35,15 @@ All settings have sensible defaults, so configuration files are optional.
   `workspaces: WorkspacesConfig`, `borders: BorderConfig`,
   `mouse: MouseConfig`, `animations: AnimationConfig`, `logging: LogConfig`
 - `LayoutConfig` -- `default: LayoutKind` (default `bsp`), `gap: i32` (default
-  8), `ratio: f64` (default 0.5), `hiding: HidingBehaviour` (default `Cloak`)
+  8), `ratio: f64` (default 0.5, where every split is until the user moves
+  it), `hiding: HidingBehaviour` (default `Cloak`)
 - `WorkspacesConfig` -- `mode: WorkspaceMode` (default `per-monitor`),
   `wrap: bool` (default false: stepping through the workspaces stops at
   either end), `layouts: HashMap<u8, LayoutKind>` (per-workspace layout
   overrides)
 - `MouseConfig` -- `follows_focus: bool` (default true),
   `focus_follows_mouse: bool` (default false), `drag_to_swap: bool`
-  (default true)
+  (default true), `resize_splits: bool` (default true)
 - `HidingBehaviour` (enum) -- `Cloak`, `Hide`, `Minimize`, each described by
   what the user sees. One the platform does not have falls back to one it
   has (see [workspaces.md](workspaces.md#hiding-behaviour))
@@ -130,6 +131,7 @@ unfocused = "#6c7086"  # Color drawn around unfocused tiled windows
 follows_focus = true         # Move the pointer to the window that takes focus
 focus_follows_mouse = false  # Focus the window under the pointer without a click
 drag_to_swap = true          # Drop a dragged tiled window on another to swap them
+resize_splits = true         # Drag the edge between two tiles to resize them
 
 [animations]
 enabled = true            # Move windows to their new place over time (on by default)
@@ -187,6 +189,21 @@ translucent preview in the focused border's color shows where it will
 land. With `false`, a dropped window goes back to its slot, or joins the end
 of the other monitor's workspace, as before. See
 [tiling-layout.md](tiling-layout.md#dragging-windows).
+
+`resize_splits` (default `true`) turns resizing a tiled window by its edges
+into a layout change. The edge between two tiles moves the split between
+them, and the windows beyond it follow; a corner where two splits meet
+moves both. In the vertical stack only the master's edge resizes, and in
+three columns the master's edges and the inner edges of the side columns,
+with the master staying centered. The edges that border no split, the outer
+ones and those between two windows of a stack or of a side column, go back,
+and a split stops a tenth of its area from either end. Each workspace keeps
+the splits moved for each of its layouts, and a split nobody moved stays at
+`[layout] ratio`, as every split of the workspaces on screen does again
+after a retile (Alt+Shift+R). A resize cancelled with Escape changes
+nothing, and neither does one of 4 pixels or less on every edge, as a
+click. With `false`, a resized window goes back to its slot, as before. See
+[tiling-layout.md](tiling-layout.md#resizing-splits).
 
 ### `keybindings.toml`
 
@@ -353,11 +370,12 @@ A missing file is never created. Files that exist change in two ways:
     `unfocused` anywhere. It appends a comment block about `drag_to_swap`
     under `[mouse]`, unless the file mentions it anywhere, as the template
     and the block itself do; the block is all comments and names no default
-    value. Last, it appends a comment block about window transitions, unless
-    the file has an `animations` table, as the template writes it, or an
-    `[animations]` header line commented out, as the block itself has. A
-    line that only mentions the section does not count. The block is all
-    comments and names no default value, so the file keeps the defaults
+    value. It appends one about `resize_splits` the same way, and with the
+    same rule. Last, it appends a comment block about window transitions,
+    unless the file has an `animations` table, as the template writes it,
+    or an `[animations]` header line commented out, as the block itself
+    has. A line that only mentions the section does not count. The block is
+    all comments and names no default value, so the file keeps the defaults
     until the user writes the section, and says nothing wrong about them
     when they change.
   - `merge_missing_keybindings()` and `merge_missing_bar_widgets()` append the
@@ -487,8 +505,11 @@ same way.
   `[mouse]` settings, `[animations]` and theme are reloaded. The tiling
   manager calls `reload_config()` which updates the layout gap/ratio, hiding
   strategy, `BorderConfig`, whether the mouse follows focus, whether a drop
-  moves a dragged window (`drag_to_swap`, from its next report or drop) and
-  the `[animations]` settings, then retiles all windows; the daemon starts or
+  moves a dragged window (`drag_to_swap`, from its next report or drop),
+  whether a resize moves splits (`resize_splits`, read as a resize ends, so
+  from the next one that ends, one held through the reload included) and the
+  `[animations]` settings, then retiles all windows, with a new ratio for
+  every split the user did not move; the daemon starts or
   stops focus-follows-mouse. Transitions that start after the reload use the
   new settings. A motion in flight goes on as it is while its target stays the
   same, a reload that moves its target turns it there with the new duration,

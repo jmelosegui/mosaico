@@ -55,6 +55,7 @@ unfocused = "#6c7086"  # Color drawn around unfocused tiled windows;
 follows_focus = true         # Move the pointer to the window that takes focus
 focus_follows_mouse = false  # Focus the window under the pointer without a click
 drag_to_swap = true          # Drop a dragged tiled window on another to swap them
+resize_splits = true         # Drag the edge between two tiles to resize them
 
 [animations]
 enabled = true            # Move windows to their new place over time (on by default)
@@ -96,6 +97,12 @@ puts it there before the tile under the pointer, with a preview showing
 where it will land while you drag. With `false`, a dropped window goes back
 to its slot, or joins the end of the other monitor's windows. See
 [Dragging Windows](tiling-layout.md#dragging-windows).
+
+With `resize_splits`, on by default, dragging the edge between two tiles
+resizes them: the split between them moves to where you let go, and a
+corner where two splits meet moves both. Each workspace keeps where you put
+its splits, for each layout. With `false`, a window you resize goes back to
+its slot. See [Resizing Tiles](tiling-layout.md#resizing-tiles).
 
 ## `keybindings.toml`
 

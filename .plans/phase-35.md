@@ -247,9 +247,29 @@ daemon action path (carry_out)  -> action with an origin          { monitor, fro
   `layout.ratio`. A swap keeps them (the slots keep their sizes, the windows
   trade places); inserting a window at `k` inserts the default ratio at split
   `k`, and removing one removes its split; cycling layouts keeps each layout's
-  own; monocle and retile leave them.
+  own; monocle leaves them. A retile puts them back: the workspace on screen
+  of every monitor forgets every split the user moved, in all its layouts,
+  and follows `layout.ratio` again, while a workspace out of view keeps its
+  own. That was chosen while testing 35.4 on the desktop, as the way back
+  from moved splits; until then a retile left them alone.
+- A split nobody moved has no ratio of its own and follows `layout.ratio`, so
+  a reload with a new ratio still moves it. The master's ratio in the
+  vertical stack and the three columns is no window's split and stays as
+  windows come and go. The master of the three columns stays centered: its
+  two edges are one split, and dragging either moves both. A monitor that
+  disconnects and comes back gives its windows back their BSP splits.
 - The new ratio is where the edge was dropped, as a fraction of the split's
-  extent, clamped to 0.1 to 0.9 (core has no minimum-size contract).
+  extent, clamped to 0.1 to 0.9 (core has no minimum-size contract). It is
+  read from the window's rect at the end of the drag, so a resize whose end
+  has no pointer moves its split all the same. A held edge dropped within a
+  few pixels of its slot or of where it started moves no split, so a corner
+  dragged along one edge leaves the other split as it was. A resize whose
+  grab the platform could not tell, as of a window that runs its own move
+  and resize loops, holds the edges read from how it changed the window: on
+  each axis, the edge that moved more than a few pixels while the other
+  stayed. One that moved both edges of an axis, as a move, a rescale across
+  monitors or a snap does, or that leaves the window off its own monitor,
+  goes back, as today.
 - Phase 25's keyboard resizing is rewritten against this model.
 
 ### Platform contracts
@@ -423,7 +443,7 @@ need nothing from phase 34; 35.3 needs `MoveStarted` (34.2); 35.4 needs 35.3.
 - [x] `[mouse] resize_splits`, templates and hints
 - [x] Tests for every resizable edge and corner in every layout, outer edges,
       clamping, and the operations above; a metrics scenario for a resize
-- [ ] Rewrite phase 25 against the model
+- [x] Rewrite phase 25 against the model
 
 ### Verification
 
