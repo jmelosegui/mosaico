@@ -245,11 +245,12 @@ do:
 
 So swaps, moves within a monitor, ratio changes, cycling layouts, monocle on
 and off, the reflow when a window opens or closes, and what a dropped window
-moves animate, the dropped window included, from where the user let go. The
-window that just opened does not, and neither do the windows a workspace
-switch shows. A window the user drags is never placed while they drag it,
-whatever they do with the keyboard or the bars meanwhile, so it never
-animates then (see [tiling-layout.md](tiling-layout.md#dragging-windows)).
+or a split the user resized moves animate, the dropped or resized window
+included, from where the user let go. The window that just opened does not,
+and neither do the windows a workspace switch shows. A window the user drags
+or resizes is never placed while they hold it, whatever they do with the
+keyboard or the bars meanwhile, so it never animates then (see
+[tiling-layout.md](tiling-layout.md#dragging-windows)).
 
 ## The Frame Contract
 

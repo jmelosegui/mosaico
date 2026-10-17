@@ -38,8 +38,9 @@ impl Tiler {
     }
 
     /// The slot `window` would get on the workspace on screen of monitor
-    /// `idx`, put before `before` there or at the end. None in monocle,
-    /// where only the monocle window is placed.
+    /// `idx`, put before `before` there or at the end, with a split of its
+    /// own at the configured ratio. None in monocle, where only the monocle
+    /// window is placed.
     pub(in crate::tiler) fn slot_joining(
         &self,
         idx: usize,
@@ -51,9 +52,11 @@ impl Tiler {
             return None;
         }
         let mut windows = ws.windows().to_vec();
+        let mut splits = ws.split_ratios().clone();
         let at = before.and_then(|w| ws.index_of(w)).unwrap_or(windows.len());
+        splits.insert(at, windows.len());
         windows.insert(at, window);
-        let positions = self.positions_of(idx, &windows);
+        let positions = self.positions_of(idx, &windows, &splits);
         positions
             .into_iter()
             .find(|&(w, _)| w == window)

@@ -17,8 +17,11 @@ contracts the manager runs on.
 | `crates/mosaico-core/src/layout/vertical_stack.rs` | `VerticalStackLayout` -- master/stack layout |
 | `crates/mosaico-core/src/layout/three_column.rs` | `ThreeColumnLayout` -- center master with side stacks |
 | `crates/mosaico-core/src/layout/tests.rs` | Unit tests for all three layouts and `LayoutKind` |
+| `crates/mosaico-core/src/layout/split_ratios.rs` | `SplitRatios` -- the ratio of each split of a workspace's layouts that the user moved, one set per layout, and the layouts laid out with them |
+| `crates/mosaico-core/src/layout/split_edges.rs`, `split_resize.rs` | Which split each edge of a tile borders; `resized_splits()` -- where the edges of a tile the user resized put those splits |
 | `crates/mosaico-core/src/workspace.rs` | `Workspace` -- ordered collection of window handles per monitor, tracks `LayoutKind` |
 | `crates/mosaico-core/src/workspace/monocle.rs` | Monocle state of a `Workspace`, with the windows a display change brought onto it that wait behind the monocle window |
+| `crates/mosaico-core/src/workspace/splits.rs` | `split_ratios()`, `set_split_ratio()` -- the splits the user moved on a `Workspace`, kept in step with its windows |
 | `crates/mosaico-core/src/rect.rs` | `Rect` -- rectangle type with spatial helpers |
 | `crates/mosaico-core/src/spatial.rs` | Pure spatial navigation functions (`find_neighbor`, `find_entry`) |
 | `crates/mosaico-core/src/tiler/mod.rs` | `Tiler` -- every tiling decision, returned as effects; `MonitorState` in `state.rs`; `Tiler::step` in `step.rs` |
@@ -31,6 +34,7 @@ contracts the manager runs on.
 | `crates/mosaico-core/src/tiler/drag_border.rs`, `drag_end.rs` | The dragged window's border, hidden once it leaves where it started; what interrupts a drag, and what ends one before its `Moved` |
 | `crates/mosaico-core/src/tiler/drag_target.rs` | `target()`, `cancelled()` and `ending()` -- where a dropped window lands, and how its drag ended, as plain functions |
 | `crates/mosaico-core/src/tiler/drag_drop.rs`, `drag_slots.rs`, `drag_preview.rs` | `on_moved()` -- what a drop does; the slots a drop is decided against; `preview_drop()` -- the preview of where the window lands |
+| `crates/mosaico-core/src/tiler/drag_resize.rs` | `move_splits()` -- the splits a tiled window resized by its edges moves |
 | `crates/mosaico-core/src/tiler/applier_drag.rs` | The pointer while the user drags a window: left alone, and moved where it was last asked once the drag ends |
 | `crates/mosaico-core/src/tiler/manager.rs`, `manager_inputs.rs` | `TilingManager` -- runs the tiler on a `Platform`, event/action dispatch |
 | `crates/mosaico-core/src/tiler/manager_frames.rs` | `wants_frames()`, `frame_due(after)`, `frame()`, `turn_off_transitions()` -- what the daemon drives transitions with |
@@ -58,15 +62,20 @@ contracts the manager runs on.
 - `Layout` (trait) -- defines `fn apply(&self, windows: &[WindowId], work_area: &Rect) -> Vec<(WindowId, Rect)>`
 - `LayoutKind` (enum) -- `Bsp`, `VerticalStack`, `ThreeColumn`; provides
   `next()` for cycling and `name()` for status-bar display
-- `BspLayout` -- implements `Layout` with configurable `gap` and `ratio`
+- `BspLayout` -- implements `Layout` with configurable `gap` and `ratio`;
+  `apply_splits()` gives each split a ratio of its own
 - `VerticalStackLayout` -- implements `Layout`: master pane left, vertical
   stack right
 - `ThreeColumnLayout` -- implements `Layout`: master pane center, stacks on
   both sides; extra windows alternate left/right
+- `SplitRatios` -- the ratio of each split the user moved, one set per
+  layout: `ratio()`, `set()`, and `apply()`, which lays windows out with them
+  (see [Split Ratios](#split-ratios))
 - `Workspace` -- maintains an ordered `Vec<WindowId>` of the windows on a
-  monitor plus a `layout_kind: LayoutKind` field; provides `add()`,
-  `insert()`, `remove()`, `swap()`, `compute_layout()`,
-  `layout_kind()` / `set_layout_kind()`
+  monitor plus a `layout_kind: LayoutKind` field and its `SplitRatios`;
+  provides `add()`, `insert()`, `remove()`, `swap()`, `compute_layout()`,
+  `layout_kind()` / `set_layout_kind()`, `split_ratios()` /
+  `set_split_ratio()`
 - `Rect` -- fields: `x`, `y`, `width`, `height`; methods: `center_x()`,
   `center_y()`, `vertical_overlap()`, `horizontal_overlap()`
 - `TilingManager<P: Platform>` -- runs a `Tiler` on the platform `P`: feeds
@@ -92,7 +101,50 @@ gap-handling rules:
 
 - `gap: i32` -- pixel gap between windows (default: 8, range: 0-200)
 - `ratio: f64` -- split ratio for the primary partition (default: 0.5,
-  range: 0.1-0.9)
+  range: 0.1-0.9), where every split is until the user moves it
+
+### Split Ratios
+
+Split `k` divides windows `k..` into window `k` and the rest. Each split of
+the BSP chain is one, and in VerticalStack and ThreeColumn split 0, at the
+master's edges, is the only one. Its ratio is the share of its area that
+its first window, the master in those two, gets.
+
+Each `Workspace` keeps a `SplitRatios` (`layout/split_ratios.rs`), one set
+per layout, with the ratio of each split the user moved, by dragging an edge
+(see [Resizing Splits](#resizing-splits)). Every other split is at `ratio`.
+So cycling layouts finds each layout's own splits again, monocle and
+retiling leave them alone, and a config reload with a new `ratio` moves the
+splits nobody moved and leaves the others where the user put them. A split
+is kept within 0.1 and 0.9 (`MIN_SPLIT_RATIO`, `MAX_SPLIT_RATIO`), as
+nothing tells the tiler how small a window can be.
+
+The workspace keeps the BSP chain in step with its windows
+(`workspace/splits.rs`):
+
+- a window added or inserted at `k` gets a split at `ratio` at split `k`, or
+  at the end of the chain for the last window, and the splits after it go
+  along with their windows;
+- a window removed takes its own split with it, split `k`, or the last one
+  for the last window, so the other windows keep theirs;
+- a swap changes no split: the slots keep their sizes, and the windows
+  trade places.
+
+A split that moves along the chain, as a window before it comes or goes,
+keeps its ratio but takes the direction of its new place: side by side at an
+even `k`, one above the other at an odd one. So of three windows, a second
+one given a quarter of the right half's height has a quarter of the width
+once the first one closes. A monitor that disconnects and comes back gives
+its windows back the splits of the chain they had there, once they are all
+back in their places, whichever layout is on screen (`reconnect.rs`,
+`reconnect_restore.rs`).
+
+The master's ratio in VerticalStack and ThreeColumn is not tied to a window,
+and stays as windows come and go, and while its monitor is away. The
+ThreeColumn master stays centered: its ratio is the share of the width it
+gets, and both its edges move when it changes. A window dropped on another
+monitor gets a split of its own there, at `ratio`, and the slot the preview
+shows for it counts that split.
 
 ### BSP (Binary Space Partitioning)
 
@@ -102,8 +154,9 @@ gap-handling rules:
 2. **Two or more windows** -- splits the area in half:
    - Even depth: **horizontal split** (left/right)
    - Odd depth: **vertical split** (top/bottom)
-3. The first window always gets the larger partition (controlled by `ratio`,
-   default 0.5)
+3. The first window always gets the larger partition (controlled by the
+   split's ratio, `ratio` until the user moves it; `apply_splits()` takes
+   the ratio of each)
 4. Remaining windows are recursively laid out in the second partition
 
 ```text
@@ -121,8 +174,8 @@ stacked vertically on the right:
 
 1. **One window** -- fills the entire area (minus gaps)
 2. **Two or more windows** -- the first window gets the left `ratio` portion
-   (the master pane); all remaining windows share the right portion, divided
-   into equal-height slots
+   (the master pane), or the share the user moved its edge to; all remaining
+   windows share the right portion, divided into equal-height slots
 
 ```text
 +-----------+-----------+
@@ -140,8 +193,9 @@ between the left and right stacks:
 1. **One window** -- fills the entire area
 2. **Two windows** -- master left, second right (behaves like VerticalStack)
 3. **Three or more windows** -- the first window occupies the center column
-   (width set by `ratio`); subsequent windows alternate into the left and
-   right side columns, each divided into equal-height slots
+   (width set by `ratio`, or by where the user moved one of its edges);
+   subsequent windows alternate into the left and right side columns, each
+   divided into equal-height slots
 
 ```text
 +------+-----------+------+
@@ -275,9 +329,11 @@ moves no pointer (see [actions.md](actions.md#origins)):
 The `TilingManager` supports hot-reloading of configuration:
 
 - `reload_config(config)` -- updates the layout gap/ratio, the hiding
-  strategy, `BorderConfig`, whether the mouse follows focus and the
+  strategy, `BorderConfig`, whether the mouse follows focus, whether a drop
+  moves a dragged window and whether a resize moves splits, and the
   `[animations]` settings, which the applier gets too, then retiles every
-  monitor and updates the borders. A reload that turns global mode on
+  monitor and updates the borders. A new ratio moves the splits the user
+  did not move, and leaves the others. A reload that turns global mode on
   switches every other monitor to the focused monitor's workspace with
   `goto_workspace_on()`, once the new settings are in place; a monitor that
   switches is laid out as it switches, and is not retiled again.
@@ -703,9 +759,10 @@ and `drag_target::ending`):
   are what a press may wobble before Windows starts a drag, as many as
   `motion::hardly_apart` allows. So a click or Escape also leaves alone a
   window wider than its slot, whose title bar reaches over the next tile;
-- a drag by an edge resizes, and one whose grab the platform could not tell
-  resized when the window's size changed: both are handled as before, and
-  the window goes back to its slot;
+- a drag by an edge resizes, and moves the splits its edges border, as
+  [Resizing Splits](#resizing-splits) says, before any of this is decided;
+  one whose grab the platform could not tell resized when the window's size
+  changed, and is handled as before: the window goes back to its slot;
 - a move that left the window maximized on its own monitor, or changed its
   size by more than a few pixels on an edge while the window lay on its own
   monitor, its center there, was snapped by the system, and the window goes
@@ -747,6 +804,60 @@ on now, or is taken in there when the tiler would tile it, and a window the
 tiler leaves alone changes nothing under it. A window whose workspace is
 out of view, as after Alt+2 mid-drag, stays on that workspace.
 
+### Resizing Splits
+
+With `[mouse] resize_splits`, on by default, `Moved` for a drag by edges of
+the frame moves the splits those edges border (`drag_resize.rs`), whatever
+`drag_to_swap` says. `layout::resized_splits` finds which split each edge
+borders (`split_edges.rs`) and where the edge, as the window is when the
+drag ends, puts it (`split_resize.rs`):
+
+| Layout | The edges that move a split |
+|--------|-----------------------------|
+| BSP | the far edge of window `k`, its right one for even `k` and its bottom one for odd `k`, moves split `k`, unless it is the last window; its near edges move splits `k - 1` and `k - 2`, which it lies beyond |
+| VerticalStack | the master's right edge, and the left edge of each window of the stack, move split 0 |
+| ThreeColumn | with two windows, as in VerticalStack; with more, the master's two edges, and the inner edge of each window of a side column, move split 0, and the master stays centered, so both its edges follow |
+
+A corner where two splits meet moves both. A held edge dropped within 4
+pixels (`motion::MIN_TRAVEL`) of where its slot has it, or of where it was
+as the drag started, moves no split, as a press may wobble that much: a
+corner dragged along one of its edges leaves the other split as it was,
+still at `ratio` when nobody moved it. The new ratio is where the edge is,
+as a share of the split's area, with half a pixel more so that the layout,
+which rounds down, puts the edge back on the pixel it was dropped at, and
+it is kept within 0.1 and 0.9. A window gone or minimized without a report
+leaves the layout first (`prune_stale_handles`), so the splits are worked
+out against the windows that stay. The monitor is then laid out again, the
+resized window included: the windows beyond the split follow the edge, and
+the window's edges that border no split, its outer edges and those between
+two windows of a stack or of a side column, go back. The placements may
+animate like any other, from where the user let go. The ratio comes from
+where the window is, so a resize whose end has no pointer, or that ends
+with the pointer over a bar, moves its split all the same.
+
+A resize of 4 pixels or less on every edge goes back to the slot, as a
+click or a cancel would: `drag_target::cancelled` takes a window left
+within 4 pixels of where it started, or a pointer that ends within 4 pixels
+of where it pressed, for Escape or a click on an edge. A resize in monocle,
+one by edges that border no split, one the tiler did not follow or that an
+action, from a key, a command, or a click or the wheel on a bar, or a
+display change interrupted, one whose grab the platform could not tell, and
+every resize with `resize_splits` off are handled as before too: the window
+goes back to its slot. `toggle-pause` never reaches the tiler, so it leaves
+a resize alone, as it does any drag. A window left maximized as the drag
+ends stays maximized and moves no split, as at the end of any drag. A
+resize shows no preview.
+
+Escape puts the window back where the system started the drag, which moves
+no split, as that is within 4 pixels of the start the platform read, unless
+the platform read the start more than 4 pixels into the resize, while the
+window was off its slot, as on its way there or held wider by its minimum
+size. Then the window put back counts as resized to where it started, and
+its split moves there. The same goes for the edge of a corner the user did
+not move: one that ends more than 4 pixels from both the start read and
+its slot, as when the start was read late on a window off its slot, moves
+its split there.
+
 ### The Drop Preview
 
 While a window is dragged with `drag_to_swap` on, each of its position
@@ -784,8 +895,13 @@ The `Workspace` type maintains window ordering:
   control BSP slot placement.
 - `remove(window)` -- removes and shifts the remaining windows
 - `swap(a, b)` -- swaps two windows by index
-- `compute_layout(layout, work_area)` -- delegates to `Layout::apply()`
+- `compute_layout(gap, ratio, work_area)` -- lays the windows out with the
+  workspace's layout through its `SplitRatios`: each split where the user
+  moved it, or at `ratio`
 - `windows()` -- returns a slice of all the windows in the workspace
+- `split_ratios()` and `set_split_ratio(split, ratio)` -- where the user
+  moved the splits; `add`, `insert` and `remove` keep them in step with the
+  windows, and `swap` leaves them (see [Split Ratios](#split-ratios))
 
 New windows are always placed on the **focused** monitor's **active
 workspace**, not the OS-determined monitor. When moving a window to an
@@ -849,7 +965,11 @@ and showing windows cause are kept from undoing a switch as described in
   different workspaces on the same monitor can use different layouts.
 - Layout cycling wraps around: `Bsp -> VerticalStack -> ThreeColumn -> Bsp`.
 - All three layouts share the same `gap` and `ratio` parameters; only the
-  spatial algorithm differs.
+  spatial algorithm differs. A split the user moved keeps a ratio of its own,
+  on its workspace and for its layout, named by its place in the window order
+  (split `k` divides windows `k..` into window `k` and the rest), so a swap
+  keeps the sizes of the slots, and a layout that has no ratio for a split
+  lays it out as the config says.
 - Programmatic moves never trigger `Moved`, which only reports the user
   finishing a drag, so laying windows out cannot loop.
 - Stale handle pruning runs before every layout application to handle UWP apps
@@ -880,7 +1000,19 @@ and showing windows cause are kept from undoing a switch as described in
   inner gaps that match the outer padding
 - 2 unit tests for `LayoutKind`: cycle order, display names
 - 3 unit tests for `Workspace`: add/remove, insert at position, layout
-  delegation, and 8 for its monocle state in `workspace/monocle_tests.rs`
+  delegation, in `workspace_tests.rs`, 8 for its monocle state in
+  `workspace/monocle_tests.rs`, and 6 for what its windows coming, going and
+  trading places do to its splits in `workspace/splits_tests.rs`
+- Split tests in `layout/`: each split of the BSP chain and the masters at
+  their own ratio, each layout's own set, the bounds, and windows inserted
+  and removed (`split_ratios_tests.rs`, `split_chain_tests.rs`); which split
+  each edge of each window borders in every layout (`split_edges_tests.rs`);
+  and every edge that borders one, and both edges of every corner of every
+  window, dropped in every layout of two to five windows, found where they
+  were dropped once laid out again, the centered master, the bounds, and
+  held edges moved no more than a press wobbles, or put back on their slot
+  or where they started, which move no split (`split_resize_tests.rs`,
+  `split_corner_tests.rs`, `split_clamp_tests.rs`)
 - Tiler tests in `crates/mosaico-core/src/tiler/tests/`, against a fake
   desktop: event handling, action dispatch, workspace switching, config
   reload, window restore
@@ -922,14 +1054,36 @@ and showing windows cause are kept from undoing a switch as described in
   `manager_daemon_tests.rs`). The metrics scenarios `drop_to_swap` and
   `drop_on_another_monitor` count what a swap and a drop on another monitor
   ask of the platform
+- Split tests on a `Tiler`, in the same place: what retiling, cycling
+  layouts, monocle, a swap, a window opening or closing, a config reload, a
+  drop on another monitor and a monitor that disconnects and comes back do
+  to the splits, with windows that closed or went elsewhere while it was
+  away, a window displaced twice, and its bar over a maximized window
+  (`split_ratio_tests.rs`, `drag_drop_monitor_tests.rs`,
+  `reconnect_split_tests.rs`, `reconnect_away_tests.rs`); a resize by an
+  edge and a corner in each layout, the edges that go back, the bounds, a
+  resize with `resize_splits` off or turned off by a reload, cancelled,
+  interrupted by a key or by a click or the wheel on a bar, in monocle,
+  without a pointer or let go over a bar, a corner dragged along one edge,
+  also of a window taller than its slot, an edge that wobbled, Escape on a
+  window wider than its slot, a press let go where it was, a window left
+  maximized, a window gone without a report, and a swap or layouts cycled
+  after a resize (`drag_resize*_tests.rs`); and, on the tiling manager with
+  transitions on, a window held by its edge that nothing places, and the
+  windows a resize moves sliding into their slots
+  (`drag_resize_motion_tests.rs`). The metrics scenario `resize_split`
+  counts what a resize asks of the platform
 - `crates/mosaico/tests/drag_and_drop.rs` drags two notepads by their title
   bar on the live desktop, with the real pointer and transitions off, so it
   runs on demand with the desktop suites, never with the safe ones: one
   dropped on the other swaps places with it, and one dropped on its own
-  slot goes back to it. It checks first that the notepads are alone and side
-  by side on workspace 8, and otherwise fails saying its setup is wrong. It
-  grabs a notepad where the notepad says its caption is, below the band
-  that resizes it at any scale, and once a drag ends, or fails half way,
-  the button is up and the pointer is back where it was
+  slot goes back to it. It also drags the left one by its right edge, once
+  a click on its title bar has brought it to the front, and finds the right
+  one one gap after where the edge was dropped. It checks first that the
+  notepads are alone and side by side on workspace 8, and otherwise fails
+  saying its setup is wrong. It grabs a notepad where the notepad says its
+  caption or its right edge is, the caption below the band that resizes it
+  at any scale, and once a drag ends, or fails half way, the button is up
+  and the pointer is back where it was
 - Extensive spatial navigation tests in `spatial.rs` (see
   [monitor-management.md](monitor-management.md))

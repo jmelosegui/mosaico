@@ -8,7 +8,9 @@ use crate::tiler::Effect;
 use crate::tiler::tests::{Harness, MON_H, MON_W};
 use crate::{Action, Rect, WindowEvent};
 
-use super::super::support::{drag_to, drop_at, grab, move_to, places, swapping};
+use super::super::support::{
+    center, drag_to, drop_at, grab, move_to, places, report_at, shown, swapping,
+};
 
 /// Window 1, of windows 1 and 2 on the first monitor, dragged to the top
 /// edge of the second, where window 3 is, and maximized there by the
@@ -115,4 +117,28 @@ fn a_window_rescaled_across_two_monitors_over_a_tile_of_its_own_swaps_with_it() 
 
     // Assert -- a move onto window 2, not a snap.
     assert_eq!(h.active(0), vec![2, 1]);
+}
+
+#[test]
+fn a_window_dropped_on_another_monitor_gets_a_split_of_its_own_there() {
+    // Arrange -- on the second monitor, window 4 has a quarter of the
+    // height of the right half.
+    let windows = [(1, 0), (2, 0), (3, 1), (4, 1), (5, 1)];
+    let mut h = Harness::with_settings(swapping(), 2, &windows);
+    h.tiler.monitors[1].active_ws_mut().set_split_ratio(1, 0.25);
+    h.action(Action::Retile);
+    let over = center(h.rect_of(4));
+    grab(&mut h, 1);
+
+    // Act
+    let previewed = shown(&report_at(&mut h, 1, over));
+    drop_at(&mut h, 1, over);
+
+    // Assert -- put before window 4, it takes the top half of the right
+    // half at the configured ratio, and window 4 keeps its quarter, now
+    // of the width of the bottom half.
+    assert_eq!(h.active(1), vec![3, 1, 4, 5]);
+    let slot = Rect::new(MON_W + 964, 8, 948, 528);
+    assert_eq!((previewed, h.rect_of(1)), (Some(slot), slot));
+    assert_eq!(h.rect_of(4), Rect::new(MON_W + 964, 544, 233, 528));
 }

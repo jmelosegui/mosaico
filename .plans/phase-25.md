@@ -2,50 +2,76 @@
 
 **Status:** Pending
 
-**Goal:** Allow users to resize individual BSP splits with keyboard
-shortcuts, adjusting the ratio of any split node rather than only the
-global ratio.
+**Goal:** Resize the splits of a layout from the keyboard: a key moves an
+edge of the focused window, and the split that edge borders follows, on the
+same splits that dragging an edge with the mouse moves since phase 35.
 
 ## Overview
 
-Currently, Mosaico uses a single global `ratio` (default 0.5) for every
-BSP split. Users cannot adjust individual splits — if they want more
-space for a browser and less for a terminal, they must change the global
-ratio which affects all splits equally.
-
-This phase adds directional resize actions that adjust the split ratio
-of the node containing the focused window. The user presses a shortcut
-to grow or shrink the focused window in a given direction.
-
-## Reference Design
+Phase 35 (35.4) gave every split of a workspace's layouts a ratio of its
+own, and moves a split when the user drags the edge between two tiles. This
+phase adds the keyboard to the same model. Nothing new is stored: a key sets
+the ratios a drag sets, through the same core functions, so a split moved
+from the keyboard and one moved with the mouse are the same thing, and
+everything 35.4 says of splits holds for both.
 
 ```
-# Before resize (50/50 split):
-┌──────────┬──────────┐
-│          │          │
-│  Browser │ Terminal │
-│          │          │
-└──────────┴──────────┘
+resize-right on window 1:
 
-# After Alt+Ctrl+L (grow right):
-┌──────────────┬───────┐
-│              │       │
-│  Browser     │ Term  │
-│              │       │
-└──────────────┴───────┘
++-----------+-----------+        +--------------+--------+
+|           |     2     |        |              |   2    |
+|     1     +-----------+   ->   |      1       +--------+
+|           |     3     |        |              |   3    |
++-----------+-----------+        +--------------+--------+
 
-# After Alt+Ctrl+J (grow down) on a vertical split:
-┌──────────────┬───────┐
-│              │       │
-│  Browser     │ Term  │
-│              ├───────┤
-│              │ Small │
-└──────────────┴───────┘
+resize-up on window 3 (its bottom edge borders no split, so its top
+edge, at split 1, moves up):
+
++-----------+-----------+        +-----------+-----------+
+|           |     2     |        |           |     2     |
+|     1     +-----------+   ->   |     1     +-----------+
+|           |     3     |        |           |           |
+|           |           |        |           |     3     |
++-----------+-----------+        +-----------+-----------+
 ```
+
+## The Model
+
+What 35.4 built, which this phase uses as it is:
+
+- Split `k` divides windows `k..` into window `k` and the rest. Each split
+  of the BSP chain is one, side by side for even `k` and one above the
+  other for odd `k`. In VerticalStack and ThreeColumn, split 0, at the
+  master's edges, is the only one, and the ThreeColumn master stays
+  centered, so both its edges move together.
+- Each `Workspace` keeps a `SplitRatios` (`layout/split_ratios.rs`), one set
+  per layout, with the ratio of each split the user moved; every other
+  split is at `[layout] ratio`. A ratio is kept within `MIN_SPLIT_RATIO` and
+  `MAX_SPLIT_RATIO` (0.1 and 0.9). `Workspace::set_split_ratio` moves a
+  split of the layout on screen.
+- `split_edges::border` (`layout/split_edges.rs`) says which split an edge
+  of a window borders, and how: in BSP, window `k`'s far edge borders split
+  `k` unless it is the last window, and its near edges splits `k - 1` and
+  `k - 2`; in VerticalStack, the master's right edge and the left edge of
+  every window of the stack; in ThreeColumn, the master's two edges and the
+  inner edge of every window of a side column. Other edges border none.
+- `resized_splits` (`layout/split_resize.rs`) turns edges at a new place
+  into ratios, to the pixel and within the bounds, and leaves alone an edge
+  moved 4 pixels or less from its slot or from where it started.
+- A window inserted at `k` gets a split at `ratio` at split `k`, one removed
+  takes its split with it, a swap keeps every split where it is, cycling
+  layouts finds each layout's own, monocle and retile leave them, and a
+  config reload with a new `ratio` moves only the splits nobody moved.
 
 ## Configuration
 
-### Default Keybindings
+### Keybindings
+
+The resize actions have no default keys, as `goto-workspace-next` and
+`goto-workspace-prev` have none. On a keyboard layout with no
+AltGr letters on H, J, K and L, these mirror `Alt+H/J/K/L` (focus) and
+`Alt+Shift+H/J/K/L` (move), and the docs suggest adding them to
+`keybindings.toml` by hand:
 
 ```toml
 # Resize: Alt + Ctrl + H/J/K/L
@@ -70,184 +96,134 @@ key = "L"
 modifiers = ["alt", "ctrl"]
 ```
 
-`Alt+Ctrl+H/J/K/L` mirrors the existing `Alt+H/J/K/L` (focus) and
-`Alt+Shift+H/J/K/L` (move) patterns.
+They are not defaults because Ctrl+Alt+key also fires for AltGr+key, which
+types a letter on several layouts: on Polish, AltGr+L is the l with stroke,
+and a default would take it from those users. Holding a resize key steps
+once, as hotkeys do not repeat: each step is a press. `reset-splits` has no
+default key either.
 
-### Config option
+### `config.toml`
 
 ```toml
 [layout]
-gap = 8
-ratio = 0.5
-# Amount each resize step adjusts the split ratio (0.0-1.0).
-resize_delta = 0.05
+# How far a resize key moves an edge, as a share of its split's area.
+resize_step = 0.05
 ```
 
-Each keypress shifts the split ratio by `resize_delta` (default 5%).
+`resize_step` (default 0.05, clamped to 0.01 to 0.5) is reloaded with the
+rest of `[layout]`; a reload keeps the ratios.
+
+## What a Key Does
+
+`resize-<direction>` acts on the focused window, tiled on the workspace on
+screen of the focused monitor:
+
+1. `resize-left` and `resize-right` take the window's right edge when it
+   borders a split (`split_edges::border`), and otherwise its left edge;
+   `resize-up` and `resize-down` take its bottom edge when it borders a
+   split, and otherwise its top edge. When neither edge on that axis borders
+   a split, nothing happens.
+2. The edge moves `resize_step` of its split's area in the key's direction,
+   from where the layout has it, and never less than 5 pixels, as a move of
+   4 or less is a press's wobble to `resized_splits`, which then gives the
+   new ratio, as for an edge the user dropped there. So the boundary moves
+   the way the key points, whichever of the two windows beside it has
+   focus, and every window can both grow and shrink on an axis it has a
+   split on. The ThreeColumn master grows on both sides with
+   `resize-right`, which moves its right edge right, and shrinks with
+   `resize-left`, its left edge following as the master stays centered. A
+   split stops at the same bounds as with the mouse.
+3. The monitor is laid out again with `Timing::Coalesced`, like a move, so
+   a burst of presses ends in one layout pass, and the placements may
+   animate. A press that changes no ratio, as at a bound, lays nothing out
+   and sets nothing. It compares the ratio in effect, the configured one for
+   a split that has none of its own, so a split that follows `ratio` and
+   already sits at the bound it is pressed toward keeps following it.
+
+| Layout | Window | Left / right | Up / down |
+|--------|--------|--------------|-----------|
+| BSP, two windows | either | split 0 | nothing |
+| BSP, three windows | 1, the left half | split 0 | nothing |
+| BSP, three windows | 2 and 3, the right half | split 0 | split 1 |
+| BSP, four windows | 3, below 2, left of 4 | split 2 | split 1 |
+| BSP, five windows | 4, above 5, right of 3 | split 2 | split 3 |
+| VerticalStack | any | split 0 | nothing |
+| ThreeColumn, two windows | either, as in VerticalStack | split 0 | nothing |
+| ThreeColumn, three or more | the master | split 0: right widens it on both sides, left narrows it | nothing |
+| ThreeColumn, three or more | a window of a side column | split 0, at its inner edge | nothing |
+
+`reset-splits` puts every split of the layout on screen of the focused
+monitor's workspace back at `ratio`, which neither retile nor monocle does.
 
 ## Architecture
 
-### Per-Node Ratios
-
-The current `BspLayout` uses a single global ratio. To support per-split
-resizing, each split node needs its own ratio. Since BSP is computed
-recursively from the window list order, the tree structure is implicit —
-there's no persistent tree object.
-
-**Approach**: Store per-split ratio overrides in a map indexed by split
-position. The BSP algorithm walks the window list recursively; at each
-split point, it checks the override map for a custom ratio, falling back
-to the global ratio.
-
-#### Split Key
-
-Each BSP split is uniquely identified by the range of window indices it
-covers. For a workspace with windows `[A, B, C, D]`:
-
-```
-Split [0..4] -> separates [A] from [B, C, D]   (depth 0)
-Split [1..4] -> separates [B] from [C, D]       (depth 1)
-Split [2..4] -> separates [C] from [D]          (depth 2)
-```
-
-The split key is `(start_index, end_index)` of the window range. This
-is stable as long as windows aren't added/removed. When windows change,
-overrides for stale ranges are pruned.
-
-#### Data Structure
-
-In `Workspace` (mosaico-core):
-
-```rust
-pub struct Workspace {
-    handles: Vec<usize>,
-    /// Per-split ratio overrides. Key is (start, end) of the window
-    /// range at the split point. Absent entries use the global ratio.
-    split_ratios: HashMap<(usize, usize), f64>,
-}
-```
-
-In `BspLayout::split()`, replace `self.ratio` with:
-
-```rust
-let ratio = split_ratios
-    .get(&(start, start + handles.len()))
-    .copied()
-    .unwrap_or(self.ratio);
-```
-
-### Resize Logic
-
-When the user presses `resize-right` on the focused window:
-
-1. Find which split node the focused window belongs to
-2. Determine if `right` maps to growing or shrinking at that split:
-   - If the focused window is on the **left** side of a horizontal
-     split, growing right means increasing the ratio
-   - If the focused window is on the **right** side, growing right
-     means decreasing the ratio (the left side shrinks)
-3. Adjust the ratio by `+/- resize_delta`, clamped to `0.1..0.9`
-4. Store in `split_ratios`
-5. Re-tile the workspace
-
-#### Direction Mapping
-
-For a horizontal split (left | right):
-- Window on left + `resize-right` -> ratio += delta (grow)
-- Window on left + `resize-left` -> ratio -= delta (shrink)
-- Window on right + `resize-right` -> ratio += delta (shrink focused)
-- Window on right + `resize-left` -> ratio -= delta (grow focused)
-
-For a vertical split (top | bottom):
-- Window on top + `resize-down` -> ratio += delta (grow)
-- Window on top + `resize-up` -> ratio -= delta (shrink)
-- Window on bottom + `resize-down` -> ratio += delta (shrink focused)
-- Window on bottom + `resize-up` -> ratio -= delta (grow focused)
-
-The key insight: the direction indicates which edge of the focused
-window moves. `resize-right` moves the right edge of the focused window
-rightward (or the nearest split boundary in that direction).
-
-### New Actions
-
-```rust
-pub enum Action {
-    // ... existing ...
-    Resize(Direction),       // resize-left, resize-right, resize-up, resize-down
-}
-```
-
-### Reset Ratios
-
-Add `retile` (Alt+Shift+R) behavior: when the user retiles, all
-per-split ratio overrides are cleared, restoring the global ratio.
-This gives users a quick "reset to default" escape hatch.
-
-### Changes to `compute_layout`
-
-`Workspace::compute_layout()` passes `&self.split_ratios` to the layout
-engine so it can look up per-node ratios during recursion.
-
-## Modified Files
-
-```
-crates/
-  mosaico-core/
-    src/
-      action.rs              # Add Resize(Direction)
-      layout.rs              # Accept split_ratios in split()
-      workspace.rs           # Add split_ratios field, adjust_ratio()
-      config/
-        mod.rs               # Add resize_delta to LayoutConfig
-        keybinding.rs        # Add default resize keybindings
-        template.rs          # Add resize bindings to template
-  mosaico-windows/
-    src/
-      tiling/
-        mod.rs               # Handle Resize action
-        layout.rs            # Pass split_ratios to compute_layout
-  mosaico/
-    src/
-      main.rs                # Add Resize CLI subcommand
-      commands/
-        action.rs            # Route Resize action
-```
+- `Action::Resize(Direction)` and `Action::ResetSplits`, named `resize-left`,
+  `resize-right`, `resize-up`, `resize-down` and `reset-splits` in
+  `Action::from_str` and `Display`, so keybindings, IPC and
+  `mosaico action` get them. In `Action::scope()` (35.2), `Resize` acts on
+  the focused window, so a bar click binding may not name it, and
+  `ResetSplits` on a monitor, so one may, as for `cycle-layout`: a click on
+  a bar resets the splits of that bar's monitor.
+- `layout/split_step.rs`: `stepped_splits(kind, gap, slots, index,
+  direction, step)`, a pure function that picks the edge as above, moves it
+  from the window's slot and calls `resized_splits` with that slot as the
+  start, not the window's rect: the window may still be sliding from the
+  press before, and its rect would put the edge where it happens to be on
+  the way. Unit tests for every window, edge and direction in every layout
+  of one to five windows, the bounds and the centered master.
+- `SplitRatios::reset(kind)` forgets the ratios of one layout. It refills
+  the BSP chain with `None` and keeps its length, one split for each window
+  but the last: cleared, the chain would be shorter than that, `insert`
+  would clamp to it and `set` would ignore the splits it lacks, so some
+  edges would silently stop resizing.
+- `tiler/resize_actions.rs`: `resize_focused(plan, direction)` and
+  `reset_splits(plan)`, dispatched from `actions.rs`.
+- `LayoutConfig` moves to a file of its own first, as `config/types.rs` is
+  over the size limit, and gets `resize_step`. New code in `action.rs`,
+  also over the limit, goes in a file next to it.
 
 ## Edge Cases
 
-1. **Single window**: No split to resize. `resize-*` is a no-op.
-2. **Two windows**: One split. All four resize directions affect it.
-3. **Monocle mode**: Resize is blocked (like move).
-4. **Window added/removed**: Prune `split_ratios` entries whose key
-   range no longer matches the current window count.
-5. **Workspace switch**: Each workspace has its own `split_ratios`.
-   Switching workspaces naturally uses the correct overrides.
-6. **Config reload**: `resize_delta` updates immediately. Existing
-   overrides are preserved (not reset).
+1. A single window, an empty workspace, or no focused tiled window:
+   nothing.
+2. Monocle: nothing, as no edge borders a split there, as with the mouse.
+3. A direction with no split on either side of the window, as up in a BSP of
+   two windows: nothing, and no layout pass.
+4. A split at a bound: the ratio stays, and the press lays nothing out.
+5. A burst of presses: each starts from the ratio the one before set, and
+   the placements are held and coalesced as for a burst of moves.
+6. A key while the user drags a window: the resize interrupts the drag, as
+   every action that reaches the tiler does (35.3), the split moves, and
+   the dragged window takes its new slot when it is dropped. `toggle-pause`,
+   from a key or the **PAUSED** mark, is the daemon's and leaves the drag
+   alone.
+7. Global workspace mode: only the focused monitor's workspace changes;
+   splits are per workspace.
+8. A layout change, a swap, a window opening or closing after a resize: as
+   35.4 says.
 
 ## Tasks
 
-- [ ] Add `resize_delta: f64` to `LayoutConfig` (default 0.05)
-- [ ] Add `resize_delta` to `generate_config()` template
-- [ ] Add `Resize(Direction)` variant to `Action` enum
-- [ ] Update `Action::from_str` / `Display` for resize actions
-- [ ] Add default keybindings: Alt+Ctrl+H/J/K/L -> resize directions
-- [ ] Add `split_ratios: HashMap<(usize, usize), f64>` to `Workspace`
-- [ ] Update `BspLayout::split()` to accept and use split ratio overrides
-- [ ] Update `Workspace::compute_layout()` to pass split_ratios
-- [ ] Implement `adjust_split_ratio()` on `Workspace`:
-      find the split containing the focused window, adjust ratio
-- [ ] Implement resize handler in `TilingManager::handle_action()`
-- [ ] Clear `split_ratios` on retile (reset to global ratio)
-- [ ] Prune stale `split_ratios` when windows are added/removed
-- [ ] Add `Resize` subcommand to CLI (action resize left/right/up/down)
-- [ ] Run `cargo fmt --all`
-- [ ] Run `cargo clippy --all-targets -- -D warnings` and fix warnings
-- [ ] Run `cargo test` and fix failures
-- [ ] Manual test: resize horizontal split left/right
-- [ ] Manual test: resize vertical split up/down
-- [ ] Manual test: resize with 3+ windows (nested splits)
-- [ ] Manual test: retile resets all ratios
-- [ ] Manual test: resize clamped at 0.1/0.9
-- [ ] Update documentation (`docs/configuration.md`, `docs/tiling-layout.md`)
+- [ ] `Action::Resize(Direction)` and `Action::ResetSplits`, with
+      `from_str`, `Display`, `scope()` and the CLI
+- [ ] No default keys: the docs suggest `Alt+Ctrl+H/J/K/L` to add by hand,
+      and say why they are not defaults and that a held key steps once
+- [ ] `[layout] resize_step`, validated, in the template and with a hint
+- [ ] `stepped_splits` and `SplitRatios::reset` in core, with unit tests
+- [ ] The tiler actions, with tests for each direction, the opposite edge,
+      nothing to move, monocle, the bounds, a burst, a key mid-drag and a
+      reset
+- [ ] Metrics scenarios for one press and a burst of nine
+- [ ] Docs: `tiling-layout.md`, `keyboard-bindings.md`, `actions.md`,
+      `configuration.md`, `cli.md`, and the website guide
+- [ ] `reset-splits` wherever a text lists what a bar click may run and
+      says no other action can be bound: the bar template
+      (`template_bar.rs`), its hint for an existing `bar.toml`
+      (`merge_bar_mouse.rs`), which stays in users' files,
+      `status-bar.md`, `configuration.md`, the guide's status bar page,
+      and the action names `template_mouse_tests.rs` checks. The new hint
+      names what may be bound by scope, actions on a monitor or the whole
+      daemon, not as a closed list, so it stays true as actions are added
+- [ ] Manual test: resize every split of every layout from the keyboard, a
+      burst, and a reset
 - [ ] Update `.plans/plan.md`

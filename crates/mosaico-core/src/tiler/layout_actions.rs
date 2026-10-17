@@ -58,3 +58,7 @@ impl Tiler {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "tests/split_ratio_tests.rs"]
+mod split_tests;

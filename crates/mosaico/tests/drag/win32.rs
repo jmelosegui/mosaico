@@ -37,6 +37,7 @@ pub const SM_CXVIRTUALSCREEN: i32 = 78;
 pub const SM_CYVIRTUALSCREEN: i32 = 79;
 pub const WM_NCHITTEST: u32 = 0x0084;
 pub const HTCAPTION: usize = 2;
+pub const HTRIGHT: usize = 11;
 pub const SMTO_ABORTIFHUNG: u32 = 0x0002;
 
 #[link(name = "user32")]

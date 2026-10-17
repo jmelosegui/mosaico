@@ -73,6 +73,10 @@ focus_follows_mouse = false
 # false: a dropped window goes back to its slot, or joins the end of the
 # other monitor's windows.
 drag_to_swap = true
+# Drag the edge between two tiles to resize them: the split between them
+# follows the edge, and a corner where two splits meet moves both.
+# false: a tiled window you resize goes back to its slot.
+resize_splits = true
 
 [animations]
 # Window transitions: windows move to their new place over a short time
