@@ -4,11 +4,10 @@
 //! where they go, which workspace is on screen and what has focus. It
 //! never touches the OS. Each [`Tiler::step`] reads the desktop through
 //! [`Desktop`], updates the tiler's state and returns the [`Effect`]s
-//! that bring the desktop in line with it.
-//! [`TilingManager`](crate::tiler::TilingManager) runs a tiler on a
-//! [`Platform`](crate::tiler::Platform): it applies the effects, and
-//! records them in an [`Expectations`] so that the events they cause are
-//! recognized as ours.
+//! that bring the desktop in line with it. [`TilingManager`] runs a
+//! tiler on a [`Platform`]: it applies the effects, and records them in
+//! an [`Expectations`] so that the events they cause are recognized as
+//! ours.
 
 mod actions;
 mod adopt;
@@ -112,6 +111,7 @@ pub struct Tiler {
     hidden_how: hidden_how::HiddenHow,
     /// Whether workspace switches affect one monitor or all monitors.
     workspace_mode: WorkspaceMode,
+    workspace_wrap: bool,
     rules: Vec<WindowRule>,
     border_config: BorderConfig,
     /// Whether placements may animate, and how, see
@@ -136,6 +136,7 @@ pub struct Tiler {
     /// Lets `LocationChanged`, which fires on every animation frame,
     /// react only when the window enters or leaves maximized state.
     focused_maximized: bool,
+    filling: bar_states::Filling,
     /// Pins `focused_monitor` while its active workspace is empty. See
     /// [`empty_focus`].
     empty_focus_claim: Option<empty_focus::EmptyFocusClaim>,

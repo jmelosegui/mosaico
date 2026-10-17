@@ -29,6 +29,7 @@ impl Tiler {
             }
             WindowEvent::Destroyed { window } => {
                 self.adopt_rejected.remove(&window);
+                self.filling.forget(window);
                 self.reconnect.forget(window);
                 self.hidden_how.forget(window);
                 self.undecorate(plan, window);
@@ -91,6 +92,7 @@ impl Tiler {
     }
 
     fn on_location_changed(&mut self, plan: &mut Plan, window: WindowId) {
+        self.note_filling(plan, window);
         // Fires on every animation frame, so only react when the focused
         // window enters or leaves maximized state. That catches the
         // title bar buttons, which do not report a move.

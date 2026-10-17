@@ -54,9 +54,11 @@ pub(super) fn handle_event(
         },
         other => {
             manager.handle_event(&other);
-            // LocationChanged fires very frequently — only the
-            // tiling manager needs it (for maximize detection).
-            !matches!(other, mosaico_core::WindowEvent::LocationChanged { .. })
+            // LocationChanged fires very frequently. The bar only follows it
+            // when a window on screen goes in or out of maximized or
+            // fullscreen, which decides whether the bar lets clicks through.
+            let bars_changed = manager.take_bars_changed();
+            bars_changed || !matches!(other, mosaico_core::WindowEvent::LocationChanged { .. })
         }
     }
 }

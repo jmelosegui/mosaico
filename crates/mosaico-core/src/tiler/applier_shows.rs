@@ -20,7 +20,7 @@ use std::time::Instant;
 use crate::WindowId;
 use crate::config::HidingBehaviour;
 
-use super::super::{Desktop, Effect, Platform};
+use super::super::{Desktop, Effect, Expectations, Platform};
 use super::Applier;
 use super::view::PostedView;
 
@@ -82,15 +82,48 @@ impl Applier {
         platform: &'a dyn Platform,
         now: Instant,
     ) -> PostedView<'a> {
-        let (desktop, control) = (platform.desktop(), platform.control());
         let expectations = &self.expectations;
         let on_its_way = |&window: &WindowId, to: &mut ShowState| {
-            let late_hide = *to == ShowState::Shown && expectations.hide_expected(window, now);
-            (late_hide || !to.holds(desktop, window)) && control.posts_behind(window)
+            on_its_way(expectations, platform, window, *to, now)
         };
         self.posted.states.retain(on_its_way);
-        PostedView::new(desktop, control, &self.posted.states)
+        PostedView::new(platform.desktop(), platform.control(), &self.posted.states)
     }
+
+    /// Reads the desktop of `platform` at `now` as [`view`](Self::view)
+    /// has it, through `read`, without forgetting the changes no longer on
+    /// their way: for the bars, which read it between steps.
+    pub(in crate::tiler) fn read_view<R>(
+        &self,
+        platform: &dyn Platform,
+        now: Instant,
+        read: impl FnOnce(&dyn Desktop) -> R,
+    ) -> R {
+        let states = (self.posted.states.iter())
+            .filter(|&(&window, &to)| on_its_way(&self.expectations, platform, window, to, now))
+            .map(|(&window, &to)| (window, to))
+            .collect();
+        read(&PostedView::new(
+            platform.desktop(),
+            platform.control(),
+            &states,
+        ))
+    }
+}
+
+/// Whether the change that leaves `window` as `to` is still on its way at
+/// `now`, as `expectations` and `platform` have it: posted, and either not
+/// holding yet or, for a show, with a hide of the window still to be
+/// reported.
+fn on_its_way(
+    expectations: &Expectations,
+    platform: &dyn Platform,
+    window: WindowId,
+    to: ShowState,
+    now: Instant,
+) -> bool {
+    let late_hide = to == ShowState::Shown && expectations.hide_expected(window, now);
+    (late_hide || !to.holds(platform.desktop(), window)) && platform.control().posts_behind(window)
 }
 
 /// How `effect`, a hide, a minimize, a show or a reveal, leaves its window,

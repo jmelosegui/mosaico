@@ -1,6 +1,7 @@
 use std::sync::mpsc;
 
 use mosaico_core::Action;
+use mosaico_core::bar::{BarId, PointerEvent};
 use mosaico_core::config::ConfigReload;
 use mosaico_core::daemon::FrameToken;
 use mosaico_core::ipc::{Command, Response};
@@ -15,6 +16,8 @@ pub(super) enum DaemonMsg {
     Frame(FrameToken),
     /// A user action from hotkeys or IPC.
     Action(Action),
+    /// What the pointer did on a bar, from the bar's window procedure.
+    BarPointer(BarId, PointerEvent),
     /// A CLI command with a callback to send the response.
     Command(Command, ResponseSender),
     /// A validated config reload from the file watcher.

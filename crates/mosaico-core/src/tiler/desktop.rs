@@ -55,6 +55,15 @@ pub trait Desktop {
     /// Pointer position in desktop coordinates, if it can be read.
     fn cursor(&self) -> Option<(i32, i32)>;
 
+    /// The windows on screen, managed or not, in any order: shown, not
+    /// minimized, not kept out of view by the system or the tiler's hiding,
+    /// and none of the desktop itself, the shell's surfaces such as a
+    /// taskbar, windows the pointer goes through or those the daemon draws.
+    /// Asked on every refresh of the bars, so it answers at once. A
+    /// platform that cannot list them returns none, and its bars then take
+    /// the pointer over a maximized window too.
+    fn windows_on_screen(&self) -> Vec<WindowId>;
+
     /// What the tiler needs to judge whether to manage the window.
     ///
     /// Returns `None` when the platform rules the window out on its own:

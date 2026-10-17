@@ -106,6 +106,9 @@ pub enum Step<T> {
     Run(T),
     /// Handle the window events of a batch, in order.
     Events(Vec<WindowEvent>),
+    /// Carry out what the wheel's turns on the bars ask for, now that they
+    /// are due.
+    Wheel,
     /// Move what is in motion on to where it is at the time this step
     /// runs: frames arrived, or a motion is due to end.
     Frame,

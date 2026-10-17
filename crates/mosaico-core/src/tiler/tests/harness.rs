@@ -8,6 +8,7 @@
 
 use std::time::{Duration, Instant};
 
+use crate::action::Origin;
 use crate::id::wid;
 use crate::{Action, Rect, WindowEvent, WindowId, Workspace};
 
@@ -68,7 +69,12 @@ impl Harness {
     }
 
     pub(in crate::tiler) fn action(&mut self, action: Action) -> &[Effect] {
-        self.step(Input::Action(action))
+        self.step(Input::Action(action, Origin::Focused))
+    }
+
+    /// Runs an action that comes from `origin`, such as a click on a bar.
+    pub(in crate::tiler) fn action_from(&mut self, action: Action, origin: Origin) -> &[Effect] {
+        self.step(Input::Action(action, origin))
     }
 
     /// Reports a window event. A window reported focused is in front,

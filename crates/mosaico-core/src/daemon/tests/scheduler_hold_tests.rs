@@ -17,7 +17,7 @@ fn a_steady_stream_of_events_does_not_hold_effects_back_forever() {
     let mut flushed = false;
     for _ in 0..100 {
         let next_event = now + ms(10);
-        let wake = match scheduler.begin_wait(held, None, now) {
+        let wake = match scheduler.begin_wait(held, None, None, now) {
             Some(left) if now + left < next_event => {
                 now += left;
                 timed_out()

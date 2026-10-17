@@ -12,7 +12,7 @@ fn the_wait_ends_with_a_frame_step_when_a_motion_is_due_to_end() {
     let mut scheduler = Scheduler::default();
 
     // Act
-    let wait = scheduler.begin_wait(None, Some(t0 + ms(40)), t0);
+    let wait = scheduler.begin_wait(None, Some(t0 + ms(40)), None, t0);
     let steps = scheduler.step(timed_out(), t0 + ms(40));
 
     // Assert -- although no frame came.
@@ -29,9 +29,9 @@ fn the_end_of_a_motion_shortens_the_wait_but_not_the_quiet_window() {
     let held = Some(t0);
 
     // Act
-    let wait = scheduler.begin_wait(held, Some(t0 + ms(10)), t0);
+    let wait = scheduler.begin_wait(held, Some(t0 + ms(10)), None, t0);
     let ended = scheduler.step(timed_out(), t0 + ms(10));
-    let rest = scheduler.begin_wait(held, None, t0 + ms(11));
+    let rest = scheduler.begin_wait(held, None, None, t0 + ms(11));
     let flushed = scheduler.step(timed_out(), t0 + QUIET);
 
     // Assert
@@ -46,7 +46,7 @@ fn a_motion_not_due_yet_takes_no_step() {
     // Arrange
     let t0 = Instant::now();
     let mut scheduler = Scheduler::default();
-    scheduler.begin_wait(None, Some(t0 + ms(40)), t0);
+    scheduler.begin_wait(None, Some(t0 + ms(40)), None, t0);
 
     // Act -- a hotkey ends the wait first.
     let steps = scheduler.step(received(vec![task("hotkey")]), t0 + ms(10));
@@ -60,7 +60,7 @@ fn a_motion_due_when_input_ends_the_wait_takes_its_step_after_it() {
     // Arrange
     let t0 = Instant::now();
     let mut scheduler = Scheduler::default();
-    scheduler.begin_wait(None, Some(t0 + ms(40)), t0);
+    scheduler.begin_wait(None, Some(t0 + ms(40)), None, t0);
 
     // Act -- the hotkey came just as the motion was due.
     let steps = scheduler.step(received(vec![task("hotkey")]), t0 + ms(40));
@@ -75,12 +75,12 @@ fn the_end_of_a_motion_left_in_the_past_takes_one_step_and_no_more() {
     let t0 = Instant::now();
     let mut scheduler = Scheduler::default();
     let due = Some(t0 + ms(40));
-    scheduler.begin_wait(None, due, t0);
+    scheduler.begin_wait(None, due, None, t0);
     let ended = scheduler.step(timed_out(), t0 + ms(40));
 
     // Act
-    let again = scheduler.begin_wait(None, due, t0 + ms(41));
-    let next = scheduler.begin_wait(None, Some(t0 + ms(60)), t0 + ms(42));
+    let again = scheduler.begin_wait(None, due, None, t0 + ms(41));
+    let next = scheduler.begin_wait(None, Some(t0 + ms(60)), None, t0 + ms(42));
 
     // Assert -- the loop waits for what else comes instead of spinning,
     // and the end of the next motion is due.
@@ -98,7 +98,7 @@ fn the_end_of_a_motion_a_display_frame_stepped_past_is_not_due() {
     scheduler.step(received(vec![Message::Frame]), t0 + ms(45));
 
     // Act
-    let wait = scheduler.begin_wait(None, Some(t0 + ms(40)), t0 + ms(46));
+    let wait = scheduler.begin_wait(None, Some(t0 + ms(40)), None, t0 + ms(46));
 
     // Assert
     assert_eq!(wait, None);
@@ -111,7 +111,7 @@ fn the_last_frame_step_tells_the_loop_which_motion_ends_are_still_due() {
     let t0 = Instant::now();
     let mut scheduler = Scheduler::default();
     let ends = [t0 + ms(40), t0 + ms(300)];
-    scheduler.begin_wait(None, Some(ends[0]), t0);
+    scheduler.begin_wait(None, Some(ends[0]), None, t0);
     scheduler.step(timed_out(), t0 + ms(40));
 
     // Act -- the loop passes the earliest end after the last step.
@@ -119,7 +119,7 @@ fn the_last_frame_step_tells_the_loop_which_motion_ends_are_still_due() {
     let due = ends
         .into_iter()
         .find(|&end| stepped.is_none_or(|s| end > s));
-    let wait = scheduler.begin_wait(None, due, t0 + ms(41));
+    let wait = scheduler.begin_wait(None, due, None, t0 + ms(41));
     let ended = scheduler.step(timed_out(), t0 + ms(300));
 
     // Assert

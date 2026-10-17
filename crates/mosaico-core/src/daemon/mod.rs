@@ -6,11 +6,12 @@
 //! [`Scheduler`](crate::daemon::Scheduler) makes every timing decision of
 //! that loop: what runs first, which events say nothing new, when a
 //! display change has settled, when the effects the tiling manager holds
-//! back are flushed and when windows in motion take their next step. It
-//! never reads the clock. The platform loop tells it when it starts
-//! waiting, hands it whatever ended the wait, and runs the
-//! [`Step`](crate::daemon::Step)s it gets back. The frames come from the
-//! platform's [`FrameClock`](crate::daemon::FrameClock), which can be a
+//! back are flushed, when windows in motion take their next step and when
+//! the wheel's turns on a bar are applied. It never reads the clock. The
+//! platform loop tells it when it starts waiting, hands it whatever ended
+//! the wait, and runs the [`Step`](crate::daemon::Step)s it gets back. The
+//! frames come from the platform's
+//! [`FrameClock`](crate::daemon::FrameClock), which can be a
 //! [`FramePacer`](crate::daemon::FramePacer) waiting on the display
 //! through a [`FrameWait`](crate::daemon::FrameWait) of the platform's.
 

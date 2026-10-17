@@ -354,16 +354,16 @@ need nothing from phase 34; 35.3 needs `MoveStarted` (34.2); 35.4 needs 35.3.
 
 ### 35.1 Bar clicks and scrolling
 
-- [ ] `BarId`, `PointerSink` and item regions in the bar contracts, and
+- [x] `BarId`, `PointerSink` and item regions in the bar contracts, and
       click-through over maximized or fullscreen windows
-- [ ] Hit testing in core against the drawn regions, with tests for every item
+- [x] Hit testing in core against the drawn regions, with tests for every item
       kind, the gaps, paint order, duplicate widgets, stale bars and a redraw
       between press and release
-- [ ] Wheel steps added up and applied once the wheel goes quiet, with tests for
+- [x] Wheel steps added up and applied once the wheel goes quiet, with tests for
       notches, fractions, direction changes and bursts
-- [ ] Actions with an origin: workspace clicks and scrolls act on the bar's
+- [x] Actions with an origin: workspace clicks and scrolls act on the bar's
       monitor, focus per the rules above, no pointer moves; global mode
-- [ ] `goto-workspace-next` and `goto-workspace-prev`, with `[workspaces] wrap`,
+- [x] `goto-workspace-next` and `goto-workspace-prev`, with `[workspaces] wrap`,
       in keybindings and the CLI
 - [ ] Windows: input without activation, capture, the cursor, minimum alpha,
       click-through switching; tests on hidden bar windows of the test's own

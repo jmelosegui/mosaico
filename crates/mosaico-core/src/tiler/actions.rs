@@ -1,12 +1,27 @@
-//! Actions the user triggers, from a hotkey or the CLI.
+//! Actions the user triggers, from a hotkey, the CLI or the pointer on a
+//! bar.
 
 use crate::Action;
+use crate::action::{Origin, workspace_after};
 
 use super::{Effect, Plan, Tiler};
 
 impl Tiler {
-    /// Executes a user-triggered action.
-    pub(super) fn handle_action(&mut self, plan: &mut Plan, action: &Action) {
+    /// Executes a user-triggered action that comes from `origin`.
+    ///
+    /// An action from a bar whose monitor the tiler has no state for does
+    /// nothing. One that acts on a monitor acts on the bar's: when that
+    /// monitor does not have focus, focus moves there first, as if the
+    /// user had gone there, and the action then does what its key does.
+    pub(super) fn handle_action(&mut self, plan: &mut Plan, action: &Action, origin: Origin) {
+        if let Some(mon) = origin.monitor() {
+            if mon >= self.monitors.len() {
+                return;
+            }
+            if acts_on_a_monitor(action) && mon != self.focused_monitor {
+                self.enter_monitor(plan, mon);
+            }
+        }
         match action {
             Action::Focus(dir) => self.focus_direction(plan, *dir),
             Action::Move(dir) => self.move_direction(plan, *dir),
@@ -31,9 +46,59 @@ impl Tiler {
             }
             Action::CycleLayout => self.cycle_layout(plan),
             Action::GoToWorkspace(n) => self.goto_workspace(plan, *n),
+            Action::GoToWorkspaceNext => self.step_workspace(plan, 1),
+            Action::GoToWorkspacePrev => self.step_workspace(plan, -1),
             Action::SendToWorkspace(n) => self.send_to_workspace(plan, *n),
             // Pausing is handled by the daemon before reaching here.
             Action::TogglePause => {}
         }
     }
+
+    /// Switches the focused monitor to the workspace `steps` steps from
+    /// the one on screen, every monitor in global mode, the way
+    /// [`workspace_after`] steps with `[workspaces] wrap`. A step that
+    /// stays on the workspace on screen changes nothing.
+    fn step_workspace(&mut self, plan: &mut Plan, steps: i32) {
+        let Some(mon) = self.monitors.get(self.focused_monitor) else {
+            return;
+        };
+        let count = mon.workspaces.len();
+        let target = workspace_after(mon.active_workspace, count, steps, self.workspace_wrap);
+        if let Ok(n) = u8::try_from(target + 1) {
+            self.goto_workspace(plan, n);
+        }
+    }
 }
+
+/// Whether `action` acts on a monitor rather than on the focused window
+/// or the whole desktop.
+fn acts_on_a_monitor(action: &Action) -> bool {
+    matches!(
+        action,
+        Action::CycleLayout
+            | Action::ToggleMonocle
+            | Action::GoToWorkspace(_)
+            | Action::GoToWorkspaceNext
+            | Action::GoToWorkspacePrev
+    )
+}
+
+#[cfg(test)]
+#[path = "tests/bar_click_support.rs"]
+mod support;
+
+#[cfg(test)]
+#[path = "tests/bar_click_tests.rs"]
+mod bar_click_tests;
+
+#[cfg(test)]
+#[path = "tests/bar_click_focus_tests.rs"]
+mod bar_click_focus_tests;
+
+#[cfg(test)]
+#[path = "tests/workspace_step_tests.rs"]
+mod step_tests;
+
+#[cfg(test)]
+#[path = "tests/workspace_wrap_tests.rs"]
+mod wrap_tests;
