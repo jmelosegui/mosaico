@@ -7,56 +7,13 @@ use super::tests::{bar, left, right, start};
 use crate::bar::BarManager;
 use crate::bar::fakes::{FakeRenderer, FakeSystem};
 use crate::config::BarConfig;
-use crate::tiler::{
-    BarReservation, Desktop, Display, Input, Settings, Tiler, WindowFacts, WindowIdentity,
-};
-use crate::{MonitorId, MonitorKey, Rect, WindowId};
+use crate::tiler::{BarReservation, Display, Input, Settings, Tiler};
+use crate::{MonitorId, MonitorKey, Rect};
 
-/// A desktop with no windows, which is all the tiler needs to reserve
-/// space.
-struct NoWindows;
+#[path = "no_windows.rs"]
+mod no_windows;
 
-impl Desktop for NoWindows {
-    fn is_visible(&self, _: WindowId) -> bool {
-        false
-    }
-
-    fn is_minimized(&self, _: WindowId) -> bool {
-        false
-    }
-
-    fn is_maximized(&self, _: WindowId) -> bool {
-        false
-    }
-
-    fn rect(&self, _: WindowId) -> Option<Rect> {
-        None
-    }
-
-    fn owner(&self, _: WindowId) -> Option<WindowId> {
-        None
-    }
-
-    fn identity(&self, _: WindowId) -> Option<WindowIdentity> {
-        None
-    }
-
-    fn monitor_of(&self, _: WindowId) -> MonitorId {
-        MonitorId::from_raw(0)
-    }
-
-    fn cursor(&self) -> Option<(i32, i32)> {
-        None
-    }
-
-    fn candidate(&self, _: WindowId) -> Option<WindowFacts> {
-        None
-    }
-
-    fn facts(&self, _: WindowId) -> Option<WindowFacts> {
-        None
-    }
-}
+use no_windows::NoWindows;
 
 /// The tiling area of each monitor in `areas`, once the tiler reserves
 /// the space `bars` reports, as the daemon passes it on.

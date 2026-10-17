@@ -1,4 +1,5 @@
 use crate::config::WidgetConfig;
+use crate::config::store::merge_bar_mouse::BAR_MOUSE_HINT_SNIPPET;
 use crate::config::store::test_support::{contents, file_names, temp_store};
 
 use super::*;
@@ -83,4 +84,19 @@ fn an_invalid_bar_file_is_left_alone_and_the_defaults_used() {
     // Assert
     assert_eq!(types(&bar.left), types(&BarConfig::default().left));
     assert_eq!(contents(&store.bar_path()), "not = [valid");
+}
+
+#[test]
+fn a_bar_file_with_a_value_the_bar_cannot_take_gets_the_hint_and_the_defaults_used() {
+    // Arrange -- TOML, but with a height that is not a number.
+    let store = temp_store("merge-bar-bad-value");
+    std::fs::write(store.bar_path(), "height = \"tall\"\n").unwrap();
+
+    // Act
+    let bar = store.merge_missing_bar_widgets();
+
+    // Assert
+    assert_eq!(bar.height, BarConfig::default().height);
+    let hinted = format!("height = \"tall\"\n{BAR_MOUSE_HINT_SNIPPET}");
+    assert_eq!(contents(&store.bar_path()), hinted);
 }

@@ -153,7 +153,8 @@ modifiers = ["alt", "shift"]
 ```
 
 Then restart the daemon. The status bar shows a red **PAUSED** indicator while
-hotkeys are suspended.
+hotkeys are suspended. Pausing pauses the hotkeys only: clicks and the wheel
+on the bar keep working.
 
 ## Key Name Resolution
 
@@ -207,6 +208,21 @@ Focus navigates spatially; Move swaps or transfers windows in the same
 direction. Alt+<number> switches to workspace N on the focused monitor;
 Alt+Shift+<number> sends the focused window to workspace N. Alt+N cycles
 through available tiling layouts on the current workspace.
+
+`goto-workspace-next` and `goto-workspace-prev` step to the workspace after or
+before the one on screen. They have no default binding, so a binding of its
+own adds them:
+
+```toml
+[[keybinding]]
+action = "goto-workspace-next"
+key = "Right"
+modifiers = ["alt", "ctrl"]
+```
+
+Past the last workspace they stop, or go round to the first with
+`[workspaces] wrap = true` in `config.toml` (see
+[workspaces.md](workspaces.md)).
 
 ## Tests
 

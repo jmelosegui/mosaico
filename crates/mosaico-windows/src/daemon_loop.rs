@@ -1,3 +1,4 @@
+use std::rc::Rc;
 use std::sync::mpsc;
 
 use mosaico_core::bar::BarManager;
@@ -13,6 +14,7 @@ use crate::tiling::{TilingManager, Win32Platform};
 
 use super::daemon_frames;
 use super::daemon_inputs::Inputs;
+use super::daemon_loop_bar::ChannelSink;
 use super::daemon_loop_run;
 use super::daemon_threads;
 use super::daemon_types::DaemonMsg;
@@ -43,6 +45,8 @@ pub(super) fn daemon_loop(pipe_name: &str, store: &ConfigStore) -> Result<()> {
 
     let mut current_theme = config.theme.resolve();
 
+    let (tx, rx) = mpsc::channel::<DaemonMsg>();
+
     let bar_config = store.merge_missing_bar_widgets();
     let monitor_rects: Vec<_> = WindowsEnumerator
         .monitors()?
@@ -52,12 +56,11 @@ pub(super) fn daemon_loop(pipe_name: &str, store: &ConfigStore) -> Result<()> {
     let mut bar_mgr = BarManager::new(
         Box::new(Win32BarRenderer),
         Box::new(Win32SystemInfo),
+        Rc::new(ChannelSink(tx.clone())),
         bar_config,
         monitor_rects,
         current_theme,
     );
-
-    let (tx, rx) = mpsc::channel::<DaemonMsg>();
 
     let hidden = Instance::current().map(HiddenFile::for_instance);
     let mut manager = TilingManager::new(Win32Platform::new(), hidden, &config, rules)?;

@@ -41,6 +41,10 @@ impl Desktop for FakePlatform {
         self.shared.desktop.borrow().cursor()
     }
 
+    fn windows_on_screen(&self) -> Vec<WindowId> {
+        self.shared.desktop.borrow().windows_on_screen()
+    }
+
     fn candidate(&self, window: WindowId) -> Option<WindowFacts> {
         self.shared.desktop.borrow().candidate(window)
     }

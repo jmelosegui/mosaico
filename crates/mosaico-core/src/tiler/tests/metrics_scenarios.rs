@@ -17,6 +17,9 @@ use super::metrics_support::{
 };
 use super::*;
 
+#[path = "metrics_bar.rs"]
+mod bar;
+
 /// A scenario: its name, and how to run it.
 pub(super) type Scenario = (&'static str, fn() -> Measured);
 
@@ -51,6 +54,12 @@ pub(super) const SCENARIOS: &[Scenario] = &[
         act(&[Action::GoToWorkspace(2), Action::GoToWorkspace(1)])
     }),
     ("send_to_workspace", || act(&[Action::SendToWorkspace(2)])),
+    (
+        "bar_click_focused_monitor",
+        bar::click_on_the_focused_monitor,
+    ),
+    ("bar_click_other_monitor", bar::click_on_another_monitor),
+    ("bar_scroll_burst", bar::scroll_burst),
     ("config_reload", config_reload),
     ("bar_reserved", || {
         on(four(), |m| m.adjust_work_areas_for_bar(30, &[]))

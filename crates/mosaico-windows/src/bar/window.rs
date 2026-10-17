@@ -1,25 +1,30 @@
-//! One monitor's bar: a layered Win32 popup window.
+//! One monitor's bar: a layered Win32 popup window that can take the
+//! pointer, but never activation.
 
+use std::rc::Rc;
 use std::sync::Once;
 
 use mosaico_core::Rect;
-use mosaico_core::bar::{BarContent, BarSurface};
-use mosaico_core::config::bar::BarConfig;
+use mosaico_core::bar::{BarId, PointerSink};
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
 use windows::Win32::UI::WindowsAndMessaging::{
-    CW_USEDEFAULT, CreateWindowExW, DefWindowProcW, DestroyWindow, HWND_TOP, RegisterClassW,
-    SW_HIDE, SWP_NOACTIVATE, SWP_SHOWWINDOW, SetWindowPos, ShowWindow, WM_CLOSE, WNDCLASSW,
-    WS_EX_LAYERED, WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT, WS_POPUP,
+    CW_USEDEFAULT, CreateWindowExW, DefWindowProcW, DestroyWindow, GWLP_USERDATA, RegisterClassW,
+    SetWindowLongPtrW, WM_CLOSE, WNDCLASSW, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
+    WS_EX_TRANSPARENT, WS_POPUP,
 };
 use windows::core::PCWSTR;
 
-use super::render::render_bar;
+use super::input::BarInput;
 use crate::error::OrPlatform;
 
 /// A status bar overlay for a single monitor.
 pub(super) struct Bar {
-    hwnd: HWND,
-    monitor_rect: Rect,
+    pub(super) hwnd: HWND,
+    pub(super) monitor_rect: Rect,
+    /// What the window procedure reports the pointer with. Boxed, so the
+    /// address the window keeps stays where it is, and kept until the
+    /// window is gone (see `Drop`).
+    pub(super) input: Box<BarInput>,
 }
 
 static REGISTER_CLASS: Once = Once::new();
@@ -67,21 +72,35 @@ unsafe extern "system" fn bar_wnd_proc(
     if msg == WM_CLOSE {
         return LRESULT(0);
     }
+    // SAFETY: this is the window procedure of the bar class, handling one
+    // message on the thread that made the window.
+    if let Some(input) = unsafe { BarInput::of(hwnd) }
+        && let Some(result) = input.handle(hwnd, msg, wparam, lparam)
+    {
+        return result;
+    }
     // SAFETY: DefWindowProcW is the default handler required by WNDPROC.
     unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) }
 }
 
 impl Bar {
     /// Creates a new hidden bar overlay positioned at the top of the
-    /// given monitor work area.
+    /// given monitor work area, letting the pointer through. Once it takes
+    /// the pointer, it reports what the pointer does on it to `sink`, as
+    /// the bar `id`.
     ///
     /// # Errors
     ///
     /// Returns `Err` if the Win32 window could not be created.
-    pub(super) fn new(monitor_work_area: Rect) -> mosaico_core::Result<Self> {
+    pub(super) fn new(
+        id: BarId,
+        monitor_work_area: Rect,
+        sink: Rc<dyn PointerSink>,
+    ) -> mosaico_core::Result<Self> {
         ensure_class_registered();
 
-        let ex = WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT;
+        // `WS_EX_NOACTIVATE`: a click on the bar leaves focus where it is.
+        let ex = WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE;
         // SAFETY: CreateWindowExW creates a layered popup window for the
         // bar overlay. The class name pointer is valid for the process
         // lifetime (static array).
@@ -103,56 +122,28 @@ impl Bar {
         }
         .or_platform("create a bar window")?;
 
+        let input = Box::new(BarInput::new(id, sink));
+        // SAFETY: the window keeps the address of `input`, which the bar
+        // owns and keeps until the window no longer has it (see `Drop`).
+        unsafe {
+            SetWindowLongPtrW(hwnd, GWLP_USERDATA, std::ptr::from_ref(&*input) as isize);
+        }
         Ok(Self {
             hwnd,
             monitor_rect: monitor_work_area,
+            input,
         })
-    }
-}
-
-impl BarSurface for Bar {
-    fn draw(&mut self, config: &BarConfig, content: &BarContent) -> mosaico_core::Result<()> {
-        let x = self.monitor_rect.x;
-        let y = self.monitor_rect.y;
-        let w = self.monitor_rect.width;
-        let h = config.height;
-
-        let rendered = render_bar(self.hwnd, x, y, w, h, config, content);
-
-        // SAFETY: SetWindowPos positions and shows the bar overlay.
-        // The HWND is owned by this struct.
-        let shown = unsafe {
-            SetWindowPos(
-                self.hwnd,
-                Some(HWND_TOP),
-                x,
-                y,
-                w,
-                h,
-                SWP_NOACTIVATE | SWP_SHOWWINDOW,
-            )
-        }
-        .or_platform("show the bar");
-
-        rendered.and(shown)
-    }
-
-    fn hide(&mut self) -> mosaico_core::Result<()> {
-        // SAFETY: ShowWindow hides the bar overlay owned by this struct.
-        // What it returns is whether the bar was visible before, not
-        // whether hiding worked, so there is nothing to report.
-        unsafe {
-            let _ = ShowWindow(self.hwnd, SW_HIDE);
-        }
-        Ok(())
     }
 }
 
 impl Drop for Bar {
     fn drop(&mut self) {
-        // SAFETY: DestroyWindow cleans up the bar overlay. The HWND is
-        // exclusively owned by this struct and not used after drop.
+        // SAFETY: the window forgets `input` first, so nothing it handles
+        // while it is destroyed reaches it, then DestroyWindow cleans up
+        // the bar overlay. The HWND is exclusively owned by this struct
+        // and not used after drop.
         unsafe {
+            SetWindowLongPtrW(self.hwnd, GWLP_USERDATA, 0);
             let _ = DestroyWindow(self.hwnd);
         }
     }

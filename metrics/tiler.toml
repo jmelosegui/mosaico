@@ -1,5 +1,23 @@
 # Measured by `cargo xtask metrics --bless`. A change here comes from a new measurement.
 
+[bar_click_focused_monitor]
+border_renders = 1
+calls = 6
+drop_border = 1
+focus = 1
+hide = 1
+show = 1
+show_border = 2
+
+[bar_click_other_monitor]
+border_renders = 1
+calls = 6
+drop_border = 1
+focus = 1
+hide = 1
+show = 1
+show_border = 2
+
 [bar_reserved]
 border_renders = 4
 calls = 14
@@ -8,6 +26,15 @@ move_cursor = 1
 place = 4
 repaint = 4
 show_border = 4
+
+[bar_scroll_burst]
+border_renders = 1
+calls = 6
+drop_border = 1
+focus = 1
+hide = 1
+show = 1
+show_border = 2
 
 [close_one_of_4]
 border_renders = 2

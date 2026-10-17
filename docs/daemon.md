@@ -42,9 +42,10 @@ community rules.
 | `crates/mosaico-windows/src/daemon_ipc.rs` | `ipc_loop()` -- the IPC listener |
 | `crates/mosaico-windows/src/daemon_types.rs` | `DaemonMsg` |
 | `crates/mosaico-windows/src/daemon_loop_run.rs` | The main loop: waits for messages and runs the scheduler's steps |
-| `crates/mosaico-windows/src/daemon_loop_task.rs` | `Task` -- every `DaemonMsg` except a window event or a frame, as the main loop runs it |
+| `crates/mosaico-windows/src/daemon_loop_task.rs` | `Task` -- every `DaemonMsg` except a window event or a frame, as the main loop runs it, and `run()`, which runs one |
+| `crates/mosaico-windows/src/daemon_loop_bar.rs` | `ChannelSink`, the `PointerSink` the bars report to; `handle_pointer()` and `apply_wheel()` -- what clicks and the wheel on the bars ask for |
 | `crates/mosaico-windows/src/daemon_loop_pump.rs` | `pump_thread_messages()`, `PUMP_INTERVAL` -- keeps the bar and border windows responsive |
-| `crates/mosaico-windows/src/daemon_loop_commands.rs` | `carry_out()`, `handle_action()`, `handle_command()` -- hotkey actions and CLI commands |
+| `crates/mosaico-windows/src/daemon_loop_commands.rs` | `carry_out()`, `handle_command()` -- actions from hotkeys, the CLI and the bars, and CLI commands |
 | `crates/mosaico-windows/src/daemon_loop_handlers.rs` | `handle_event()`, `handle_reload()`, `handle_tick()` -- window events, config reloads and the bar's tick |
 | `crates/mosaico-windows/src/daemon_threads.rs` | Starts the bridge, IPC, config watcher, tick, version check and rules download threads |
 | `crates/mosaico-windows/src/daemon_frames.rs` | `start()` -- starts the frame pacer, or logs why it cannot and turns transitions off |
@@ -65,6 +66,8 @@ community rules.
   - `Frame(FrameToken)` -- a display frame from the frame pacer, while
     windows move
   - `Action(Action)` -- user action from hotkey
+  - `BarPointer(BarId, PointerEvent)` -- what the pointer did on a bar, from
+    the bar's window procedure
   - `Command(Command, ResponseSender)` -- CLI command from IPC with reply channel
   - `Reload(Box<ConfigReload>)` -- validated config change from file watcher
   - `Tick` -- 1-second timer for bar widget refresh
@@ -120,10 +123,11 @@ order, it:
 3. Load `keybindings.toml`, adding the default bindings it lacks, and the
    window rules
 4. Resolve the current theme from `config.theme`
-5. Load `bar.toml`, adding the default widgets it lacks, and create
-   `BarManager` with `Win32BarRenderer`, `Win32SystemInfo`, the monitor rects
-   and the theme
-6. Create the unified daemon channel
+5. Create the unified daemon channel
+6. Load `bar.toml`, adding the default widgets it lacks and a comment
+   block about its `[mouse]` section, and create `BarManager` with
+   `Win32BarRenderer`, `Win32SystemInfo`, a `ChannelSink` on the daemon
+   channel, the monitor rects and the theme
 7. Create the core `TilingManager` on `Win32Platform`, with the config, the
    rules and the instance's hidden-window record
 8. Adjust work areas for bar height on monitors that display a bar, and draw
@@ -151,8 +155,13 @@ order, it:
 
 The main thread waits for messages in slices of at most 50 ms
 (`PUMP_INTERVAL`) and drains its own Win32 message queue between them, so
-the bar and border windows it owns never look hung. Each time it is about to
-wait, it asks `mosaico_core::daemon::Scheduler` how long it may wait. When
+the bar and border windows it owns never look hung. Draining the queue is
+also when the bars' window procedures run and report what the pointer did on
+them, as `DaemonMsg::BarPointer` messages on the daemon channel, so a click
+can wait up to `PUMP_INTERVAL`, and can run after a key pressed just after
+it. Each time it is about to wait, it asks
+`mosaico_core::daemon::Scheduler` how long it may wait, giving it when the
+wheel's turns on a bar are due (`BarManager::wheel_due()`). When
 the wait ends, it hands what ended it (the messages that were queued, or a
 timeout) to the scheduler with the current time, and runs the steps it gets
 back, in order:
@@ -186,13 +195,24 @@ back, in order:
    a change that settles meanwhile is rebuilt for right after it.
 3. **Run each task**, that is every message other than a window event or a
    display frame, in arrival order and ahead of the window events that
-   arrived with it, so hotkeys and commands stay responsive while windows
-   flood the queue.
+   arrived with it, so hotkeys, commands and the pointer on the bars stay
+   responsive while windows flood the queue. What the pointer does on a bar
+   is input, like a key; hovering is not reported at all.
 4. **Handle the batch's window events** in order, then refresh the bar once.
    Each window keeps only its last `LocationChanged` and its last
    `TitleChanged` of the batch, which can turn hundreds of events into a
-   handful.
-5. **Take the frame step** (`TilingManager::frame()`), which moves the
+   handful. A `LocationChanged` alone refreshes the bar only when the tiler
+   saw a window on screen go in or out of maximized or fullscreen
+   (`TilingManager::take_bars_changed()`), which decides whether the bar
+   lets the pointer through: maximizing and restoring report nothing else.
+5. **Apply the wheel** (`daemon_loop_bar::apply_wheel()`): once the wheel
+   has been quiet over a bar for `bar::WHEEL_QUIET` (120 ms), carry out the
+   workspace switches its turns add up to, which `BarManager::take_wheel()`
+   says. It comes after the tasks and events of the wake, so a turn or a
+   click that came with them counts first, and before the frame step. Like
+   input, it ends the wait, so the time the switch takes never counts as
+   quiet.
+6. **Take the frame step** (`TilingManager::frame()`), which moves the
    windows of transitions on: once per wake that brought display frames,
    however many, and once the wait reaches the earliest end of a motion
    after the last frame step (`Scheduler::last_frame_step`), which
@@ -214,17 +234,23 @@ back, in order:
 Input that ends a wait only finds the flush and the rebuild that were due
 when the wait began: an input message that arrives during the quiet window
 ends it without a flush, and the next wait starts the window over. The frame
-step is found by the time the wait ended, so a wake for input after a
-motion's end still takes it. The scheduler never reads the clock itself, so
-its decisions are unit tested with a fake one.
+and wheel steps are found by the time the wait ended, so a wake for input
+after a motion's end, or after the wheel went quiet, still takes them. The
+scheduler never reads the clock itself, so its decisions are unit tested
+with a fake one.
 
 Tasks are dispatched like this:
 
 - `DaemonMsg::Action(action)` -- carried out by `carry_out()` in
   `daemon_loop_commands.rs`: `toggle-pause` pauses or resumes the hotkeys,
   `retile` re-reads the work areas before retiling, and every other action
-  goes to `TilingManager::handle_action()`. Then the bar is updated, and a
-  failure is logged
+  goes to `TilingManager::handle_action_from()`, from `Origin::Focused`.
+  Then the bar is updated, and a failure is logged
+- `DaemonMsg::BarPointer(bar, event)` -- handed to `BarManager::pointer()`
+  with the time; the action a click asks for, from `Origin::Bar(monitor)`, is
+  carried out by `carry_out()` the same way, and a wheel turn waits for
+  step 5. Pausing pauses the hotkeys only, so the bars keep working while
+  they are paused
 - `DaemonMsg::Command(cmd, reply)` -- handles `Stop` (breaks loop),
   `Status` (replies with window count), `Action` (carried out the same way,
   `toggle-pause` included; replies `failed` with the reason when the action
@@ -247,7 +273,7 @@ Window events (`DaemonMsg::Event`) go to `TilingManager::handle_event()` in
 step 4, except a work area change, which resets and adjusts the work areas
 for the bar, and a display change, which the scheduler takes out of the
 batch for step 2. Display frames (`DaemonMsg::Frame`) fold into the frame
-step of step 5. The loop wakes as soon as any message arrives.
+step of step 6. The loop wakes as soon as any message arrives.
 
 ## Input Threads
 

@@ -119,6 +119,8 @@ mosaico action toggle-monocle
 mosaico action close-focused
 mosaico action cycle-layout
 mosaico action go-to-workspace <1-8>
+mosaico action go-to-workspace-next
+mosaico action go-to-workspace-prev
 mosaico action send-to-workspace <1-8>
 ```
 
@@ -126,7 +128,9 @@ These are the same actions triggered by keyboard shortcuts, useful for
 scripting or integration with other tools. In `keybindings.toml` the
 workspace actions carry the number in their name instead:
 `goto-workspace-N` and `send-to-workspace-N` (see
-[Keyboard Bindings](keybindings.md)).
+[Keyboard Bindings](keybindings.md)). The steps to the next and previous
+workspace also go by their key binding names, `goto-workspace-next` and
+`goto-workspace-prev`.
 
 ## `mosaico pause` / `mosaico unpause`
 

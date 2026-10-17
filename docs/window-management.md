@@ -270,7 +270,8 @@ The contract, in the traits' docs, spells out what callers rely on:
 is applied, against the `Desktop` as it is then: a window already in place is
 left alone unless it is maximized, a placement is followed by a repaint even
 when the move fails, and when the pointer follows focus it goes to the center
-of the window. Borders and window corners are not window changes: they go
+of the window. A step that answers the pointer, such as a click on the bar,
+asks for no pointer move at all (see [actions.md](actions.md#origins)). Borders and window corners are not window changes: they go
 through `Decorations` and `tiler::apply_decoration_effect` (see
 [focus-border.md](focus-border.md#contract)). `debug move` places windows
 through `WindowControl::place` as well.

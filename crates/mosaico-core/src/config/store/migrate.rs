@@ -6,6 +6,7 @@ use super::file_error;
 use super::migrate_borders::migrate_border_colors;
 use super::migrate_workspaces::migrate_workspaces_section;
 use super::report;
+use super::write_back::write_back;
 
 /// Detects and applies all legacy -> current schema migrations:
 ///
@@ -14,8 +15,9 @@ use super::report;
 ///
 /// On detection of any legacy pattern: backs up the original file
 /// (aborting if the backup write fails), rewrites the config in place
-/// using `toml_edit` so comments and formatting survive, and returns
-/// the new content for the caller to parse.
+/// using `toml_edit` so comments and formatting survive, in the file's
+/// own line endings and with its byte order mark (see `write_back.rs`),
+/// and returns the new content for the caller to parse.
 ///
 /// Returns `Ok(None)` when no migration was needed.
 pub(super) fn migrate_config_if_needed(path: &Path, content: &str) -> Result<Option<String>> {
@@ -57,8 +59,7 @@ pub(super) fn migrate_config_if_needed(path: &Path, content: &str) -> Result<Opt
         applied.push("[borders] focused/monocle -> [borders.colors]");
     }
 
-    let new_content = doc.to_string();
-    std::fs::write(path, &new_content).map_err(|e| {
+    let new_content = write_back(path, content, &doc.to_string()).map_err(|e| {
         file_error(
             path,
             format_args!("could not write the migrated config: {e}"),

@@ -22,7 +22,8 @@ impl Tiler {
     /// the platform is asked to move focus.
     ///
     /// `from_mouse` is set when the user pointed at the window, in which
-    /// case the pointer is already there and is not moved.
+    /// case the pointer is already there and is not moved. Nor is it in a
+    /// step that answers the pointer elsewhere, such as a click on a bar.
     pub(super) fn focus_window(&mut self, plan: &mut Plan, window: WindowId, from_mouse: bool) {
         self.take_focus(plan, window, from_mouse);
         self.update_border(plan);
@@ -35,18 +36,47 @@ impl Tiler {
         self.focused_maximized = plan.is_maximized(window);
         plan.emit(Effect::Focus {
             window,
-            move_cursor: self.mouse_follows_focus && !from_mouse,
+            move_cursor: self.mouse_follows_focus && !from_mouse && !plan.from_pointer,
         });
     }
 
     /// Puts the pointer back on the focused window after it moved, when
-    /// the pointer follows focus.
+    /// the pointer follows focus and the step does not answer the pointer.
     pub(super) fn center_cursor_on_focused(&self, plan: &mut Plan) {
         if self.mouse_follows_focus
+            && !plan.from_pointer
             && let Some(window) = self.focused_window
         {
             plan.emit(Effect::CenterCursor { window });
         }
+    }
+
+    /// Moves focus to monitor `mon`, to the window its workspace on screen
+    /// takes focus back with ([`focus_target`]), or parks focus there when
+    /// the workspace is empty. The workspace focus leaves remembers its
+    /// focused window, for coming back.
+    pub(super) fn enter_monitor(&mut self, plan: &mut Plan, mon: usize) {
+        if mon >= self.monitors.len() {
+            return;
+        }
+        let focused = self.focused_window;
+        if let Some(ws) = self
+            .monitors
+            .get_mut(self.focused_monitor)
+            .map(|m| m.active_ws_mut())
+            && focused.is_some_and(|w| ws.contains(w))
+        {
+            ws.set_last_focused(focused);
+        }
+        self.focused_monitor = mon;
+        match focus_target(self.monitors[mon].active_ws()) {
+            Some(window) => self.focus_window(plan, window, false),
+            None => {
+                self.focused_window = None;
+                self.update_border(plan);
+            }
+        }
+        self.park_focus_if_empty(plan);
     }
 
     /// Focuses the first window on the first monitor at startup.

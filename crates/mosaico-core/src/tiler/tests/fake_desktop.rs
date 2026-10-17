@@ -79,6 +79,27 @@ impl Desktop for FakeDesktop {
         self.cursor
     }
 
+    /// The windows shown, not minimized, not cloaked and not the shell's,
+    /// front to back, as a platform lists them: in the stacking order, and
+    /// after it, in the order of their ids, the windows it does not hold.
+    fn windows_on_screen(&self) -> Vec<WindowId> {
+        let mut rest: Vec<WindowId> = (self.windows.keys())
+            .filter(|window| !self.stack.contains(window))
+            .copied()
+            .collect();
+        rest.sort_by_key(|window| window.raw());
+        let on_screen = |window: &WindowId| {
+            (self.windows.get(window))
+                .is_some_and(|w| w.visible && !w.minimized && !w.cloaked && !w.shell)
+        };
+        self.stack
+            .iter()
+            .chain(&rest)
+            .copied()
+            .filter(on_screen)
+            .collect()
+    }
+
     fn candidate(&self, window: WindowId) -> Option<WindowFacts> {
         self.windows
             .get(&window)

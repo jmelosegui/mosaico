@@ -7,6 +7,7 @@
 
 mod desktop;
 mod inspect;
+mod on_screen;
 mod platform;
 mod views;
 

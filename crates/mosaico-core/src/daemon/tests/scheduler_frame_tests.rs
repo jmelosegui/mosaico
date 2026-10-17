@@ -35,11 +35,11 @@ fn a_frame_does_not_start_the_quiet_window_over() {
     let t0 = Instant::now();
     let mut scheduler = Scheduler::default();
     let held = Some(t0);
-    scheduler.begin_wait(held, None, t0);
+    scheduler.begin_wait(held, None, None, t0);
 
     // Act -- a frame comes 10 ms into the quiet window.
     let steps = scheduler.step(received(vec![frame()]), t0 + ms(10));
-    let wait = scheduler.begin_wait(held, None, t0 + ms(11));
+    let wait = scheduler.begin_wait(held, None, None, t0 + ms(11));
 
     // Assert
     assert_eq!(steps, vec![Step::Frame]);
@@ -51,7 +51,7 @@ fn a_frame_finds_what_is_due_by_the_time_it_arrives() {
     // Arrange -- the loop gets to the frame after the quiet window.
     let t0 = Instant::now();
     let mut scheduler = Scheduler::default();
-    scheduler.begin_wait(Some(t0), None, t0);
+    scheduler.begin_wait(Some(t0), None, None, t0);
 
     // Act
     let steps = scheduler.step(received(vec![frame()]), t0 + ms(30));
@@ -66,7 +66,7 @@ fn a_display_change_that_settles_while_frames_arrive_is_rebuilt_for() {
     let t0 = Instant::now();
     let mut scheduler = Scheduler::default();
     scheduler.step(display_changed(), t0);
-    scheduler.begin_wait(None, None, t0 + SETTLE - ms(5));
+    scheduler.begin_wait(None, None, None, t0 + SETTLE - ms(5));
 
     // Act -- frames are all that arrives once the change has settled.
     let steps = scheduler.step(received(vec![frame()]), t0 + SETTLE + ms(1));

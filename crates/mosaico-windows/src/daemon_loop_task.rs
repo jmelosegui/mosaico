@@ -3,16 +3,25 @@
 //! which it folds with the others of its wake into one frame step.
 
 use mosaico_core::Action;
-use mosaico_core::config::ConfigReload;
+use mosaico_core::action::Origin;
+use mosaico_core::bar::{BarId, BarManager, PointerEvent};
+use mosaico_core::config::{ConfigReload, Theme};
 use mosaico_core::daemon::Message;
 use mosaico_core::ipc::Command;
 
+use crate::tiling::TilingManager;
+
+use super::daemon_inputs::Inputs;
+use super::daemon_loop_commands::{self, carry_out};
 use super::daemon_types::{DaemonMsg, ResponseSender};
+use super::{daemon_loop_bar, daemon_loop_handlers};
 
 /// A daemon message that is not a window event or a display frame.
 pub(super) enum Task {
     /// A user action from hotkeys.
     Action(Action),
+    /// What the pointer did on a bar. It counts as input, like a key.
+    BarPointer(BarId, PointerEvent),
     /// A CLI command with a callback to send the response.
     Command(Command, ResponseSender),
     /// A validated config reload from the file watcher.
@@ -32,9 +41,77 @@ pub(super) fn message(msg: DaemonMsg) -> Message<Task> {
         DaemonMsg::Event(event) => Message::Event(event),
         DaemonMsg::Frame(_token) => Message::Frame,
         DaemonMsg::Action(action) => Message::Task(Task::Action(action)),
+        DaemonMsg::BarPointer(bar, event) => Message::Task(Task::BarPointer(bar, event)),
         DaemonMsg::Command(command, reply) => Message::Task(Task::Command(command, reply)),
         DaemonMsg::Reload(reload) => Message::Task(Task::Reload(reload)),
         DaemonMsg::Tick => Message::Task(Task::Tick),
         DaemonMsg::IpcFailed => Message::Task(Task::IpcFailed),
     }
+}
+
+/// Runs `task`, and says whether the daemon should stop: once a `Stop`
+/// command has been answered, or when the IPC listener died.
+pub(super) fn run(
+    task: Task,
+    manager: &mut TilingManager,
+    bar_mgr: &mut BarManager,
+    current_theme: &mut Theme,
+    inputs: &mut Inputs,
+    hotkeys_paused: &mut bool,
+    get_update: &dyn Fn() -> String,
+) -> bool {
+    match task {
+        Task::Action(action) => {
+            // Nobody waits for the answer of a hotkey, and `carry_out` has
+            // logged a failure already.
+            let origin = Origin::Focused;
+            let _ = carry_out(
+                action,
+                origin,
+                manager,
+                bar_mgr,
+                inputs,
+                hotkeys_paused,
+                get_update,
+            );
+        }
+        Task::BarPointer(bar, event) => {
+            daemon_loop_bar::handle_pointer(
+                bar,
+                event,
+                manager,
+                bar_mgr,
+                inputs,
+                hotkeys_paused,
+                get_update,
+            );
+        }
+        Task::Command(command, reply_tx) => {
+            if let Some(response) = daemon_loop_commands::handle_command(
+                &command,
+                manager,
+                bar_mgr,
+                inputs,
+                hotkeys_paused,
+                get_update,
+            ) {
+                let _ = reply_tx.send(response);
+                return matches!(command, Command::Stop);
+            }
+        }
+        Task::Reload(reload) => daemon_loop_handlers::handle_reload(
+            *reload,
+            manager,
+            bar_mgr,
+            current_theme,
+            inputs,
+            *hotkeys_paused,
+            get_update,
+        ),
+        Task::Tick => {
+            daemon_loop_handlers::handle_tick(manager, bar_mgr, *hotkeys_paused, get_update);
+        }
+        Task::IpcFailed => return true,
+    }
+    false
 }

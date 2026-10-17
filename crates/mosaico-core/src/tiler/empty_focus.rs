@@ -34,6 +34,8 @@
 
 use std::time::{Duration, Instant};
 
+use crate::Rect;
+
 use super::MonitorState;
 
 /// How long a claim survives when nothing resolves it.
@@ -73,15 +75,23 @@ pub(super) enum ClaimVerdict {
     Ignore,
 }
 
-/// Returns the monitor whose work area contains the point.
+/// Returns the monitor whose work area contains the point, or the strip
+/// above it that the bar is reserved in.
 ///
 /// Used to locate the pointer, so a focus event can be attributed to a
-/// person clicking rather than to the OS restoring focus.
+/// person clicking rather than to the OS restoring focus. A person who
+/// just clicked a bar is pointing at that bar's monitor.
 pub(super) fn monitor_at_point(monitors: &[MonitorState], x: i32, y: i32) -> Option<usize> {
     monitors.iter().position(|mon| {
-        let area = &mon.work_area;
-        x >= area.x && x < area.x + area.width && y >= area.y && y < area.y + area.height
+        let (area, os) = (mon.work_area, mon.os_work_area);
+        let strip = Rect::new(os.x, os.y, os.width, area.y - os.y);
+        holds(&area, x, y) || holds(&strip, x, y)
     })
+}
+
+/// Whether `area` contains the point.
+fn holds(area: &Rect, x: i32, y: i32) -> bool {
+    x >= area.x && x < area.x + area.width && y >= area.y && y < area.y + area.height
 }
 
 /// Decides whether a focus event may move `focused_monitor`.

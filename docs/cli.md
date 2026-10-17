@@ -15,6 +15,7 @@ dedicated handler module under `crates/mosaico/src/commands/`.
 | File | Purpose |
 |------|---------|
 | `crates/mosaico/src/main.rs` | Top-level CLI definition and dispatch |
+| `crates/mosaico/src/action_commands.rs` | `ActionCommands`, `DirectionCommands`: the `action` subcommands and the action each names |
 | `crates/mosaico/src/commands/mod.rs` | Module declarations for all commands |
 | `crates/mosaico/src/commands/init.rs` | `mosaico init` handler |
 | `crates/mosaico/src/commands/start.rs` | `mosaico start` handler |
@@ -85,7 +86,8 @@ source, Ctrl+C and window titles from `platform::event_source()`,
   `Debug`, `Daemon`
 - `ActionCommands` -- enum: `Focus { direction }`, `Move { direction }`,
   `Retile`, `ToggleMonocle`, `CloseFocused`, `CycleLayout`,
-  `GoToWorkspace { n }`, `SendToWorkspace { n }`
+  `GoToWorkspace { n }`, `GoToWorkspaceNext`, `GoToWorkspacePrev`,
+  `SendToWorkspace { n }`; `action()` gives the `Action` each names
 - `DirectionCommands` -- enum: `Left`, `Right`, `Up`, `Down`
 - `DebugCommands` -- enum for debug sub-subcommands: `List`, `Events`, `Move`,
   `State`
@@ -239,12 +241,17 @@ mosaico action toggle-monocle
 mosaico action close-focused
 mosaico action cycle-layout
 mosaico action go-to-workspace 3
+mosaico action go-to-workspace-next
+mosaico action go-to-workspace-prev
 mosaico action send-to-workspace 5
 ```
 
 The workspace number is an argument here. Key bindings name the same
 actions with the number in the name instead: `goto-workspace-N` and
-`send-to-workspace-N` (see [actions.md](actions.md#serialization)).
+`send-to-workspace-N` (see [actions.md](actions.md#serialization)). The steps
+to the next and previous workspace also go by the names key bindings use,
+`goto-workspace-next` and `goto-workspace-prev`. They act on the focused
+monitor and follow `[workspaces] wrap`.
 
 It exits with status 0 when the daemon carried the action out, and also when
 there was nothing to act on (focusing left at the left edge, closing with

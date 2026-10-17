@@ -71,6 +71,11 @@ impl Desktop for Win32Desktop {
         Some((point.x, point.y))
     }
 
+    /// Walks the top-level windows, see `on_screen.rs`.
+    fn windows_on_screen(&self) -> Vec<WindowId> {
+        super::on_screen::windows_on_screen()
+    }
+
     /// Rules out windows that are not application windows, cloaked
     /// windows (on another virtual desktop, or UWP frames that are not
     /// really there), and windows of elevated processes when mosaico is
