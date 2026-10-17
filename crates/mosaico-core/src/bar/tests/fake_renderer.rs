@@ -34,7 +34,7 @@ pub(in crate::bar) enum BarEvent {
 /// Clones share one record, so a test can keep a clone while the code
 /// under test owns another.
 #[derive(Debug, Clone, Default)]
-pub(in crate::bar) struct FakeRenderer {
+pub(crate) struct FakeRenderer {
     pub(super) events: Rc<RefCell<Vec<BarEvent>>>,
     /// Areas whose bar cannot be made.
     failing: Rc<RefCell<Vec<Rect>>>,
@@ -71,7 +71,7 @@ impl FakeRenderer {
     }
 
     /// The id each bar was made with so far, in order.
-    pub(in crate::bar) fn ids(&self) -> Vec<BarId> {
+    pub(crate) fn ids(&self) -> Vec<BarId> {
         self.ids.borrow().clone()
     }
 
@@ -94,7 +94,7 @@ impl FakeRenderer {
 
     /// The renderer to hand the code under test. Dropping it is recorded,
     /// unlike dropping the test's own clone.
-    pub(in crate::bar) fn boxed(&self) -> Box<dyn BarRenderer> {
+    pub(crate) fn boxed(&self) -> Box<dyn BarRenderer> {
         Box::new(OwnedRenderer(self.clone()))
     }
 }

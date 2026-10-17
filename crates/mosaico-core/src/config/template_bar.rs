@@ -40,6 +40,16 @@ background_opacity = 0\n\
 # Example: monitors = [0] shows the bar only on the primary monitor.\n\
 monitors = []\n\
 \n\
+# What the mouse does on the bar: a click on a workspace number goes to that\n\
+# workspace, on the bar's own monitor (every monitor in global mode).\n\
+[mouse]\n\
+# Whether the bar takes clicks and the wheel. false lets the pointer\n\
+# through to the windows under the bar.\n\
+enabled = true\n\
+# What scrolling over the bar does: \"workspaces\" steps through the\n\
+# workspaces of its monitor, \"none\" does nothing.\n\
+scroll = \"workspaces\"\n\
+\n\
 # Override individual theme colors (hex or named: blue, green, mauve, etc.).\n\
 # [colors]\n\
 # background = \"#1e1e2e\"\n\

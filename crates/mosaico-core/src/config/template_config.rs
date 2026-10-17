@@ -33,6 +33,10 @@ default = "bsp"
 # "per-monitor" (default): only the focused monitor switches.
 # "global": all monitors switch in lockstep, like Windows virtual desktops.
 mode = "per-monitor"
+# Whether stepping past the last workspace, with goto-workspace-next or the
+# wheel over the bar, goes back to the first, and before the first to the
+# last. false stops at either end.
+wrap = false
 
 # Per-workspace layout overrides (workspace number 1-8).
 # Available layouts: "bsp", "vertical-stack", "three-column".

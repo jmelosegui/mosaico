@@ -369,8 +369,8 @@ need nothing from phase 34; 35.3 needs `MoveStarted` (34.2); 35.4 needs 35.3.
       in keybindings and the CLI
 - [x] Windows: input without activation, capture, the cursor, minimum alpha,
       click-through switching; tests on hidden bar windows of the test's own
-- [ ] `[mouse] enabled` and `scroll` in bar.toml, templates and hints
-- [ ] Metrics scenarios: a click on the focused and on another monitor's bar, and
+- [x] `[mouse] enabled` and `scroll` in bar.toml, templates and hints
+- [x] Metrics scenarios: a click on the focused and on another monitor's bar, and
       a scroll burst
 - [ ] Check wheel input with "Scroll inactive windows when I hover over them"
       off, and document what it needs

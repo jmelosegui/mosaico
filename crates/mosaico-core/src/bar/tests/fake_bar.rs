@@ -59,7 +59,7 @@ impl Drop for FakeBar {
 
 /// A sink that drops what the bars report: the manager is handed the
 /// pointer's input directly in the tests.
-pub(in crate::bar) struct NoPointer;
+pub(crate) struct NoPointer;
 
 impl PointerSink for NoPointer {
     fn send(&self, _bar: BarId, _event: PointerEvent) {}

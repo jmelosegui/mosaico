@@ -49,4 +49,4 @@ pub use wheel::{WHEEL_QUIET, WheelSteps};
 
 #[cfg(test)]
 #[path = "tests/fakes.rs"]
-mod fakes;
+pub(crate) mod fakes;

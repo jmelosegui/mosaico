@@ -1,6 +1,7 @@
 use crate::LayoutKind;
 use crate::config::store::merge_animations::ANIMATIONS_HINT_SNIPPET;
 use crate::config::store::merge_unfocused::UNFOCUSED_BORDER_HINT_SNIPPET;
+use crate::config::store::merge_wrap::WRAP_INLINE_PREFIX;
 use crate::config::store::test_support::{contents, file_names, temp_store};
 use crate::config::{Config, WorkspaceMode};
 
@@ -106,7 +107,7 @@ fn an_active_colors_table_gets_the_unfocused_key_even_if_a_comment_names_it() {
 fn a_config_with_every_section_gains_nothing() {
     // Arrange -- the near miss: a file that already has all of it.
     let store = temp_store("merge-sections-current");
-    let original = "[workspaces]\nmode = \"global\"\n\n[borders.colors]\nunfocused = \"none\"\n\n[animations]\nenabled = true\n";
+    let original = "[workspaces]\nmode = \"global\"\nwrap = true\n\n[borders.colors]\nunfocused = \"none\"\n\n[animations]\nenabled = true\n";
     std::fs::write(store.config_path(), original).unwrap();
 
     // Act
@@ -114,5 +115,23 @@ fn a_config_with_every_section_gains_nothing() {
 
     // Assert
     assert_eq!(contents(&store.config_path()), original);
+    assert_eq!(file_names(&store), ["config.toml"]);
+}
+
+#[test]
+fn a_workspaces_section_from_before_wrap_gains_the_key_in_place() {
+    // Arrange -- everything else is there already.
+    let store = temp_store("merge-sections-wrap");
+    let workspaces = "[workspaces]\nmode = \"global\"\n";
+    let rest = "\n[borders.colors]\nunfocused = \"none\"\n\n[animations]\nenabled = true\n";
+    std::fs::write(store.config_path(), format!("{workspaces}{rest}")).unwrap();
+
+    // Act
+    store.merge_missing_config_sections();
+
+    // Assert -- under its comment, at the end of the section, with no
+    // backup written.
+    let merged = format!("{workspaces}{WRAP_INLINE_PREFIX}wrap = false\n{rest}");
+    assert_eq!(contents(&store.config_path()), merged);
     assert_eq!(file_names(&store), ["config.toml"]);
 }
