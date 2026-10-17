@@ -8,12 +8,13 @@
 //! monitor, or snapped or maximized there by the system, it goes back to
 //! its slot. One the system maximized on another monitor joins it, and
 //! stays maximized there, and one it rescaled across two monitors has
-//! moved, its size changed or not. A drag that was cancelled or was a
-//! click, one that resized the window, one the tiler did not follow or
-//! that an action, from a key, a command or a bar, or a display change
-//! interrupted, and one whose pointer could not be read are handled as
-//! every drag was before: the window goes back to its slot, or joins the
-//! end of the workspace of the monitor it is on now.
+//! moved, its size changed or not. A window resized by edges that border
+//! splits moves them first (`drag_resize.rs`). A drag that was cancelled
+//! or was a click, one that resized the window otherwise, one the tiler
+//! did not follow or that an action, from a key, a command or a bar, or a
+//! display change interrupted, and one whose pointer could not be read
+//! are handled as every drag was before: the window goes back to its slot,
+//! or joins the end of the workspace of the monitor it is on now.
 
 use crate::WindowId;
 
@@ -33,21 +34,18 @@ impl Tiler {
         let drag = self
             .end_drag(plan)
             .filter(|d| d.window == window && d.decides);
-        let dropped =
-            drag.and_then(|drag| self.drop_target(plan, &drag, pointer).map(|t| (drag, t)));
-        if let Some((drag, target)) = dropped {
-            self.drop_on(plan, window, drag.monitor, target);
-            if self.focused_window == Some(window) {
-                self.focused_maximized = plan.is_maximized(window);
-            }
-            return;
-        }
-        // A window the user just maximized stays maximized; retiling it
-        // would snap it back into the layout.
+        let handled = drag.is_some_and(|drag| {
+            self.move_splits(plan, &drag, pointer) || self.drop_on(plan, &drag, pointer)
+        });
         let maximized = plan.is_maximized(window);
         if self.focused_window == Some(window) {
             self.focused_maximized = maximized;
         }
+        if handled {
+            return;
+        }
+        // A window the user just maximized stays maximized; retiling it
+        // would snap it back into the layout.
         if maximized {
             self.update_border(plan);
         } else {
@@ -83,10 +81,15 @@ impl Tiler {
         }
     }
 
-    /// Puts `window`, dropped as the drag from monitor `from` ends, where
-    /// `target` says, and lays out the monitors it leaves and joins. It
-    /// keeps focus, and the pointer stays where the user dropped it.
-    fn drop_on(&mut self, plan: &mut Plan, window: WindowId, from: usize, target: Target) {
+    /// Puts the window `drag` is about where it lands, dropped with the
+    /// pointer at `pointer`, when the drop decides where, and lays out the
+    /// monitors it leaves and joins. It keeps focus, and the pointer stays
+    /// where the user dropped it. Returns whether the drop decided.
+    fn drop_on(&mut self, plan: &mut Plan, drag: &Drag, pointer: Option<(i32, i32)>) -> bool {
+        let Some(target) = self.drop_target(plan, drag, pointer) else {
+            return false;
+        };
+        let (window, from) = (drag.window, drag.monitor);
         crate::log_info!("drop {} from mon {}: {:?}", window, from, target);
         match target {
             Target::Back => self.apply_layout_on(plan, from),
@@ -115,6 +118,7 @@ impl Tiler {
                 self.update_border(plan);
             }
         }
+        true
     }
 }
 

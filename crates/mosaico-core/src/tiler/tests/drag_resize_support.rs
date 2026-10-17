@@ -1,0 +1,82 @@
+//! What the resize tests share: the user resizing a tiled window by its
+//! edges, and whether a split moved.
+
+use crate::event::{DragStart, Edges, Grab};
+use crate::id::wid;
+use crate::layout::SplitRatios;
+use crate::tiler::tests::Harness;
+use crate::tiler::{Effect, Settings};
+use crate::{Rect, WindowEvent};
+
+/// The right edge of a window, held alone.
+pub(super) const RIGHT: Edges = held(false, false, true, false);
+
+/// The left edge of a window, held alone.
+pub(super) const LEFT: Edges = held(true, false, false, false);
+
+/// Settings with the edges of a window the user resizes moving the splits
+/// they border.
+pub(super) fn resizing() -> Settings {
+    Settings {
+        resize_splits: true,
+        ..Settings::default()
+    }
+}
+
+/// The edges of a window held at once.
+pub(super) const fn held(left: bool, top: bool, right: bool, bottom: bool) -> Edges {
+    Edges {
+        left,
+        top,
+        right,
+        bottom,
+    }
+}
+
+/// The user grabs window `id` by `edges` where it is, which gives it
+/// focus, and resizes it to `rect`, which the window reports, without
+/// letting go.
+pub(super) fn grab_to(h: &mut Harness, id: u64, edges: Edges, rect: Rect) {
+    let (window, start) = (wid(id), h.rect_of(id));
+    h.event(WindowEvent::Focused { window });
+    let start = DragStart {
+        grab: Some(Grab::Edges(edges)),
+        rect: Some(start),
+        maximized: Some(false),
+        pointer: Some(holding(start, edges)),
+    };
+    h.event(WindowEvent::MoveStarted { window, start });
+    h.window(id).rect = rect;
+    h.event(WindowEvent::LocationChanged { window });
+}
+
+/// The user resizes window `id` by `edges` to `rect`, as [`grab_to`]
+/// does, and lets go of it there. Returns what letting go does.
+pub(super) fn resize_to(h: &mut Harness, id: u64, edges: Edges, rect: Rect) -> Vec<Effect> {
+    grab_to(h, id, edges, rect);
+    let pointer = Some(holding(rect, edges));
+    let window = wid(id);
+    h.event(WindowEvent::Moved { window, pointer }).to_vec()
+}
+
+/// Where the pointer holds a window at `rect` by `edges`: on the edge, or
+/// at the corner.
+pub(super) fn holding(rect: Rect, edges: Edges) -> (i32, i32) {
+    let along = |near: bool, far: bool, start: i32, len: i32| match (near, far) {
+        (true, _) => start,
+        (_, true) => start + len - 1,
+        _ => start + len / 2,
+    };
+    let x = along(edges.left, edges.right, rect.x, rect.width);
+    let y = along(edges.top, edges.bottom, rect.y, rect.height);
+    (x, y)
+}
+
+/// Whether the splits of the workspace on screen of the first monitor of
+/// `h` are where the layout puts them unless the user moves them.
+pub(super) fn unmoved(h: &Harness) -> bool {
+    let ws = h.tiler.monitors()[0].active();
+    let mut fresh = SplitRatios::default();
+    (0..ws.len()).for_each(|index| fresh.insert(index, index));
+    *ws.split_ratios() == fresh
+}
