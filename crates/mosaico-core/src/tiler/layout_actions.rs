@@ -50,7 +50,8 @@ impl Tiler {
 
     /// The user's retile: the workspace on screen of every monitor forgets
     /// where the user moved its splits, in all its layouts, so each split
-    /// follows `[layout] ratio` again, and every monitor is laid out again.
+    /// follows `[layout] ratio`, or an equal share down a stack, again, and
+    /// every monitor is laid out again.
     /// The workspaces out of view keep theirs.
     pub(super) fn retile_from_ratio(&mut self, plan: &mut Plan) {
         for mon in &mut self.monitors {
@@ -77,3 +78,11 @@ mod split_tests;
 #[cfg(test)]
 #[path = "tests/split_retile_tests.rs"]
 mod retile_tests;
+
+#[cfg(test)]
+#[path = "tests/split_stack_tests.rs"]
+mod stack_tests;
+
+#[cfg(test)]
+#[path = "tests/split_column_tests.rs"]
+mod column_tests;

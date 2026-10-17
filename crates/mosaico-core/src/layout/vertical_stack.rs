@@ -1,6 +1,7 @@
 use crate::{Rect, WindowId};
 
 use super::Layout;
+use super::column::column_slots;
 
 /// Master/stack layout with one master pane on the left and remaining
 /// windows stacked vertically on the right.
@@ -28,6 +29,21 @@ impl Default for VerticalStackLayout {
 
 impl Layout for VerticalStackLayout {
     fn apply(&self, windows: &[WindowId], work_area: &Rect) -> Vec<(WindowId, Rect)> {
+        self.apply_heights(windows, work_area, None)
+    }
+}
+
+impl VerticalStackLayout {
+    /// Lays out `windows` as [`Layout::apply`] does, with the windows of the
+    /// stack at the heights `stack` gives them: where each but the last
+    /// ends, as a share of the stack without its gaps, or shared equally
+    /// without them.
+    pub fn apply_heights(
+        &self,
+        windows: &[WindowId],
+        work_area: &Rect,
+        stack: Option<&[f64]>,
+    ) -> Vec<(WindowId, Rect)> {
         if windows.is_empty() {
             return Vec::new();
         }
@@ -50,24 +66,14 @@ impl Layout for VerticalStackLayout {
 
         let stack_x = padded.x + master_w + half;
         let stack_w = (padded.width - master_w - half).max(1);
-        let stack_count = windows.len() - 1;
         // Stack slots are separated by a full `gap` so inner spacing matches
         // the outer padding.
-        let slot_h = (padded.height - self.gap * (stack_count as i32 - 1)) / stack_count as i32;
+        let area = Rect::new(stack_x, padded.y, stack_w, padded.height);
+        let slots = column_slots(&area, windows.len() - 1, self.gap, stack);
 
         let mut results = Vec::with_capacity(windows.len());
         results.push((windows[0], master));
-
-        for (i, &window) in windows[1..].iter().enumerate() {
-            let y = padded.y + (i as i32) * (slot_h + self.gap);
-            let h = if i == stack_count - 1 {
-                (padded.y + padded.height - y).max(1)
-            } else {
-                slot_h.max(1)
-            };
-            results.push((window, Rect::new(stack_x, y, stack_w, h)));
-        }
-
+        results.extend(windows[1..].iter().copied().zip(slots));
         results
     }
 }

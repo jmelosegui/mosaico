@@ -120,3 +120,28 @@ fn compute_layout_puts_each_split_where_the_user_moved_it() {
     let widths: Vec<i32> = positions.iter().map(|&(_, rect)| rect.width).collect();
     assert_eq!(widths, [1440, 480]);
 }
+
+#[test]
+fn heights_for_another_number_of_windows_than_the_column_has_are_left_out() {
+    // Arrange -- the master and three windows down the stack, and the
+    // master, three windows on the left and two on the right in three
+    // columns.
+    let (mut stack, mut columns) = (moved(&[1, 2, 3, 4], &[]), moved(&[1, 2, 3, 4, 5, 6], &[]));
+    stack.set_layout_kind(LayoutKind::VerticalStack);
+    columns.set_layout_kind(LayoutKind::ThreeColumn);
+
+    // Act -- two shares for the three of the stack, then three, and two
+    // for the right column, then three.
+    stack.set_heights(1, &[0.5, 0.5]);
+    let left_out = stack.split_ratios().heights(LayoutKind::VerticalStack, 1);
+    stack.set_heights(1, &[0.5, 0.25, 0.25]);
+    columns.set_heights(2, &[0.25, 0.75]);
+    columns.set_heights(2, &[0.25, 0.25, 0.5]);
+
+    // Assert
+    assert_eq!(left_out, None);
+    let shares = stack.split_ratios().heights(LayoutKind::VerticalStack, 1);
+    assert_eq!(shares, Some(vec![0.5, 0.25, 0.25]));
+    let right = columns.split_ratios().heights(LayoutKind::ThreeColumn, 2);
+    assert_eq!(right, Some(vec![0.25, 0.75]));
+}
