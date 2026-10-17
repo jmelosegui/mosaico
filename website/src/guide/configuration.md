@@ -114,6 +114,11 @@ monitors = []            # 0-based monitor indices; empty for all of them
 enabled = true           # Take clicks and the wheel; false keeps the bar click-through
 scroll = "workspaces"    # What scrolling over the bar does: "workspaces" or "none"
 
+[[mouse.click]]          # What a click on a widget runs, over the defaults
+widget = "clock"         # A widget's type
+button = "middle"        # "left", "right" or "middle"
+action = "retile"        # An action on a monitor or the whole daemon
+
 [colors]
 background = "#1e1e2e"   # Hex, or empty for the theme's own
 foreground = "#cdd6f4"

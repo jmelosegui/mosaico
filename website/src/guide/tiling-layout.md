@@ -76,6 +76,10 @@ You can also run:
 mosaico action cycle-layout
 ```
 
+Or click the layout widget on the [status bar](status-bar.md#the-mouse) of
+the monitor you want: a left click cycles its layout, a right click toggles
+monocle there.
+
 The layout change takes effect immediately and all windows are retiled.
 
 ## Configuration

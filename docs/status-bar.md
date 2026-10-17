@@ -3,8 +3,9 @@
 Mosaico displays a configurable status bar at the top of each monitor. The
 bar shows workspace indicators, layout mode, and system information using
 per-pixel alpha rendering for a polished, translucent appearance. A click on
-a workspace number goes to that workspace, and the wheel over the bar steps
-through the workspaces, on the bar's own monitor (see
+a workspace number goes to that workspace and the wheel over the bar steps
+through the workspaces, on the bar's own monitor, and a click on the layout
+or paused widget, or on any widget a binding names, runs an action (see
 [Pointer Input](#pointer-input)).
 
 ## Architecture
@@ -19,7 +20,9 @@ the pointer does.
 | File | Purpose |
 |------|---------|
 | `crates/mosaico-core/src/config/bar.rs` | `BarConfig`, `BarColors`, `WidgetConfig` |
-| `crates/mosaico-core/src/config/bar_mouse.rs` | `BarMouseConfig`, `BarScroll` -- the `[mouse]` section |
+| `crates/mosaico-core/src/config/bar_mouse.rs` | `BarMouseConfig`, `BarScroll`, `ClickBinding` -- the `[mouse]` section and its `[[mouse.click]]` entries |
+| `crates/mosaico-core/src/config/widget_kind.rs` | `WidgetKind` -- a widget's type, named as `type` names it |
+| `crates/mosaico-core/src/bar/clicks.rs` | `WidgetClicks` -- what a click on each kind of widget runs; how each entry is checked, and the entries it leaves out, `RejectedClick` and `ClickProblem` (`clicks_rejected.rs`) |
 | `crates/mosaico-core/src/bar/manager.rs` | `BarManager` -- which monitors get a bar, and refreshing them; making them (`manager_bars.rs`), what it keeps of each (`manager_slot.rs`) and the pointer on them (`manager_pointer.rs`) |
 | `crates/mosaico-core/src/bar/content.rs` | `BarContent`, `BarItem` -- what each bar shows, in drawing order; the items of a side (`content_items.rs`) and what each is to the pointer (`content_regions.rs`) |
 | `crates/mosaico-core/src/bar/pointer.rs` | `BarId`, `Button`, `PointerEvent`, `PointerSink` -- what a platform reports, and where |
@@ -71,10 +74,19 @@ the pointer does.
   is over
 - `Press` -- turns presses and releases into clicks; `WheelSteps` adds wheel
   turns up
-- `BarMouseConfig` -- `enabled` and `scroll` from the `[mouse]` section
+- `BarMouseConfig` -- `enabled`, `scroll` and the `click` entries from the
+  `[mouse]` section
+- `ClickBinding` -- a `[[mouse.click]]` entry as the file writes it: its
+  `widget`, `button` and `action`, kept as text, with `None` for a key it
+  leaves out; `ClickBinding::NONE` is the action that removes a binding
+- `WidgetClicks` -- the click bindings over the defaults:
+  `action(kind, side, button)`, `clickable(kind, side)` and `len()`;
+  `rejected()` lists the entries it leaves out, as `RejectedClick`s with a
+  `ClickProblem`
 - `BarConfig` -- full bar configuration from `bar.toml`
 - `BarColors` -- 9 color fields for all bar UI elements
-- `WidgetConfig` -- tagged enum for widget type and settings
+- `WidgetConfig` -- tagged enum for widget type and settings; `kind()` gives
+  its `WidgetKind`
 - `Bar` -- a single monitor's status bar on Windows; wraps a layered Win32
   `HWND`
 - `DrawCtx` -- GDI drawing context bundling DC, pixel buffer, and dimensions
@@ -299,12 +311,14 @@ its side is added back on the next start; to hide a widget, set
 
 - `new(renderer, system, sink, config, monitor_rects, theme)` -- creates
   one bar per selected monitor through the renderer, each with its `BarId`
-  and the `sink` it reports the pointer to, resolves colors from theme, and
-  starts a `CpuTracker` when a `cpu` widget is configured
+  and the `sink` it reports the pointer to, resolves colors from theme,
+  starts a `CpuTracker` when a `cpu` widget is configured, and logs each
+  `[[mouse.click]]` entry it leaves out (see [Widget Clicks](#widget-clicks))
 - `update(states)` -- reads the system once, then switches each bar to let
   the pointer through or take it, as [Click-Through](#click-through) says,
   builds its content from its monitor's state and draws it, keeping where
-  its items went; does nothing while no monitor has a bar
+  its items went, and whether the tiler has a state for its monitor; does
+  nothing while no monitor has a bar
 - `pointer(bar, event, now)` -- what the pointer did on a bar, and the action
   it asks for, if any; `wheel_due()` and `take_wheel(now)` -- the wheel's
   turns, once they are due (see [Pointer Input](#pointer-input))
@@ -316,7 +330,8 @@ its side is added back on the next start; to hide a widget, set
   `[colors]` table and each widget's `color`
 - `rebuild_for_monitors(monitor_rects, theme)` -- replaces the bars after a
   display change
-- `reload(config)` -- recreates bars with new config, returns new height
+- `reload(config)` -- recreates bars with new config, returns new height,
+  and logs each `[[mouse.click]]` entry the new config has that it leaves out
 - `hide_all()` -- hides all bars on shutdown
 
 Bars made again, by a reload or a display change, are of a new generation,
@@ -338,10 +353,60 @@ wheel:
 |-------|------|--------|
 | A workspace number (left side) | left click | Go to that workspace on the bar's monitor, every monitor in global mode |
 | On the bar, where it takes the pointer | wheel | The workspace before (up, left) or after (down, right) on the bar's monitor, with `scroll = "workspaces"` |
-| A workspace number | hover | The pointer shows a hand; elsewhere on the bar, the arrow |
+| The layout widget | left / right click | Cycle the layout / toggle monocle on the bar's monitor (defaults) |
+| The paused widget | left click | Resume the hotkeys (default) |
+| Any widget a `[[mouse.click]]` entry names | that button | The entry's action: on the bar's monitor, or on the whole daemon for `retile` and `toggle-pause` |
+| A clickable item | hover | The pointer shows a hand; elsewhere on the bar, the arrow |
 
-Widgets take no clicks yet, and neither does the workspaces widget on the
-right, which is a plain pill there.
+### Widget Clicks
+
+A click on a widget runs what its button is bound to on that kind of widget.
+The bindings are the `[[mouse.click]]` entries of `bar.toml` over the
+defaults (`ClickBinding::defaults()`), merged by `WidgetClicks`:
+
+| Widget | Button | Action |
+|--------|--------|--------|
+| `layout` | left | `cycle-layout` |
+| `layout` | right | `toggle-monocle` |
+| `paused` | left | `toggle-pause` |
+
+- An entry names the widget by its type, as `[[left]]` and `[[right]]` do,
+  the button, `left`, `right` or `middle`, and the action, as
+  `keybindings.toml` names them. It replaces the binding of its widget and
+  button, or adds one, and of two entries for the same widget and button the
+  later one wins. A binding holds for every widget of its type.
+- An entry with `action = "none"` (`ClickBinding::NONE`) removes the binding
+  of its widget and button, a default included, as `scroll = "none"` turns
+  the wheel off. A widget it leaves with no binding takes no clicks: no hand,
+  and no least alpha. Such an entry is not a mistake, so it is neither
+  logged nor flagged, and a later entry for the same widget and button still
+  wins over it, as it wins over an earlier one. Deleting an entry, or
+  writing `click = []`, keeps the defaults.
+- A bar may only run an action that acts on a monitor, its own
+  (`cycle-layout`, `toggle-monocle`, `goto-workspace-N`,
+  `goto-workspace-next`, `goto-workspace-prev`), or on the whole daemon
+  (`toggle-pause`, `retile`), as `Action::scope()` says. An action about the
+  focused window (`close-focused`, `minimize-focused`, `send-to-workspace-N`,
+  `focus-*`, `move-*`) would act on a window of another monitor when the bar
+  of one is clicked. An entry that names one, that has no widget, button or
+  action, or that names one that does not exist, is left out as if the file
+  did not have it, so the binding of its widget and button stays, and the
+  rest of `bar.toml` applies all the same. `WidgetClicks::rejected()` says
+  which entries and why, with the keys each one has, and the bar manager
+  logs them as it takes the config.
+- A workspace label is part of the workspaces widget. Its left click always
+  goes to its workspace, which is not a binding, and its right and middle
+  clicks run the workspaces widget's bindings, as any click between the
+  labels does. The workspaces widget on the right, a plain pill with its
+  icon, takes no clicks.
+- A widget with a binding is clickable (`BarContent::region()`), so the
+  pointer shows a hand over it, and the bar takes the pointer over its whole
+  column of the bar, above and below its pill included, where it draws
+  nothing.
+- `toggle-pause` pauses the hotkeys only, so the paused widget, which shows
+  while they are paused, is how the mouse resumes them. A click on the bar
+  of a monitor the tiler has no state for runs nothing, not even an action
+  on the whole daemon.
 
 ### From a Click to an Action
 
@@ -363,7 +428,10 @@ right, which is a plain pill there.
    item, in a gap or off the bar clicks nothing, and so does any click on a
    bar whose last draw failed, or that is hidden.
 4. A left click on a workspace label asks for `GoToWorkspace(n)` from
-   `Origin::Bar(monitor)`.
+   `Origin::Bar(monitor)`. Any other click asks for the action its button
+   runs on the kind of widget clicked, from the same origin (see
+   [Widget Clicks](#widget-clicks)), and on a bar whose monitor the tiler had
+   no state for when it was drawn, for nothing.
 5. Wheel turns add up in `WheelSteps`, fractions of a notch from a touchpad
    or a high-resolution wheel included, in both directions. Once
    `WHEEL_QUIET` (120 ms) passed since the last turn, `take_wheel(now)`
@@ -378,17 +446,21 @@ right, which is a plain pill there.
    does nothing.
 6. The daemon carries the action out with `carry_out()`, the way it carries
    out a hotkey's, with its origin, so it honours the workspace mode.
-   Pausing pauses the hotkeys only: the bar keeps working.
+   `toggle-pause` is handled there, whichever bar asks. Pausing pauses the
+   hotkeys only: the bar keeps working.
 
 ### Focus and the Pointer
 
 - A click on the focused monitor's bar behaves like the key: the
   workspace's last focused window takes focus, or focus parks on the
   monitor when the workspace is empty.
-- A click on another monitor's bar moves focus to that monitor first, to
-  the window its workspace on screen takes focus back with, or parks it
-  there, then behaves the same. The workspace focus left remembers its
-  window, for coming back.
+- A click on another monitor's bar that acts on a monitor, switching its
+  workspace or cycling its layout or monocle, moves focus to that monitor
+  first, to the window its workspace on screen takes focus back with, or
+  parks it there, then behaves the same. The workspace focus left
+  remembers its window, for coming back. `retile` and `toggle-pause` act
+  on the whole daemon, so a click that runs one leaves focus where it is,
+  on whichever monitor's bar it lands.
 - In global mode every monitor switches, and focus goes to the clicked
   monitor.
 - Nothing a click or a scroll does moves the pointer, whatever
@@ -424,18 +496,21 @@ draws the bars again at once. Anything else that changes what is under a bar
 without an event of its own shows at the next refresh, a second later at
 most.
 
-While a bar takes the pointer, it takes it over each clickable item, whole,
-and wherever it draws something. Where it draws nothing, so a pixel stays
-fully transparent, the pointer goes through to the window under it. With
-the default `background_opacity = 0`, a window that only reaches into the
+While a bar takes the pointer, it takes it over the whole column of the bar
+each clickable item stands in, from the top of the strip to the bottom, and
+wherever it draws something. Elsewhere, where a pixel stays fully
+transparent, the pointer goes through to the window under it. With the
+default `background_opacity = 0`, a window that only reaches into the
 strip, such as a Snap half or a floating window moved to the top, keeps its
-clicks there except over the bar's labels and pills. A bar with any
-`background_opacity` above 0 takes the pointer over all of its strip, which
-it covers: even 1 paints it with an alpha of 2.
+clicks there except over the bar's labels and pills and the columns of its
+clickable items. A bar with any `background_opacity` above 0 takes the
+pointer over all of its strip, which it covers: even 1 paints it with an
+alpha of 2.
 
 So once a bar is drawn after a maximized or fullscreen window came under
 it, it takes none of that window's clicks, and over any other window it
-takes clicks only where it draws.
+takes clicks only over the columns of its clickable items and where it
+draws.
 
 ### Timing
 
@@ -490,11 +565,31 @@ What the mouse does is the `[mouse]` section:
 [mouse]
 enabled = true           # false keeps the bar click-through, as before
 scroll = "workspaces"    # what scrolling over the bar does: "workspaces" or "none"
+
+# Clicks on widgets run actions, named as in keybindings. These are the
+# defaults: deleting an entry keeps its default, a later entry for the same
+# widget and button wins, and action = "none" removes the binding.
+[[mouse.click]]
+widget = "layout"
+button = "left"          # left, right or middle
+action = "cycle-layout"
+
+[[mouse.click]]
+widget = "layout"
+button = "right"
+action = "toggle-monocle"
+
+[[mouse.click]]
+widget = "paused"
+button = "left"
+action = "toggle-pause"
 ```
 
 A `bar.toml` without the section gets a comment block about it at the next
 start, which changes nothing it says (see
-[configuration.md](configuration.md#files-a-newer-version-updates)).
+[configuration.md](configuration.md#files-a-newer-version-updates)). The
+block tells of `enabled`, `scroll`, `[[mouse.click]]` and `action = "none"`,
+and names no default.
 
 ## Design Decisions
 
@@ -535,3 +630,13 @@ start, which changes nothing it says (see
   which monitor it acts on and whether the bar lets the pointer through are
   decided in core and tested against a fake renderer. The platform answers
   the pointer's shape with core's `hit()` on the regions it drew.
+- **Click bindings checked one at a time**: `ClickBinding` keeps the names of
+  an entry as text, checked as the bar takes the config, so an entry with an
+  unknown or missing widget, button or action is left out on its own, and
+  the rest of `bar.toml` applies. The same holds for key names in
+  `keybindings.toml`. A value of the wrong type, such as `button = 1`, or
+  `[mouse.click]` with single brackets, still makes `bar.toml` invalid, as
+  any other mistake there does.
+- **Bindings by widget type**: an entry names a type, not an entry of
+  `[[left]]` or `[[right]]`, so it holds for a widget the user moves to the
+  other side or adds again, and the defaults need no place in the lists.
