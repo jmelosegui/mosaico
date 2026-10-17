@@ -112,6 +112,11 @@ off. See [Dragging Windows](tiling-layout.md#dragging-windows).
 | On another monitor | It joins there, before the tile under the pointer |
 | On its own slot, in a gap, or with `Esc` pressed | It goes back to its slot |
 
+Drag the edge between two tiles to resize them, or a corner where two
+splits meet to move both. Set `resize_splits = false` under `[mouse]` in
+`config.toml` to turn this off. See
+[Resizing Tiles](tiling-layout.md#resizing-tiles).
+
 ## Daemon
 
 Pause every Mosaico hotkey (including the pause hotkey itself stays
