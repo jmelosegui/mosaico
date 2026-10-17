@@ -1,9 +1,12 @@
 use super::*;
 
+use crate::LayoutKind;
+
 use super::super::split_support::{GAP, dragged, held, slots, unmoved};
 
 /// What dropping the `edges` of window `index` of `slots`, laid out with
-/// `kind` and grabbed in its slot, at `rect` does to the splits.
+/// `kind` and grabbed in its slot, at `rect` does to the splits: each
+/// split it moves, with its ratio.
 fn dropped(
     kind: LayoutKind,
     slots: &[Rect],
@@ -11,7 +14,11 @@ fn dropped(
     edges: Edges,
     rect: Rect,
 ) -> Vec<(usize, f64)> {
-    resized_splits(kind, GAP, slots, index, edges, slots[index], rect)
+    let ratios = unmoved(slots.len());
+    let tiles = Tiles::new(kind, GAP, slots, &ratios);
+    let moved = resized_splits(tiles, index, edges, slots[index], rect);
+    let ratio = |k: usize| Some((k, moved.as_ref()?.ratio(kind, k)?));
+    (0..slots.len()).filter_map(ratio).collect()
 }
 
 #[test]
@@ -37,8 +44,8 @@ fn a_split_stops_a_tenth_of_its_area_from_either_end() {
 
 #[test]
 fn an_edge_that_borders_no_split_moves_none() {
-    // Arrange -- the left edge of the first window, and the edge between
-    // two windows of the stack.
+    // Arrange -- the left edge of the first window, and the bottom edge of
+    // the last window of the stack, both at the edge of the area.
     let bsp = slots(LayoutKind::Bsp, 3, &unmoved(3));
     let stack = slots(LayoutKind::VerticalStack, 3, &unmoved(3));
     let (left, bottom) = (held(Side::Left), held(Side::Bottom));
@@ -51,11 +58,11 @@ fn an_edge_that_borders_no_split_moves_none() {
         left,
         dragged(bsp[0], Side::Left, 40),
     );
-    let to = dragged(stack[1], Side::Bottom, 40);
-    let between = dropped(LayoutKind::VerticalStack, &stack, 1, bottom, to);
+    let to = dragged(stack[2], Side::Bottom, -40);
+    let below = dropped(LayoutKind::VerticalStack, &stack, 2, bottom, to);
 
     // Assert
-    assert!(outer.is_empty() && between.is_empty());
+    assert!(outer.is_empty() && below.is_empty());
 }
 
 #[test]
@@ -103,10 +110,12 @@ fn an_edge_put_back_where_the_window_started_moves_no_split() {
 
     // Act
     let right = held(Side::Right);
-    let moved = resized_splits(LayoutKind::Bsp, GAP, &pair, 0, right, start, start);
+    let ratios = unmoved(2);
+    let tiles = Tiles::new(LayoutKind::Bsp, GAP, &pair, &ratios);
+    let moved = resized_splits(tiles, 0, right, start, start);
 
     // Assert
-    assert!(moved.is_empty());
+    assert!(moved.is_none());
 }
 
 #[test]
@@ -119,9 +128,11 @@ fn an_edge_dropped_back_on_its_slot_moves_no_split() {
 
     // Act
     let right = held(Side::Right);
-    let moved = resized_splits(LayoutKind::Bsp, GAP, &pair, 0, right, start, pair[0]);
+    let ratios = unmoved(2);
+    let tiles = Tiles::new(LayoutKind::Bsp, GAP, &pair, &ratios);
+    let moved = resized_splits(tiles, 0, right, start, pair[0]);
 
     // Assert -- the split stays where the layout has it, following the
     // configured ratio.
-    assert!(moved.is_empty());
+    assert!(moved.is_none());
 }

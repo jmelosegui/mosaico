@@ -26,9 +26,18 @@ impl Workspace {
     }
 
     /// Moves split `split` of the workspace's layout to `ratio`, as
-    /// [`SplitRatios::set`] does.
-    pub fn set_split_ratio(&mut self, split: usize, ratio: f64) {
+    /// [`SplitRatios::set`] does: a seam for tests, as a resize sets the
+    /// splits with [`Workspace::set_split_ratios`].
+    #[cfg(test)]
+    pub(crate) fn set_split_ratio(&mut self, split: usize, ratio: f64) {
         self.splits.set(self.layout_kind, split, ratio);
+    }
+
+    /// Puts the splits and the heights of the workspace's layouts at
+    /// `splits`, which must be in step with its windows, as those of a
+    /// resize are (`layout::resized_splits`): how a resize sets them.
+    pub(crate) fn set_split_ratios(&mut self, splits: SplitRatios) {
+        self.splits = splits;
     }
 
     /// Gives the column window `window` is in, in the workspace's layout,

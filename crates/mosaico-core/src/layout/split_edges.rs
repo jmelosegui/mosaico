@@ -9,9 +9,10 @@
 //! window of the stack border split 0, and two windows in the three columns
 //! split the same way. With three or more there, the master's two edges and
 //! the inner edge of each window of a side column border split 0, and the
-//! master stays centered, so both its edges follow either one. Every other
-//! edge, as an outer edge or one between two windows of a stack or of a
-//! side column, borders none.
+//! master stays centered, so both its edges follow either one. Down a stack
+//! or a side column, a window borders the split above it with its top edge,
+//! unless it is the first there, and its own with its bottom edge, unless it
+//! is the last. Every other edge, an outer edge of the area, borders none.
 
 use crate::LayoutKind;
 
@@ -32,6 +33,12 @@ pub(super) enum Border {
     First,
     /// With a near edge: it lies in the rest, beyond the split.
     Rest,
+    /// Down a stack or a column, with its bottom edge: it is the split's
+    /// first window, above the split.
+    Above,
+    /// Down a stack or a column, with its top edge: it is the window below
+    /// the split's first, a whole gap below it.
+    Below,
     /// The centered master of the three columns, with its left edge.
     MasterLeft,
     /// The centered master of the three columns, with its right edge.
@@ -55,12 +62,8 @@ pub(super) fn border(
     }
     match kind {
         LayoutKind::Bsp => chain_border(count, index, side),
-        LayoutKind::ThreeColumn if count > 2 => columns_border(index, side),
-        LayoutKind::VerticalStack | LayoutKind::ThreeColumn => match (index, side) {
-            (0, Side::Right) => Some((0, Border::First)),
-            (1.., Side::Left) => Some((0, Border::Rest)),
-            _ => None,
-        },
+        LayoutKind::ThreeColumn if count > 2 => columns_border(count, index, side),
+        LayoutKind::VerticalStack | LayoutKind::ThreeColumn => stack_border(count, index, side),
     }
 }
 
@@ -82,19 +85,37 @@ fn chain_border(count: usize, index: usize, side: Side) -> Option<(usize, Border
         .map(|split| (split, Border::Rest))
 }
 
-/// How the `side` edge of window `index` of three or more in three
-/// columns borders split 0, if it does. The windows after the master
-/// alternate between the left column and the right one.
-fn columns_border(index: usize, side: Side) -> Option<(usize, Border)> {
+/// The split the `side` edge of window `index` of `count` borders in the
+/// vertical stack, or in two windows of the three columns, and how: the
+/// master's, or one down the stack, whose first window is window `k` for
+/// split `k`.
+fn stack_border(count: usize, index: usize, side: Side) -> Option<(usize, Border)> {
+    match (index, side) {
+        (0, Side::Right) => Some((0, Border::First)),
+        (1.., Side::Left) => Some((0, Border::Rest)),
+        (2.., Side::Top) => Some((index - 1, Border::Below)),
+        (1.., Side::Bottom) if index + 1 < count => Some((index, Border::Above)),
+        _ => None,
+    }
+}
+
+/// The split the `side` edge of window `index` of three or more in three
+/// columns borders, and how: the master's split 0, or one down the column
+/// the window is in, whose first window is window `k` for split `k`. The
+/// windows after the master alternate between the left column and the
+/// right one, so the window above another in its column is two before it.
+fn columns_border(count: usize, index: usize, side: Side) -> Option<(usize, Border)> {
     let left_column = !index.is_multiple_of(2);
     let border = match (index, side) {
-        (0, Side::Left) => Border::MasterLeft,
-        (0, Side::Right) => Border::MasterRight,
-        (_, Side::Right) if left_column => Border::LeftColumn,
-        (1.., Side::Left) if !left_column => Border::RightColumn,
+        (0, Side::Left) => (0, Border::MasterLeft),
+        (0, Side::Right) => (0, Border::MasterRight),
+        (_, Side::Right) if left_column => (0, Border::LeftColumn),
+        (1.., Side::Left) if !left_column => (0, Border::RightColumn),
+        (3.., Side::Top) => (index - 2, Border::Below),
+        (1.., Side::Bottom) if index + 2 < count => (index, Border::Above),
         _ => return None,
     };
-    Some((0, border))
+    Some(border)
 }
 
 #[cfg(test)]

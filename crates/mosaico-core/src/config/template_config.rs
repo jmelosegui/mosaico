@@ -74,8 +74,9 @@ focus_follows_mouse = false
 # other monitor's windows.
 drag_to_swap = true
 # Drag the edge between two tiles to resize them: the split between them
-# follows the edge, and a corner where two splits meet moves both.
-# false: a tiled window you resize goes back to its slot.
+# follows the edge, and two windows of a stack trade height. A corner where
+# two splits meet moves both. false: a tiled window you resize goes back to
+# its slot.
 resize_splits = true
 
 [animations]

@@ -2,10 +2,13 @@ mod bsp;
 mod column;
 mod heights;
 mod split_chains;
+mod split_changes;
 mod split_edges;
 mod split_ratios;
 mod split_resize;
+mod stack_edge;
 mod three_column;
+mod tiles;
 mod vertical_stack;
 
 use serde::{Deserialize, Serialize};
@@ -14,9 +17,11 @@ use crate::{Rect, WindowId};
 
 pub use bsp::BspLayout;
 pub(crate) use split_chains::OwnSplits;
+pub(crate) use split_changes::changes;
 pub use split_ratios::{MAX_SPLIT_RATIO, MIN_SPLIT_RATIO, SplitRatios};
 pub use split_resize::resized_splits;
 pub use three_column::ThreeColumnLayout;
+pub use tiles::Tiles;
 pub use vertical_stack::VerticalStackLayout;
 
 /// Available tiling layout algorithms.

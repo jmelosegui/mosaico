@@ -1,15 +1,19 @@
 use super::*;
 
+use crate::LayoutKind;
+
 use super::super::split_edges::border;
 use super::super::split_support::{
-    GAP, KINDS, SIDES, after, dragged, edge_of, held, slots, unmoved,
+    GAP, KINDS, SIDES, after, beside, changed, dragged, dropped, edge_of, held, moved_splits,
+    slots, unmoved,
 };
 
 #[test]
 fn every_edge_that_borders_a_split_lands_where_it_was_dropped() {
     for kind in KINDS {
         for count in 2..=5 {
-            let before = slots(kind, count, &unmoved(count));
+            let ratios = unmoved(count);
+            let before = slots(kind, count, &ratios);
             for (index, side) in (0..count).flat_map(|i| SIDES.map(|side| (i, side))) {
                 if border(kind, count, index, side).is_none() {
                     continue;
@@ -23,14 +27,21 @@ fn every_edge_that_borders_a_split_lands_where_it_was_dropped() {
                     let rect = dragged(before[index], side, by);
 
                     // Act
-                    let start = before[index];
-                    let moved = resized_splits(kind, GAP, &before, index, held(side), start, rect);
+                    let tiles = Tiles::new(kind, GAP, &before, &ratios);
+                    let moved = resized_splits(tiles, index, held(side), before[index], rect);
 
-                    // Assert -- to the pixel, once laid out again.
-                    let laid_out = after(kind, count, &moved)[index];
+                    // Assert -- to the pixel, once laid out again, and down
+                    // a stack, every window but the two beside the edge
+                    // where it was.
+                    let laid_out = after(kind, count, &moved);
                     let case = format!("{kind:?}, window {index} of {count}, {side:?} by {by}");
-                    assert_eq!(moved.len(), 1, "{case}");
-                    assert_eq!(edge_of(laid_out, side), edge_of(rect, side), "{case}");
+                    let edge = (edge_of(laid_out[index], side), edge_of(rect, side));
+                    assert_eq!(edge.0, edge.1, "{case}");
+                    let others = changed(&before, &laid_out);
+                    match beside(kind, count, index, side) {
+                        Some(two) => assert!(others.iter().all(|w| two.contains(w)), "{case}"),
+                        None => assert_eq!(moved_splits(kind, count, &moved).len(), 1, "{case}"),
+                    }
                 }
             }
         }
@@ -45,9 +56,8 @@ fn the_windows_beyond_a_split_follow_the_edge() {
     let rect = dragged(before[2], Side::Left, -100);
 
     // Act
-    let moved = resized_splits(
+    let moved = dropped(
         LayoutKind::Bsp,
-        GAP,
         &before,
         2,
         held(Side::Left),
@@ -77,31 +87,29 @@ fn a_corner_where_two_splits_meet_moves_both() {
     let rect = dragged(dragged(before[2], Side::Left, -150), Side::Top, 60);
 
     // Act
-    let moved = resized_splits(LayoutKind::Bsp, GAP, &before, 2, corner, before[2], rect);
+    let moved = dropped(LayoutKind::Bsp, &before, 2, corner, before[2], rect);
 
     // Assert
     let laid_out = after(LayoutKind::Bsp, 3, &moved)[2];
-    let splits: Vec<usize> = moved.iter().map(|&(split, _)| split).collect();
-    assert_eq!(splits, [0, 1]);
+    assert_eq!(moved_splits(LayoutKind::Bsp, 3, &moved), [0, 1]);
     assert_eq!((laid_out.x, laid_out.y), (rect.x, rect.y));
 }
 
 #[test]
 fn a_corner_moves_only_the_split_one_of_its_edges_borders() {
-    // Arrange -- the top left corner of the second window of the stack,
-    // whose top edge is between two windows of the stack.
+    // Arrange -- the bottom left corner of the last window of the stack,
+    // whose bottom edge is at the bottom of the area.
     let before = slots(LayoutKind::VerticalStack, 3, &unmoved(3));
     let corner = Edges {
         left: true,
-        top: true,
+        bottom: true,
         ..Edges::default()
     };
-    let rect = dragged(dragged(before[2], Side::Left, -150), Side::Top, 60);
+    let rect = dragged(dragged(before[2], Side::Left, -150), Side::Bottom, -60);
 
     // Act
-    let moved = resized_splits(
+    let moved = dropped(
         LayoutKind::VerticalStack,
-        GAP,
         &before,
         2,
         corner,
@@ -109,10 +117,11 @@ fn a_corner_moves_only_the_split_one_of_its_edges_borders() {
         rect,
     );
 
-    // Assert -- the top edge goes back.
+    // Assert -- the bottom edge goes back.
     let laid_out = after(LayoutKind::VerticalStack, 3, &moved)[2];
-    assert_eq!(moved.len(), 1);
-    assert_eq!((laid_out.x, laid_out.y), (rect.x, before[2].y));
+    let bottom = |rect: Rect| rect.y + rect.height;
+    assert_eq!(moved_splits(LayoutKind::VerticalStack, 3, &moved), [0]);
+    assert_eq!((laid_out.x, bottom(laid_out)), (rect.x, bottom(before[2])));
 }
 
 #[test]
@@ -122,9 +131,8 @@ fn the_master_of_three_columns_stays_centered_whichever_edge_moves() {
     let rect = dragged(before[0], Side::Left, -100);
 
     // Act
-    let moved = resized_splits(
+    let moved = dropped(
         LayoutKind::ThreeColumn,
-        GAP,
         &before,
         0,
         held(Side::Left),

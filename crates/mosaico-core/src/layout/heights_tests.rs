@@ -71,6 +71,23 @@ fn a_window_that_leaves_gives_its_share_to_the_others_in_proportion() {
 }
 
 #[test]
+fn a_moved_end_changes_the_two_windows_beside_it_alone_and_stops_at_the_floor() {
+    // Arrange -- four windows, a quarter each.
+    let ends = [0.25, 0.5, 0.75];
+
+    // Act -- the second one's end moved down, up past the top of the
+    // second, and down past the bottom of the third.
+    let down = Heights::moved(&ends, 1, 0.6);
+    let up = Heights::moved(&ends, 1, 0.0);
+    let past = Heights::moved(&ends, 1, 1.0);
+
+    // Assert -- a fortieth of the column is the least either keeps.
+    assert_eq!(shares(&down), [0.25, 0.35, 0.15, 0.25]);
+    assert_eq!(shares(&up), [0.25, 0.025, 0.475, 0.25]);
+    assert_eq!(shares(&past), [0.25, 0.475, 0.025, 0.25]);
+}
+
+#[test]
 fn a_whole_column_back_has_its_heights_back_and_part_of_one_shares_the_rest() {
     // Arrange
     let had = Heights::of(&[0.5, 0.3, 0.2]);

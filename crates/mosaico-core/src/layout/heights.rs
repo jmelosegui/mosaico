@@ -95,6 +95,21 @@ impl Heights {
         back.iter().for_each(|&&(at, share)| shares[at] = share);
         *self = Self::of(&shares);
     }
+
+    /// The column once the end of the window at `at`, in `ends`, moves to
+    /// `end`: no closer than [`least`] to the top of that window or to the
+    /// bottom of the one below, so that only those two change, and as the
+    /// heights always keep that much, never against the move.
+    pub(super) fn moved(ends: &[f64], at: usize, end: f64) -> Self {
+        let least = least(ends.len() + 1);
+        let above = at.checked_sub(1).map_or(0.0, |i| ends[i]);
+        let below = ends.get(at + 1).copied().unwrap_or(1.0);
+        let mut ends = ends.to_vec();
+        if let Some(moved) = ends.get_mut(at).filter(|_| above + least <= below - least) {
+            *moved = end.max(above + least).min(below - least);
+        }
+        Self(Some(ends))
+    }
 }
 
 /// The least share of a column of `count` windows a window keeps:
