@@ -120,3 +120,24 @@ fn a_name_that_is_no_theme_is_reported_as_before() {
         format!("  {WARN} Unknown theme \"Dracula\", falling back to catppuccin mocha")
     );
 }
+
+#[test]
+fn doctor_reports_the_bar_clicks_right_after_the_bar_toml_check() {
+    // Arrange
+    let mut h = Harness::new("doctor-execute-bar-clicks");
+    std::fs::create_dir_all(h.config.dir()).unwrap();
+    let entry = "[[mouse.click]]\nwidget = \"radio\"\nbutton = \"left\"\naction = \"retile\"\n";
+    std::fs::write(h.config.bar_path(), entry).unwrap();
+
+    // Act
+    let exit = h.run(execute);
+    let _ = std::fs::remove_dir_all(h.config.dir());
+
+    // Assert -- the click lines follow the file's, one after the other.
+    let expected = format!(
+        "  {OK} bar.toml is valid\n  {OK} The bar has 3 click binding(s)\n  \
+         {FAIL} bar.toml: [[mouse.click]] with widget = \"radio\""
+    );
+    assert!(h.out().contains(&expected), "{}", h.out());
+    assert_eq!(exit, Exit::Success);
+}

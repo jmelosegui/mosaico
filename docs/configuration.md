@@ -232,8 +232,9 @@ monitor or on the whole daemon can be bound: `cycle-layout`,
 `toggle-monocle`, `goto-workspace-N`, `goto-workspace-next` and
 `goto-workspace-prev` act on the monitor, `retile` and `toggle-pause` on the
 whole daemon. An entry with any other action, or with no widget, button or
-action, or one that does not exist, is left out and logged, and the rest of
-the file applies. See [status-bar.md](status-bar.md#widget-clicks).
+action, or one that does not exist, is left out, logged and listed by
+`mosaico doctor`, and the rest of the file applies. See
+[status-bar.md](status-bar.md#widget-clicks).
 
 ### `rules.toml`
 
@@ -363,10 +364,11 @@ In `bar.toml`, an unknown `scroll` makes the file invalid the same way, but a
 `[[mouse.click]]` entry is checked on its own as the bar takes the config
 (`WidgetClicks`): one with no widget, button or action, one whose widget,
 button or action does not exist, or one whose action is about the focused
-window, is left out and logged with why, and the rest of the file applies.
-An entry with `action = "none"` is no mistake: it removes a binding. A value
-of the wrong type, such as `button = 1`, or `[mouse.click]` with single
-brackets, still makes the file invalid.
+window, is left out and logged with why, and `mosaico doctor` flags it,
+while the rest of the file applies. An entry with `action = "none"` is no
+mistake: it removes a binding. A value of the wrong type, such as
+`button = 1`, or `[mouse.click]` with single brackets, still makes the file
+invalid.
 
 ### Partial Files
 
