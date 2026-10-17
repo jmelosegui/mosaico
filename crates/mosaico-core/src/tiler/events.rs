@@ -61,6 +61,7 @@ impl Tiler {
             WindowEvent::Moved { window, pointer } => self.on_moved(plan, window, pointer),
             WindowEvent::Focused { window } => {
                 self.end_drag_for_focus(plan, window);
+                self.restack_preview(plan);
                 self.on_focused(plan, window);
             }
             WindowEvent::TitleChanged { window } => {
@@ -85,9 +86,11 @@ impl Tiler {
     fn on_location_changed(&mut self, plan: &mut Plan, window: WindowId) {
         self.note_filling(plan, window);
         // A window the user drags is theirs until they drop it: where it
-        // is only hides its border, once it has left where it started.
+        // is only hides its border, once it has left where it started, and
+        // moves the preview of where it would land.
         if self.is_dragged(window) {
             self.drag_reported(plan);
+            self.preview_drop(plan);
             return;
         }
         // Fires on every animation frame, so only react when the focused

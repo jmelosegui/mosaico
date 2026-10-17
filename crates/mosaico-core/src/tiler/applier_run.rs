@@ -114,9 +114,11 @@ impl Applier {
                 }
                 apply_decoration_effect(effect, platform.decorations());
             }
-            Effect::Decorate { .. } | Effect::Undecorate { .. } | Effect::RedrawBorders => {
-                apply_decoration_effect(effect, platform.decorations())
-            }
+            Effect::Decorate { .. }
+            | Effect::Undecorate { .. }
+            | Effect::RedrawBorders
+            | Effect::ShowPreview { .. }
+            | Effect::HidePreview => apply_decoration_effect(effect, platform.decorations()),
         }
         self.expectations.applied(effect, now);
         if self

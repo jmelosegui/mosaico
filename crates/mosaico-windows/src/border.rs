@@ -1,4 +1,6 @@
 mod class;
+mod pixels;
+mod preview;
 mod render;
 mod stack;
 
@@ -16,6 +18,7 @@ use class::{CLASS_NAME, ensure_class_registered};
 
 /// The color type borders and the bar draw with, which lives in core.
 pub(crate) use mosaico_core::config::Color;
+pub(crate) use preview::Preview;
 
 /// A transparent overlay window that displays a colored border.
 ///
@@ -23,6 +26,9 @@ pub(crate) use mosaico_core::config::Color;
 /// is needed on the creating thread.
 pub struct Border {
     hwnd: HWND,
+    /// How opaque what is inside the stroke is, out of 255: clear for a
+    /// border, translucent for the drop preview.
+    fill: u8,
 }
 
 impl Border {
@@ -52,7 +58,7 @@ impl Border {
         }
         .or_platform("create a border window")?;
 
-        Ok(Self { hwnd })
+        Ok(Self { hwnd, fill: 0 })
     }
 
     /// Shows the border around the given rectangle with the specified color.

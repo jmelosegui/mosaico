@@ -72,3 +72,30 @@ fn moving_a_border_keeps_what_it_was_drawn_with() {
     assert!(moved.is_ok() && without.is_ok());
     assert_eq!(decorations.borders[&window].drawn, drawn);
 }
+
+#[test]
+fn forgetting_how_borders_were_drawn_renders_the_preview_again_too() {
+    // Arrange -- a preview of our own, never shown, whose bitmap shows the
+    // style. Without a desktop to make it on, skip.
+    let Ok(mut preview) = Preview::new() else {
+        return;
+    };
+    let rect = Rect::new(-20000, -20000, 40, 30);
+    let style = PreviewStyle {
+        color: style().color,
+        width: 4,
+        radius: 8,
+    };
+    preview.rendered_for(rect, &style);
+    let mut decorations = Win32Decorations {
+        preview: Some(preview),
+        ..Win32Decorations::default()
+    };
+
+    // Act
+    decorations.forget_drawn();
+
+    // Assert
+    let preview = decorations.preview.as_ref().expect("the preview is kept");
+    assert!(preview.needs_render(rect, &style));
+}

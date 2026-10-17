@@ -16,6 +16,7 @@ fn drag(grab: Option<Grab>) -> Drag {
         pointer: Some((250, 50)),
         left_start: true,
         decides: true,
+        preview: None,
     }
 }
 

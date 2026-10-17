@@ -52,7 +52,9 @@ pub fn apply_window_effect(effect: &Effect, desktop: &dyn Desktop, windows: &dyn
         | Effect::Undecorate { .. }
         | Effect::Border { .. }
         | Effect::DropBorder { .. }
-        | Effect::RedrawBorders => {}
+        | Effect::RedrawBorders
+        | Effect::ShowPreview { .. }
+        | Effect::HidePreview => {}
     }
 }
 

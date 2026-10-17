@@ -1,6 +1,6 @@
 //! Layout application: tiled layouts and monocle mode.
 
-use crate::{BspLayout, LayoutKind, Rect, ThreeColumnLayout, VerticalStackLayout};
+use crate::{BspLayout, Layout, LayoutKind, Rect, ThreeColumnLayout, VerticalStackLayout};
 
 use crate::WindowId;
 use crate::config::HidingBehaviour;
@@ -36,17 +36,20 @@ impl Tiler {
         let Some(state) = self.monitors.get(monitor_idx) else {
             return Vec::new();
         };
-        let gap = self.layout.gap;
-        let ratio = self.layout.ratio;
-        let ws = state.active_ws();
-        match ws.layout_kind() {
-            LayoutKind::Bsp => ws.compute_layout(&BspLayout { gap, ratio }, &state.work_area),
-            LayoutKind::VerticalStack => {
-                ws.compute_layout(&VerticalStackLayout { gap, ratio }, &state.work_area)
-            }
-            LayoutKind::ThreeColumn => {
-                ws.compute_layout(&ThreeColumnLayout { gap, ratio }, &state.work_area)
-            }
+        self.positions_of(monitor_idx, state.active_ws().windows())
+    }
+
+    /// Where the layout of the active workspace on monitor `idx` puts
+    /// `windows`, in their order.
+    pub(super) fn positions_of(&self, idx: usize, windows: &[WindowId]) -> Vec<(WindowId, Rect)> {
+        let Some(state) = self.monitors.get(idx) else {
+            return Vec::new();
+        };
+        let (gap, ratio, area) = (self.layout.gap, self.layout.ratio, &state.work_area);
+        match state.active_ws().layout_kind() {
+            LayoutKind::Bsp => BspLayout { gap, ratio }.apply(windows, area),
+            LayoutKind::VerticalStack => VerticalStackLayout { gap, ratio }.apply(windows, area),
+            LayoutKind::ThreeColumn => ThreeColumnLayout { gap, ratio }.apply(windows, area),
         }
     }
 

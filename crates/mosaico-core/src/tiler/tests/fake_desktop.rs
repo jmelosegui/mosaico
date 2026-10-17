@@ -27,6 +27,8 @@ pub(crate) struct FakeDesktop {
     /// created when first drawn and destroyed by `DropBorder`. The value
     /// is whether the overlay is showing.
     pub(crate) borders: HashMap<WindowId, bool>,
+    /// Where the drop preview shows, while it does.
+    pub(crate) preview: Option<Rect>,
     /// The stacking order, front first. A window comes to the front when
     /// it opens and when it gets focus.
     pub(crate) stack: Vec<WindowId>,
