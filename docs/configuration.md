@@ -10,8 +10,9 @@ All settings have sensible defaults, so configuration files are optional.
 | File | Purpose |
 |------|---------|
 | `crates/mosaico-core/src/config/mod.rs` | `Config`, `Config::validate()` |
-| `crates/mosaico-core/src/config/types.rs` | `LayoutConfig`, `BorderConfig`, `BorderColors`, `MouseConfig`, `CornerStyle` |
+| `crates/mosaico-core/src/config/types.rs` | `LayoutConfig`, `BorderConfig`, `BorderColors`, `CornerStyle` |
 | `crates/mosaico-core/src/config/workspaces.rs` | `WorkspacesConfig`, `WorkspaceMode`, the `[workspaces]` section |
+| `crates/mosaico-core/src/config/mouse.rs` | `MouseConfig`, the `[mouse]` section: the pointer and focus, and dragging windows |
 | `crates/mosaico-core/src/config/rules.rs` | `WindowRule`, `should_manage()`, `matching_rule()`, `default_rules()` |
 | `crates/mosaico-core/src/config/hiding_behaviour.rs` | `HidingBehaviour`, how windows are hidden on a workspace switch |
 | `crates/mosaico-core/src/config/animations.rs` | `AnimationConfig`, the `[animations]` section: window transitions |
@@ -40,7 +41,8 @@ All settings have sensible defaults, so configuration files are optional.
   either end), `layouts: HashMap<u8, LayoutKind>` (per-workspace layout
   overrides)
 - `MouseConfig` -- `follows_focus: bool` (default true),
-  `focus_follows_mouse: bool` (default false)
+  `focus_follows_mouse: bool` (default false), `drag_to_swap: bool`
+  (default true)
 - `HidingBehaviour` (enum) -- `Cloak`, `Hide`, `Minimize`, each described by
   what the user sees. One the platform does not have falls back to one it
   has (see [workspaces.md](workspaces.md#hiding-behaviour))
@@ -127,6 +129,7 @@ unfocused = "#6c7086"  # Color drawn around unfocused tiled windows
 [mouse]
 follows_focus = true         # Move the pointer to the window that takes focus
 focus_follows_mouse = false  # Focus the window under the pointer without a click
+drag_to_swap = true          # Drop a dragged tiled window on another to swap them
 
 [animations]
 enabled = true            # Move windows to their new place over time (on by default)
@@ -163,6 +166,27 @@ leaves the pointer where it is. `focus_follows_mouse` (default `false`)
 focuses a window once the pointer has rested on it for three polls in a row,
 100 ms apart, if the window is managed and on the focused monitor's active
 workspace; see [window-events.md](window-events.md#focus-follows-mouse).
+While the user drags a window, mosaico moves the pointer for neither, and
+focus follows mouse rests: the pointer goes where focus asked once the drag
+ends, unless focus has moved on without it by then, as a click or the wheel
+on the status bar moves it, and a window the pointer comes to rest on
+meanwhile is not focused, though the next one it rests on after the drop
+is.
+
+`drag_to_swap` (default `true`) turns the drags the user makes into layout
+changes. A tiled window dragged by its title bar and dropped on another tile
+of its monitor swaps places with it, and one dropped on another monitor
+joins that monitor's workspace before the tile under the pointer, or at the
+end, which it also does over that monitor's bar or a gap there. Over its
+own slot, a gap, its monitor's bar, a monocle workspace of its own monitor,
+or snapped or maximized there by the system as it is dropped, it goes back
+to its slot; maximized by the system on another monitor, it joins that
+monitor's workspace and stays maximized. A drag cancelled with Escape, and
+a click on the title bar, change nothing. While it is dragged, a
+translucent preview in the focused border's color shows where it will
+land. With `false`, a dropped window goes back to its slot, or joins the end
+of the other monitor's workspace, as before. See
+[tiling-layout.md](tiling-layout.md#dragging-windows).
 
 ### `keybindings.toml`
 
@@ -326,13 +350,16 @@ A missing file is never created. Files that exist change in two ways:
     in place (through `toml_edit`, so comments, formatting, the line endings
     and a byte order mark survive) without a backup. Otherwise it appends a
     comment block about the option, unless the file already mentions
-    `unfocused` anywhere. Last, it appends a comment block about window
-    transitions, unless the file has an `animations` table, as the template
-    writes it, or an `[animations]` header line commented out, as the block
-    itself has. A line that only mentions the section does not count. The
-    block is all comments and names no default value, so the file keeps the
-    defaults until the user writes the section, and says nothing wrong about
-    them when they change.
+    `unfocused` anywhere. It appends a comment block about `drag_to_swap`
+    under `[mouse]`, unless the file mentions it anywhere, as the template
+    and the block itself do; the block is all comments and names no default
+    value. Last, it appends a comment block about window transitions, unless
+    the file has an `animations` table, as the template writes it, or an
+    `[animations]` header line commented out, as the block itself has. A
+    line that only mentions the section does not count. The block is all
+    comments and names no default value, so the file keeps the defaults
+    until the user writes the section, and says nothing wrong about them
+    when they change.
   - `merge_missing_keybindings()` and `merge_missing_bar_widgets()` append the
     default bindings and bar widgets the files lack; see
     [keyboard-bindings.md](keyboard-bindings.md) and
@@ -459,8 +486,9 @@ same way.
 - **config.toml**: gap/ratio, hiding behaviour, border settings, the
   `[mouse]` settings, `[animations]` and theme are reloaded. The tiling
   manager calls `reload_config()` which updates the layout gap/ratio, hiding
-  strategy, `BorderConfig`, whether the mouse follows focus and the
-  `[animations]` settings, then retiles all windows; the daemon starts or
+  strategy, `BorderConfig`, whether the mouse follows focus, whether a drop
+  moves a dragged window (`drag_to_swap`, from its next report or drop) and
+  the `[animations]` settings, then retiles all windows; the daemon starts or
   stops focus-follows-mouse. Transitions that start after the reload use the
   new settings. A motion in flight goes on as it is while its target stays the
   same, a reload that moves its target turns it there with the new duration,

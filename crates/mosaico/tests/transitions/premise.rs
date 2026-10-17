@@ -1,9 +1,11 @@
-//! What the swap tests need of the desktop before they swap.
+//! What the swap and drag tests need of the desktop before they swap or
+//! drag.
 //!
 //! Notepad opens on whichever monitor it last closed on, and a window
 //! joins the workspace on screen there. When the two notepads are not
-//! alone and side by side on workspace 8, the swap is not the one the
-//! tests mean, and their failure would look like a transition bug.
+//! alone and side by side on workspace 8, the swap or the drag is not the
+//! one the tests mean, and their failure would look like a bug in what
+//! they test.
 
 use mosaico_core::{Rect, WindowId};
 
@@ -34,7 +36,7 @@ pub fn assert_alone_side_by_side(state: &str, windows: [WindowId; 2], before: [R
 
 /// Fails the test for `why`, with the desktop `state` it found.
 fn wrong_setup(why: &str, state: &str) -> ! {
-    panic!("the test's setup is wrong, not transitions: {why}\n{state}")
+    panic!("the test's setup is wrong, not what it tests: {why}\n{state}")
 }
 
 /// The ids of the windows `state` lists on workspace `n` of each monitor

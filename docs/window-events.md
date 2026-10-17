@@ -11,7 +11,8 @@ WinEvent hooks and a hidden window that receives broadcasts.
 
 | File | Purpose |
 |------|---------|
-| `crates/mosaico-core/src/event.rs` | `WindowEvent` and what each variant promises |
+| `crates/mosaico-core/src/event/window_event.rs` | `WindowEvent` and what each variant promises |
+| `crates/mosaico-core/src/event/drag.rs` | `DragStart`, `Grab` and `Edges` -- what the start of a drag carries |
 | `crates/mosaico-core/src/event/source.rs` | `EventSource` contract and `EventWatch` |
 | `crates/mosaico-core/src/event/hover.rs` | `MousePointer` contract and `FocusFollowsMouse` |
 | `crates/mosaico-core/src/event/rest.rs` | `HoverTracker` -- when the pointer has come to rest |
@@ -19,6 +20,7 @@ WinEvent hooks and a hidden window that receives broadcasts.
 | `crates/mosaico-windows/src/event_source_hooks.rs` | The two `SetWinEventHook` hooks and their callback |
 | `crates/mosaico-windows/src/event_source_sink.rs` | The hidden window for `WM_DISPLAYCHANGE` and `WM_SETTINGCHANGE` |
 | `crates/mosaico-windows/src/event.rs` | `translate()` and `translate_broadcast()` -- Win32 values to `WindowEvent` |
+| `crates/mosaico-windows/src/drag_facts.rs` | What the start and the end of a drag carry, read in the hook |
 | `crates/mosaico-windows/src/pointer.rs` | `WindowsPointer` -- the window under the pointer |
 | `crates/mosaico-windows/src/message_thread.rs` | `MessageThread` -- a thread with a message queue |
 
@@ -31,8 +33,8 @@ WinEvent hooks and a hidden window that receives broadcasts.
 | `Hidden { window }` | A window is hidden, but not necessarily closed: it stops being shown without being minimized, including a window that closes while shown (just before `Destroyed`). May be reported for a window that stays on screen |
 | `Focused { window }` | A window becomes the active one, including when the tiler focused it |
 | `MouseHover { window }` | The pointer came to rest on a window (focus-follows-mouse only) |
-| `MoveStarted { window }` | The user starts dragging a window to a new place or size; `Moved` follows when the drag ends |
-| `Moved { window }` | The user finishes dragging a window to a new place or size |
+| `MoveStarted { window, start }` | The user starts dragging a window to a new place or size; `Moved` follows when the drag ends. `start` says what the pointer holds the window by, where the window is, whether it is maximized and where the pointer is, as the platform saw the drag start |
+| `Moved { window, pointer }` | The user finishes dragging a window to a new place or size, with where the pointer is as the platform saw the drag end |
 | `Minimized { window }` | A window is minimized |
 | `Restored { window }` | A minimized window is shown again |
 | `TitleChanged { window }` | A window's title changes |
@@ -109,6 +111,37 @@ Both functions are pure. `event_tests.rs` and, for the start of a drag,
 these cases, including the hide and show a GPU-accelerated application
 reports while it recreates its drawing surface.
 
+### What a Drag Carries
+
+`translate()` gives the start and the end of a drag without what was read
+with them. The hook's callback reads it as it reports each
+(`drag_facts::read`), since by the time the tiler handles the event the
+window and the pointer have moved on:
+
+- the pointer, with `GetCursorPos`, at the start and at the end;
+- at the start, the window's visible bounds, as the desktop reads them,
+  whether it is maximized (`IsZoomed`), which a drag by the title bar soon
+  ends, and what the window answers to `WM_NCHITTEST` at the pointer:
+  `HTCAPTION` is `Grab::TitleBar`, and each sizing edge or corner of the
+  frame is `Grab::Edges` with that edge, or those two. Anything else, such
+  as the client area of a window whose application starts the drag itself,
+  leaves `grab` empty. The window moves or resizes with the pointer, so
+  what is under it is what it was grabbed by, even when the hook reports a
+  little late.
+
+The point is mapped to the window's own coordinates first
+(`PhysicalToLogicalPointForPerMonitorDPI`), for a window that is not aware
+of the display's DPI. The window is asked with `SendMessageTimeoutW`, with
+`SMTO_BLOCK`, so the event thread handles nothing else meanwhile and no
+report overtakes this one, and `SMTO_ABORTIFHUNG`, for at most 50 ms; a
+window that does not answer holds nothing. `drag_facts_tests.rs` checks the
+codes, `drag_facts_read_tests.rs` a start and an end read on a hidden window
+of the test's own, and `drag_facts_hit_tests.rs` what a hidden window with
+a caption and a sizing frame answers: one that is per-monitor aware, at its
+own pixels on any display, and one that is not DPI aware, asked from a
+per-monitor aware thread at points in the display's pixels, on a display
+that is scaled.
+
 ## Event Hook Configuration
 
 `WindowsEventSource::start()` sets up, on a thread of its own:
@@ -160,6 +193,11 @@ what it draws finds the bar, which the tiler does not manage, so it focuses
 nothing; a bar that lets the pointer through, over a maximized window or with
 the bar's `[mouse] enabled = false`, finds the window under it, as before.
 
+Focus-follows-mouse rests while the user drags any window, tiled or not: the
+tiling manager drops each report until the window is let go
+(`applier_reports.rs`), as a focus change then would reach the system's move
+or size loop. The next report once the window is let go applies as usual.
+
 ## How Events Drive Tiling
 
 | Event | Tiling Response |
@@ -167,14 +205,31 @@ the bar's `[mouse] enabled = false`, finds the window under it, as before.
 | `Created` | Place a window that is not shown yet; adopt a visible one into the focused monitor's workspace |
 | `Destroyed` | Remove window from workspace, re-tile |
 | `Hidden` | Remove the window, if it is really no longer visible, and stop its transition then |
-| `Focused` | Update focus tracking, show/reposition border |
-| `MouseHover` | Focus the window, if it is managed and on the active workspace; dropped while windows move, and not repeated until the pointer moves to another window. That rarely matters: a report takes 3 polls, at least 200 ms, longer than a default 180 ms transition, so a window sliding under a pointer at rest is usually reported only once it stops |
-| `MoveStarted` | Stop the window's transition, if it is moving; the layout changes when the drag ends, with `Moved` |
-| `Moved` | Detect monitor reassignment, re-tile if needed |
+| `Focused` | Update focus tracking, show/reposition border; another window taking focus, other than by the tiler's doing, ends a drag |
+| `MouseHover` | Focus the window, if it is managed and on the active workspace; dropped while windows move and while the user drags a window, and not repeated until the pointer moves to another window. That rarely matters: a report takes 3 polls, at least 200 ms, longer than a default 180 ms transition, so a window sliding under a pointer at rest is usually reported only once it stops |
+| `MoveStarted` | Stop the window's transition, if it is moving, drop what is held back for it, and leave the pointer alone until the drag ends. A tiled window keeps its slot, but nothing places it until the drag ends, whatever the user does with the keyboard or the bars meanwhile, and its border is hidden once the window has left where it started; the layout changes then, with `Moved` |
+| `Moved` | Drop the window whose drag the tiler followed where the pointer is, with `[mouse] drag_to_swap`; otherwise detect monitor reassignment of a window on a workspace on screen, re-tile if needed (see [tiling-layout.md](tiling-layout.md#dragging-windows)) |
 | `Minimized` | Remove from workspace, re-tile, and stop the window's transition, if it is really minimized |
 | `Restored` | Re-add to workspace, re-tile |
 | `TitleChanged` | Adopt a window that only became recognizable once it had a title |
-| `LocationChanged` | Notice the focused window entering or leaving maximized state, and any window on screen starting or stopping to be maximized or fullscreen, for the bars (`bar_filling.rs`); once a window still to land where a posted placement takes it reports being there, or being anywhere once the wait for it by time is over, repaint it again and draw its border there (`applier_landing.rs`) |
+| `LocationChanged` | Notice any window on screen starting or stopping to be maximized or fullscreen, for the bars (`bar_filling.rs`), the one the user drags too; then hide the border of a window the user drags once it has left where it started, and move the preview of where it would land, or otherwise notice the focused window entering or leaving maximized state; once a window still to land where a posted placement takes it reports being there, or being anywhere once the wait for it by time is over, repaint it again and draw its border there (`applier_landing.rs`) |
+
+A drag of a tiled window lasts from its `MoveStarted` to its `Moved`.
+Windows does not say that `EVENT_SYSTEM_MOVESIZEEND` follows every
+`EVENT_SYSTEM_MOVESIZESTART`, only that an out-of-context hook gets its
+events in the order they happen. So a drag also ends when its window
+closes, hides, is minimized or leaves the workspace on screen, when
+another window takes focus other than by the tiler's doing, and when the
+user drags another window. A drag whose end is lost while the user goes
+on with the keyboard alone keeps its window out of the layout, with its
+border hidden, until one of those happens.
+
+One timing question is open until it is checked on a live desktop:
+whether a snap or a maximize the system makes at a drop has landed by the
+time the daemon reads the window's rect for its `Moved`. If it lands
+after, a drop at an edge of the monitor is taken for a move onto the tile
+under the pointer, a swap or a join, and the snap then lands over the new
+layout.
 
 ## Design Decisions
 

@@ -60,6 +60,7 @@ impl<P: Platform> TilingManager<P> {
             borders: config.borders.clone(),
             rules,
             mouse_follows_focus: config.mouse.follows_focus,
+            drag_to_swap: config.mouse.drag_to_swap,
             animations: config.animations.clone(),
             hiding_support: hiding,
         };
@@ -96,16 +97,24 @@ impl<P: Platform> TilingManager<P> {
     }
 
     /// Handles a window event, unless it is an echo of our own changes.
+    /// The end of a drag gives the pointer back once it is handled.
     pub fn handle_event(&mut self, event: &WindowEvent) {
         if let WindowEvent::Destroyed { window } = *event {
             self.applier.forget(window);
         }
         let now = self.platform.now();
-        if let Some(reason) = self.applier.echo(event, &mut self.platform, now) {
+        let focused = self.tiler.focused_window();
+        if let Some(reason) = self.applier.echo(event, focused, &mut self.platform, now) {
             crate::log_debug!("{} suppressed ({})", event, reason);
-            return;
+        } else {
+            self.step(Input::Event(event.clone()));
         }
-        self.step(Input::Event(event.clone()));
+        if let WindowEvent::Moved { window, .. } = *event {
+            let now = self.platform.now();
+            let focused = self.tiler.focused_window();
+            self.applier
+                .drag_ended(window, focused, &mut self.platform, now);
+        }
     }
 
     /// When the focus changes and placements held back, waiting for

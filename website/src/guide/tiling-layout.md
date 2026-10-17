@@ -159,6 +159,38 @@ area. Other windows remain in the workspace but are not repositioned.
 - The focus border color changes to the configured monocle color
 - Each monitor has its own independent monocle state
 
+## Dragging Windows
+
+Drag a tiled window by its title bar and drop it on another tile to swap
+the two. Drop it on another monitor to put it there, before the tile under
+the pointer, or at the end when the pointer is over a gap or the status
+bar. While you drag, a translucent preview in the focused border's color
+shows where the window will land: on another monitor, that is the slot it
+gets there, which in BSP is not always the tile under the pointer.
+
+The window goes back to its slot when you drop it on its own slot, in a
+gap, on its monitor's status bar, or anywhere on its monitor in monocle,
+and when Windows snaps or maximizes it on its monitor as you drop it.
+Maximized by Windows on another monitor, it joins that monitor's windows
+and stays maximized. Press `Esc` while dragging to leave everything as it
+was, even with the pointer over another tile, and a click on the title
+bar changes nothing either. Dragging a window by an edge resizes it, and
+it goes back to its slot when you let go. A window Mosaico does not tile
+can be dragged anywhere without moving the tiles under it.
+
+While you drag, nothing else moves the window or the pointer, whatever
+you press: a window that opens meanwhile is tiled around it, and the
+pointer follows focus only once you let go. Pressing a hotkey, or using a
+status bar, while dragging hides the preview, and the window goes back to
+its slot when you drop it, or joins the end of the other monitor's
+windows; pausing the hotkeys, from their key or the **PAUSED** mark,
+leaves the drag as it is. Switching workspaces hides it with the other
+windows there, and it stays there when you let go.
+
+Set `drag_to_swap = false` under `[mouse]` in `config.toml` to have every
+dropped window go back to its slot, or join the end of the other
+monitor's windows, as before.
+
 ## Retiling
 
 Mosaico automatically retiles when windows are opened, closed, minimized,

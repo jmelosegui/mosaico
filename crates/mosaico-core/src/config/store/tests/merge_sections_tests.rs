@@ -1,5 +1,6 @@
 use crate::LayoutKind;
 use crate::config::store::merge_animations::ANIMATIONS_HINT_SNIPPET;
+use crate::config::store::merge_mouse::DRAG_TO_SWAP_HINT_SNIPPET;
 use crate::config::store::merge_unfocused::UNFOCUSED_BORDER_HINT_SNIPPET;
 use crate::config::store::merge_wrap::WRAP_INLINE_PREFIX;
 use crate::config::store::test_support::{contents, file_names, temp_store};
@@ -14,6 +15,7 @@ fn fully_merged(original: &str) -> String {
         original,
         WORKSPACES_SECTION_SNIPPET,
         UNFOCUSED_BORDER_HINT_SNIPPET,
+        DRAG_TO_SWAP_HINT_SNIPPET,
         ANIMATIONS_HINT_SNIPPET,
     ]
     .concat()
@@ -41,7 +43,7 @@ fn an_old_config_gets_the_workspaces_section_and_the_hints() {
     // Act
     store.merge_missing_config_sections();
 
-    // Assert -- the file keeps every byte and gains the three blocks, in
+    // Assert -- the file keeps every byte and gains the four blocks, in
     // order.
     assert_eq!(contents(&store.config_path()), fully_merged(original));
 }
@@ -107,7 +109,7 @@ fn an_active_colors_table_gets_the_unfocused_key_even_if_a_comment_names_it() {
 fn a_config_with_every_section_gains_nothing() {
     // Arrange -- the near miss: a file that already has all of it.
     let store = temp_store("merge-sections-current");
-    let original = "[workspaces]\nmode = \"global\"\nwrap = true\n\n[borders.colors]\nunfocused = \"none\"\n\n[animations]\nenabled = true\n";
+    let original = "[workspaces]\nmode = \"global\"\nwrap = true\n\n[borders.colors]\nunfocused = \"none\"\n\n[mouse]\ndrag_to_swap = true\n\n[animations]\nenabled = true\n";
     std::fs::write(store.config_path(), original).unwrap();
 
     // Act
@@ -123,7 +125,7 @@ fn a_workspaces_section_from_before_wrap_gains_the_key_in_place() {
     // Arrange -- everything else is there already.
     let store = temp_store("merge-sections-wrap");
     let workspaces = "[workspaces]\nmode = \"global\"\n";
-    let rest = "\n[borders.colors]\nunfocused = \"none\"\n\n[animations]\nenabled = true\n";
+    let rest = "\n[borders.colors]\nunfocused = \"none\"\n\n[mouse]\ndrag_to_swap = true\n\n[animations]\nenabled = true\n";
     std::fs::write(store.config_path(), format!("{workspaces}{rest}")).unwrap();
 
     // Act

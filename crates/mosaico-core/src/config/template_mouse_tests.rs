@@ -1,7 +1,7 @@
 use crate::Action;
 use crate::action::Scope;
-use crate::config::WorkspacesConfig;
 use crate::config::bar::{BarMouseConfig, ClickBinding};
+use crate::config::{MouseConfig, WorkspacesConfig};
 
 use super::*;
 
@@ -33,6 +33,21 @@ fn config_template_writes_out_wrap_at_its_default() {
     let workspaces = file["workspaces"].as_table().expect("a [workspaces] table");
     assert!(workspaces.contains_key("wrap"));
     assert_eq!(config.workspaces.wrap, WorkspacesConfig::default().wrap);
+}
+
+#[test]
+fn config_template_writes_out_drag_to_swap_at_its_default() {
+    // Arrange
+    let toml_str = generate_config();
+
+    // Act
+    let file: toml::Table = toml::from_str(&toml_str).unwrap();
+    let config: crate::Config = toml::from_str(&toml_str).unwrap();
+
+    // Assert
+    let mouse = file["mouse"].as_table().expect("a [mouse] table");
+    assert!(mouse.contains_key("drag_to_swap"));
+    assert_eq!(config.mouse, MouseConfig::default());
 }
 
 #[test]

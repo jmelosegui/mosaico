@@ -16,8 +16,9 @@ Unfocused borders can be turned off entirely (see
 
 | File | Purpose |
 |------|---------|
-| `crates/mosaico-core/src/decoration.rs` | `Decorations`, the contract for borders and window corners |
-| `crates/mosaico-core/src/tiler/decoration_effects.rs` | `apply_decoration_effect`, which carries out border and corner effects |
+| `crates/mosaico-core/src/decoration.rs` | `Decorations`, the contract for borders, window corners and the drop preview |
+| `crates/mosaico-core/src/tiler/decoration_effects.rs` | `apply_decoration_effect`, which carries out border, corner and preview effects |
+| `crates/mosaico-core/src/tiler/border_style.rs` | `BorderStyle` and `PreviewStyle`, how a border and the drop preview are drawn |
 | `crates/mosaico-core/src/tiler/plan_borders.rs` | Keeping one border per window in a step, and where it goes |
 | `crates/mosaico-core/src/tiler/last_drawn.rs` | `LastDrawn`, the style a border was last drawn with |
 | `crates/mosaico-core/src/tiler/applier_borders.rs` | The borders of moving windows, drawn once each window is in place |
@@ -25,7 +26,8 @@ Unfocused borders can be turned off entirely (see
 | `crates/mosaico-core/src/config/types.rs` | `BorderConfig` for color and width settings |
 | `crates/mosaico-windows/src/decorations.rs` | `Win32Decorations`, the Win32 implementation |
 | `crates/mosaico-windows/src/border.rs` | `Border` struct: creating, placing and hiding the overlay |
-| `crates/mosaico-windows/src/border/render.rs` | Painting the border bitmap |
+| `crates/mosaico-windows/src/border/render.rs` | Putting the border bitmap on screen, painted in `border/pixels.rs` |
+| `crates/mosaico-windows/src/border/preview.rs` | `Preview`: the drop preview, an overlay of its own with a translucent fill |
 | `crates/mosaico-windows/src/border/stack.rs` | Putting the overlay just behind its window, or only moving it (`Border::move_to`) |
 | `crates/mosaico-windows/src/border/class.rs` | The `MosaicoBorder` window class and its window procedure |
 
@@ -54,6 +56,8 @@ pub trait Decorations {
     fn forget_drawn(&mut self);
     fn set_corners(&mut self, window: WindowId, corners: CornerStyle) -> Result<()>;
     fn reset_corners(&mut self, window: WindowId) -> Result<()>;
+    fn show_preview(&mut self, window: WindowId, rect: Rect, style: &PreviewStyle) -> Result<()>; // Unsupported by default
+    fn hide_preview(&mut self) -> Result<()>; // nothing to hide by default
 }
 ```
 
@@ -81,12 +85,22 @@ The contract, in the trait's docs, spells out what the tiler relies on:
   again.
 - A platform that cannot draw borders, or cannot change the corners of
   windows, returns `Error::Unsupported`.
+- The drop preview shows where the window the user drags would land: an
+  outline inside the rect, over a fill of the same color through which
+  what is under it shows. There is one; showing it again moves it, and
+  draws it from scratch only when its rect or its style changed, or after
+  `forget_drawn`. It sits just behind the dragged window, in that window's
+  band of the z-order, topmost or not, so the dragged window stays in front
+  of it, as does any window in front of that one; showing it again puts it
+  back there. Like a border it never takes focus or input and never causes
+  a window event. A platform without one returns `Error::Unsupported` from
+  `show_preview`, the default, and drops work all the same.
 
 `tiler::apply_decoration_effect` carries out the `Border`, `DropBorder`,
-`RedrawBorders`, `Decorate` and `Undecorate` effects through it. A border
-that cannot be created is logged as a warning, unless the platform has no
-borders at all; other failures, such as a window that closed in the
-meantime, are logged for debugging.
+`RedrawBorders`, `Decorate`, `Undecorate`, `ShowPreview` and `HidePreview`
+effects through it. A border or a preview that cannot be created is logged
+as a warning, unless the platform has none at all; other failures, such as
+a window that closed in the meantime, are logged for debugging.
 
 ## Border Window
 
@@ -267,6 +281,33 @@ effect for it meanwhile replaces the style, as for a moving window.
 `DropBorder` forgets the style a motion kept, or one kept for a window still
 to land, so a border dropped meanwhile is not drawn again.
 
+### Borders of Dragged Windows
+
+The border of a tiled window the user drags is hidden once a position
+report finds the window away from where the drag started, and stays hidden
+however often the tiler brings the borders in line meanwhile, since it
+would only show where the window was. A click on the title bar, which the
+platform reports as a drag that moves nothing, leaves it drawn. It is drawn
+again as the drop places the window, or as anything else draws the borders
+once the drag has ended (see
+[tiling-layout.md](tiling-layout.md#dragging-windows)).
+
+### Drop Preview
+
+The drop preview shows where a dragged window lands. On Win32 it is an
+overlay of its own (`border/preview.rs`), a `Border` whose bitmap has a
+fill inside its stroke at a quarter of full opacity (alpha 64),
+premultiplied as `UpdateLayeredWindow` takes it, where a border's middle is
+clear (`border/pixels.rs`). It is created hidden the first time it is shown,
+with the border's window class and styles, so it is click-through, out of
+the taskbar and never reported as a window event. Its stroke lies inside
+the rect, so the overlay covers the slot exactly. Showing it puts it just
+behind the dragged window, in that window's band, as a border is put behind
+its window, and renders its bitmap only when its rect or style changed since
+the last one, or once the borders are to be drawn from scratch; otherwise it
+is only put back in place. A bitmap that cannot be rendered is logged for
+debugging and rendered again the next time.
+
 ## Configuration
 
 In `config.toml`:
@@ -387,4 +428,17 @@ border, as drawing it again the same way does, shows it again, and only
 once it is at its new rect, with overlays of its own off screen, and that
 moving a border changes where it is and nothing else, and
 `decorations_tests.rs` that forgetting how the borders were drawn renders
-every one again, and that moving a border keeps what it was drawn with.
+every one again, the preview too, and that moving a border keeps what it was
+drawn with.
+
+The drop preview's effects are checked in
+`tiler/tests/decoration_preview_tests.rs`, with the default of a platform
+that has none, and when the tiler shows, moves, hides and shows it again in
+`tiler/tests/drag_preview*_tests.rs`; `tiler/tests/drag_border_tests.rs`
+checks that a dragged window's border is hidden once it leaves where it
+started, stays hidden until the drag ends, and stays drawn through a click
+on the title bar. In `mosaico-windows`, `border/pixels_tests.rs` checks the
+pixels of a border and of the preview's fill, premultiplied, and
+`border/preview_tests.rs` where the preview's outline lies, that a new
+preview is hidden, and that one renders its bitmap again once it forgot it,
+on overlays of its own that are never shown.

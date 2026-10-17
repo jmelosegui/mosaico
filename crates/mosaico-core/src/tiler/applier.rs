@@ -31,6 +31,8 @@ use super::{Coalescer, Effect, Expectations, HiddenFile, HiddenWindows, Platform
 mod borders;
 #[path = "applier_display.rs"]
 mod display;
+#[path = "applier_drag.rs"]
+mod drag;
 #[path = "applier_ends.rs"]
 mod ends;
 #[path = "applier_frames.rs"]
@@ -72,6 +74,8 @@ pub(super) struct Applier {
     transitions: motion::Transitions,
     /// What a display change stopped, until it is rebuilt for.
     display: display::DisplayChange,
+    /// The pointer, while the user drags a window.
+    pointer: drag::PointerHold,
     /// What may still be on its way to windows.
     posted: posted::Posted,
 }

@@ -77,7 +77,7 @@ fn other_events_are_never_dropped_or_reordered() {
         focused(1),
         WindowEvent::Created { window: wid(2) },
         focused(1),
-        WindowEvent::Moved { window: wid(2) },
+        WindowEvent::moved(wid(2)),
         WindowEvent::Minimized { window: wid(1) },
         WindowEvent::Restored { window: wid(1) },
         WindowEvent::MouseHover { window: wid(2) },

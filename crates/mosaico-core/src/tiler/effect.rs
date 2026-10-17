@@ -1,7 +1,7 @@
 use crate::config::{CornerStyle, HidingBehaviour};
 use crate::{Rect, WindowId};
 
-use super::{BorderStyle, Timing, Transition};
+use super::{BorderStyle, PreviewStyle, Timing, Transition};
 
 /// A change the tiler wants made to the desktop.
 ///
@@ -135,4 +135,16 @@ pub enum Effect {
     /// asks for this ahead of the borders of a retile the user asks for
     /// and of a display change that changes anything.
     RedrawBorders,
+    /// Show the drop preview where the window the user drags would land,
+    /// or move it there.
+    ShowPreview {
+        /// The window the user drags, which stays in front of it.
+        window: WindowId,
+        /// The visible bounds the window would get.
+        rect: Rect,
+        /// How to draw it.
+        style: PreviewStyle,
+    },
+    /// Hide the drop preview.
+    HidePreview,
 }

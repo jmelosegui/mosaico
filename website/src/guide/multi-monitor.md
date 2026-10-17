@@ -64,9 +64,19 @@ monitor.
 
 ## Manual Dragging
 
-If you manually drag a window to a different monitor, Mosaico detects the
-monitor change and reassigns the window automatically. Both monitors are
-retiled.
+If you drag a tiled window by its title bar to a different monitor and drop
+it there, it joins that monitor's windows before the tile under the
+pointer, or at the end when the pointer is over a gap or its status bar,
+and that monitor takes focus. A preview shows where it will land while you
+drag. Where the pointer is decides, not where most of the window is, so a
+window Windows rescales on its way to a monitor of another scale lands
+where you point. Both monitors are retiled. A window Windows maximizes
+there as you drop it joins that monitor too, and stays maximized. See
+[Dragging Windows](tiling-layout.md#dragging-windows).
+
+With `drag_to_swap = false` under `[mouse]` in `config.toml`, or for a
+window Mosaico starts tiling as you drop it, the window joins the end of
+the windows of the monitor it is on.
 
 ## DPI Awareness
 

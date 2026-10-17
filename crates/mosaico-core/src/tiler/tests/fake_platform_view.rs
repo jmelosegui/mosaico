@@ -20,6 +20,11 @@ impl FakePlatform {
         change(desktop.windows.get_mut(&wid(id)).expect("window exists"));
     }
 
+    /// Puts the pointer at `at`, as the user moving it does.
+    pub(crate) fn point_at(&self, at: (i32, i32)) {
+        self.shared.desktop.borrow_mut().cursor = Some(at);
+    }
+
     /// Closes a window, which leaves the desktop.
     pub(crate) fn close_window(&self, id: u64) {
         self.shared.desktop.borrow_mut().windows.remove(&wid(id));

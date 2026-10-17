@@ -16,6 +16,9 @@ pub enum Input {
     /// own effects. Display and work area events are ignored here; send
     /// [`Input::Displays`] or [`Input::WorkAreas`] instead.
     Event(WindowEvent),
+    /// A display change was noted. The monitors are read once it settles,
+    /// and sent as [`Input::Displays`].
+    DisplayChanging,
     /// The set of monitors changed.
     Displays {
         /// Every monitor now connected, left to right as

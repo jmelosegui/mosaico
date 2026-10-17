@@ -19,17 +19,26 @@ enum Repeated {
 /// last `TitleChanged`, where that one arrived, which can turn hundreds
 /// of events into a handful. Every other event is kept, in order:
 /// handling it twice is not the same as handling it once.
+///
+/// The start and the end of a drag are barriers: a change is only
+/// collapsed with those on the same side of both. Where a window is
+/// while the user drags it is what the drag is followed by, and a
+/// change from before the drag or after it says nothing about that.
 pub(super) fn dedup(events: &mut Vec<WindowEvent>) {
     let mut last = HashMap::new();
+    let mut span = 0;
     for (i, event) in events.iter().enumerate() {
+        span += usize::from(is_barrier(event));
         if let Some(key) = repeated(event) {
-            last.insert(key, i);
+            last.insert((key, span), i);
         }
     }
 
     let mut i = 0;
+    let mut span = 0;
     events.retain(|event| {
-        let keep = repeated(event).is_none_or(|key| last.get(&key) == Some(&i));
+        span += usize::from(is_barrier(event));
+        let keep = repeated(event).is_none_or(|key| last.get(&(key, span)) == Some(&i));
         i += 1;
         keep
     });
@@ -44,6 +53,19 @@ fn repeated(event: &WindowEvent) -> Option<(WindowId, Repeated)> {
     }
 }
 
+/// Whether no change is collapsed across `event`: the start or the end
+/// of a drag, whichever window it is.
+fn is_barrier(event: &WindowEvent) -> bool {
+    matches!(
+        event,
+        WindowEvent::MoveStarted { .. } | WindowEvent::Moved { .. }
+    )
+}
+
 #[cfg(test)]
 #[path = "tests/dedup_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "tests/dedup_drag_tests.rs"]
+mod drag_tests;

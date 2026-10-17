@@ -52,7 +52,7 @@ impl Applier {
     ) {
         let (window, why) = match *event {
             WindowEvent::Destroyed { window } => (window, Ending::Destroyed),
-            WindowEvent::MoveStarted { window } => (window, Ending::Stopped(Stop::Grabbed)),
+            WindowEvent::MoveStarted { window, .. } => (window, Ending::Stopped(Stop::Grabbed)),
             WindowEvent::Hidden { window } if !echo && !desktop.is_visible(window) => {
                 (window, Ending::Stopped(Stop::Hidden))
             }

@@ -1,4 +1,5 @@
-//! The mouse pointer, for focus-follows-mouse.
+//! The mouse pointer: where it is, and the window under it for
+//! focus-follows-mouse.
 
 use mosaico_core::event::MousePointer;
 use mosaico_core::{Error, Result, WindowId};
@@ -20,14 +21,20 @@ pub struct WindowsPointer;
 
 impl MousePointer for WindowsPointer {
     fn window_under(&self) -> Result<Option<WindowId>> {
-        let mut point = POINT::default();
-        // SAFETY: GetCursorPos writes the cursor position into a stack
-        // allocated POINT and changes nothing.
-        unsafe { GetCursorPos(&mut point) }
-            .map_err(|e| Error::platform("read the pointer position", e))?;
+        let (x, y) = position()?;
         // SAFETY: WindowFromPoint and GetAncestor are read-only queries
         // that take any point and handle, and return null for none.
-        let root = unsafe { GetAncestor(WindowFromPoint(point), GA_ROOT) };
+        let root = unsafe { GetAncestor(WindowFromPoint(POINT { x, y }), GA_ROOT) };
         Ok((!root.is_invalid()).then(|| Window::new(root).id()))
     }
+}
+
+/// Where the pointer is, in desktop coordinates, with `GetCursorPos`.
+pub(crate) fn position() -> Result<(i32, i32)> {
+    let mut point = POINT::default();
+    // SAFETY: GetCursorPos writes the cursor position into a stack
+    // allocated POINT and changes nothing.
+    unsafe { GetCursorPos(&mut point) }
+        .map_err(|e| Error::platform("read the pointer position", e))?;
+    Ok((point.x, point.y))
 }

@@ -1,13 +1,14 @@
-//! Focus borders and window corners, drawn through Win32.
+//! Focus borders, the drop preview and window corners, drawn through
+//! Win32.
 
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 
 use mosaico_core::config::CornerStyle;
-use mosaico_core::tiler::{BorderStyle, LastDrawn};
+use mosaico_core::tiler::{BorderStyle, LastDrawn, PreviewStyle};
 use mosaico_core::{Decorations, Rect, Result, WindowId};
 
-use crate::border::Border;
+use crate::border::{Border, Preview};
 use crate::frame;
 use crate::window::Window;
 
@@ -27,10 +28,13 @@ use crate::window::Window;
 /// layered window keeps the bitmap `UpdateLayeredWindow` gave it when
 /// it is moved or hidden. When the tiler asks for every border to be
 /// drawn from scratch, each overlay renders its bitmap the next time.
+/// The drop preview is an overlay of its own (`border/preview.rs`).
 #[derive(Default)]
 pub(crate) struct Win32Decorations {
     /// One overlay per bordered window.
     borders: HashMap<WindowId, Overlay>,
+    /// The drop preview, once it was first shown.
+    preview: Option<Preview>,
 }
 
 /// A border overlay, what its bitmap shows, and how wide its stroke was
@@ -100,12 +104,13 @@ impl Decorations for Win32Decorations {
         Ok(())
     }
 
-    /// Each overlay keeps its bitmap on screen, and renders it again the
-    /// next time its border is drawn.
+    /// Each overlay, the preview's too, keeps its bitmap on screen, and
+    /// renders it again the next time it is drawn.
     fn forget_drawn(&mut self) {
         for overlay in self.borders.values_mut() {
             overlay.drawn = LastDrawn::default();
         }
+        self.preview.iter_mut().for_each(Preview::forget);
     }
 
     fn set_corners(&mut self, window: WindowId, corners: CornerStyle) -> Result<()> {
@@ -114,6 +119,29 @@ impl Decorations for Win32Decorations {
 
     fn reset_corners(&mut self, window: WindowId) -> Result<()> {
         frame::reset_corner_preference(Window::from_id(window).hwnd())
+    }
+
+    /// Fails only when the overlay cannot be created, the first time. A
+    /// bitmap that cannot be rendered is logged for debugging, and
+    /// rendered again the next time.
+    fn show_preview(&mut self, window: WindowId, rect: Rect, style: &PreviewStyle) -> Result<()> {
+        let preview = match self.preview.take() {
+            Some(preview) => preview,
+            None => Preview::new()?,
+        };
+        let preview = self.preview.insert(preview);
+        let target = Window::from_id(window).hwnd();
+        if let Err(e) = preview.show(rect, style, target) {
+            mosaico_core::log_debug!("drop preview of {}: {}", window, e);
+        }
+        Ok(())
+    }
+
+    fn hide_preview(&mut self) -> Result<()> {
+        if let Some(preview) = &self.preview {
+            preview.hide();
+        }
+        Ok(())
     }
 }
 

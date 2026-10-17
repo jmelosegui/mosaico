@@ -1,12 +1,13 @@
-//! The contract for drawing borders around windows and choosing how
-//! their corners look.
+//! The contract for drawing borders around windows, the preview of where
+//! a dragged window lands, and choosing how their corners look.
 
 use crate::config::CornerStyle;
-use crate::tiler::BorderStyle;
+use crate::tiler::{BorderStyle, PreviewStyle};
 use crate::{Rect, Result, WindowId};
 
 /// What the platform draws on and around managed windows: a border
-/// around each one, and the style of its corners.
+/// around each one, the style of its corners, and the preview of where a
+/// window the user drags lands.
 ///
 /// The tiler decides which windows have a border, how it looks and which
 /// corners windows get. It returns those decisions as effects, and the
@@ -85,8 +86,9 @@ pub trait Decorations {
 
     /// Forgets how every border was drawn, so that the next
     /// [`show_border`](Self::show_border) for each window draws it from
-    /// scratch, even when it would look as it does now. Borders on screen
-    /// stay as they are until then.
+    /// scratch, even when it would look as it does now, and so does the
+    /// next [`show_preview`](Self::show_preview). What is on screen stays
+    /// as it is until then.
     ///
     /// A platform may keep what it drew of a border and, when the border
     /// is drawn again the same way, only move it. What it kept can be
@@ -102,4 +104,36 @@ pub trait Decorations {
 
     /// Gives `window` back the corners the system draws by default.
     fn reset_corners(&mut self, window: WindowId) -> Result<()>;
+
+    /// Shows the drop preview around `rect`, the visible bounds `window`,
+    /// which the user drags, would get if they dropped it now, or moves
+    /// it there.
+    ///
+    /// - The preview is an outline `width` pixels wide in its `color`,
+    ///   inside `rect`, with its outer corners rounded by `radius`, over a
+    ///   fill of the same color through which what is under it shows.
+    /// - There is one preview. Showing it again moves it, and draws it
+    ///   from scratch only when its rect or its style changed, or after
+    ///   [`forget_drawn`](Self::forget_drawn).
+    /// - It sits just behind `window`, in the same band of the z-order,
+    ///   topmost or not: the window the user drags stays in front of it,
+    ///   as does any window in front of that one. Showing it again puts
+    ///   it back there, in front of a window that came between the two.
+    /// - Like a border, it is only ever seen: it never takes focus or
+    ///   input, never shows in the taskbar or the window switcher, and
+    ///   showing, moving or hiding it never causes a
+    ///   [`WindowEvent`](crate::WindowEvent).
+    /// - A platform that cannot draw a preview returns
+    ///   [`Error::Unsupported`](crate::Error::Unsupported), which is the
+    ///   default. Windows land where they are dropped all the same.
+    fn show_preview(&mut self, window: WindowId, rect: Rect, style: &PreviewStyle) -> Result<()> {
+        let _ = (window, rect, style);
+        Err(crate::Error::Unsupported("previewing where a window lands"))
+    }
+
+    /// Hides the drop preview, keeping it to show again. Does nothing when
+    /// it is not shown, as the default does on a platform without one.
+    fn hide_preview(&mut self) -> Result<()> {
+        Ok(())
+    }
 }

@@ -201,10 +201,14 @@ back, in order:
 4. **Handle the batch's window events** in order, then refresh the bar once.
    Each window keeps only its last `LocationChanged` and its last
    `TitleChanged` of the batch, which can turn hundreds of events into a
-   handful. A `LocationChanged` alone refreshes the bar only when the tiler
-   saw a window on screen go in or out of maximized or fullscreen
-   (`TilingManager::take_bars_changed()`), which decides whether the bar
-   lets the pointer through: maximizing and restoring report nothing else.
+   handful. The start and the end of a drag, `MoveStarted` and `Moved` of
+   any window, are barriers: a change is only collapsed with those on the
+   same side of both, so where a window is while it is dragged stays
+   between the two. A `LocationChanged` alone refreshes the bar only when
+   the tiler saw a window on screen go in or out of maximized or
+   fullscreen (`TilingManager::take_bars_changed()`), which decides whether
+   the bar lets the pointer through: maximizing and restoring report
+   nothing else.
 5. **Apply the wheel** (`daemon_loop_bar::apply_wheel()`): once the wheel
    has been quiet over a bar for `bar::WHEEL_QUIET` (120 ms), carry out the
    workspace switches its turns add up to, which `BarManager::take_wheel()`

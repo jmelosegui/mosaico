@@ -23,6 +23,7 @@ mod desktop;
 mod display;
 mod display_monocle;
 mod display_rebuild;
+mod drag;
 mod early_move;
 mod echo;
 mod echo_focus;
@@ -67,7 +68,7 @@ use crate::config::{
 };
 use crate::{HidingSupport, LayoutKind, WindowId};
 
-pub use border_style::BorderStyle;
+pub use border_style::{BorderStyle, PreviewStyle};
 pub use coalesce::Coalescer;
 pub use decoration_effects::apply_decoration_effect;
 pub use desktop::{Desktop, Display, WindowFacts};
@@ -128,13 +129,12 @@ pub struct Tiler {
     /// stays here; one dropped from it for no longer being shown does
     /// not.
     decorated: HashSet<WindowId>,
-    mouse_follows_focus: bool,
+    mouse: drag::Mouse,
     focused_monitor: usize,
     focused_window: Option<WindowId>,
-    /// Whether the focused window was maximized when last looked at.
-    ///
-    /// Lets `LocationChanged`, which fires on every animation frame,
-    /// react only when the window enters or leaves maximized state.
+    /// Whether the focused window was maximized when last looked at, so
+    /// that `LocationChanged`, which fires on every animation frame,
+    /// reacts only when the window enters or leaves maximized state.
     focused_maximized: bool,
     filling: bar_states::Filling,
     /// Pins `focused_monitor` while its active workspace is empty. See

@@ -2,13 +2,14 @@
 //! their motions are over: the desktop may still have them where they
 //! were, so their placements are not skipped for it, but are for one in
 //! place that was last sent there, and the pointer goes where they are
-//! going.
+//! going. A window the user grabs is where they take it.
 
+use crate::id::wid;
 use crate::tiler::tests::fake_platform::Call;
-use crate::{Action, Direction, Rect};
+use crate::{Action, Direction, Rect, WindowEvent};
 
 use super::{
-    FakePlatform, Manager, REFRESH, animated, frame_by_frame, placements, settle, swap, two,
+    FakePlatform, Manager, REFRESH, animated, frame_by_frame, placements, posted, settle, swap, two,
 };
 
 /// Two windows that swap, where window 1's application takes three frames
@@ -97,4 +98,32 @@ fn a_window_in_place_and_last_sent_there_is_not_placed_again_while_that_is_recen
     // Assert -- nothing is placed again.
     let calls = platform.take_calls();
     assert!(placements(&calls).is_empty(), "{calls:?}");
+}
+
+#[test]
+fn a_window_let_go_right_after_a_swap_slides_back_from_where_it_was_let_go() {
+    // Arrange -- a swap is over, and the user drags window 1 away from the
+    // slot it was last sent to.
+    let (platform, mut manager) = two(&animated());
+    swap(&mut manager);
+    settle(&platform, &mut manager);
+    let slot = platform.window(1).rect;
+    manager.handle_event(&WindowEvent::move_started(wid(1)));
+    platform.edit(1, |w| w.rect.x -= 300);
+    platform.take_calls();
+
+    // Act -- they let it go there.
+    manager.handle_event(&WindowEvent::moved(wid(1)));
+    let calls = frame_by_frame(&platform, &mut manager).concat();
+
+    // Assert -- its first frame is on its way back from there, not from
+    // its slot.
+    let frames = posted(&calls).into_iter().flatten();
+    let first = frames.into_iter().find(|f| f.window == wid(1));
+    let x = first.expect("window 1 slides back").rect.x;
+    assert!(
+        slot.x - 300 < x && x < slot.x - 150,
+        "{x} on its way to {slot:?}"
+    );
+    assert_eq!(platform.window(1).rect, slot);
 }
