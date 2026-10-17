@@ -30,7 +30,9 @@ impl Tiler {
         window: WindowId,
         pointer: Option<(i32, i32)>,
     ) {
-        let drag = self.end_drag().filter(|d| d.window == window && d.decides);
+        let drag = self
+            .end_drag(plan)
+            .filter(|d| d.window == window && d.decides);
         let dropped =
             drag.and_then(|drag| self.drop_target(plan, &drag, pointer).map(|t| (drag, t)));
         if let Some((drag, target)) = dropped {
@@ -55,8 +57,13 @@ impl Tiler {
 
     /// Where the window `drag` is about lands when dropped with the pointer
     /// at `pointer`, or `None` when its end is handled as before drops
-    /// moved windows.
-    fn drop_target(&self, plan: &Plan, drag: &Drag, pointer: Option<(i32, i32)>) -> Option<Target> {
+    /// moved windows. The preview follows the same rule.
+    pub(super) fn drop_target(
+        &self,
+        plan: &Plan,
+        drag: &Drag,
+        pointer: Option<(i32, i32)>,
+    ) -> Option<Target> {
         if !self.mouse.drag_to_swap {
             return None;
         }

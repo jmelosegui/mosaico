@@ -1,6 +1,6 @@
 //! Where the tiles a drop is decided against are laid out: those of each
-//! monitor, and the slot of a window, and whether a window lies on a
-//! monitor.
+//! monitor, the slot of a window and the one it would get on another
+//! monitor, and whether a window lies on a monitor.
 
 use crate::{Rect, WindowId};
 
@@ -31,6 +31,29 @@ impl Tiler {
             return (front == Some(window)).then(|| self.monocle_rect(idx));
         }
         let positions = self.compute_positions(idx);
+        positions
+            .into_iter()
+            .find(|&(w, _)| w == window)
+            .map(|(_, rect)| rect)
+    }
+
+    /// The slot `window` would get on the workspace on screen of monitor
+    /// `idx`, put before `before` there or at the end. None in monocle,
+    /// where only the monocle window is placed.
+    pub(in crate::tiler) fn slot_joining(
+        &self,
+        idx: usize,
+        before: Option<WindowId>,
+        window: WindowId,
+    ) -> Option<Rect> {
+        let ws = self.monitors.get(idx)?.active_ws();
+        if ws.monocle() {
+            return None;
+        }
+        let mut windows = ws.windows().to_vec();
+        let at = before.and_then(|w| ws.index_of(w)).unwrap_or(windows.len());
+        windows.insert(at, window);
+        let positions = self.positions_of(idx, &windows);
         positions
             .into_iter()
             .find(|&(w, _)| w == window)

@@ -25,6 +25,7 @@ fn drag() -> Drag {
         pointer: Some((250, 50)),
         left_start: true,
         decides: true,
+        preview: None,
     }
 }
 

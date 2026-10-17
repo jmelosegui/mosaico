@@ -11,12 +11,13 @@
 //! moves focus meanwhile (`applier_drag.rs`).
 //!
 //! The drag ends with its `Moved`, and the window lands where it is
-//! dropped (`drag_drop.rs`), or before it, as `drag_end.rs` says.
+//! dropped (`drag_drop.rs`), or before it, as `drag_end.rs` says. A
+//! preview shows where it would land meanwhile (`drag_preview.rs`).
 
 use crate::event::{DragStart, Grab};
 use crate::{Rect, WindowId};
 
-use super::{Plan, Tiler};
+use super::{Effect, Plan, Tiler};
 
 #[path = "drag_border.rs"]
 mod border;
@@ -26,6 +27,8 @@ mod dropping;
 mod end;
 #[path = "drag_mouse.rs"]
 mod mouse;
+#[path = "drag_preview.rs"]
+mod preview;
 #[path = "drag_slots.rs"]
 mod slots;
 #[path = "drag_target.rs"]
@@ -56,6 +59,8 @@ pub(super) struct Drag {
     /// from a key, a command or a bar, or a display change interrupts the
     /// drag.
     pub(super) decides: bool,
+    /// Where the preview shows the window would land, while it shows.
+    pub(super) preview: Option<Rect>,
 }
 
 impl Tiler {
@@ -66,7 +71,7 @@ impl Tiler {
     /// started, when it could tell, as the drag may have taken it out of
     /// maximized by now.
     pub(super) fn start_drag(&mut self, plan: &mut Plan, window: WindowId, start: &DragStart) {
-        self.end_drag();
+        self.end_drag(plan);
         let Some((monitor, ws)) = self.find_window(window) else {
             return;
         };
@@ -92,14 +97,18 @@ impl Tiler {
             pointer: start.pointer,
             left_start: false,
             decides: true,
+            preview: None,
         });
     }
 
-    /// Stops following the drag, if the tiler follows one, and returns
-    /// it.
-    pub(super) fn end_drag(&mut self) -> Option<Drag> {
+    /// Stops following the drag, if the tiler follows one, hides its
+    /// preview, and returns it.
+    pub(super) fn end_drag(&mut self, plan: &mut Plan) -> Option<Drag> {
         let drag = self.mouse.drag.take()?;
         crate::log_debug!("drag {} ends", drag.window);
+        if drag.preview.is_some() {
+            plan.emit(Effect::HidePreview);
+        }
         Some(drag)
     }
 

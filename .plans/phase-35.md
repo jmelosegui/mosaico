@@ -227,11 +227,12 @@ daemon action path (carry_out)  -> action with an origin          { monitor, fro
   is one the system rescaled while most of the window was on another monitor.
 - Every action that reaches the tiler, from a key, a command, a click or the
   wheel on a bar, and a display change, from when it is noted, interrupt a drag
-  going on: nothing places the window, and the `Moved` that follows is handled
-  as today. `toggle-pause`, from a key or the **PAUSED** mark, is the daemon's
-  and leaves the drag alone. A workspace switch, a close, hide or minimize of
-  the dragged window, and another window taking focus other than by the tiler's
-  doing end the drag, as the end of a drag may never be reported.
+  going on: the preview is hidden, nothing places the window, and the `Moved`
+  that follows is handled as today. `toggle-pause`, from a key or the
+  **PAUSED** mark, is the daemon's and leaves the drag alone. A workspace
+  switch, a close, hide or minimize of the dragged window, and another window
+  taking focus other than by the tiler's doing end the drag, as the end of a
+  drag may never be reported.
 - The insert position on another monitor is before the tile under the pointer,
   or at the end; the preview shows the slot the window gets in that monitor's
   layout once it is inserted, which in BSP is not the tile under the pointer.
@@ -267,8 +268,8 @@ the platform's docs (the `os_names` metric counts them in core).
   `TrackMouseEvent`, and wheel positions converted from screen coordinates.
 - `Decorations::show_preview(rect, style)` and `hide_preview()`, applied as an
   effect pair through `apply_decoration_effect`: an outline with a translucent
-  fill, in its own style, drawn above every window except the dragged one, never
-  taking input, and rendered again only when its rect changes.
+  fill, in its own style, drawn just behind the dragged window, in its band,
+  never taking input, and rendered again only when its rect changes.
 - `WindowEvent::MoveStarted` and `WindowEvent::Moved` carry the facts above.
 
 ## Edge Cases
@@ -406,7 +407,7 @@ need nothing from phase 34; 35.3 needs `MoveStarted` (34.2); 35.4 needs 35.3.
       holds, and what ends a drag
 - [x] Drop targets: swap, insert before the tile under the pointer on another
       monitor, snap back; cancels and system snaps
-- [ ] The drop preview contract, effects and Windows overlay
+- [x] The drop preview contract, effects and Windows overlay
 - [x] `[mouse] drag_to_swap`, templates and hints
 - [x] Tests: each drop target, Esc with the pointer over another tile, a drag
       without position reports, an unmanaged window dragged over tiles,

@@ -68,7 +68,7 @@ use crate::config::{
 };
 use crate::{HidingSupport, LayoutKind, WindowId};
 
-pub use border_style::BorderStyle;
+pub use border_style::{BorderStyle, PreviewStyle};
 pub use coalesce::Coalescer;
 pub use decoration_effects::apply_decoration_effect;
 pub use desktop::{Desktop, Display, WindowFacts};

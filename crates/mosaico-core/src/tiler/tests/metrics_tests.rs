@@ -35,6 +35,8 @@ fn kind(call: &Call) -> &'static str {
         Call::DropBorder(..) => "drop_border",
         Call::SetCorners(..) => "set_corners",
         Call::ResetCorners(..) => "reset_corners",
+        Call::ShowPreview(..) => "show_preview",
+        Call::HidePreview => "hide_preview",
     }
 }
 

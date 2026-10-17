@@ -76,6 +76,28 @@ pub(super) fn drop_at(h: &mut Harness, id: u64, to: (i32, i32)) -> Vec<Effect> {
     h.event(WindowEvent::Moved { window, pointer }).to_vec()
 }
 
+/// The dragged window `id` reports where it is, with its title bar and
+/// the pointer at `to`. Returns what that does.
+pub(super) fn report_at(h: &mut Harness, id: u64, to: (i32, i32)) -> Vec<Effect> {
+    move_to(h, id, to);
+    h.desktop.cursor = Some(to);
+    let window = wid(id);
+    h.event(WindowEvent::LocationChanged { window }).to_vec()
+}
+
+/// Where `effects` show the preview, if they do.
+pub(super) fn shown(effects: &[Effect]) -> Option<Rect> {
+    effects.iter().find_map(|e| match *e {
+        Effect::ShowPreview { rect, .. } => Some(rect),
+        _ => None,
+    })
+}
+
+/// The center of `rect`.
+pub(super) fn center(rect: Rect) -> (i32, i32) {
+    (rect.center_x(), rect.center_y())
+}
+
 /// Where the pointer holds a window by its title bar.
 pub(super) fn title_bar(rect: Rect) -> (i32, i32) {
     (rect.center_x(), rect.y + 10)

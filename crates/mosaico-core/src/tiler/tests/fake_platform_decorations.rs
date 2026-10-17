@@ -1,10 +1,11 @@
 //! What a [`FakePlatform`] does when the manager asks it to draw, move,
-//! hide or drop a border, or to change the corners of a window.
+//! hide or drop a border, to change the corners of a window, or to show
+//! or hide the drop preview.
 
 use crate::config::CornerStyle;
 use crate::{Decorations, Rect, Result, WindowId};
 
-use super::super::super::{BorderStyle, Effect};
+use super::super::super::{BorderStyle, Effect, PreviewStyle};
 use super::{Call, FakePlatform};
 
 impl Decorations for FakePlatform {
@@ -52,5 +53,19 @@ impl Decorations for FakePlatform {
     fn reset_corners(&mut self, window: WindowId) -> Result<()> {
         self.record(Call::ResetCorners(window));
         Ok(())
+    }
+
+    fn show_preview(&mut self, window: WindowId, rect: Rect, style: &PreviewStyle) -> Result<()> {
+        let style = style.clone();
+        let effect = Effect::ShowPreview {
+            window,
+            rect,
+            style,
+        };
+        self.change(Call::ShowPreview(window, rect), effect)
+    }
+
+    fn hide_preview(&mut self) -> Result<()> {
+        self.change(Call::HidePreview, Effect::HidePreview)
     }
 }

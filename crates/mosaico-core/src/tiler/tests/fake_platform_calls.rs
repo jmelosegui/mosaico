@@ -27,4 +27,6 @@ pub(crate) enum Call {
     DropBorder(WindowId),
     SetCorners(WindowId, CornerStyle),
     ResetCorners(WindowId),
+    ShowPreview(WindowId, Rect),
+    HidePreview,
 }
