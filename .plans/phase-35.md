@@ -172,9 +172,11 @@ daemon action path (carry_out)  -> action with an origin          { monitor, fro
 - The content says which items are clickable, and the platform answers the
   pointer shape synchronously by calling core's `hit` on the regions it last
   returned.
-- While input is on, the bar paints its background at an alpha of at least 1,
-  invisible but enough for the whole strip to take input, since a layered
-  window passes input through fully transparent pixels.
+- While input is on, the bar paints its clickable items at an alpha of at least
+  1, invisible but enough for the whole of each item to take input, since a
+  layered window passes input through fully transparent pixels. The rest of
+  the strip keeps the alpha it is painted with, so where a transparent bar
+  draws nothing, a window under it keeps its clicks.
 - The bar is click-through while a maximized or fullscreen window is on its
   monitor: core decides from `Desktop` on each bar update, and the platform
   switches.
@@ -365,7 +367,7 @@ need nothing from phase 34; 35.3 needs `MoveStarted` (34.2); 35.4 needs 35.3.
       monitor, focus per the rules above, no pointer moves; global mode
 - [x] `goto-workspace-next` and `goto-workspace-prev`, with `[workspaces] wrap`,
       in keybindings and the CLI
-- [ ] Windows: input without activation, capture, the cursor, minimum alpha,
+- [x] Windows: input without activation, capture, the cursor, minimum alpha,
       click-through switching; tests on hidden bar windows of the test's own
 - [ ] `[mouse] enabled` and `scroll` in bar.toml, templates and hints
 - [ ] Metrics scenarios: a click on the focused and on another monitor's bar, and

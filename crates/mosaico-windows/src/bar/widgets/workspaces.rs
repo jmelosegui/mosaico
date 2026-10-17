@@ -4,18 +4,21 @@
 //! active workspace gets a smaller inner accent pill; inactive
 //! numbers are plain text on the container background.
 
+use mosaico_core::Rect;
 use mosaico_core::config::bar::BarConfig;
 
 use crate::bar::text::{DrawCtx, draw_pill, draw_text, measure_text};
 
-/// Draws the workspace container, highlighting `labels[active]`, and
-/// returns the X after it.
+/// Draws the workspace container, highlighting `labels[active]`, adds
+/// the cell of each label to `cells`, the bar's full height, and returns
+/// the X after it.
 pub fn draw(
     ctx: &mut DrawCtx,
     start_x: i32,
     config: &BarConfig,
     labels: &[String],
     active: usize,
+    cells: &mut Vec<Rect>,
 ) -> i32 {
     let widths: Vec<i32> = labels.iter().map(|l| measure_text(ctx.dc, l)).collect();
 
@@ -86,6 +89,7 @@ pub fn draw(
             );
         }
 
+        cells.push(Rect::new(x, 0, cell_w, ctx.h));
         x += cell_w + config.workspace_gap;
     }
 
