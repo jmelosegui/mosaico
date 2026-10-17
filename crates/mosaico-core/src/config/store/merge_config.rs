@@ -3,6 +3,7 @@ use std::path::Path;
 use crate::Result;
 
 use super::merge_animations::append_missing_animations_hint;
+use super::merge_mouse::append_missing_drag_to_swap_hint;
 use super::merge_unfocused::append_missing_unfocused_border_hint;
 use super::merge_wrap::add_missing_wrap_key;
 use super::{ConfigStore, append_to_file, file_error, read_file};
@@ -40,6 +41,8 @@ impl ConfigStore {
     ///   it under a comment, which rewrites the file in place without a
     ///   backup. Otherwise a comment block about it is appended, unless
     ///   the file already mentions `unfocused` anywhere.
+    /// - Dropping a dragged window on a tile. A comment block about
+    ///   `drag_to_swap` is appended, unless the file mentions it anywhere.
     /// - Window transitions. A comment block about the `[animations]`
     ///   section is appended, unless the file has the section, active or
     ///   commented out.
@@ -85,6 +88,15 @@ impl ConfigStore {
             ),
             Ok(false) => {}
             Err(e) => crate::log_warn!("Could not add the unfocused border hint: {e}"),
+        }
+
+        match append_missing_drag_to_swap_hint(&path) {
+            Ok(true) => crate::log_info!(
+                "Appended drag_to_swap hint to {} (new in this version)",
+                path.display()
+            ),
+            Ok(false) => {}
+            Err(e) => crate::log_warn!("Could not add the drag_to_swap hint: {e}"),
         }
 
         match append_missing_animations_hint(&path) {

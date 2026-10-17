@@ -68,6 +68,11 @@ corner_style = "small"
 follows_focus = true
 # Automatically focus the window under the cursor without clicking.
 focus_follows_mouse = false
+# Drop a tiled window you drag by its title bar on another tile to swap the
+# two, or on another monitor to put it before the tile under the pointer.
+# false: a dropped window goes back to its slot, or joins the end of the
+# other monitor's windows.
+drag_to_swap = true
 
 [animations]
 # Window transitions: windows move to their new place over a short time

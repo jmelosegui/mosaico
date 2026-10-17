@@ -216,14 +216,22 @@ daemon action path (carry_out)  -> action with an origin          { monitor, fro
   pointer, and the preview follows it. Without position changes during the drag
   (window contents not shown while dragging), `Moved` decides from the final
   rect and pointer alone, without a preview.
-- `Moved` ends the drag and applies the drop. A final rect equal to the rect at
-  the start is a cancel or a click on the title bar, and changes nothing. A drop
-  the system turned into a snap or a maximize goes back to its slot.
-- A key, a command, a click or the wheel on a bar, or a display change while a
-  drag goes on leave the window to the user: nothing places it, and the `Moved`
-  that follows is handled as today. A workspace switch, a close, hide or
-  minimize of the dragged window, and another window taking focus other than by
-  the tiler's doing end the drag, as the end of a drag may never be reported.
+- `Moved` ends the drag and applies the drop. A final rect within a few pixels
+  of the rect at the start, or equal to the window's slot, or a pointer back
+  within a few pixels of where the drag started it, is a cancel or a click on
+  the title bar, and changes nothing; a few pixels are what a press may wobble
+  before Windows starts a drag. A drop the system turned into a snap or a
+  maximize on the window's own monitor goes back to its slot; one maximized on
+  another monitor joins it and stays maximized. A size a few pixels off on
+  every edge, as a monitor of another scale rounds it, is no snap, and neither
+  is one the system rescaled while most of the window was on another monitor.
+- Every action that reaches the tiler, from a key, a command, a click or the
+  wheel on a bar, and a display change, from when it is noted, interrupt a drag
+  going on: nothing places the window, and the `Moved` that follows is handled
+  as today. `toggle-pause`, from a key or the **PAUSED** mark, is the daemon's
+  and leaves the drag alone. A workspace switch, a close, hide or minimize of
+  the dragged window, and another window taking focus other than by the tiler's
+  doing end the drag, as the end of a drag may never be reported.
 - The insert position on another monitor is before the tile under the pointer,
   or at the end; the preview shows the slot the window gets in that monitor's
   layout once it is inserted, which in BSP is not the tile under the pointer.
@@ -281,7 +289,8 @@ the platform's docs (the `os_names` metric counts them in core).
    from the pointer, not from the window's rect, which the system rescales on
    the way.
 9. Esc during a drag: the system puts the window back, the final rect equals the
-   start, and nothing changes, even with the pointer over another tile.
+   start, or the slot when the start was read a little late, and nothing
+   changes, even with the pointer over another tile.
 10. A hotkey during a drag: nothing places the window, and its `Moved` is
     handled as today. Alt+2 hides it with its workspace and ends the drag.
 11. A window opening during a drag: it is tiled, but its focus does not move the
@@ -395,11 +404,11 @@ need nothing from phase 34; 35.3 needs `MoveStarted` (34.2); 35.4 needs 35.3.
 - [x] What `MoveStarted` and `Moved` carry, and the dedup barriers
 - [x] Drag tracking keyed on the dragged window, with what a drag start drops and
       holds, and what ends a drag
-- [ ] Drop targets: swap, insert before the tile under the pointer on another
+- [x] Drop targets: swap, insert before the tile under the pointer on another
       monitor, snap back; cancels and system snaps
 - [ ] The drop preview contract, effects and Windows overlay
-- [ ] `[mouse] drag_to_swap`, templates and hints
-- [ ] Tests: each drop target, Esc with the pointer over another tile, a drag
+- [x] `[mouse] drag_to_swap`, templates and hints
+- [x] Tests: each drop target, Esc with the pointer over another tile, a drag
       without position reports, an unmanaged window dragged over tiles,
       adoption on drop, a monocle workspace, global mode, a hotkey and a display
       change mid-drag; metrics scenarios for a swap and a drop on another monitor

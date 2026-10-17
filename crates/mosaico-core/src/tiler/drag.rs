@@ -10,7 +10,8 @@
 //! the drag starts, and the pointer is left alone until it ends, whatever
 //! moves focus meanwhile (`applier_drag.rs`).
 //!
-//! The drag ends with its `Moved`, or before it, as `drag_end.rs` says.
+//! The drag ends with its `Moved`, and the window lands where it is
+//! dropped (`drag_drop.rs`), or before it, as `drag_end.rs` says.
 
 use crate::event::{DragStart, Grab};
 use crate::{Rect, WindowId};
@@ -19,10 +20,16 @@ use super::{Plan, Tiler};
 
 #[path = "drag_border.rs"]
 mod border;
+#[path = "drag_drop.rs"]
+mod dropping;
 #[path = "drag_end.rs"]
 mod end;
 #[path = "drag_mouse.rs"]
 mod mouse;
+#[path = "drag_slots.rs"]
+mod slots;
+#[path = "drag_target.rs"]
+mod target;
 
 pub(super) use mouse::Mouse;
 
@@ -31,6 +38,8 @@ pub(super) use mouse::Mouse;
 pub(super) struct Drag {
     /// The window the user drags.
     pub(super) window: WindowId,
+    /// The monitor it is tiled on.
+    pub(super) monitor: usize,
     /// What the pointer holds it by: its title bar for a window that was
     /// maximized as the drag started, which can only be moved.
     pub(super) grab: Option<Grab>,
@@ -38,9 +47,15 @@ pub(super) struct Drag {
     pub(super) from_maximized: bool,
     /// Where the window was as the drag started.
     pub(super) start: Rect,
+    /// Where the pointer was as the drag started, if the platform read it.
+    pub(super) pointer: Option<(i32, i32)>,
     /// Whether a report found the window away from where it started: its
     /// border is hidden from then on.
     pub(super) left_start: bool,
+    /// Whether the tiler decides where the window lands, until an action,
+    /// from a key, a command or a bar, or a display change interrupts the
+    /// drag.
+    pub(super) decides: bool,
 }
 
 impl Tiler {
@@ -70,10 +85,13 @@ impl Tiler {
         crate::log_debug!("drag {} from mon {} by {:?}", window, monitor, grab);
         self.mouse.drag = Some(Drag {
             window,
+            monitor,
             grab,
             from_maximized,
             start: start_rect,
+            pointer: start.pointer,
             left_start: false,
+            decides: true,
         });
     }
 

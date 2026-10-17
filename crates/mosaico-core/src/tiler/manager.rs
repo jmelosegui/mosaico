@@ -60,6 +60,7 @@ impl<P: Platform> TilingManager<P> {
             borders: config.borders.clone(),
             rules,
             mouse_follows_focus: config.mouse.follows_focus,
+            drag_to_swap: config.mouse.drag_to_swap,
             animations: config.animations.clone(),
             hiding_support: hiding,
         };

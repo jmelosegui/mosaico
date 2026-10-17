@@ -19,6 +19,10 @@ use super::*;
 
 #[path = "metrics_bar.rs"]
 mod bar;
+#[path = "metrics_display.rs"]
+mod display;
+#[path = "metrics_drag_scenarios.rs"]
+mod drag;
 
 /// A scenario: its name, and how to run it.
 pub(super) type Scenario = (&'static str, fn() -> Measured);
@@ -61,12 +65,14 @@ pub(super) const SCENARIOS: &[Scenario] = &[
     ("bar_click_other_monitor", bar::click_on_another_monitor),
     ("bar_click_layout_widget", bar::click_on_a_widget),
     ("bar_scroll_burst", bar::scroll_burst),
+    ("drop_to_swap", drag::to_swap),
+    ("drop_on_another_monitor", drag::to_another_monitor),
     ("config_reload", config_reload),
     ("bar_reserved", || {
         on(four(), |m| m.adjust_work_areas_for_bar(30, &[]))
     }),
-    ("monitor_disconnect", disconnect),
-    ("monitor_reconnect", reconnect),
+    ("monitor_disconnect", display::disconnect),
+    ("monitor_reconnect", display::reconnect),
 ];
 
 /// Starting on four open windows, counted from the start.
@@ -123,26 +129,4 @@ fn config_reload() -> Measured {
     let mut config = still();
     config.layout.gap = 16;
     on(four(), |m| m.reload_config(&config))
-}
-
-/// Two windows on each of two monitors.
-fn two_monitors() -> (FakePlatform, Manager) {
-    let platform = FakePlatform::new(2, &[(1, 0), (2, 0), (3, 1), (4, 1)]);
-    let manager = start(&platform, None, &still());
-    (platform, manager)
-}
-
-fn disconnect() -> Measured {
-    on(two_monitors(), |m| {
-        m.handle_display_change(displays(1), 0, &[]);
-    })
-}
-
-fn reconnect() -> Measured {
-    let (platform, mut manager) = two_monitors();
-    manager.handle_display_change(displays(1), 0, &[]);
-    manager.flush_pending();
-    on((platform, manager), |m| {
-        m.handle_display_change(displays(2), 0, &[]);
-    })
 }

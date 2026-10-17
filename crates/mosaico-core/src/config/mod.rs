@@ -8,6 +8,8 @@ mod color;
 mod hiding_behaviour;
 /// Keybinding definitions and defaults.
 pub mod keybinding;
+/// What the mouse does: the pointer and focus, and dragging windows.
+mod mouse;
 /// Color palette definitions for themes.
 mod palette;
 /// Which config files the daemon reloads while it runs, and when.
@@ -37,6 +39,7 @@ pub use bar::{BarColors, BarConfig, BarMouseConfig, BarScroll, ClickBinding, Wid
 pub use color::Color;
 pub use hiding_behaviour::HidingBehaviour;
 pub use keybinding::{Keybinding, Modifier};
+pub use mouse::MouseConfig;
 pub use reload::{ConfigReload, ConfigReloader, ConfigWatch};
 pub use rules::{WindowRule, default_rules, matching_rule, should_manage, validate_rules};
 pub use store::ConfigStore;
