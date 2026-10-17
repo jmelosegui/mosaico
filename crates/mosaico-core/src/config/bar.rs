@@ -5,7 +5,7 @@ use super::theme::Theme;
 #[path = "bar_mouse.rs"]
 mod mouse;
 
-pub use mouse::{BarMouseConfig, BarScroll};
+pub use mouse::{BarMouseConfig, BarScroll, ClickBinding};
 
 /// Top-level bar configuration.
 ///

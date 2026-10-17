@@ -1,7 +1,7 @@
 //! The widget each item of a bar shows, as the content tells the
 //! platform that draws it.
 
-use crate::bar::{BarItem, BarSide};
+use crate::bar::{BarItem, BarSide, ItemRegion};
 
 use super::support::{AT, bar, content, widget};
 
@@ -16,15 +16,16 @@ fn each_item_names_the_entry_of_its_widget_in_the_config() {
     // Act
     let content = content(&config);
 
-    // Assert
+    // Assert -- the layout widget takes clicks, as it does by default.
     assert_eq!(
         content.region(BarSide::Left, 0, AT),
         widget(BarSide::Left, 0)
     );
-    assert_eq!(
-        content.region(BarSide::Left, 2, AT),
-        widget(BarSide::Left, 2)
-    );
+    let layout = widget(BarSide::Left, 2).map(|r| ItemRegion {
+        clickable: true,
+        ..r
+    });
+    assert_eq!(content.region(BarSide::Left, 2, AT), layout);
     assert_eq!(
         content.region(BarSide::Right, 1, AT),
         widget(BarSide::Right, 1)

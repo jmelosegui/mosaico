@@ -3,7 +3,7 @@ use std::path::Path;
 use mosaico_core::config::{ConfigStore, ThemeCheck, ThemeConfig};
 
 use super::context::{Context, Exit, say};
-use super::{doctor_animations, doctor_runtime};
+use super::{doctor_animations, doctor_bar, doctor_runtime};
 
 /// ANSI escape helpers for doctor output.
 const OK: &str = "\x1b[32m[ok]\x1b[0m";
@@ -22,7 +22,7 @@ pub fn execute(cx: &mut Context) -> Exit {
     check_rules_file(&cx.config);
     doctor_runtime::check_rules_cache_age(&cx.config);
     check_user_rules_file(&cx.config);
-    check_bar_file(&cx.config);
+    doctor_bar::check_bar(cx);
     doctor_runtime::check_autostart(cx);
     doctor_runtime::check_daemon(cx);
     doctor_runtime::check_monitors(cx);
@@ -49,13 +49,21 @@ fn check_config_dir(store: &ConfigStore) {
 
 /// Checks that a TOML config file exists and parses without errors.
 fn check_toml_file(name: &str, path: &Path, try_load: impl FnOnce() -> mosaico_core::Result<()>) {
+    println!("{}", toml_file_line(name, path, try_load));
+}
+
+/// The line [`check_toml_file`] prints for the file `name` at `path`.
+pub(super) fn toml_file_line(
+    name: &str,
+    path: &Path,
+    try_load: impl FnOnce() -> mosaico_core::Result<()>,
+) -> String {
     if !path.exists() {
-        println!("  {WARN} {name} not found (using defaults)");
-        return;
+        return format!("  {WARN} {name} not found (using defaults)");
     }
     match try_load() {
-        Ok(()) => println!("  {OK} {name} is valid"),
-        Err(e) => println!("  {FAIL} {name}: {e}"),
+        Ok(()) => format!("  {OK} {name} is valid"),
+        Err(e) => format!("  {FAIL} {name}: {e}"),
     }
 }
 
@@ -134,12 +142,6 @@ fn check_rules_file(store: &ConfigStore) {
 fn check_user_rules_file(store: &ConfigStore) {
     check_toml_file("user-rules.toml", &store.user_rules_path(), || {
         store.try_load_user_rules().map(|_| ())
-    });
-}
-
-fn check_bar_file(store: &ConfigStore) {
-    check_toml_file("bar.toml", &store.bar_path(), || {
-        store.try_load_bar().map(|_| ())
     });
 }
 

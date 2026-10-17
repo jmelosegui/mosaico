@@ -14,7 +14,7 @@ pub(crate) use renderer::FakeRenderer;
 #[path = "fake_bar.rs"]
 mod bar;
 #[path = "fake_layout.rs"]
-pub(in crate::bar) mod layout;
+pub(crate) mod layout;
 #[path = "fake_renderer.rs"]
 mod renderer;
 

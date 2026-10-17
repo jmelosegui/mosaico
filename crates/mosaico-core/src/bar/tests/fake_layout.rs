@@ -11,9 +11,9 @@ use crate::Rect;
 
 use super::super::{BarContent, BarItem, BarSide, ItemRegion};
 
-pub(in crate::bar) const EDGE: i32 = 8;
+pub(crate) const EDGE: i32 = 8;
 pub(in crate::bar) const GAP: i32 = 10;
-pub(in crate::bar) const PILL: i32 = 100;
+pub(crate) const PILL: i32 = 100;
 pub(in crate::bar) const SEPARATOR: i32 = 12;
 pub(in crate::bar) const ICON: i32 = 40;
 pub(in crate::bar) const LABEL: i32 = 20;

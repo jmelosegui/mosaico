@@ -8,7 +8,7 @@ mod origin;
 #[path = "action_step.rs"]
 mod step;
 
-pub use origin::Origin;
+pub use origin::{Origin, Scope};
 pub use step::workspace_after;
 
 /// Spatial direction for focus and move actions.

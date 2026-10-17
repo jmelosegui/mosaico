@@ -23,6 +23,7 @@ dedicated handler module under `crates/mosaico/src/commands/`.
 | `crates/mosaico/src/commands/status.rs` | `mosaico status` handler |
 | `crates/mosaico/src/commands/doctor.rs` | `mosaico doctor` handler |
 | `crates/mosaico/src/commands/doctor_animations.rs` | What `mosaico doctor` says about window transitions |
+| `crates/mosaico/src/commands/doctor_bar.rs` | What `mosaico doctor` says about `bar.toml`: whether it loads, and the clicks on the bar's widgets |
 | `crates/mosaico/src/commands/autostart.rs` | `mosaico autostart enable` / `disable` / `status` handler |
 | `crates/mosaico/src/commands/daemon.rs` | `mosaico daemon` handler (hidden) |
 | `crates/mosaico/src/commands/action.rs` | `mosaico action <verb>` handler |
@@ -173,7 +174,14 @@ Checks performed:
    the check the daemon uses (`Keybinding::combo()` in core); reports the
    total count and any unknown key names
 6. **rules.toml** -- validates syntax via `try_load_rules()`
-7. **bar.toml** -- validates syntax via `try_load_bar()`
+7. **bar.toml** -- validates syntax via `try_load_bar()`, then, on the next
+   line, says how many click bindings the bar has, counted from the
+   bindings core resolves for it (`WidgetClicks`), or that it takes no
+   clicks while the bar or `[mouse] enabled` is off, and flags each
+   `[[mouse.click]]` entry the bar leaves out, and why, with the check the
+   bar manager logs them with (`WidgetClicks::rejected()`). An entry with
+   `action = "none"` removes a binding and is not flagged. Both checks are
+   in `doctor_bar.rs`
 8. **Autostart** -- compares what is registered to start at login with what
    `mosaico autostart enable` would register from the running executable
    (`AutostartStatus::read` in `mosaico_core::system`): `[ok]` when they

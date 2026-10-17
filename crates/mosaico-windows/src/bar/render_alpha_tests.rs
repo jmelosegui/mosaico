@@ -61,3 +61,28 @@ fn no_opaque_pixel_takes_the_background_color() {
     // Assert
     assert_eq!(stray, 0);
 }
+
+#[test]
+fn the_layout_pill_takes_the_pointer_above_and_below_it_once_a_click_is_bound() {
+    // Arrange -- the default bar binds clicks on the layout widget, and its
+    // pill does not reach the top of the bar, where the background shows.
+    let Some(((mut taking, regions), (mut letting, _))) = painted(true).zip(painted(false)) else {
+        return;
+    };
+    let layout = BarTarget::Widget(WidgetRef {
+        side: BarSide::Left,
+        index: 2,
+    });
+    let pill = regions
+        .iter()
+        .find(|r| r.target == layout)
+        .expect("a layout pill");
+
+    // Act -- the alpha of the top row, over the middle of the pill.
+    let top = (pill.rect.x + pill.rect.width / 2) as usize;
+    let alphas = (taking.pixels()[top] >> 24, letting.pixels()[top] >> 24);
+
+    // Assert -- the least alpha there is, so the whole item takes clicks.
+    assert!(pill.clickable);
+    assert_eq!(alphas, (1, 0));
+}

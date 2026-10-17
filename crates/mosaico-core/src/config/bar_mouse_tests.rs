@@ -55,3 +55,66 @@ fn the_mouse_section_round_trips_through_toml() {
     // Assert
     assert_eq!(parsed.mouse, config.mouse);
 }
+
+#[test]
+fn the_clicks_are_bound_on_the_layout_and_paused_widgets_by_default() {
+    // Act
+    let config: BarConfig = toml::from_str("[mouse]\nenabled = true\n").unwrap();
+
+    // Assert
+    assert_eq!(
+        config.mouse.click,
+        [
+            ClickBinding::new("layout", "left", "cycle-layout"),
+            ClickBinding::new("layout", "right", "toggle-monocle"),
+            ClickBinding::new("paused", "left", "toggle-pause"),
+        ]
+    );
+}
+
+#[test]
+fn the_click_entries_are_read_as_the_file_writes_them() {
+    // Act
+    let config: BarConfig = toml::from_str(
+        r#"
+        [[mouse.click]]
+        widget = "clock"
+        button = "middle"
+        action = "retile"
+    "#,
+    )
+    .unwrap();
+
+    // Assert -- the entries take the place of the list of defaults, which
+    // the bar merges them over.
+    assert_eq!(
+        config.mouse.click,
+        [ClickBinding::new("clock", "middle", "retile")]
+    );
+    assert!(config.mouse.enabled);
+}
+
+#[test]
+fn a_click_entry_whose_value_is_not_text_makes_the_file_invalid() {
+    // Act
+    let result: Result<BarConfig, _> =
+        toml::from_str("[[mouse.click]]\nwidget = \"clock\"\nbutton = 1\n");
+
+    // Assert -- as any other value of the wrong type.
+    assert!(result.is_err());
+}
+
+#[test]
+fn a_key_an_entry_leaves_out_is_missing_and_an_empty_one_is_kept() {
+    // Act
+    let config: BarConfig =
+        toml::from_str("[[mouse.click]]\nwidget = \"clock\"\nbutton = \"\"\n").unwrap();
+
+    // Assert -- and the entry writes back as it was read.
+    let entry = &config.mouse.click[0];
+    assert_eq!(entry.button.as_deref(), Some(""));
+    assert_eq!(entry.action, None);
+    let text = toml::to_string(&config.mouse).unwrap();
+    let again: BarMouseConfig = toml::from_str(&text).unwrap();
+    assert_eq!(again, config.mouse);
+}

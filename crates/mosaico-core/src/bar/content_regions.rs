@@ -7,25 +7,29 @@ use super::BarContent;
 
 impl BarContent {
     /// The region of the item at `index` of `side`, drawn at `rect` in bar
-    /// coordinates: the widget the item shows, which takes no clicks yet.
-    /// `None` for a separator, which the pointer passes over, and for an
-    /// index past the items of that side.
+    /// coordinates: the widget the item shows, clickable when a click of
+    /// some button on it runs an action. `None` for a separator, which the
+    /// pointer passes over, and for an index past the items of that side.
     pub fn region(&self, side: BarSide, index: usize, rect: Rect) -> Option<ItemRegion> {
         let widgets = match side {
             BarSide::Left => &self.left_widgets,
             BarSide::Right => &self.right_widgets,
         };
-        let index = (*widgets.get(index)?)?;
+        let shown = (*widgets.get(index)?)?;
         Some(ItemRegion {
-            target: BarTarget::Widget(WidgetRef { side, index }),
-            clickable: false,
+            target: BarTarget::Widget(WidgetRef {
+                side,
+                index: shown.index,
+            }),
+            clickable: shown.clickable,
             rect,
         })
     }
 
     /// The region of the label of workspace `workspace`, from 0, drawn at
-    /// `rect` in bar coordinates. A click on it goes to that workspace,
-    /// unless the bar does not take clicks.
+    /// `rect` in bar coordinates. A left click on it goes to that
+    /// workspace, unless the bar does not take clicks, and the other
+    /// buttons run what they run on the workspaces widget.
     pub fn label_region(&self, workspace: usize, rect: Rect) -> ItemRegion {
         ItemRegion {
             target: BarTarget::Workspace(workspace),
@@ -46,3 +50,7 @@ mod tests;
 #[cfg(test)]
 #[path = "tests/content_click_tests.rs"]
 mod click_tests;
+
+#[cfg(test)]
+#[path = "tests/content_unbind_tests.rs"]
+mod unbind_tests;

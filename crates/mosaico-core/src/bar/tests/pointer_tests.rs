@@ -57,10 +57,10 @@ fn a_right_click_on_a_label_asks_for_nothing() {
 }
 
 #[test]
-fn a_click_on_a_widget_asks_for_nothing() {
-    // Arrange -- only a layout pill on the left.
+fn a_click_on_a_widget_no_button_is_bound_on_asks_for_nothing() {
+    // Arrange -- only a clock pill on the left.
     let renderer = FakeRenderer::default();
-    let mut manager = drawn(bar("left = [{ type = \"layout\" }]"), &renderer);
+    let mut manager = drawn(bar("left = [{ type = \"clock\" }]"), &renderer);
     let first = bar_on(&renderer, 0);
 
     // Act

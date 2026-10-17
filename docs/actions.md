@@ -12,7 +12,7 @@ an `Origin` that says where it came from.
 | File | Purpose |
 |------|---------|
 | `crates/mosaico-core/src/action.rs` | `Action` enum, `Direction` enum |
-| `crates/mosaico-core/src/action_origin.rs` | `Origin`: a hotkey or the CLI, or the bar of a monitor |
+| `crates/mosaico-core/src/action_origin.rs` | `Origin`: a hotkey or the CLI, or the bar of a monitor; `Scope` and `Action::scope()`: what an action acts on |
 | `crates/mosaico-core/src/action_step.rs` | `workspace_after()`: the workspace a step through them lands on |
 | `crates/mosaico-core/src/spatial.rs` | Pure spatial navigation functions (`find_neighbor`, `find_entry`) |
 | `crates/mosaico-core/src/tiler/manager.rs` | `TilingManager::handle_action()` and `handle_action_from()` -- execute actions |
@@ -32,6 +32,12 @@ an `Origin` that says where it came from.
 - `Origin` (enum) -- `Focused`, for a hotkey or the CLI, which act on the
   focused monitor, and `Bar(monitor)`, for a click or a scroll on the bar of
   the monitor at that index. `monitor()` and `from_pointer()` read it.
+- `Scope` (enum) -- what `Action::scope()` says an action acts on:
+  `FocusedWindow` (`Focus`, `Move`, `SendToWorkspace`, `CloseFocused`,
+  `MinimizeFocused`), `Monitor` (`CycleLayout`, `ToggleMonocle` and the
+  workspace switches) or `Daemon` (`Retile`, `TogglePause`). The tiler moves
+  focus to a bar's monitor first for a `Monitor` action, and a bar may only
+  run `Monitor` and `Daemon` actions.
 
 ## Direction
 
@@ -109,7 +115,9 @@ Click or wheel on a bar -> bar window procedure -> PointerSink
 ```
 
 The bar manager turns a left click on a workspace label, and the wheel once
-it goes quiet, into `GoToWorkspace(n)` from the bar's monitor; see
+it goes quiet, into `GoToWorkspace(n)` from the bar's monitor, and a click on
+a widget into the action its button is bound to there by `[[mouse.click]]`,
+which may only be a `Monitor` or a `Daemon` action; see
 [status-bar.md](status-bar.md#pointer-input).
 
 Every path goes through `carry_out()` in `daemon_loop_commands.rs`, so an
@@ -121,14 +129,15 @@ every other action converges at `TilingManager::handle_action_from()`, with
 ### Origins
 
 An action from a bar acts on the bar's monitor. One that acts on a monitor
-(`CycleLayout`, `ToggleMonocle` and the workspace switches) moves focus to
-that monitor first when it does not have it, to the window its workspace
-takes focus back with, or parks it there when the workspace is empty, then
-does what its key does: in global mode every monitor switches, and focus
-goes to the clicked monitor. A bar whose monitor the tiler has no state for
-does nothing. Nothing the tiler does for an action from the bar moves the
-pointer: the step's focus changes carry `move_cursor: false` and it puts no
-`CenterCursor`, whatever `[mouse] follows_focus` says.
+(`Scope::Monitor`: `CycleLayout`, `ToggleMonocle` and the workspace switches)
+moves focus to that monitor first when it does not have it, to the window its
+workspace takes focus back with, or parks it there when the workspace is
+empty, then does what its key does: in global mode every monitor switches,
+and focus goes to the clicked monitor. A `Retile` from a bar retiles every
+monitor and leaves focus where it is. A bar whose monitor the tiler has no
+state for does nothing. Nothing the tiler does for an action from the bar
+moves the pointer: the step's focus changes carry `move_cursor: false` and it
+puts no `CenterCursor`, whatever `[mouse] follows_focus` says.
 
 An action fails only when something it needed reported an error, such as a
 `retile` that could not read the monitors (it still retiles with the work
@@ -207,6 +216,8 @@ configuration files (keybindings) and JSON IPC messages.
   `GoToWorkspaceNext` and `GoToWorkspacePrev`
 - `action_step_tests.rs` -- where `workspace_after()` lands, with and without
   wrap, at either end and for several steps
+- `action_scope_tests.rs` -- what each action acts on
 - `tiler/tests/bar_click_tests.rs`, `bar_click_focus_tests.rs`,
-  `workspace_step_tests.rs` and `workspace_wrap_tests.rs` -- actions from a
-  bar, and stepping through the workspaces, in the tiler
+  `bar_widget_tests.rs`, `workspace_step_tests.rs` and
+  `workspace_wrap_tests.rs` -- actions from a bar, a widget's included, and
+  stepping through the workspaces, in the tiler
