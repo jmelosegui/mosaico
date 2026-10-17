@@ -193,6 +193,11 @@ what it draws finds the bar, which the tiler does not manage, so it focuses
 nothing; a bar that lets the pointer through, over a maximized window or with
 the bar's `[mouse] enabled = false`, finds the window under it, as before.
 
+Focus-follows-mouse rests while the user drags any window, tiled or not: the
+tiling manager drops each report until the window is let go
+(`applier_reports.rs`), as a focus change then would reach the system's move
+or size loop. The next report once the window is let go applies as usual.
+
 ## How Events Drive Tiling
 
 | Event | Tiling Response |
@@ -200,14 +205,24 @@ the bar's `[mouse] enabled = false`, finds the window under it, as before.
 | `Created` | Place a window that is not shown yet; adopt a visible one into the focused monitor's workspace |
 | `Destroyed` | Remove window from workspace, re-tile |
 | `Hidden` | Remove the window, if it is really no longer visible, and stop its transition then |
-| `Focused` | Update focus tracking, show/reposition border |
-| `MouseHover` | Focus the window, if it is managed and on the active workspace; dropped while windows move, and not repeated until the pointer moves to another window. That rarely matters: a report takes 3 polls, at least 200 ms, longer than a default 180 ms transition, so a window sliding under a pointer at rest is usually reported only once it stops |
-| `MoveStarted` | Stop the window's transition, if it is moving; the layout changes when the drag ends, with `Moved` |
+| `Focused` | Update focus tracking, show/reposition border; another window taking focus, other than by the tiler's doing, ends a drag |
+| `MouseHover` | Focus the window, if it is managed and on the active workspace; dropped while windows move and while the user drags a window, and not repeated until the pointer moves to another window. That rarely matters: a report takes 3 polls, at least 200 ms, longer than a default 180 ms transition, so a window sliding under a pointer at rest is usually reported only once it stops |
+| `MoveStarted` | Stop the window's transition, if it is moving, drop what is held back for it, and leave the pointer alone until the drag ends. A tiled window keeps its slot, but nothing places it until the drag ends, whatever the user does with the keyboard or the bars meanwhile, and its border is hidden once the window has left where it started; the layout changes then, with `Moved` |
 | `Moved` | Detect monitor reassignment, re-tile if needed |
 | `Minimized` | Remove from workspace, re-tile, and stop the window's transition, if it is really minimized |
 | `Restored` | Re-add to workspace, re-tile |
 | `TitleChanged` | Adopt a window that only became recognizable once it had a title |
-| `LocationChanged` | Notice the focused window entering or leaving maximized state, and any window on screen starting or stopping to be maximized or fullscreen, for the bars (`bar_filling.rs`); once a window still to land where a posted placement takes it reports being there, or being anywhere once the wait for it by time is over, repaint it again and draw its border there (`applier_landing.rs`) |
+| `LocationChanged` | Notice any window on screen starting or stopping to be maximized or fullscreen, for the bars (`bar_filling.rs`), the one the user drags too; then hide the border of a window the user drags once it has left where it started, and otherwise notice the focused window entering or leaving maximized state; once a window still to land where a posted placement takes it reports being there, or being anywhere once the wait for it by time is over, repaint it again and draw its border there (`applier_landing.rs`) |
+
+A drag of a tiled window lasts from its `MoveStarted` to its `Moved`.
+Windows does not say that `EVENT_SYSTEM_MOVESIZEEND` follows every
+`EVENT_SYSTEM_MOVESIZESTART`, only that an out-of-context hook gets its
+events in the order they happen. So a drag also ends when its window
+closes, hides, is minimized or leaves the workspace on screen, when
+another window takes focus other than by the tiler's doing, and when the
+user drags another window. A drag whose end is lost while the user goes
+on with the keyboard alone keeps its window out of the layout, with its
+border hidden, until one of those happens.
 
 ## Design Decisions
 

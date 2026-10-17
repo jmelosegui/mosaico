@@ -63,7 +63,9 @@ impl Tiler {
     /// Every window gets a placement, even one already in place: those
     /// are skipped when they are applied, against the window's real
     /// position at that moment. Deciding here instead would go
-    /// wrong for a window with a coalesced placement still pending.
+    /// wrong for a window with a coalesced placement still pending. The
+    /// window the user drags keeps its slot but gets nothing until they
+    /// drop it.
     pub(super) fn apply_layout_positions(
         &mut self,
         plan: &mut Plan,
@@ -83,6 +85,9 @@ impl Tiler {
             if let Some(front) = target
                 && state.active_ws().contains(front)
             {
+                if self.is_dragged(front) {
+                    return;
+                }
                 let rect = self.monocle_rect(monitor_idx);
                 plan.place(front, rect, timing, monitor);
                 self.show_border_for(plan, front, rect, monitor_idx);
@@ -91,8 +96,10 @@ impl Tiler {
             }
         }
         for (window, rect) in self.compute_positions(monitor_idx) {
-            plan.place(window, rect, timing, monitor);
-            self.show_border_for(plan, window, rect, monitor_idx);
+            if !self.is_dragged(window) {
+                plan.place(window, rect, timing, monitor);
+                self.show_border_for(plan, window, rect, monitor_idx);
+            }
         }
     }
 

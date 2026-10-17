@@ -30,9 +30,14 @@ impl Tiler {
     }
 
     /// Moves a window to the workspace of the monitor it is now on,
-    /// after the user dragged it, and retiles.
+    /// after the user dragged it, and retiles. A window on a workspace out
+    /// of view, as one whose workspace the user switched away from while
+    /// they dragged it, stays where it is.
     pub(super) fn reassign_monitor(&mut self, plan: &mut Plan, window: WindowId) {
         let old = self.owning_monitor(window);
+        if old.is_some() && !self.is_on_active_workspace(window) {
+            return;
+        }
         let new = self.monitor_index_for(plan, window);
 
         match (old, new) {

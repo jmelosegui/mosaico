@@ -8,7 +8,8 @@
 //! focus hands it to the monocle window (`Tiler::settle_focus`). The
 //! workspace keeps what waits, so a window that leaves it leaves nothing
 //! waiting. A visit leaves the monocle window, monocle and the stacking
-//! as they were.
+//! as they were. A window the user drags waits, with its focus, until they
+//! drop it, as no layout places it meanwhile.
 //!
 //! A window that is always on top cannot wait behind a monocle window
 //! that is not: `put_behind` leaves it in front, so it shows at the
@@ -23,6 +24,7 @@ impl Tiler {
     /// its monocle window `front`, then at its `rect`, once. Each is put
     /// behind first, so it never shows in front at full size. The caller
     /// places `front` first, so a waiting window never shows there alone.
+    /// A window the user drags is left waiting until they drop it.
     pub(super) fn place_waiting_behind(
         &mut self,
         plan: &mut Plan,
@@ -31,28 +33,37 @@ impl Tiler {
         rect: Rect,
         timing: Timing,
     ) {
-        let state = &mut self.monitors[monitor_idx];
-        let waiting = state.active_ws_mut().take_waiting(front);
+        let monitor = self.monitors[monitor_idx].id;
+        let waiting = self.monitors[monitor_idx]
+            .active_ws_mut()
+            .take_waiting(front);
         for behind in waiting {
+            if self.is_dragged(behind) {
+                self.monitors[monitor_idx]
+                    .active_ws_mut()
+                    .wait_behind(behind);
+                continue;
+            }
             plan.emit(Effect::PutBehind {
                 window: behind,
                 other: front,
             });
-            plan.place(behind, rect, timing, state.id);
+            plan.place(behind, rect, timing, monitor);
         }
     }
 
     /// Puts the windows in `waiting` that were just `shown` behind their
     /// monocle window again. They were put behind it before they were
     /// shown, while still hidden, and showing a window that was hidden may
-    /// bring it to the front.
+    /// bring it to the front. The window the user drags stays in front.
     pub(super) fn put_shown_behind(
         &self,
         plan: &mut Plan,
         waiting: &[WindowId],
         shown: &[WindowId],
     ) {
-        for &window in waiting.iter().filter(|w| shown.contains(w)) {
+        let put_back = |w: &&WindowId| shown.contains(w) && !self.is_dragged(**w);
+        for &window in waiting.iter().filter(put_back) {
             let Some((mi, wi)) = self.find_window(window) else {
                 continue;
             };
