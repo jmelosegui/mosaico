@@ -17,28 +17,38 @@ A config reload that turns `"global"` on switches every monitor to the
 focused monitor's workspace, the way a switch does, so they start out in
 step.
 
+`goto-workspace-next` and `goto-workspace-prev` step through the
+workspaces, and `workspaces.wrap` says what a step past either end does:
+with `false` (default) it stays where it is, with `true` it goes round to
+the first workspace or the last. The bar switches workspaces too: a click
+on a workspace number, and the wheel over the bar, which steps the way those
+actions do (see [Bar Integration](#bar-integration)).
+
 ## Architecture
 
 ### Key Files
 
 | File | Purpose |
 |------|---------|
-| `crates/mosaico-core/src/action.rs` | `GoToWorkspace(u8)`, `SendToWorkspace(u8)`, `MAX_WORKSPACES` |
+| `crates/mosaico-core/src/action.rs` | `GoToWorkspace(u8)`, `GoToWorkspaceNext`, `GoToWorkspacePrev`, `SendToWorkspace(u8)`, `MAX_WORKSPACES` |
+| `crates/mosaico-core/src/action_step.rs` | `workspace_after()`: the workspace a step through them lands on, with or without wrap |
 | `crates/mosaico-core/src/workspace.rs` | `Workspace` -- ordered window handle collection |
 | `crates/mosaico-core/src/config/keybinding.rs` | Default workspace keybindings |
 | `crates/mosaico-core/src/tiler/state.rs` | `MonitorState` with `Vec<Workspace>` and `active_workspace` |
-| `crates/mosaico-core/src/tiler/mod.rs` | `Tiler.workspace_mode` |
+| `crates/mosaico-core/src/tiler/mod.rs` | `Tiler.workspace_mode`, `Tiler.workspace_wrap` |
+| `crates/mosaico-core/src/tiler/actions.rs` | Actions from their origin, and `step_workspace()` |
 | `crates/mosaico-core/src/tiler/workspace.rs` | `goto_workspace()`, `goto_workspace_on()`, `send_to_workspace()` |
 | `crates/mosaico-core/src/tiler/hidden_how.rs` | `HiddenHow`: how each window the tiler hid was hidden, to show it the same way |
-| `crates/mosaico-core/src/config/types.rs` | `WorkspacesConfig`, `WorkspaceMode` |
+| `crates/mosaico-core/src/config/workspaces.rs` | `WorkspacesConfig`, `WorkspaceMode` |
 
 ### Key Types
 
 - `MonitorState` -- per-monitor state holding `Vec<Workspace>` (8 workspaces),
   `active_workspace: usize` (0-indexed), and `monocle: bool`
 - `MAX_WORKSPACES: u8 = 8` -- public constant in `mosaico-core`
-- `WorkspacesConfig` -- top-level `[workspaces]` section: `mode: WorkspaceMode`
-  and `layouts: HashMap<u8, LayoutKind>` (per-workspace layout overrides)
+- `WorkspacesConfig` -- top-level `[workspaces]` section: `mode: WorkspaceMode`,
+  `wrap: bool` (default false) and `layouts: HashMap<u8, LayoutKind>`
+  (per-workspace layout overrides)
 - `WorkspaceMode` -- `PerMonitor` (default) or `Global`
 
 ## Actions
@@ -46,6 +56,7 @@ step.
 | Action | Description | Default Hotkey |
 |--------|-------------|----------------|
 | `GoToWorkspace(1)` - `GoToWorkspace(8)` | Switch to workspace N | Alt+1 - Alt+8 |
+| `GoToWorkspaceNext` / `GoToWorkspacePrev` | Switch to the workspace after or before the one on screen | -- |
 | `SendToWorkspace(1)` - `SendToWorkspace(8)` | Send focused window to workspace N | Alt+Shift+1 - Alt+Shift+8 |
 
 Actions use 1-based indexing in the user-facing interface (config, CLI) and
@@ -60,6 +71,16 @@ Actions use 1-based indexing in the user-facing interface (config, CLI) and
 - `Global` -- iterates every monitor and calls `goto_workspace_on(i, n,
   refocus = (i == focused_monitor))`. Only the previously-focused monitor
   takes keyboard focus; the other monitors retile silently.
+
+`step_workspace(steps)` (in `actions.rs`), for `GoToWorkspaceNext` (1) and
+`GoToWorkspacePrev` (-1), finds the workspace `steps` steps from the one on
+the focused monitor with `workspace_after(active, count, steps, wrap)` and
+switches there with `goto_workspace`, so global mode steps every monitor. A
+step that stays where it is, at either end without wrap, changes nothing.
+
+An action from the bar of another monitor first moves focus to that monitor
+(see [actions.md](actions.md#origins)), so the switch is made there, and
+nothing in that step moves the pointer.
 
 `goto_workspace_on(mon_idx, idx, refocus)` performs the per-monitor work:
 
@@ -224,10 +245,21 @@ active. The `BarState` struct (`mosaico_core::bar`) provides:
 
 - `active_workspace` -- 0-indexed active workspace
 - `workspace_count` -- number of workspaces on the monitor
+- `wrap` -- `workspaces.wrap`, for the wheel
 
 The workspaces widget renders every workspace number inside one container
 pill, with the active workspace highlighted in the configured
 `active_workspace` color.
+
+The bar switches workspaces on its own monitor. A left click on a workspace
+number goes to that workspace, every monitor in global mode, with focus
+going to the clicked monitor. The wheel over the bar steps through the
+workspaces, up or left to the one before and down or right to the one after:
+its turns add up, and one switch is made, to the workspace they add up to,
+once the wheel goes quiet. A click on the bar of the focused monitor focuses
+what the key would; one on another monitor's bar moves focus there first.
+The pointer stays where it is either way. See
+[status-bar.md](status-bar.md#pointer-input).
 
 ## Configuration
 
@@ -250,7 +282,8 @@ modifiers = ["alt", "shift"]
 ## Serialization
 
 Actions serialize as `"goto-workspace-N"` and `"send-to-workspace-N"` where
-N is 1-8. Parsing validates the range and rejects invalid workspace numbers.
+N is 1-8, and as `"goto-workspace-next"` and `"goto-workspace-prev"`.
+Parsing validates the range and rejects invalid workspace numbers.
 
 ## Design Decisions
 

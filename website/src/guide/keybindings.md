@@ -63,8 +63,21 @@ modifiers = ["alt", "shift"]
 | `close-focused` | Close the focused window |
 | `minimize-focused` | Minimize the focused window |
 | `goto-workspace-N` | Switch to workspace N (1-8) |
+| `goto-workspace-next` | Switch to the workspace after the one on screen |
+| `goto-workspace-prev` | Switch to the workspace before the one on screen |
 | `send-to-workspace-N` | Send focused window to workspace N (1-8) |
 | `toggle-pause` | Toggle hotkey pause on/off |
+
+`goto-workspace-next` and `goto-workspace-prev` have no default shortcut.
+Past the last workspace they stop, or go round to the first with
+`[workspaces] wrap = true` in `config.toml`. For example:
+
+```toml
+[[keybinding]]
+action = "goto-workspace-next"
+key = "Right"
+modifiers = ["alt", "ctrl"]
+```
 
 ### Modifiers
 

@@ -7,8 +7,9 @@ use crate::{Error, Result};
 
 use super::{CpuTimes, LocalTime, NowPlaying, SystemInfo};
 
-pub(super) use bar::NoPointer;
-pub(super) use renderer::{BarEvent, FakeRenderer};
+pub(crate) use bar::NoPointer;
+pub(super) use renderer::BarEvent;
+pub(crate) use renderer::FakeRenderer;
 
 #[path = "fake_bar.rs"]
 mod bar;
@@ -47,7 +48,7 @@ pub(super) struct Reads {
 /// Clones share one [`Machine`], so a test can keep a clone while the
 /// code under test owns another.
 #[derive(Debug, Clone, Default)]
-pub(super) struct FakeSystem(Rc<RefCell<Machine>>);
+pub(crate) struct FakeSystem(Rc<RefCell<Machine>>);
 
 impl FakeSystem {
     /// Changes what the machine reports.

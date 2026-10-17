@@ -2,6 +2,7 @@ use std::path::Path;
 
 use crate::Result;
 
+use super::write_back::write_back;
 use super::{append_to_file, file_error, read_file};
 
 /// Comment block appended to `config.toml` when the file has no
@@ -31,7 +32,8 @@ pub(super) const UNFOCUSED_BORDER_HINT_SNIPPET: &str = r##"
 /// Two strategies, in order:
 /// 1. If `[borders.colors]` is an active table, insert `unfocused = ""`
 ///    into it with a leading comment. Empty string preserves current
-///    behavior (theme-default muted gray).
+///    behavior (theme-default muted gray). The file is written back in
+///    its line endings and with its byte order mark (see `write_back.rs`).
 /// 2. Otherwise (no active table, or the table is commented out), if
 ///    the file does not already mention `unfocused`, append a
 ///    standalone comment block at the end of the file.
@@ -44,7 +46,7 @@ pub(super) fn append_missing_unfocused_border_hint(path: &Path) -> Result<bool> 
     let inserted =
         insert_unfocused_into_active_section(&content).map_err(|e| file_error(path, e))?;
     if let Some(updated) = inserted {
-        std::fs::write(path, updated)
+        write_back(path, &content, &updated)
             .map_err(|e| file_error(path, format_args!("could not write it: {e}")))?;
         return Ok(true);
     }

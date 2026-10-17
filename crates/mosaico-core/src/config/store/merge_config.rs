@@ -4,6 +4,7 @@ use crate::Result;
 
 use super::merge_animations::append_missing_animations_hint;
 use super::merge_unfocused::append_missing_unfocused_border_hint;
+use super::merge_wrap::add_missing_wrap_key;
 use super::{ConfigStore, append_to_file, file_error, read_file};
 
 /// Snippet appended to `config.toml` when the `[workspaces]` section is
@@ -16,6 +17,10 @@ const WORKSPACES_SECTION_SNIPPET: &str = r##"
 # "per-monitor" (default): only the focused monitor switches.
 # "global": all monitors switch in lockstep, like Windows virtual desktops.
 mode = "per-monitor"
+# Whether stepping past the last workspace, with goto-workspace-next or the
+# wheel over the bar, goes back to the first, and before the first to the
+# last. false stops at either end.
+wrap = false
 
 # Per-workspace layout overrides (workspace number 1-8).
 # Available layouts: "bsp", "vertical-stack", "three-column".
@@ -28,7 +33,8 @@ impl ConfigStore {
     /// Adds what newer versions of mosaico introduced to `config.toml`:
     ///
     /// - A documented `[workspaces]` section, appended when the file has
-    ///   none.
+    ///   none. One the file has from before `wrap` gets the key, the way
+    ///   the `unfocused` color is added below (see `merge_wrap.rs`).
     /// - The `unfocused` border color. When `[borders.colors]` is an
     ///   active table without the key, `unfocused = ""` is inserted into
     ///   it under a comment, which rewrites the file in place without a
@@ -61,6 +67,15 @@ impl ConfigStore {
             ),
             Ok(false) => {}
             Err(e) => crate::log_warn!("Could not add the [workspaces] section: {e}"),
+        }
+
+        match add_missing_wrap_key(&path) {
+            Ok(true) => crate::log_info!(
+                "Added [workspaces] wrap to {} (new in this version)",
+                path.display()
+            ),
+            Ok(false) => {}
+            Err(e) => crate::log_warn!("Could not add [workspaces] wrap: {e}"),
         }
 
         match append_missing_unfocused_border_hint(&path) {

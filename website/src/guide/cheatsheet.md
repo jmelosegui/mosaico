@@ -67,6 +67,12 @@ lockstep, like Windows virtual desktops. See
 | `Alt + Shift + 2` | Send window to workspace 2 | `mosaico action send-to-workspace 2` |
 | ... | ... | ... |
 | `Alt + Shift + 8` | Send window to workspace 8 | `mosaico action send-to-workspace 8` |
+| -- | Next workspace | `mosaico action go-to-workspace-next` |
+| -- | Previous workspace | `mosaico action go-to-workspace-prev` |
+
+On the [status bar](status-bar.md#the-mouse), click a workspace number to go
+there on that monitor, or scroll over the bar to step through the
+workspaces.
 
 ## Layout
 

@@ -1,6 +1,7 @@
 use crate::config::bar::BarConfig;
 
 use super::ConfigStore;
+use super::merge_bar_mouse::append_missing_bar_mouse_hint;
 
 impl ConfigStore {
     /// Loads bar config and appends any missing default widgets to the user's file.
@@ -10,9 +11,15 @@ impl ConfigStore {
     /// present in the user's file is appended so new widgets from future versions
     /// are picked up automatically, without overwriting anything the user has set.
     ///
-    /// Without a file, returns the defaults and creates nothing. When the
-    /// file cannot be parsed, returns the defaults and leaves it alone.
-    /// When appending fails, returns what the file has.
+    /// A file without a `[mouse]` section also gets a comment block about
+    /// it, which changes nothing it says.
+    ///
+    /// Without a file, returns the defaults and creates nothing. A file
+    /// that is not TOML is left alone, and the defaults are returned. One
+    /// that is TOML but holds a value the bar cannot take, such as a
+    /// height that is not a number, still gets the `[mouse]` comment block
+    /// when it has no such section, and the defaults are returned. When
+    /// appending widgets fails, returns what the file has.
     /// Only the daemon calls this, so it reports to the log alone.
     pub fn merge_missing_bar_widgets(&self) -> BarConfig {
         use crate::config::bar::WidgetConfig;
@@ -21,6 +28,15 @@ impl ConfigStore {
         let path = self.bar_path();
         if !path.exists() {
             return self.load_bar();
+        }
+
+        match append_missing_bar_mouse_hint(&path) {
+            Ok(true) => crate::log_info!(
+                "Appended [mouse] hint to {} (new in this version)",
+                path.display()
+            ),
+            Ok(false) => {}
+            Err(e) => crate::log_warn!("Could not add the [mouse] hint to bar.toml: {e}"),
         }
 
         let mut user = match self.try_load_bar() {

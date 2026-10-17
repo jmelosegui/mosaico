@@ -8,6 +8,8 @@ pub(super) fn header() -> &'static str {
 #   focus-left, focus-right, focus-up, focus-down,
 #   move-left, move-right, move-up, move-down,
 #   goto-workspace-1 .. goto-workspace-8,
+#   goto-workspace-next, goto-workspace-prev (with [workspaces] wrap in
+#   config.toml, past the last workspace they go round to the first),
 #   send-to-workspace-1 .. send-to-workspace-8,
 #   retile, toggle-monocle, close-focused, minimize-focused
 #
