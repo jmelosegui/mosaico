@@ -64,7 +64,6 @@ fn each_report_about_a_window_becomes_its_event() {
         (EVENT_OBJECT_DESTROY, WindowEvent::Destroyed { window: w }),
         (EVENT_OBJECT_HIDE, WindowEvent::Hidden { window: w }),
         (EVENT_SYSTEM_FOREGROUND, WindowEvent::Focused { window: w }),
-        (EVENT_SYSTEM_MOVESIZEEND, WindowEvent::Moved { window: w }),
         (
             EVENT_SYSTEM_MINIMIZESTART,
             WindowEvent::Minimized { window: w },

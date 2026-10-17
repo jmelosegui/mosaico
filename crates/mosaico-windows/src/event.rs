@@ -1,4 +1,5 @@
 use mosaico_core::WindowEvent;
+use mosaico_core::event::DragStart;
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::{
     EVENT_OBJECT_CREATE, EVENT_OBJECT_DESTROY, EVENT_OBJECT_HIDE, EVENT_OBJECT_LOCATIONCHANGE,
@@ -26,6 +27,10 @@ const OBJID_WINDOW: i32 = 0;
 /// Reports that name no window are dropped first. The mouse pointer
 /// reports being shown and changing shape with a null handle, and the
 /// relaxed filter would pass those on as window `0x0`.
+///
+/// The start and the end of a drag come out without what was read with
+/// them, which the hook reads as it reports them
+/// ([`drag_facts::read`](crate::drag_facts::read)).
 pub(crate) fn translate(event: u32, hwnd: HWND, id_object: i32) -> Option<WindowEvent> {
     if hwnd.is_invalid() {
         return None;
@@ -46,8 +51,14 @@ pub(crate) fn translate(event: u32, hwnd: HWND, id_object: i32) -> Option<Window
         e if e == EVENT_OBJECT_DESTROY => Some(WindowEvent::Destroyed { window }),
         e if e == EVENT_OBJECT_HIDE => Some(WindowEvent::Hidden { window }),
         e if e == EVENT_SYSTEM_FOREGROUND => Some(WindowEvent::Focused { window }),
-        e if e == EVENT_SYSTEM_MOVESIZESTART => Some(WindowEvent::MoveStarted { window }),
-        e if e == EVENT_SYSTEM_MOVESIZEEND => Some(WindowEvent::Moved { window }),
+        e if e == EVENT_SYSTEM_MOVESIZESTART => Some(WindowEvent::MoveStarted {
+            window,
+            start: DragStart::default(),
+        }),
+        e if e == EVENT_SYSTEM_MOVESIZEEND => Some(WindowEvent::Moved {
+            window,
+            pointer: None,
+        }),
         e if e == EVENT_SYSTEM_MINIMIZESTART => Some(WindowEvent::Minimized { window }),
         e if e == EVENT_SYSTEM_MINIMIZEEND => Some(WindowEvent::Restored { window }),
         e if e == EVENT_OBJECT_LOCATIONCHANGE => Some(WindowEvent::LocationChanged { window }),

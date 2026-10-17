@@ -87,7 +87,7 @@ fn a_window_stopped_on_its_way_has_no_border_drawn_for_it() {
     swap(&mut manager);
 
     // Act -- the user grabs window 1.
-    manager.handle_event(&WindowEvent::MoveStarted { window: wid(1) });
+    manager.handle_event(&WindowEvent::move_started(wid(1)));
     settle(&platform, &mut manager);
 
     // Assert

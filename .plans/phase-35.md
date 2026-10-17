@@ -199,10 +199,11 @@ daemon action path (carry_out)  -> action with an origin          { monitor, fro
 ### Drags (`mosaico-core/src/tiler/drag.rs`)
 
 - `MoveStarted` gains what the pointer grabbed (the title bar, or which frame
-  edges), the window's rect then, and the pointer position, all read when the
-  platform saw the drag start. `Moved` gains the pointer position read when the
-  drag ended. `MoveStarted` and `Moved` are barriers in `daemon/dedup.rs`, so
-  position reports are never merged across them.
+  edges), the window's rect then, whether it is maximized, and the pointer
+  position, all read when the platform saw the drag start. `Moved` gains the
+  pointer position read when the drag ended. `MoveStarted` and `Moved` are
+  barriers in `daemon/dedup.rs`, so position reports are never merged across
+  them.
 - `MoveStarted` for a tiled window starts a drag for it: what was held for the
   window is dropped (as `Untile` does), its border is hidden, and pointer moves
   from the tiler wait until the drag ends. A drag that started on a maximized
@@ -386,7 +387,7 @@ need nothing from phase 34; 35.3 needs `MoveStarted` (34.2); 35.4 needs 35.3.
 
 ### 35.3 Drag and drop
 
-- [ ] What `MoveStarted` and `Moved` carry, and the dedup barriers
+- [x] What `MoveStarted` and `Moved` carry, and the dedup barriers
 - [ ] Drag tracking keyed on the dragged window, with what a drag start drops and
       holds, and what ends a drag
 - [ ] Drop targets: swap, insert before the tile under the pointer on another

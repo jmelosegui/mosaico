@@ -50,7 +50,7 @@ impl Applier {
             WindowEvent::Hidden { window } => posted.reported(window, ShowState::Hidden),
             WindowEvent::Minimized { window } => posted.reported(window, ShowState::Minimized),
             WindowEvent::LocationChanged { window } => self.landed(window, platform, now),
-            WindowEvent::MoveStarted { window } => {
+            WindowEvent::MoveStarted { window, .. } => {
                 posted.sent.remove(&window);
                 posted.placed.remove(&window);
             }

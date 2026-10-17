@@ -73,7 +73,7 @@ fn the_pointer_follows_focus_to_where_the_user_dragged_a_window() {
     let (platform, mut manager) = two(&animated());
     swap(&mut manager);
     settle(&platform, &mut manager);
-    manager.handle_event(&WindowEvent::MoveStarted { window: wid(2) });
+    manager.handle_event(&WindowEvent::move_started(wid(2)));
     platform.edit(2, |w| w.rect.x += 100);
     let at = platform.window(2).rect;
     platform.take_calls();

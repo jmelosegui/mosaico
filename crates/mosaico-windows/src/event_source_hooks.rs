@@ -100,6 +100,6 @@ unsafe extern "system" fn win_event_proc(
     _event_time: u32,
 ) {
     if let Some(window_event) = event::translate(event, hwnd, id_object) {
-        super::send(window_event);
+        super::send(crate::drag_facts::read(window_event, hwnd));
     }
 }

@@ -36,7 +36,9 @@
 //! - `EVENT_SYSTEM_MOVESIZESTART` starts a drag the user makes, and
 //!   `EVENT_SYSTEM_MOVESIZEEND` ends it, even one cancelled with Escape.
 //!   Maximizing and restoring from the title bar do not drag, so they
-//!   only report `EVENT_OBJECT_LOCATIONCHANGE`.
+//!   only report `EVENT_OBJECT_LOCATIONCHANGE`. What the start and the
+//!   end carry is read in the hook, as each is reported
+//!   (`drag_facts.rs`).
 //! - When the hidden window cannot be created, the source still runs
 //!   without display and work-area changes, and `EventWatch::display_error`
 //!   says why.

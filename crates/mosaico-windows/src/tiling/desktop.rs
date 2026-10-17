@@ -2,8 +2,6 @@
 
 use mosaico_core::tiler::{Desktop, WindowFacts, WindowIdentity};
 use mosaico_core::{MonitorId, Rect, WindowId};
-use windows::Win32::Foundation::POINT;
-use windows::Win32::UI::WindowsAndMessaging::GetCursorPos;
 
 use crate::monitor;
 use crate::window::Window;
@@ -64,11 +62,7 @@ impl Desktop for Win32Desktop {
     }
 
     fn cursor(&self) -> Option<(i32, i32)> {
-        let mut point = POINT::default();
-        // SAFETY: GetCursorPos writes the cursor position into a stack
-        // allocated POINT and does not modify any window state.
-        unsafe { GetCursorPos(&mut point) }.ok()?;
-        Some((point.x, point.y))
+        crate::pointer::position().ok()
     }
 
     /// Walks the top-level windows, see `on_screen.rs`.
