@@ -18,8 +18,10 @@
 //! [`ItemRegion`](crate::bar::ItemRegion). The manager finds what was
 //! clicked with [`hit`](crate::bar::hit), adds the wheel's turns up with
 //! [`WheelSteps`](crate::bar::WheelSteps), and returns the actions they
-//! ask for.
+//! ask for. What a click on a widget runs is decided from the bar config
+//! by [`WidgetClicks`](crate::bar::WidgetClicks).
 
+mod clicks;
 mod content;
 mod cpu;
 mod manager;
@@ -34,6 +36,7 @@ mod time;
 mod wheel;
 mod widget_text;
 
+pub use clicks::{ClickProblem, RejectedClick, WidgetClicks};
 pub use content::{BarContent, BarItem};
 pub use cpu::CpuTracker;
 pub use manager::BarManager;
