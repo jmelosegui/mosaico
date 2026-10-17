@@ -4,9 +4,9 @@ use std::time::Instant;
 
 use crate::Action;
 use crate::action::{Origin, workspace_after};
-use crate::config::BarScroll;
+use crate::config::{BarConfig, BarScroll, WidgetKind};
 
-use super::super::{BarId, BarTarget, Button, PointerEvent};
+use super::super::{BarId, BarSide, BarTarget, Button, PointerEvent, WidgetClicks, WidgetRef};
 use super::BarManager;
 
 impl BarManager {
@@ -14,14 +14,17 @@ impl BarManager {
     /// the action it asks for, with the bar as its origin, if it asks for
     /// one.
     ///
-    /// A left click on a workspace label, a press and a release on it,
-    /// goes to that workspace. Turns of the wheel add up, with
-    /// `scroll = "workspaces"`, until the wheel goes quiet, see
-    /// [`take_wheel`](Self::take_wheel), and a press on the bar drops the
-    /// ones waiting there. Nothing else does anything yet.
+    /// A click is a press and a release of a button on the same item. A
+    /// left click on a workspace label goes to that workspace. Any other
+    /// click runs what its button runs on the kind of widget clicked (see
+    /// [`WidgetClicks`]), and a label is part of the workspaces widget.
+    /// Turns of the wheel add up, with `scroll = "workspaces"`, until the
+    /// wheel goes quiet, see [`take_wheel`](Self::take_wheel), and a press
+    /// on the bar drops the ones waiting there.
     /// What the pointer did on a bar that is gone, because the bars were
     /// made again since, is dropped, and so is everything while
-    /// `[mouse] enabled` is off.
+    /// `[mouse] enabled` is off. A click on the bar of a monitor the tiler
+    /// had no state for as the bar was drawn runs nothing.
     pub fn pointer(
         &mut self,
         bar: BarId,
@@ -45,13 +48,14 @@ impl BarManager {
         if let PointerEvent::Press { .. } = event {
             slot.wheel.clear();
         }
-        match slot.press.take(event, &slot.regions)? {
-            (Button::Left, BarTarget::Workspace(index)) => {
-                let n = u8::try_from(index + 1).ok()?;
-                Some((Action::GoToWorkspace(n), Origin::Bar(bar.monitor)))
+        let (button, target) = slot.press.take(event, &slot.regions)?;
+        let action = match target {
+            BarTarget::Workspace(index) if button == Button::Left => {
+                Action::GoToWorkspace(u8::try_from(index + 1).ok()?)
             }
-            _ => None,
-        }
+            target => clicked(&self.config, target, button)?,
+        };
+        slot.tiled.then_some((action, Origin::Bar(bar.monitor)))
     }
 
     /// When the wheel turns waiting on a bar are first due, if any are.
@@ -92,6 +96,23 @@ impl BarManager {
     }
 }
 
+/// What a click of `button` on `target` runs with `config`, other than a
+/// left click on a workspace label: what the button runs on the kind of
+/// widget clicked. A workspace label is part of the workspaces widget.
+fn clicked(config: &BarConfig, target: BarTarget, button: Button) -> Option<Action> {
+    let (kind, side) = match target {
+        BarTarget::Workspace(_) => (WidgetKind::Workspaces, BarSide::Left),
+        BarTarget::Widget(WidgetRef { side, index }) => {
+            let widgets = match side {
+                BarSide::Left => &config.left,
+                BarSide::Right => &config.right,
+            };
+            (widgets.get(index)?.kind(), side)
+        }
+    };
+    WidgetClicks::new(&config.mouse).action(kind, side, button)
+}
+
 #[cfg(test)]
 #[path = "tests/pointer_support.rs"]
 mod support;
@@ -123,3 +144,7 @@ mod wheel_switch_tests;
 #[cfg(test)]
 #[path = "tests/click_through_tests.rs"]
 mod click_through_tests;
+
+#[cfg(test)]
+#[path = "tests/widget_click_tests.rs"]
+mod widget_tests;

@@ -4,7 +4,7 @@
 use crate::WindowId;
 use crate::config::bar::BarConfig;
 
-use super::{BarSide, BarState, SystemReadings};
+use super::{BarSide, BarState, SystemReadings, WidgetClicks};
 
 #[path = "content_items.rs"]
 mod items;
@@ -28,11 +28,11 @@ pub struct BarContent {
     /// widgets are drawn as such only on the left, and as plain pills
     /// showing their icon on the right.
     pub right: Vec<BarItem>,
-    /// The index in the config's `left` list of the widget each item of
-    /// `left` shows, in the same order, and `None` for a separator.
-    left_widgets: Vec<Option<usize>>,
+    /// The widget each item of `left` shows, by its index in the config's
+    /// `left` list, in the same order, and `None` for a separator.
+    left_widgets: Vec<Option<items::Shown>>,
     /// The same for `right`.
-    right_widgets: Vec<Option<usize>>,
+    right_widgets: Vec<Option<items::Shown>>,
     /// Whether a click on a workspace label goes to that workspace.
     labels_clickable: bool,
 }
@@ -71,10 +71,12 @@ impl BarContent {
     ///
     /// Each side lists its shown widgets in config order, with the
     /// separator between them when one is configured. The workspace labels
-    /// take clicks while `[mouse] enabled` is on; no widget takes any yet.
+    /// take clicks while `[mouse] enabled` is on, and so does each widget
+    /// a button runs an action on (see [`WidgetClicks`]).
     pub fn build(config: &BarConfig, state: &BarState, readings: &SystemReadings) -> Self {
-        let (left, left_widgets) = items::side(config, BarSide::Left, state, readings);
-        let (right, right_widgets) = items::side(config, BarSide::Right, state, readings);
+        let clicks = WidgetClicks::new(&config.mouse);
+        let (left, left_widgets) = items::side(config, BarSide::Left, state, readings, &clicks);
+        let (right, right_widgets) = items::side(config, BarSide::Right, state, readings, &clicks);
         Self {
             left,
             right,

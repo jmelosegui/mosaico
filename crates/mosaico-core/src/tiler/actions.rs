@@ -89,3 +89,7 @@ mod step_tests;
 #[cfg(test)]
 #[path = "tests/workspace_wrap_tests.rs"]
 mod wrap_tests;
+
+#[cfg(test)]
+#[path = "tests/bar_widget_tests.rs"]
+mod bar_widget_tests;

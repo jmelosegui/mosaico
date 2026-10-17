@@ -379,9 +379,9 @@ need nothing from phase 34; 35.3 needs `MoveStarted` (34.2); 35.4 needs 35.3.
 
 - [x] `[[mouse.click]]` bindings with the defaults above, merged per widget and
       button, and validated against the actions a bar may run
-- [ ] Clicks on the layout and paused widgets, and on any widget a binding
+- [x] Clicks on the layout and paused widgets, and on any widget a binding
       names, through the daemon's action path
-- [ ] Tests for the defaults, overrides, unknown widgets, rejected actions and
+- [x] Tests for the defaults, overrides, unknown widgets, rejected actions and
       clicks on another monitor's bar; a metrics scenario for a widget click
 
 ### 35.3 Drag and drop
