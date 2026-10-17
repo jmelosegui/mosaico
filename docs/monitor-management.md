@@ -338,11 +338,25 @@ This places the window at the entry side of the target monitor.
 
 ## Monitor Reassignment
 
-`reassign_monitor(hwnd)` handles manual window drags between monitors:
+A tiled window the user drags onto another monitor with `[mouse]
+drag_to_swap` on joins that monitor's workspace before the tile under the
+pointer, or at the end, and that monitor takes focus with it. The monitor is
+the one the pointer is on as the drag ends, never the one the window's rect
+is mostly on, which the system rescales on its way between monitors of
+different scales. One the system maximizes there as it is dropped joins it
+too, and stays maximized until it is restored (see
+[tiling-layout.md](tiling-layout.md#dragging-windows)).
+
+`reassign_monitor(hwnd)` handles the other manual window drags between
+monitors: those with `drag_to_swap` off, of windows the tiler did not follow
+the drag of, that an action or a display change interrupted, or whose end has
+no pointer position:
 
 1. Called when a `Moved` event is received
-2. Queries the window's current monitor via `MonitorFromWindow`
-3. If the monitor differs from the workspace's monitor, moves the window
+2. Leaves alone a window on a workspace out of view, as one whose workspace
+   the user switched away from while they dragged it: it stays there
+3. Queries the window's current monitor via `MonitorFromWindow`
+4. If the monitor differs from the workspace's monitor, moves the window
    between workspaces and re-tiles both monitors
 
 ## Daemon Initialization

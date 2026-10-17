@@ -208,11 +208,11 @@ or size loop. The next report once the window is let go applies as usual.
 | `Focused` | Update focus tracking, show/reposition border; another window taking focus, other than by the tiler's doing, ends a drag |
 | `MouseHover` | Focus the window, if it is managed and on the active workspace; dropped while windows move and while the user drags a window, and not repeated until the pointer moves to another window. That rarely matters: a report takes 3 polls, at least 200 ms, longer than a default 180 ms transition, so a window sliding under a pointer at rest is usually reported only once it stops |
 | `MoveStarted` | Stop the window's transition, if it is moving, drop what is held back for it, and leave the pointer alone until the drag ends. A tiled window keeps its slot, but nothing places it until the drag ends, whatever the user does with the keyboard or the bars meanwhile, and its border is hidden once the window has left where it started; the layout changes then, with `Moved` |
-| `Moved` | Detect monitor reassignment, re-tile if needed |
+| `Moved` | Drop the window whose drag the tiler followed where the pointer is, with `[mouse] drag_to_swap`; otherwise detect monitor reassignment of a window on a workspace on screen, re-tile if needed (see [tiling-layout.md](tiling-layout.md#dragging-windows)) |
 | `Minimized` | Remove from workspace, re-tile, and stop the window's transition, if it is really minimized |
 | `Restored` | Re-add to workspace, re-tile |
 | `TitleChanged` | Adopt a window that only became recognizable once it had a title |
-| `LocationChanged` | Notice any window on screen starting or stopping to be maximized or fullscreen, for the bars (`bar_filling.rs`), the one the user drags too; then hide the border of a window the user drags once it has left where it started, and otherwise notice the focused window entering or leaving maximized state; once a window still to land where a posted placement takes it reports being there, or being anywhere once the wait for it by time is over, repaint it again and draw its border there (`applier_landing.rs`) |
+| `LocationChanged` | Notice any window on screen starting or stopping to be maximized or fullscreen, for the bars (`bar_filling.rs`), the one the user drags too; then hide the border of a window the user drags once it has left where it started, and move the preview of where it would land, or otherwise notice the focused window entering or leaving maximized state; once a window still to land where a posted placement takes it reports being there, or being anywhere once the wait for it by time is over, repaint it again and draw its border there (`applier_landing.rs`) |
 
 A drag of a tiled window lasts from its `MoveStarted` to its `Moved`.
 Windows does not say that `EVENT_SYSTEM_MOVESIZEEND` follows every
@@ -223,6 +223,13 @@ another window takes focus other than by the tiler's doing, and when the
 user drags another window. A drag whose end is lost while the user goes
 on with the keyboard alone keeps its window out of the layout, with its
 border hidden, until one of those happens.
+
+One timing question is open until it is checked on a live desktop:
+whether a snap or a maximize the system makes at a drop has landed by the
+time the daemon reads the window's rect for its `Moved`. If it lands
+after, a drop at an edge of the monitor is taken for a move onto the tile
+under the pointer, a swap or a join, and the snap then lands over the new
+layout.
 
 ## Design Decisions
 

@@ -27,6 +27,11 @@ contracts the manager runs on.
 | `crates/mosaico-core/src/tiler/navigation.rs` | `focus_direction()`, `move_direction()` -- spatial navigation and cross-monitor moves |
 | `crates/mosaico-core/src/tiler/layout.rs`, `layout_actions.rs` | `apply_layout_on()`, `retile_all()`, `toggle_monocle()`, `cycle_layout()` -- layout application |
 | `crates/mosaico-core/src/tiler/workspace.rs` | `goto_workspace()`, `send_to_workspace()` -- workspace switching |
+| `crates/mosaico-core/src/tiler/drag.rs`, `drag_mouse.rs` | The drag the tiler follows, keyed on the window the user drags; `Mouse`, what the mouse does |
+| `crates/mosaico-core/src/tiler/drag_border.rs`, `drag_end.rs` | The dragged window's border, hidden once it leaves where it started; what interrupts a drag, and what ends one before its `Moved` |
+| `crates/mosaico-core/src/tiler/drag_target.rs` | `target()`, `cancelled()` and `ending()` -- where a dropped window lands, and how its drag ended, as plain functions |
+| `crates/mosaico-core/src/tiler/drag_drop.rs`, `drag_slots.rs`, `drag_preview.rs` | `on_moved()` -- what a drop does; the slots a drop is decided against; `preview_drop()` -- the preview of where the window lands |
+| `crates/mosaico-core/src/tiler/applier_drag.rs` | The pointer while the user drags a window: left alone, and moved where it was last asked once the drag ends |
 | `crates/mosaico-core/src/tiler/manager.rs`, `manager_inputs.rs` | `TilingManager` -- runs the tiler on a `Platform`, event/action dispatch |
 | `crates/mosaico-core/src/tiler/manager_frames.rs` | `wants_frames()`, `frame_due(after)`, `frame()`, `turn_off_transitions()` -- what the daemon drives transitions with |
 | `crates/mosaico-core/src/tiler/applier.rs` | Applies effects, holds focus changes and moves back, drops their echoes |
@@ -215,7 +220,11 @@ events and user actions.
   [Where a new window first appears](#where-a-new-window-first-appears))
 - `Destroyed` -- removes window from whichever workspace contains it
 - `Focused` -- updates focus tracking, shows/hides border
-- `Moved` -- detects manual monitor reassignment (drag to different monitor)
+- `MoveStarted` -- starts following the drag of a tiled window (see
+  [Dragging Windows](#dragging-windows))
+- `Moved` -- drops the window the tiler followed the drag of where the
+  pointer is, or detects manual monitor reassignment (drag to different
+  monitor)
 - `Minimized` -- removes window from workspace, re-tiles, unless the window
   is no longer minimized, as when the report comes after it was restored
 - `Restored` -- re-adds window to workspace, moving it ahead of the layout
@@ -609,6 +618,158 @@ layer and leaves it in front. It shows at the monocle rect over the monocle
 window, which keeps focus and the border, and clicking it ends monocle as
 clicking any other window of the workspace does.
 
+## Dragging Windows
+
+A drag is about the window the platform reports being dragged, never
+whichever window has focus. `WindowEvent::MoveStarted` carries what the
+pointer grabbed (`Grab::TitleBar`, or the `Edges` of the frame), the
+window's rect, whether it is maximized and the pointer, and `Moved` the
+pointer, all read as the platform saw the drag start and end (see
+[window-events.md](window-events.md#what-a-drag-carries)).
+
+### While a Window Is Dragged
+
+`MoveStarted` for a window tiled on the workspace on screen starts a drag
+the tiler follows (`drag.rs`), keyed on that window. A drag that started on
+a maximized window, as the platform saw it then, is a move, whatever the
+platform says was grabbed, and the rect it started at comes from the
+desktop when the platform could not read it. Until the drag ends:
+
+- the window keeps its slot in the layout, so a window that opens is tiled
+  around it, but no layout pass places it, so it never animates either,
+  whatever the user does with the keyboard or the bars meanwhile;
+- its border is hidden once a position report finds it away from where it
+  started, as it would only show where the window was (`drag_border.rs`).
+  A click on the title bar, which the platform reports as a drag that
+  moves nothing, leaves it drawn;
+- its position reports only hide its border and move the preview of where
+  it would land, never the maximize logic that would put it back in its
+  slot;
+- the tiling manager drops what was held back for it from a burst of keys
+  as the drag starts, as for a window that leaves the layout, and leaves the
+  pointer alone while any window is dragged, tiled or not
+  (`applier_drag.rs`): a focus change is made at once, and the pointer goes
+  where the last one asked for once the drag has ended and its end has been
+  handled, unless focus has moved on from there without the pointer, as a
+  click or the wheel on a bar moves it. A dragged window that closes, hides
+  or is minimized gives the pointer back, as does another window taking
+  focus other than by the tiler's doing: the same focus reports as end a
+  drag (`drag_end.rs`), so a focus change the tiler makes without the
+  pointer, as for a bar on another monitor, and its report keep the pointer
+  held, and a key after them moves it only once the window is let go;
+- focus follows mouse rests while any window is dragged, tiled or not: the
+  tiling manager drops each report of the pointer resting on a window
+  (`applier_reports.rs`), as a focus change then would reach the system's
+  move or size loop, and the next report after the drop applies as usual.
+
+Every action that reaches the tiler, as `Input::Action`, from a key, a
+command, or a click or the wheel on a bar, whatever monitor it is for, and
+a display change from when it is noted, interrupt the drag (`drag_end.rs`):
+its preview is hidden and its `Moved` is handled as for a drag the tiler
+did not follow, but the window stays the user's until then, and no layout
+pass places it. `toggle-pause`, from a key or the **PAUSED** mark, is
+handled by the daemon (`daemon_loop_commands.rs`) and never reaches the
+tiler, so it leaves the drag alone. A display change that brings the window
+onto a monocle workspace leaves it waiting there, with its focus, until it
+is dropped (`display_monocle.rs`). A workspace switch of its monitor, as
+Alt+2 or the wheel over its bar, hides it with the rest of its workspace,
+and its drop leaves it there. The drag ends early, as for one the tiler did
+not follow, when the window leaves the workspace on screen of its monitor,
+when another window takes focus other than by the tiler's doing, and when
+the tiler stops. A dialog of the window the tiler gave focus, which the
+system gives focus in its place, is the tiler's doing. A second
+`MoveStarted` takes the place of a drag whose end was never reported.
+
+The platform may not report the end of every drag (see
+[window-events.md](window-events.md#how-events-drive-tiling)). One whose end
+is lost is over at the first of these. Until then, as when the user goes on
+with the keyboard alone, its window is not laid out, its border stays
+hidden, the pointer does not follow focus, and focus does not follow the
+pointer.
+
+### Where a Window Lands
+
+With `[mouse] drag_to_swap`, on by default, `Moved` ends the drag
+(`drag_drop.rs`). How it ended is decided first (`drag_target::cancelled`
+and `drag_target::ending`):
+
+- a window left within a few pixels of where it started, or back in its
+  slot, was cancelled with Escape, and is handled as before, even with the
+  pointer over another tile. A few pixels, and the slot, count too, as the
+  start may have been read once the window began to move;
+- a drag whose pointer ends within a few pixels of where it started was a
+  click on the title bar, and is handled as before, even when a double
+  click maximized the window by the time its first click ends. A few pixels
+  are what a press may wobble before Windows starts a drag, as many as
+  `motion::hardly_apart` allows. So a click or Escape also leaves alone a
+  window wider than its slot, whose title bar reaches over the next tile;
+- a drag by an edge resizes, and one whose grab the platform could not tell
+  resized when the window's size changed: both are handled as before, and
+  the window goes back to its slot;
+- a move that left the window maximized on its own monitor, or changed its
+  size by more than a few pixels on an edge while the window lay on its own
+  monitor, its center there, was snapped by the system, and the window goes
+  back to its slot. A move keeps a window's size but for the system
+  rescaling it on a monitor of another scale, so one that changed size with
+  most of it on another monitor has moved, whichever tile the pointer is
+  over, and one the system maximized there joins that monitor's workspace
+  and stays maximized until it is restored, as a window the user maximizes
+  does. A snap that leaves
+  the window its own size, as to the half of the monitor the other of two
+  tiles fills without gaps, is taken for a move onto that tile, which
+  leaves the window where the system put it;
+- any other drag moved the window. A window that was maximized as the drag
+  started has moved too, though it changes size as it leaves maximized.
+
+A window that moved lands where the pointer drops it (`drag_target::target`),
+from the pointer, never from the window's rect:
+
+| The pointer is | The window |
+|----------------|------------|
+| over another tile of its monitor | takes that tile's slot, and the other window its own |
+| over its own slot, a gap or the bar, or anywhere on its monitor in monocle | goes back to its slot |
+| over a tile of another monitor | joins that monitor's workspace before that tile, and the monitor takes focus with it |
+| over a gap of another monitor, its bar, or a monocle workspace there | joins the end of that workspace; on a monocle workspace, only the monocle window is placed and nothing is put behind it, as for any window dragged onto one |
+| on no monitor, as over a taskbar | is handled as before |
+
+A monitor counts with the bar's strip (its work area as the platform reports
+it), and in global mode the window joins the workspace on screen there, as
+every monitor shows the same number. The window keeps focus, and the
+pointer stays where the user dropped it. The drop's placements may animate
+like any other, as both windows of a swap stay on their monitor, and a
+window the transitions had sent somewhere moves from where it was dropped.
+
+A drag the tiler did not follow, as of a window it does not manage, one
+that was interrupted, one whose end has no pointer, and every drop with
+`drag_to_swap` off are handled as before (`reassign_monitor`): the window
+goes back to its slot, joins the end of the workspace of the monitor it is
+on now, or is taken in there when the tiler would tile it, and a window the
+tiler leaves alone changes nothing under it. A window whose workspace is
+out of view, as after Alt+2 mid-drag, stays on that workspace.
+
+### The Drop Preview
+
+While a window is dragged with `drag_to_swap` on, each of its position
+reports works out where it would land if dropped now, with the pointer
+where it is, by the rule the drop follows (`drag_preview.rs`), and the
+tiler emits `Effect::ShowPreview` with the slot it would get: its own, that
+of the tile under the pointer, or the one it would get on another monitor
+once put before the tile under the pointer, which in BSP is not that tile.
+So a window a few pixels off its size previews the tile it would swap
+with, and one whose size changed more on its own monitor previews its own
+slot. The tiler emits nothing while that slot stays the same. A resize, a
+drop that would place the window nowhere, as onto another monitor's
+monocle workspace, a window back where it started, and a pointer off every
+monitor hide it (`Effect::HidePreview`), and so does the end of the drag or
+its interruption, however it comes. A focus change that leaves the drag
+going shows it again, which puts it back just behind the dragged window.
+Without position reports while the window is dragged, as with window
+contents hidden while dragging, there is no preview, and the drop decides
+from where the window and the pointer are at the end. The preview is drawn
+in the focused border's color, as wide and as round as the borders, through
+`Decorations::show_preview` (see
+[focus-border.md](focus-border.md#drop-preview)).
+
 ## Workspace Management
 
 Each monitor has up to 8 workspaces (`MAX_WORKSPACES = 8`), stored as a
@@ -736,5 +897,39 @@ and showing windows cause are kept from undoing a switch as described in
   pointer, hover and reloads, on the tiling manager, the fake platform and
   its clock (`motion_*_tests.rs`). The motion model is tested on its own
   in `motion/tests/` (see [animations.md](animations.md#tests))
+- Drag tests in the same place: where a drop lands and how a drag ended, as
+  plain functions (`drag_target_tests.rs`, `drag_cancel_tests.rs`,
+  `drag_ending_tests.rs`); on a `Tiler`, each drop target, a drop the
+  system snapped or maximized, on its monitor or another, Escape with the
+  pointer over another tile, a click, a start read late, a resize, a drag
+  without position reports, a window the tiler leaves alone or does not
+  manage yet, a monocle workspace, global mode, a key, the wheel over a bar
+  or a display change mid-drag, a window wider than its slot, one rescaled
+  across two monitors and `drag_to_swap` off (`drag_drop*_tests.rs`); what
+  the tiler leaves alone while it follows a drag, where it starts, its
+  border, and what ends one, reported or not (`drag_tests.rs`,
+  `drag_start_tests.rs`, `drag_border_tests.rs`, `drag_end_tests.rs`,
+  `drag_lost_tests.rs`); a drag and the bars: a click on the dragged
+  window's own bar mid-drag, a drop over a bar, and a window dragged out of
+  maximized (`drag_bar_tests.rs`); the preview, over a bar too, and the bars
+  while a window is dragged (`drag_preview*_tests.rs`); and, on the tiling
+  manager, what was held back for a grabbed window, the pointer while a
+  window is dragged or resized and what gives it back or leaves it where
+  the user has it, focus follows mouse while a window is held, a key while
+  a window is held with transitions on, a drop with them on, and a click
+  that leaves the border drawn (`applier_drag*_tests.rs`,
+  `drag_hold_tests.rs`, `drag_drop_motion_tests.rs`,
+  `manager_daemon_tests.rs`). The metrics scenarios `drop_to_swap` and
+  `drop_on_another_monitor` count what a swap and a drop on another monitor
+  ask of the platform
+- `crates/mosaico/tests/drag_and_drop.rs` drags two notepads by their title
+  bar on the live desktop, with the real pointer and transitions off, so it
+  runs on demand with the desktop suites, never with the safe ones: one
+  dropped on the other swaps places with it, and one dropped on its own
+  slot goes back to it. It checks first that the notepads are alone and side
+  by side on workspace 8, and otherwise fails saying its setup is wrong. It
+  grabs a notepad where the notepad says its caption is, below the band
+  that resizes it at any scale, and once a drag ends, or fails half way,
+  the button is up and the pointer is back where it was
 - Extensive spatial navigation tests in `spatial.rs` (see
   [monitor-management.md](monitor-management.md))

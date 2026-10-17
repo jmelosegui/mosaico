@@ -1,9 +1,11 @@
-//! Notepad windows on the live desktop, for the window transition tests,
-//! and where they are.
+//! Notepad windows on the live desktop, for the window transition and the
+//! drag and drop tests, and where they are.
 //!
 //! Windows are found and read through the platform's own implementations
 //! of the core contracts, so where a window is reads the same visible
 //! bounds the daemon places windows at.
+
+#![allow(dead_code)]
 
 use std::process::{Child, Command};
 use std::thread;
