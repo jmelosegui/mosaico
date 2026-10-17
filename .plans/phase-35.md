@@ -443,5 +443,5 @@ need nothing from phase 34; 35.3 needs `MoveStarted` (34.2); 35.4 needs 35.3.
 - [ ] Manual test: drag to swap, to another monitor, cancel with Esc, drop at the
       top edge with Snap on, and with window contents hidden while dragging
 - [ ] Manual test: resize splits from every resizable edge in every layout
-- [ ] Integration test for a bar click
+- [x] Integration test for a bar click
 - [ ] Update `.plans/plan.md`
