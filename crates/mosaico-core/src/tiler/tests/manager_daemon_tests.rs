@@ -6,13 +6,14 @@ use std::time::Duration;
 
 use crate::Direction;
 use crate::config::Config;
+use crate::event::{DragStart, Grab};
 
-use super::fake_platform::FakePlatform;
+use super::fake_platform::{Call, FakePlatform};
 use super::manager_support::{start, tiled};
 use super::*;
 
 #[test]
-fn a_drag_that_starts_changes_nothing() {
+fn a_drag_that_starts_applies_nothing() {
     // Arrange
     let platform = FakePlatform::new(1, &[(1, 0), (2, 0)]);
     let mut manager = start(&platform, None, &Config::default());
@@ -22,10 +23,41 @@ fn a_drag_that_starts_changes_nothing() {
     // Act -- the layout changes once the drag ends, with `Moved`.
     manager.handle_event(&WindowEvent::move_started(wid(1)));
 
-    // Assert -- nothing applied, and nothing held back either.
+    // Assert -- nothing applied, and nothing held back either: the focus
+    // change held for the window since the start is dropped, as the user
+    // grabbing it gives it focus.
     assert!(platform.calls().is_empty(), "{:?}", platform.calls());
     assert_eq!(tiled(&manager, 0), vec![1, 2]);
-    assert_eq!(manager.held_since(), held);
+    assert!(held.is_some());
+    assert_eq!(manager.held_since(), None);
+}
+
+#[test]
+fn a_click_on_a_title_bar_leaves_the_border_of_the_window_drawn() {
+    // Arrange -- the platform reports the press and the release on the
+    // title bar of window 1, which has focus, as a drag that moves nothing.
+    let platform = FakePlatform::new(1, &[(1, 0), (2, 0)]);
+    let mut manager = start(&platform, None, &Config::default());
+    manager.flush_pending();
+    let rect = platform.window(1).rect;
+    let pointer = Some((rect.center_x(), rect.y + 10));
+    let start = DragStart {
+        grab: Some(Grab::TitleBar),
+        rect: Some(rect),
+        maximized: Some(false),
+        pointer,
+    };
+    platform.take_calls();
+
+    // Act
+    let window = wid(1);
+    manager.handle_event(&WindowEvent::MoveStarted { window, start });
+    manager.handle_event(&WindowEvent::Moved { window, pointer });
+    manager.flush_pending();
+
+    // Assert -- it does not blink.
+    let calls = platform.take_calls();
+    assert!(!calls.contains(&Call::HideBorder(window)), "{calls:?}");
 }
 
 #[test]

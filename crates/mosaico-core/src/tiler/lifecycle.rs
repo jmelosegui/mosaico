@@ -48,7 +48,7 @@ impl Tiler {
         self.workspace_wrap = config.workspaces.wrap;
         self.border_config = config.borders.clone();
         self.animations = config.animations.clone();
-        self.mouse_follows_focus = config.mouse.follows_focus;
+        self.mouse.follows_focus = config.mouse.follows_focus;
         for window in self.all_windows() {
             self.decorate(plan, window);
         }

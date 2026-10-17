@@ -39,6 +39,7 @@ impl Tiler {
             Input::RepaintAll => self.repaint_visible(&mut plan),
             Input::Shutdown => self.restore_all_windows(&mut plan),
         }
+        self.end_drag_of_gone();
         if seed {
             self.seed_filling(desktop);
         }

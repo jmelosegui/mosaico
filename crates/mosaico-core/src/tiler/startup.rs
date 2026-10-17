@@ -8,7 +8,7 @@ use crate::config::{AnimationConfig, BorderConfig, LayoutConfig, WindowRule, Wor
 use crate::{HidingSupport, LayoutKind, WindowId};
 
 use super::{
-    Desktop, Display, Effect, MonitorState, Plan, Tiler, bar_states, hidden_how, reconnect,
+    Desktop, Display, Effect, MonitorState, Plan, Tiler, bar_states, drag, hidden_how, reconnect,
 };
 
 /// Everything the tiler is configured with at startup.
@@ -80,7 +80,7 @@ impl Tiler {
             fresh: true,
             bordered: HashSet::new(),
             decorated: HashSet::new(),
-            mouse_follows_focus: settings.mouse_follows_focus,
+            mouse: drag::Mouse::new(settings.mouse_follows_focus),
             focused_monitor: 0,
             focused_window: None,
             focused_maximized: false,

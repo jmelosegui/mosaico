@@ -56,9 +56,10 @@ impl Tiler {
                 self.remove_from_tiling(plan, window, "min", true);
             }
             // Nothing in the layout changes until the drag ends, with
-            // `Moved`.
-            WindowEvent::MoveStarted { .. } => {}
+            // `Moved`, but the drag of a tiled window is followed.
+            WindowEvent::MoveStarted { window, start } => self.start_drag(plan, window, &start),
             WindowEvent::Moved { window, .. } => {
+                self.end_drag();
                 // A window the user just maximized stays maximized;
                 // retiling it would snap it back into the layout.
                 let maximized = plan.is_maximized(window);
@@ -71,7 +72,10 @@ impl Tiler {
                     self.reassign_monitor(plan, window);
                 }
             }
-            WindowEvent::Focused { window } => self.on_focused(plan, window),
+            WindowEvent::Focused { window } => {
+                self.end_drag_for_focus(plan, window);
+                self.on_focused(plan, window);
+            }
             WindowEvent::TitleChanged { window } => {
                 // Some applications only become recognizable once their
                 // title is set, and never report being created or shown.
@@ -93,6 +97,12 @@ impl Tiler {
 
     fn on_location_changed(&mut self, plan: &mut Plan, window: WindowId) {
         self.note_filling(plan, window);
+        // A window the user drags is theirs until they drop it: where it
+        // is only hides its border, once it has left where it started.
+        if self.is_dragged(window) {
+            self.drag_reported(plan);
+            return;
+        }
         // Fires on every animation frame, so only react when the focused
         // window enters or leaves maximized state. That catches the
         // title bar buttons, which do not report a move.
