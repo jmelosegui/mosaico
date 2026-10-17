@@ -46,8 +46,10 @@ CLI command test.
 - `cargo test -p mosaico --test cli` unfiltered. `start_and_stop_lifecycle` and `second_daemon_is_rejected`
   start real daemons that tile the live desktop.
 - `cargo test -p mosaico --test window_management`, `--test window_transitions`, `--test drag_and_drop`,
-  `--test bar_reservation` and `--test display_change`. They start the daemon, launch notepad and tile the live
-  desktop, and `drag_and_drop` presses, moves and releases the real pointer. CI runs them on a dedicated runner.
+  `--test bar_click`, `--test bar_reservation` and `--test display_change`. They start the daemon and tile the live
+  desktop, and `window_management`, `window_transitions` and `drag_and_drop` launch notepad. `drag_and_drop`
+  presses, moves and releases the real pointer, and `bar_click` clicks and scrolls the bar with it. CI runs them
+  on a dedicated runner.
   `cargo test -p mosaico --test window_transitions --no-run` only builds that suite.
 
 Every integration test runs its own daemon instance (`tests/common/mod.rs`): its own pipe, lock, PID file,

@@ -530,6 +530,22 @@ inactive windows when I hover over them" is on, as it is by default
 window that has keyboard focus, which the bar never has, so scrolling over
 the bar does nothing. Clicks work either way.
 
+### On the Live Desktop
+
+`crates/mosaico/tests/bar_click.rs` clicks and scrolls the bar with the real
+pointer, on a daemon of its own that draws the bar from a `bar.toml` of its
+own, so it runs on demand with the desktop suites, never with the safe
+ones. It finds the workspace labels and the layout widget on the primary
+monitor's bar the way the user does, left to right where the pointer shows
+the hand, and presses or turns the wheel only over one of them, with nothing
+in front of the bar there. A click on label 2 goes to workspace 2 and one on
+label 1 comes back, and a notch of the wheel down steps to workspace 2 and
+one up steps back, as `debug state` shows. Three clicks on the layout widget
+go round the three layouts, read from the widget's width, since
+`debug state` does not show layouts. It checks the setting above before it
+turns the wheel, and once a click or a turn ends, or fails half way, the
+button is up and the pointer is back where it was.
+
 ## Work Area Reservation
 
 The daemon subtracts the bar height from each monitor's work area before
