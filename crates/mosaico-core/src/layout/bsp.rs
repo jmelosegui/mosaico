@@ -32,6 +32,20 @@ impl Default for BspLayout {
 
 impl Layout for BspLayout {
     fn apply(&self, windows: &[WindowId], work_area: &Rect) -> Vec<(WindowId, Rect)> {
+        self.apply_splits(windows, work_area, &[])
+    }
+}
+
+impl BspLayout {
+    /// Lays out `windows` as [`Layout::apply`] does, with split `k`, which
+    /// divides windows `k..` into window `k` and the rest, at the ratio
+    /// `splits[k]` where it has one, and at `ratio` elsewhere.
+    pub fn apply_splits(
+        &self,
+        windows: &[WindowId],
+        work_area: &Rect,
+        splits: &[Option<f64>],
+    ) -> Vec<(WindowId, Rect)> {
         if windows.is_empty() {
             return Vec::new();
         }
@@ -43,17 +57,16 @@ impl Layout for BspLayout {
             (work_area.width - self.gap * 2).max(1),
             (work_area.height - self.gap * 2).max(1),
         );
-        self.split(windows, &padded, true, &mut results);
+        self.split(windows, &padded, true, splits, &mut results);
         results
     }
-}
 
-impl BspLayout {
     fn split(
         &self,
         windows: &[WindowId],
         area: &Rect,
         horizontal: bool,
+        splits: &[Option<f64>],
         results: &mut Vec<(WindowId, Rect)>,
     ) {
         if windows.len() == 1 {
@@ -62,8 +75,9 @@ impl BspLayout {
         }
 
         let half = self.gap / 2;
+        let ratio = splits.first().copied().flatten().unwrap_or(self.ratio);
         let (first_area, rest_area) = if horizontal {
-            let split = (area.width as f64 * self.ratio) as i32;
+            let split = (area.width as f64 * ratio) as i32;
             let first = Rect::new(area.x, area.y, (split - half).max(1), area.height);
             let rest = Rect::new(
                 area.x + split + half,
@@ -73,7 +87,7 @@ impl BspLayout {
             );
             (first, rest)
         } else {
-            let split = (area.height as f64 * self.ratio) as i32;
+            let split = (area.height as f64 * ratio) as i32;
             let first = Rect::new(area.x, area.y, area.width, (split - half).max(1));
             let rest = Rect::new(
                 area.x,
@@ -85,6 +99,7 @@ impl BspLayout {
         };
 
         results.push((windows[0], first_area));
-        self.split(&windows[1..], &rest_area, !horizontal, results);
+        let deeper = splits.get(1..).unwrap_or_default();
+        self.split(&windows[1..], &rest_area, !horizontal, deeper, results);
     }
 }
