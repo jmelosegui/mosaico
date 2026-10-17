@@ -98,6 +98,22 @@ place_frames = 11
 repaint = 3
 show_border = 4
 
+[drop_on_another_monitor]
+border_renders = 3
+calls = 15
+hide_border = 1
+place = 3
+repaint = 3
+show_border = 8
+
+[drop_to_swap]
+border_renders = 2
+calls = 13
+hide_border = 1
+place = 2
+repaint = 2
+show_border = 8
+
 [focus_burst_of_9]
 border_renders = 0
 calls = 38

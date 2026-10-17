@@ -1,7 +1,7 @@
 /// Reusable type definitions for Mosaico configuration.
 ///
-/// Contains layout, border, mouse, and corner-style types shared
-/// across the configuration subsystem.
+/// Contains layout, border and corner-style types shared across the
+/// configuration subsystem.
 use serde::{Deserialize, Serialize};
 
 use crate::config::Color;
@@ -60,26 +60,6 @@ impl CornerStyle {
             Self::Square => 0,
             Self::Small => 8,
             Self::Round => 16,
-        }
-    }
-}
-
-/// Mouse integration settings.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
-pub struct MouseConfig {
-    /// Move the cursor to the center of the focused window on
-    /// keyboard navigation.
-    pub follows_focus: bool,
-    /// Automatically focus the window under the cursor without clicking.
-    pub focus_follows_mouse: bool,
-}
-
-impl Default for MouseConfig {
-    fn default() -> Self {
-        Self {
-            follows_focus: true,
-            focus_follows_mouse: false,
         }
     }
 }

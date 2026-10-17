@@ -58,20 +58,7 @@ impl Tiler {
             // Nothing in the layout changes until the drag ends, with
             // `Moved`, but the drag of a tiled window is followed.
             WindowEvent::MoveStarted { window, start } => self.start_drag(plan, window, &start),
-            WindowEvent::Moved { window, .. } => {
-                self.end_drag();
-                // A window the user just maximized stays maximized;
-                // retiling it would snap it back into the layout.
-                let maximized = plan.is_maximized(window);
-                if self.focused_window == Some(window) {
-                    self.focused_maximized = maximized;
-                }
-                if maximized {
-                    self.update_border(plan);
-                } else {
-                    self.reassign_monitor(plan, window);
-                }
-            }
+            WindowEvent::Moved { window, pointer } => self.on_moved(plan, window, pointer),
             WindowEvent::Focused { window } => {
                 self.end_drag_for_focus(plan, window);
                 self.on_focused(plan, window);

@@ -22,12 +22,22 @@ impl Tiler {
         );
         self.fresh = false;
         let mut plan = Plan::new(desktop, now);
+        // Every action, from a key, a command or a bar, and a display
+        // change, from when it is noted, leave where a dragged window lands
+        // to its end (`drag_end.rs`).
+        if matches!(
+            input,
+            Input::Action(..) | Input::DisplayChanging | Input::Displays { .. }
+        ) {
+            self.interrupt_drag();
+        }
         match input {
             Input::Action(action, origin) => {
                 plan.from_pointer = origin.from_pointer();
                 self.handle_action(&mut plan, &action, origin);
             }
             Input::Event(event) => self.handle_event(&mut plan, &event),
+            Input::DisplayChanging => {}
             Input::Displays { monitors, bar } => {
                 self.handle_display_change(&mut plan, monitors, &bar)
             }
