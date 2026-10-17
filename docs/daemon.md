@@ -247,10 +247,11 @@ Tasks are dispatched like this:
   goes to `TilingManager::handle_action_from()`, from `Origin::Focused`.
   Then the bar is updated, and a failure is logged
 - `DaemonMsg::BarPointer(bar, event)` -- handed to `BarManager::pointer()`
-  with the time; the action a click asks for, from `Origin::Bar(monitor)`, is
-  carried out by `carry_out()` the same way, and a wheel turn waits for
-  step 5. Pausing pauses the hotkeys only, so the bars keep working while
-  they are paused
+  with the time; the action a click asks for, a label's or the one a
+  widget's button is bound to, from `Origin::Bar(monitor)`, is carried out
+  by `carry_out()` the same way, `toggle-pause` included, and a wheel turn
+  waits for step 5. Pausing pauses the hotkeys only, so the bars keep
+  working while they are paused
 - `DaemonMsg::Command(cmd, reply)` -- handles `Stop` (breaks loop),
   `Status` (replies with window count), `Action` (carried out the same way,
   `toggle-pause` included; replies `failed` with the reason when the action

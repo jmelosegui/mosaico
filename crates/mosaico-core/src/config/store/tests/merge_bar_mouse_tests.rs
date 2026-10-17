@@ -1,3 +1,4 @@
+use crate::bar::WidgetClicks;
 use crate::config::BarConfig;
 use crate::config::bar::BarMouseConfig;
 use crate::config::store::test_support::{cleanup, unique_temp_path};
@@ -115,4 +116,31 @@ fn a_file_that_is_not_toml_is_reported_and_left_alone() {
     assert!(result.is_err());
     assert_eq!(std::fs::read_to_string(&path).unwrap(), "height = = 40\n");
     cleanup(&path);
+}
+
+#[test]
+fn the_click_example_of_the_hint_is_an_entry_the_bar_runs() {
+    // Arrange -- the example's lines, from its header on, uncommented.
+    let lines: Vec<&str> = BAR_MOUSE_HINT_SNIPPET
+        .lines()
+        .map(|line| line.trim_start_matches('#').trim())
+        .skip_while(|line| *line != "[[mouse.click]]")
+        .collect();
+
+    // Act
+    let config: BarConfig = toml::from_str(&lines.join("\n")).unwrap();
+
+    // Assert
+    assert_eq!(config.mouse.click.len(), 1);
+    assert!(WidgetClicks::rejected(&config.mouse).is_empty());
+}
+
+#[test]
+fn the_hint_says_that_none_removes_a_binding_and_a_deleted_entry_keeps_it() {
+    // Act
+    let says = |text: &str| BAR_MOUSE_HINT_SNIPPET.contains(text);
+
+    // Assert
+    assert!(says("action = \"none\" removes what the click does"));
+    assert!(says("deleting an entry keeps the default"));
 }

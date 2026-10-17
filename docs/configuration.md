@@ -20,7 +20,8 @@ All settings have sensible defaults, so configuration files are optional.
 | `crates/mosaico-core/src/config/reload/` | `ConfigReloader`, `ConfigReload`: which files hot-reload and how (`mod.rs`); `ConfigWatch`: opening the watcher after the files are recorded, and the watch loop (`run.rs`) |
 | `crates/mosaico-core/src/config/keybinding.rs` | `Keybinding`, `Modifier`, `defaults()`, `Keybinding::combo()` |
 | `crates/mosaico-core/src/config/bar.rs` | `BarConfig`, `BarColors`, `WidgetConfig` |
-| `crates/mosaico-core/src/config/bar_mouse.rs` | `BarMouseConfig`, `BarScroll`, the `[mouse]` section of `bar.toml` |
+| `crates/mosaico-core/src/config/bar_mouse.rs` | `BarMouseConfig`, `BarScroll`, `ClickBinding`, the `[mouse]` section of `bar.toml` and its `[[mouse.click]]` entries |
+| `crates/mosaico-core/src/config/widget_kind.rs` | `WidgetKind`, a widget's type by name, and `WidgetConfig::kind()` |
 | `crates/mosaico-core/src/log.rs` | `LogConfig`, the `[logging]` section, and the logger |
 | `crates/mosaico-core/src/config/theme_config.rs` | `ThemeConfig`, the `[theme]` section |
 | `crates/mosaico-core/src/config/theme.rs` | `Theme` enum |
@@ -76,7 +77,15 @@ All settings have sensible defaults, so configuration files are optional.
   `left/right: Vec<WidgetConfig>`, `colors: BarColors`, and the font,
   padding and pill settings
 - `BarMouseConfig` -- `enabled: bool` (default true: the bar takes clicks
-  and the wheel), `scroll: BarScroll` (default `workspaces`, or `none`)
+  and the wheel), `scroll: BarScroll` (default `workspaces`, or `none`),
+  `click: Vec<ClickBinding>` (default `ClickBinding::defaults()`: the layout
+  widget's left and right buttons cycle the layout and toggle monocle, and
+  the paused widget's left one toggles the pause)
+- `ClickBinding` -- `widget`, `button` and `action: Option<String>`, a
+  `[[mouse.click]]` entry as written, `None` for a key it leaves out, kept as
+  text and checked by `WidgetClicks` (in `mosaico_core::bar`) as the bar
+  takes the config; `action = "none"` (`ClickBinding::NONE`) removes a
+  binding
 - `BarColors` -- `background`, `foreground`, `accent`, the workspace,
   separator, widget and pill colors (support named colors)
 - `KeybindingsFile` -- wrapper for TOML deserialization of `[[keybinding]]`
@@ -179,6 +188,12 @@ monitors = []        # 0-based monitor indices; empty for all of them
 enabled = true          # false keeps the bar click-through, as before
 scroll = "workspaces"   # What scrolling over the bar does: "workspaces" or "none"
 
+# Over the defaults; a later entry for the same widget and button wins
+[[mouse.click]]
+widget = "clock"        # A widget's type
+button = "middle"       # "left", "right" or "middle"
+action = "retile"       # An action on a monitor or the whole daemon, or "none"
+
 [colors]
 background = "#1e1e2e"   # Hex, or empty for the theme's own
 foreground = "#cdd6f4"
@@ -202,8 +217,23 @@ and `goto-workspace-prev` do, with `[workspaces] wrap` from `config.toml`.
 `enabled = false` keeps the bar click-through, as it was before it took the
 mouse, and `scroll = "none"` leaves the wheel alone. Even with the mouse on,
 the bar lets the pointer through over a maximized or fullscreen window, and
-elsewhere takes it only where it draws something. See
+elsewhere takes it only over the whole column of the bar each clickable item
+stands in, and where it draws something. See
 [status-bar.md](status-bar.md#pointer-input).
+
+Clicks on widgets run actions too. By default the layout widget's left and
+right buttons cycle the layout and toggle monocle, and a left click on the
+paused widget resumes the hotkeys. Each `[[mouse.click]]` entry binds a
+button on a kind of widget to an action, named as in `keybindings.toml`, in
+place of what that button did there, and a later entry for the same widget
+and button wins. `action = "none"` removes the binding, a default included,
+and deleting an entry keeps the default. Only an action on the bar's own
+monitor or on the whole daemon can be bound: `cycle-layout`,
+`toggle-monocle`, `goto-workspace-N`, `goto-workspace-next` and
+`goto-workspace-prev` act on the monitor, `retile` and `toggle-pause` on the
+whole daemon. An entry with any other action, or with no widget, button or
+action, or one that does not exist, is left out and logged, and the rest of
+the file applies. See [status-bar.md](status-bar.md#widget-clicks).
 
 ### `rules.toml`
 
@@ -308,10 +338,12 @@ A missing file is never created. Files that exist change in two ways:
     [status-bar.md](status-bar.md). `merge_missing_bar_widgets()` first
     appends a comment block about the bar's `[mouse]` section, unless
     `bar.toml` has a `mouse` table or a `[mouse]` header line commented out,
-    the way the animations block is added to `config.toml`. A `bar.toml`
-    that is TOML but holds a value the bar cannot take gets the block too,
-    and the bar falls back to the defaults; one that is not TOML is left
-    alone.
+    the way the animations block is added to `config.toml`. The block tells
+    of `enabled`, `scroll` and the `[[mouse.click]]` entries, with the
+    actions a click may run and `action = "none"`, and names no default. A
+    `bar.toml` that is TOML but holds a value the bar cannot take gets the
+    block too, and the bar falls back to the defaults; one that is not TOML
+    is left alone.
 
 ### Validation
 
@@ -326,6 +358,15 @@ A missing file is never created. Files that exist change in two ways:
   `cubic-bezier(...)` with four numbers within `[0, 1]`. Like an unknown
   `corner_style`, anything else makes `config.toml` invalid, and the error
   names the file, the line and the easing
+
+In `bar.toml`, an unknown `scroll` makes the file invalid the same way, but a
+`[[mouse.click]]` entry is checked on its own as the bar takes the config
+(`WidgetClicks`): one with no widget, button or action, one whose widget,
+button or action does not exist, or one whose action is about the focused
+window, is left out and logged with why, and the rest of the file applies.
+An entry with `action = "none"` is no mistake: it removes a binding. A value
+of the wrong type, such as `button = 1`, or `[mouse.click]` with single
+brackets, still makes the file invalid.
 
 ### Partial Files
 
@@ -451,7 +492,8 @@ same way.
   re-resolved against the current theme, work areas are reset and re-adjusted
   for the new bar height, and all monitors are retiled. The bars are made
   again, with the new `[mouse]` settings, so a press or wheel turns made on
-  the old ones are dropped.
+  the old ones are dropped, and each `[[mouse.click]]` entry the new file
+  has that a bar cannot run is logged.
 - **keybindings.toml**: **not** hot-reloaded. Hotkey changes require a daemon
   restart because `RegisterHotKey` binds at the Win32 thread level.
 
