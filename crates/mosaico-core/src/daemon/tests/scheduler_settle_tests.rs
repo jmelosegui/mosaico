@@ -55,7 +55,7 @@ fn the_wait_ends_when_a_display_change_settles() {
     scheduler.step(display_changed(), t0);
 
     // Act
-    let wait = scheduler.begin_wait(None, None, t0 + ms(250));
+    let wait = scheduler.begin_wait(None, None, None, t0 + ms(250));
 
     // Assert
     assert_eq!(wait, Some(SETTLE - ms(250)));
@@ -70,7 +70,7 @@ fn a_display_change_settled_before_the_wait_is_rebuilt_for_first() {
     let held = Some(t0 + SETTLE - ms(5));
 
     // Act
-    let wait = scheduler.begin_wait(held, None, t0 + SETTLE + ms(5));
+    let wait = scheduler.begin_wait(held, None, None, t0 + SETTLE + ms(5));
     let batch = received(vec![task("hotkey"), event(focused(1))]);
     let steps = scheduler.step(batch, t0 + SETTLE + ms(5));
 
@@ -95,7 +95,7 @@ fn while_effects_are_held_the_wait_is_for_them_alone() {
     let start = t0 + SETTLE - ms(10);
 
     // Act
-    let wait = scheduler.begin_wait(Some(start), None, start);
+    let wait = scheduler.begin_wait(Some(start), None, None, start);
 
     // Assert
     assert_eq!(wait, Some(QUIET));
@@ -109,7 +109,7 @@ fn a_flush_due_with_a_rebuild_comes_first() {
     let mut scheduler = Scheduler::default();
     scheduler.step(display_changed(), t0);
     let start = t0 + SETTLE - ms(10);
-    scheduler.begin_wait(Some(start), None, start);
+    scheduler.begin_wait(Some(start), None, None, start);
 
     // Act
     let steps = scheduler.step(timed_out(), start + QUIET);
@@ -127,11 +127,11 @@ fn a_display_change_that_settles_during_a_wait_waits_for_the_batch_that_ends_it(
     scheduler.step(display_changed(), t0);
     let start = t0 + SETTLE - ms(10);
     let held = Some(start);
-    scheduler.begin_wait(held, None, start);
+    scheduler.begin_wait(held, None, None, start);
 
     // Act
     let batch = scheduler.step(received(vec![task("hotkey")]), t0 + SETTLE + ms(5));
-    let wait = scheduler.begin_wait(held, None, t0 + SETTLE + ms(6));
+    let wait = scheduler.begin_wait(held, None, None, t0 + SETTLE + ms(6));
     let next = scheduler.step(timed_out(), t0 + SETTLE + ms(6));
 
     // Assert -- the batch runs first and the rebuild right after it, as

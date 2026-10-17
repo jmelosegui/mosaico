@@ -10,8 +10,10 @@ mod text;
 pub(crate) mod widgets;
 mod window;
 
+use std::rc::Rc;
+
 use mosaico_core::Rect;
-use mosaico_core::bar::{BarRenderer, BarSurface};
+use mosaico_core::bar::{BarId, BarRenderer, BarSurface, PointerSink};
 
 use window::Bar;
 
@@ -19,7 +21,12 @@ use window::Bar;
 pub struct Win32BarRenderer;
 
 impl BarRenderer for Win32BarRenderer {
-    fn create(&mut self, area: Rect) -> mosaico_core::Result<Box<dyn BarSurface>> {
+    fn create(
+        &mut self,
+        _id: BarId,
+        area: Rect,
+        _sink: Rc<dyn PointerSink>,
+    ) -> mosaico_core::Result<Box<dyn BarSurface>> {
         Ok(Box::new(Bar::new(area)?))
     }
 }

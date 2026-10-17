@@ -25,6 +25,8 @@ mod input_tests;
 mod motion_tests;
 #[path = "scheduler_settle_tests.rs"]
 mod settle_tests;
+#[path = "scheduler_wheel_tests.rs"]
+mod wheel_tests;
 
 type Task = &'static str;
 
@@ -136,7 +138,7 @@ fn an_idle_loop_waits_for_messages_and_does_nothing_when_it_times_out() {
     let mut scheduler = Scheduler::default();
 
     // Act
-    let wait = scheduler.begin_wait(None, None, t0);
+    let wait = scheduler.begin_wait(None, None, None, t0);
     let steps = scheduler.step(timed_out(), t0 + ms(50));
 
     // Assert

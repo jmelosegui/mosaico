@@ -2,6 +2,11 @@ use serde::{Deserialize, Serialize};
 
 use super::theme::Theme;
 
+#[path = "bar_mouse.rs"]
+mod mouse;
+
+pub use mouse::{BarMouseConfig, BarScroll};
+
 /// Top-level bar configuration.
 ///
 /// Loaded from `~/.config/mosaico/bar.toml`. Missing fields fall back
@@ -41,6 +46,8 @@ pub struct BarConfig {
     pub background_opacity: i32,
     /// Which monitors to show the bar on (0-indexed). Empty = all monitors.
     pub monitors: Vec<usize>,
+    /// What the mouse does on the bar.
+    pub mouse: BarMouseConfig,
     /// Bar color scheme. Empty fields are filled from the theme.
     pub colors: BarColors,
     /// Widgets displayed on the left side (rendered left-to-right).
@@ -389,6 +396,7 @@ impl Default for BarConfig {
             separator: String::new(),
             background_opacity: 0,
             monitors: Vec::new(),
+            mouse: BarMouseConfig::default(),
             colors: BarColors::default(),
             left: default_left_widgets(),
             right: default_right_widgets(),
@@ -480,245 +488,13 @@ impl BarConfig {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::config::theme::CatppuccinFlavor;
+#[path = "bar_tests.rs"]
+mod tests;
 
-    #[test]
-    fn default_bar_config_has_expected_values() {
-        let config = BarConfig::default();
+#[cfg(test)]
+#[path = "bar_color_tests.rs"]
+mod color_tests;
 
-        assert!(config.enabled);
-        assert_eq!(config.height, 64);
-        assert_eq!(config.font, "CaskaydiaCove Nerd Font");
-        assert_eq!(config.font_size, 24);
-        assert_eq!(config.pill_radius, 4);
-        assert_eq!(config.pill_border_width, 2);
-        assert!(config.font_bold);
-        assert!(!config.font_italic);
-        assert!(!config.font_underline);
-        assert_eq!(config.background_opacity, 0);
-        assert!(config.monitors.is_empty());
-        assert_eq!(config.left.len(), 3);
-        assert_eq!(config.right.len(), 6);
-    }
-
-    #[test]
-    fn should_show_on_empty_monitors_means_all() {
-        let config = BarConfig::default();
-        assert!(config.should_show_on(0));
-        assert!(config.should_show_on(1));
-        assert!(config.should_show_on(99));
-    }
-
-    #[test]
-    fn should_show_on_filters_by_index() {
-        let config = BarConfig {
-            monitors: vec![0, 2],
-            ..Default::default()
-        };
-        assert!(config.should_show_on(0));
-        assert!(!config.should_show_on(1));
-        assert!(config.should_show_on(2));
-    }
-
-    #[test]
-    fn should_show_on_respects_enabled() {
-        let config = BarConfig {
-            enabled: false,
-            ..Default::default()
-        };
-        assert!(!config.should_show_on(0));
-    }
-
-    #[test]
-    fn monitors_field_round_trips_through_toml() {
-        let config = BarConfig {
-            monitors: vec![0, 2],
-            ..Default::default()
-        };
-        let toml_str = toml::to_string(&config).unwrap();
-        let parsed: BarConfig = toml::from_str(&toml_str).unwrap();
-        assert_eq!(parsed.monitors, vec![0, 2]);
-    }
-
-    #[test]
-    fn monitors_field_from_toml() {
-        let config: BarConfig = toml::from_str("monitors = [1]\n").unwrap();
-        assert_eq!(config.monitors, vec![1]);
-        assert!(!config.should_show_on(0));
-        assert!(config.should_show_on(1));
-    }
-
-    #[test]
-    fn resolve_colors_fills_from_theme() {
-        let mut config = BarConfig::default();
-        config.resolve_colors(Theme::Catppuccin(CatppuccinFlavor::Mocha));
-
-        assert_eq!(config.colors.background, "#1e1e2e");
-        assert_eq!(config.colors.widget_background, "#313244");
-        assert_eq!(config.colors.active_workspace_text, "#cdd6f4");
-    }
-
-    #[test]
-    fn bar_config_round_trips_through_toml() {
-        let mut config = BarConfig::default();
-        config.resolve_colors(Theme::Catppuccin(CatppuccinFlavor::Mocha));
-        let toml_str = toml::to_string(&config).unwrap();
-        let parsed: BarConfig = toml::from_str(&toml_str).unwrap();
-
-        assert_eq!(parsed.height, config.height);
-        assert_eq!(parsed.font, config.font);
-        assert_eq!(parsed.pill_radius, config.pill_radius);
-        assert_eq!(parsed.left.len(), config.left.len());
-        assert_eq!(parsed.right.len(), config.right.len());
-    }
-
-    #[test]
-    fn empty_toml_uses_all_defaults() {
-        let config: BarConfig = toml::from_str("").unwrap();
-
-        assert!(config.enabled);
-        assert_eq!(config.height, 64);
-        assert_eq!(config.font, "CaskaydiaCove Nerd Font");
-        assert_eq!(config.left.len(), 3);
-    }
-
-    #[test]
-    fn partial_toml_preserves_unset_defaults() {
-        let config: BarConfig = toml::from_str("height = 40\nfont = \"Hack\"\n").unwrap();
-
-        assert_eq!(config.height, 40);
-        assert_eq!(config.font, "Hack");
-        assert_eq!(config.font_size, 24);
-    }
-
-    #[test]
-    fn widget_with_icon_deserializes() {
-        let toml_str = "[[left]]\ntype = \"layout\"\nicon = \"X\"\n";
-        let config: BarConfig = toml::from_str(toml_str).unwrap();
-
-        assert_eq!(config.left.len(), 1);
-        assert_eq!(config.left[0].icon(), "X");
-    }
-
-    #[test]
-    fn widget_without_icon_defaults_to_empty() {
-        let toml_str = "[[left]]\ntype = \"layout\"\n";
-        let config: BarConfig = toml::from_str(toml_str).unwrap();
-
-        assert_eq!(config.left[0].icon(), "");
-    }
-
-    #[test]
-    fn clock_with_icon_and_format() {
-        let toml_str = r#"
-            [[right]]
-            type = "clock"
-            format = "%H:%M"
-            icon = "C"
-        "#;
-        let config: BarConfig = toml::from_str(toml_str).unwrap();
-
-        match &config.right[0] {
-            WidgetConfig::Clock { format, icon, .. } => {
-                assert_eq!(format, "%H:%M");
-                assert_eq!(icon, "C");
-            }
-            other => panic!("expected Clock, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn validate_clamps_extreme_values() {
-        let mut config = BarConfig {
-            height: 200,
-            font_size: 0,
-            padding: -5,
-            pill_radius: 100,
-            background_opacity: 150,
-            ..Default::default()
-        };
-
-        config.validate();
-
-        assert_eq!(config.height, 96);
-        assert_eq!(config.font_size, 8);
-        assert_eq!(config.padding, 0);
-        assert_eq!(config.pill_radius, 32);
-        assert_eq!(config.background_opacity, 100);
-    }
-
-    #[test]
-    fn validate_preserves_valid_values() {
-        let mut config = BarConfig::default();
-        config.validate();
-        assert_eq!(config.height, 64);
-        assert_eq!(config.pill_radius, 4);
-    }
-
-    #[test]
-    fn resolve_colors_latte_fills_light_colors() {
-        let mut config = BarConfig::default();
-        config.resolve_colors(Theme::Catppuccin(CatppuccinFlavor::Latte));
-        assert_eq!(config.colors.background, "#eff1f5");
-        assert_eq!(config.colors.foreground, "#1e66f5");
-    }
-
-    #[test]
-    fn explicit_color_overrides_theme() {
-        let toml_str = "[colors]\nbackground = \"#000000\"\n";
-        let mut config: BarConfig = toml::from_str(toml_str).unwrap();
-        config.resolve_colors(Theme::Catppuccin(CatppuccinFlavor::Latte));
-
-        // Explicit override kept
-        assert_eq!(config.colors.background, "#000000");
-        // Unset fields resolved from latte
-        assert_eq!(config.colors.foreground, "#1e66f5");
-    }
-
-    #[test]
-    fn named_color_in_bar_resolves_to_hex() {
-        let toml_str = "[colors]\naccent = \"mauve\"\n";
-        let mut config: BarConfig = toml::from_str(toml_str).unwrap();
-        config.resolve_colors(Theme::Catppuccin(CatppuccinFlavor::Mocha));
-
-        assert_eq!(config.colors.accent, "#cba6f7");
-        // Unset fields still resolved from theme
-        assert_eq!(config.colors.background, "#1e1e2e");
-    }
-
-    #[test]
-    fn widget_color_resolves_named_to_hex() {
-        let mut config = BarConfig::default();
-        config.resolve_colors(Theme::Catppuccin(CatppuccinFlavor::Mocha));
-        // Update widget defaults to "green", resolved to Mocha green hex.
-        let update = config
-            .right
-            .iter()
-            .find(|w| matches!(w, WidgetConfig::Update { .. }))
-            .unwrap();
-        assert_eq!(update.color(), "#a6e3a1");
-    }
-
-    #[test]
-    fn widget_color_empty_means_no_override() {
-        let mut config = BarConfig::default();
-        config.resolve_colors(Theme::Catppuccin(CatppuccinFlavor::Mocha));
-        // Clock has no custom color — stays empty.
-        let clock = config
-            .right
-            .iter()
-            .find(|w| matches!(w, WidgetConfig::Clock { .. }))
-            .unwrap();
-        assert!(clock.color().is_empty());
-    }
-
-    #[test]
-    fn widget_color_from_toml() {
-        let toml_str = "[[left]]\ntype = \"layout\"\ncolor = \"red\"\n";
-        let mut config: BarConfig = toml::from_str(toml_str).unwrap();
-        config.resolve_colors(Theme::Catppuccin(CatppuccinFlavor::Mocha));
-        assert_eq!(config.left[0].color(), "#f38ba8");
-    }
-}
+#[cfg(test)]
+#[path = "bar_toml_tests.rs"]
+mod toml_tests;

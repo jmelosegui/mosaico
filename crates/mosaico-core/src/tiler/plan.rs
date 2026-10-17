@@ -42,6 +42,8 @@ pub(super) struct Plan<'a> {
     planned: HashMap<WindowId, Planned>,
     /// What the step did that decides which placements may animate.
     placements: transitions::Placements,
+    /// Whether the step answers the pointer, which then stays where it is.
+    pub(super) from_pointer: bool,
 }
 
 impl<'a> Plan<'a> {
@@ -52,6 +54,7 @@ impl<'a> Plan<'a> {
             effects: Vec::new(),
             planned: HashMap::new(),
             placements: transitions::Placements::default(),
+            from_pointer: false,
         }
     }
 

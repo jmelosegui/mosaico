@@ -3,7 +3,8 @@
 use crate::action::MAX_WORKSPACES;
 use crate::{LayoutKind, WindowId};
 
-/// What one monitor's bar shows of the tiler and the daemon.
+/// What one monitor's bar shows of the tiler and the daemon, and what the
+/// pointer on it needs to know of them.
 ///
 /// The system widgets show [`SystemReadings`](super::SystemReadings)
 /// instead, which are the same on every monitor.
@@ -26,6 +27,12 @@ pub struct BarState {
     pub update_text: String,
     /// Whether the hotkeys are paused.
     pub paused: bool,
+    /// Whether stepping through the workspaces goes round from the last
+    /// to the first, as `[workspaces] wrap` says, for the wheel.
+    pub wrap: bool,
+    /// Whether a window on screen on the monitor is maximized or
+    /// fullscreen, under the bar, which then lets the pointer through.
+    pub maximized: bool,
 }
 
 /// What a bar shows for a monitor the tiler has no state for.
@@ -39,6 +46,8 @@ impl Default for BarState {
             focused_window: None,
             update_text: String::new(),
             paused: false,
+            wrap: false,
+            maximized: false,
         }
     }
 }

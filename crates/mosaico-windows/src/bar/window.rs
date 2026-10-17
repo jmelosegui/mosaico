@@ -2,9 +2,9 @@
 
 use std::sync::Once;
 
-use mosaico_core::Rect;
-use mosaico_core::bar::{BarContent, BarSurface};
+use mosaico_core::bar::{BarContent, BarSurface, ItemRegion};
 use mosaico_core::config::bar::BarConfig;
+use mosaico_core::{Rect, Result};
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
 use windows::Win32::UI::WindowsAndMessaging::{
     CW_USEDEFAULT, CreateWindowExW, DefWindowProcW, DestroyWindow, HWND_TOP, RegisterClassW,
@@ -111,7 +111,7 @@ impl Bar {
 }
 
 impl BarSurface for Bar {
-    fn draw(&mut self, config: &BarConfig, content: &BarContent) -> mosaico_core::Result<()> {
+    fn draw(&mut self, config: &BarConfig, content: &BarContent) -> Result<Vec<ItemRegion>> {
         let x = self.monitor_rect.x;
         let y = self.monitor_rect.y;
         let w = self.monitor_rect.width;
@@ -134,7 +134,7 @@ impl BarSurface for Bar {
         }
         .or_platform("show the bar");
 
-        rendered.and(shown)
+        rendered.and(shown).map(|()| Vec::new())
     }
 
     fn hide(&mut self) -> mosaico_core::Result<()> {

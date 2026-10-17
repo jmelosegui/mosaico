@@ -45,6 +45,7 @@ impl Tiler {
         let turns_global = config.workspaces.mode == WorkspaceMode::Global
             && self.workspace_mode != WorkspaceMode::Global;
         self.workspace_mode = config.workspaces.mode;
+        self.workspace_wrap = config.workspaces.wrap;
         self.border_config = config.borders.clone();
         self.animations = config.animations.clone();
         self.mouse_follows_focus = config.mouse.follows_focus;

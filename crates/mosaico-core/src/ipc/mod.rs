@@ -1,7 +1,7 @@
 //! The CLI to daemon protocol: messages, framing and transport.
 //!
 //! Every request is one JSON object holding the protocol version and the
-//! command, for example `{"version":1,"command":"Stop"}`. Every reply is
+//! command, for example `{"version":2,"command":"Stop"}`. Every reply is
 //! a [`Response`]. Both travel as one line each, see [`framing`].
 
 mod error;
@@ -29,8 +29,9 @@ pub use transport::{
 /// Bump it whenever a change would make one side misread the other: a
 /// new command, a renamed field, a different payload. The daemon refuses
 /// requests from another version, except [`Command::Stop`], so a mismatched
-/// daemon can always be stopped and restarted.
-pub const PROTOCOL_VERSION: u32 = 1;
+/// daemon can always be stopped and restarted. Version 2 added the
+/// `goto-workspace-next` and `goto-workspace-prev` actions.
+pub const PROTOCOL_VERSION: u32 = 2;
 
 /// The mosaico release this build belongs to, reported by the daemon so
 /// the CLI can name the version that needs restarting.

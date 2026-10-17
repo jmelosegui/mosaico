@@ -42,6 +42,10 @@ impl Desktop for World {
         None
     }
 
+    fn windows_on_screen(&self) -> Vec<WindowId> {
+        Vec::new()
+    }
+
     fn candidate(&self, _: WindowId) -> Option<WindowFacts> {
         None
     }

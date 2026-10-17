@@ -3,6 +3,14 @@ use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 
+#[path = "action_origin.rs"]
+mod origin;
+#[path = "action_step.rs"]
+mod step;
+
+pub use origin::Origin;
+pub use step::workspace_after;
+
 /// Spatial direction for focus and move actions.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Direction {
@@ -67,6 +75,13 @@ pub enum Action {
     CloseFocused,
     /// Switch to workspace N (1-8) on the focused monitor.
     GoToWorkspace(u8),
+    /// Switch to the workspace after the one on screen, on the focused
+    /// monitor. Past the last one it goes back to the first with
+    /// `[workspaces] wrap`, and stays on the last otherwise.
+    GoToWorkspaceNext,
+    /// Switch to the workspace before the one on screen, the way
+    /// [`GoToWorkspaceNext`](Self::GoToWorkspaceNext) steps.
+    GoToWorkspacePrev,
     /// Send the focused window to workspace N (1-8) on the same monitor.
     SendToWorkspace(u8),
     /// Minimize the currently focused window.
@@ -88,7 +103,11 @@ impl FromStr for Action {
             return Ok(Action::Move(dir.parse()?));
         }
         if let Some(n) = s.strip_prefix("goto-workspace-") {
-            return Ok(Action::GoToWorkspace(parse_workspace_num(n)?));
+            return Ok(match n {
+                "next" => Action::GoToWorkspaceNext,
+                "prev" => Action::GoToWorkspacePrev,
+                n => Action::GoToWorkspace(parse_workspace_num(n)?),
+            });
         }
         if let Some(n) = s.strip_prefix("send-to-workspace-") {
             return Ok(Action::SendToWorkspace(parse_workspace_num(n)?));
@@ -117,6 +136,8 @@ impl fmt::Display for Action {
             Action::CycleLayout => write!(f, "cycle-layout"),
             Action::TogglePause => write!(f, "toggle-pause"),
             Action::GoToWorkspace(n) => write!(f, "goto-workspace-{n}"),
+            Action::GoToWorkspaceNext => write!(f, "goto-workspace-next"),
+            Action::GoToWorkspacePrev => write!(f, "goto-workspace-prev"),
             Action::SendToWorkspace(n) => write!(f, "send-to-workspace-{n}"),
         }
     }
@@ -151,64 +172,5 @@ impl From<Action> for String {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn roundtrip_all_actions() {
-        let actions = [
-            Action::Focus(Direction::Left),
-            Action::Focus(Direction::Right),
-            Action::Focus(Direction::Up),
-            Action::Focus(Direction::Down),
-            Action::Move(Direction::Left),
-            Action::Move(Direction::Right),
-            Action::Move(Direction::Up),
-            Action::Move(Direction::Down),
-            Action::Retile,
-            Action::ToggleMonocle,
-            Action::CloseFocused,
-            Action::MinimizeFocused,
-            Action::GoToWorkspace(1),
-            Action::GoToWorkspace(8),
-            Action::SendToWorkspace(1),
-            Action::SendToWorkspace(8),
-            Action::CycleLayout,
-            Action::TogglePause,
-        ];
-        for action in &actions {
-            let s = action.to_string();
-            let parsed: Action = s.parse().unwrap();
-            assert_eq!(&parsed, action, "roundtrip failed for {s}");
-        }
-    }
-
-    #[test]
-    fn unknown_action_returns_error() {
-        let result: Result<Action, _> = "fly-away".parse();
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn unknown_direction_returns_error() {
-        let result: Result<Action, _> = "focus-diagonal".parse();
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn serde_roundtrip() {
-        let action = Action::Focus(Direction::Left);
-        let json = serde_json::to_string(&action).unwrap();
-        assert_eq!(json, "\"focus-left\"");
-        let parsed: Action = serde_json::from_str(&json).unwrap();
-        assert_eq!(parsed, action);
-    }
-
-    #[test]
-    fn workspace_out_of_range() {
-        assert!("goto-workspace-0".parse::<Action>().is_err());
-        assert!("goto-workspace-9".parse::<Action>().is_err());
-        assert!("send-to-workspace-0".parse::<Action>().is_err());
-        assert!("send-to-workspace-9".parse::<Action>().is_err());
-    }
-}
+#[path = "action_tests.rs"]
+mod tests;

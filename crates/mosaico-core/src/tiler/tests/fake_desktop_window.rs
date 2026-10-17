@@ -15,6 +15,9 @@ pub(crate) struct FakeWindow {
     pub(crate) minimized: bool,
     pub(crate) maximized: bool,
     pub(crate) cloaked: bool,
+    /// Whether it is the desktop itself or another surface of the shell,
+    /// which a platform leaves out of the windows on screen.
+    pub(crate) shell: bool,
     pub(crate) rect: Rect,
     /// Where a restore puts the window back once it is no longer
     /// maximized: where it last was in its normal state.
@@ -54,6 +57,7 @@ impl FakeWindow {
             minimized: false,
             maximized: false,
             cloaked: false,
+            shell: false,
             rect,
             normal: rect,
             owner: None,

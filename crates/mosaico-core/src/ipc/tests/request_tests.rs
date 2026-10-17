@@ -17,7 +17,7 @@ fn a_request_is_the_command_plus_the_version() {
     let wire = serde_json::to_string(&request).unwrap();
 
     // Assert
-    assert_eq!(wire, r#"{"version":1,"command":"Stop"}"#);
+    assert_eq!(wire, r#"{"version":2,"command":"Stop"}"#);
 }
 
 #[test]

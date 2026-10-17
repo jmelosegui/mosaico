@@ -25,11 +25,13 @@ pub mod template;
 pub mod theme;
 /// Shared configuration types.
 pub mod types;
+/// Workspace switching, stepping and per-workspace layouts.
+mod workspaces;
 
 use serde::{Deserialize, Serialize};
 
 pub use animations::AnimationConfig;
-pub use bar::{BarColors, BarConfig, WidgetConfig};
+pub use bar::{BarColors, BarConfig, BarMouseConfig, BarScroll, WidgetConfig};
 pub use color::Color;
 pub use hiding_behaviour::HidingBehaviour;
 pub use keybinding::{Keybinding, Modifier};
@@ -40,6 +42,7 @@ pub use theme::{
     CatppuccinFlavor, RosePineFlavor, Theme, ThemeCheck, ThemeConfig, TokyoNightFlavor,
 };
 pub use types::*;
+pub use workspaces::{WorkspaceMode, WorkspacesConfig};
 
 /// Top-level configuration for Mosaico.
 ///

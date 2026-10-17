@@ -1,11 +1,10 @@
+mod action_commands;
 mod commands;
 mod platform;
 
 use clap::{Parser, Subcommand};
 
-use mosaico_core::Action;
-use mosaico_core::action::Direction;
-
+use action_commands::ActionCommands;
 use commands::context::{Context, Exit};
 
 #[derive(Parser)]
@@ -71,50 +70,6 @@ enum Commands {
 }
 
 #[derive(Subcommand)]
-enum DirectionCommands {
-    /// Left
-    Left,
-    /// Right
-    Right,
-    /// Up
-    Up,
-    /// Down
-    Down,
-}
-
-#[derive(Subcommand)]
-enum ActionCommands {
-    /// Focus a window in the given direction
-    Focus {
-        #[command(subcommand)]
-        direction: DirectionCommands,
-    },
-    /// Move the focused window in the given direction
-    Move {
-        #[command(subcommand)]
-        direction: DirectionCommands,
-    },
-    /// Re-apply the current layout
-    Retile,
-    /// Toggle monocle mode (focused window fills the monitor)
-    ToggleMonocle,
-    /// Close the currently focused window
-    CloseFocused,
-    /// Cycle to the next layout on the focused workspace
-    CycleLayout,
-    /// Switch to workspace N (1-8) on the focused monitor
-    GoToWorkspace {
-        /// Workspace number (1-8)
-        n: u8,
-    },
-    /// Send the focused window to workspace N (1-8)
-    SendToWorkspace {
-        /// Workspace number (1-8)
-        n: u8,
-    },
-}
-
-#[derive(Subcommand)]
 enum DebugCommands {
     /// List all visible windows
     List,
@@ -134,15 +89,6 @@ enum AutostartCommands {
     Disable,
     /// Show current autostart status
     Status,
-}
-
-fn direction(d: DirectionCommands) -> Direction {
-    match d {
-        DirectionCommands::Left => Direction::Left,
-        DirectionCommands::Right => Direction::Right,
-        DirectionCommands::Up => Direction::Up,
-        DirectionCommands::Down => Direction::Down,
-    }
 }
 
 fn main() {
@@ -196,19 +142,7 @@ fn run(cx: &mut Context, command: Commands) -> Exit {
         Commands::Unpause => commands::pause::unpause(cx),
         Commands::Banner => commands::banner::execute(cx),
         Commands::Update { force } => commands::update::execute(cx, force),
-        Commands::Action { action } => {
-            let action = match action {
-                ActionCommands::Focus { direction: d } => Action::Focus(direction(d)),
-                ActionCommands::Move { direction: d } => Action::Move(direction(d)),
-                ActionCommands::Retile => Action::Retile,
-                ActionCommands::ToggleMonocle => Action::ToggleMonocle,
-                ActionCommands::CloseFocused => Action::CloseFocused,
-                ActionCommands::CycleLayout => Action::CycleLayout,
-                ActionCommands::GoToWorkspace { n } => Action::GoToWorkspace(n),
-                ActionCommands::SendToWorkspace { n } => Action::SendToWorkspace(n),
-            };
-            commands::action::execute(cx, action)
-        }
+        Commands::Action { action } => commands::action::execute(cx, action.action()),
         Commands::Debug {
             command: DebugCommands::List,
         } => commands::debug::list::execute(cx),

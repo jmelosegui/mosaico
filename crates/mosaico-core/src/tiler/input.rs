@@ -1,3 +1,4 @@
+use crate::action::Origin;
 use crate::config::{Config, WindowRule};
 use crate::{Action, WindowEvent};
 
@@ -6,8 +7,10 @@ use super::Display;
 /// Something the tiler reacts to.
 #[derive(Debug, Clone)]
 pub enum Input {
-    /// A user action, from a hotkey or the CLI.
-    Action(Action),
+    /// A user action, from a hotkey, the CLI or the pointer on a bar, and
+    /// where it comes from, which decides the monitor it acts on and
+    /// whether the pointer may move for it.
+    Action(Action, Origin),
     /// A window event, already checked against
     /// [`Expectations`](super::Expectations) so it is not an echo of our
     /// own effects. Display and work area events are ignored here; send

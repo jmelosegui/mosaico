@@ -2,13 +2,12 @@
 
 use super::*;
 use crate::bar::fakes::BarEvent::{Created, Dropped, Hidden, RendererDropped};
-use crate::bar::fakes::{FakeRenderer, FakeSystem};
-use crate::config::CatppuccinFlavor;
+use crate::bar::fakes::{FakeRenderer, FakeSystem, NoPointer};
 
 #[path = "height_tests.rs"]
 mod height_tests;
 
-pub(super) const MOCHA: Theme = Theme::Catppuccin(CatppuccinFlavor::Mocha);
+pub(super) const MOCHA: Theme = Theme::Catppuccin(crate::config::CatppuccinFlavor::Mocha);
 
 pub(super) fn left() -> Rect {
     Rect::new(0, 0, 1920, 1040)
@@ -34,6 +33,7 @@ pub(super) fn start(
     BarManager::new(
         renderer.boxed(),
         Box::new(system.clone()),
+        Rc::new(NoPointer),
         config,
         areas.to_vec(),
         MOCHA,

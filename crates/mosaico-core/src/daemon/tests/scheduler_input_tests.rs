@@ -11,11 +11,11 @@ fn a_position_report_does_not_start_the_quiet_window_over() {
     let t0 = Instant::now();
     let mut scheduler = Scheduler::default();
     let held = Some(t0);
-    scheduler.begin_wait(held, None, t0);
+    scheduler.begin_wait(held, None, None, t0);
 
     // Act -- a window reports its position 10 ms into the quiet window.
     let steps = scheduler.step(received(vec![event(moved(1))]), t0 + ms(10));
-    let wait = scheduler.begin_wait(held, None, t0 + ms(11));
+    let wait = scheduler.begin_wait(held, None, None, t0 + ms(11));
 
     // Assert -- the report still reaches the tiler, which watches for
     // the focused window being maximized, and the wait goes on.
@@ -39,7 +39,7 @@ fn held_effects_are_flushed_after_the_quiet_window_while_a_window_reports_its_po
     let mut flushed_at = None;
     while flushed_at.is_none() && now < t0 + MAX_HOLD {
         let next_report = now + ms(7);
-        let wake = match scheduler.begin_wait(held, None, now) {
+        let wake = match scheduler.begin_wait(held, None, None, now) {
             Some(left) if now + left < next_report => {
                 now += left;
                 timed_out()
@@ -63,7 +63,7 @@ fn a_position_report_finds_what_is_due_by_the_time_it_arrives() {
     // Arrange -- the loop gets to the report after the quiet window.
     let t0 = Instant::now();
     let mut scheduler = Scheduler::default();
-    scheduler.begin_wait(Some(t0), None, t0);
+    scheduler.begin_wait(Some(t0), None, None, t0);
 
     // Act
     let steps = scheduler.step(received(vec![event(moved(1))]), t0 + ms(30));
@@ -78,12 +78,12 @@ fn position_reports_that_come_with_input_are_input() {
     let t0 = Instant::now();
     let mut scheduler = Scheduler::default();
     let held = Some(t0);
-    scheduler.begin_wait(held, None, t0);
+    scheduler.begin_wait(held, None, None, t0);
 
     // Act
     let batch = received(vec![event(moved(1)), event(focused(2))]);
     let steps = scheduler.step(batch, t0 + ms(10));
-    let wait = scheduler.begin_wait(held, None, t0 + ms(11));
+    let wait = scheduler.begin_wait(held, None, None, t0 + ms(11));
 
     // Assert -- the focus change starts the quiet window over.
     assert_eq!(steps, vec![Step::Events(vec![moved(1), focused(2)])]);
@@ -95,12 +95,12 @@ fn a_hold_made_after_position_reports_flushed_the_last_gets_its_own_quiet_window
     // Arrange -- reports that come after the quiet window flush the hold.
     let t0 = Instant::now();
     let mut scheduler = Scheduler::default();
-    scheduler.begin_wait(Some(t0), None, t0);
+    scheduler.begin_wait(Some(t0), None, None, t0);
     let flush = scheduler.step(received(vec![event(moved(1))]), t0 + ms(30));
 
     // Act -- a new focus change is held as the flush runs.
     let new_hold = Some(t0 + ms(31));
-    let wait = scheduler.begin_wait(new_hold, None, t0 + ms(32));
+    let wait = scheduler.begin_wait(new_hold, None, None, t0 + ms(32));
 
     // Assert
     assert_eq!(flush.first(), Some(&Step::Flush));
@@ -114,11 +114,11 @@ fn the_time_a_batch_of_position_reports_takes_counts_as_quiet() {
     let t0 = Instant::now();
     let mut scheduler = Scheduler::default();
     let held = Some(t0);
-    scheduler.begin_wait(held, None, t0);
+    scheduler.begin_wait(held, None, None, t0);
     scheduler.step(received(vec![event(moved(1))]), t0 + ms(10));
 
     // Act
-    let wait = scheduler.begin_wait(held, None, t0 + ms(30));
+    let wait = scheduler.begin_wait(held, None, None, t0 + ms(30));
 
     // Assert -- the quiet window passed while they were handled.
     assert_eq!(wait, Some(Duration::ZERO));

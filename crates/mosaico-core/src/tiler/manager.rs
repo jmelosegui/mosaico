@@ -3,13 +3,15 @@
 
 use std::time::Instant;
 
-use crate::bar::BarState;
+use crate::action::Origin;
 use crate::config::{Config, WindowRule};
 use crate::{Action, HidingSupport, Result, WindowEvent};
 
 use super::applier::Applier;
 use super::{HiddenFile, Input, Platform, Settings, Tiler};
 
+#[path = "manager_bars.rs"]
+mod bars;
 #[path = "manager_frames.rs"]
 mod frames;
 #[path = "manager_inputs.rs"]
@@ -82,9 +84,15 @@ impl<P: Platform> TilingManager<P> {
         self.applier.apply(effects, &mut self.platform, now);
     }
 
-    /// Executes a user-triggered action.
+    /// Executes a user-triggered action from a hotkey or the CLI.
     pub fn handle_action(&mut self, action: &Action) {
-        self.step(Input::Action(*action));
+        self.handle_action_from(action, Origin::Focused);
+    }
+
+    /// Executes a user-triggered action that comes from `origin`, such as
+    /// a click on the bar of a monitor, which it then acts on.
+    pub fn handle_action_from(&mut self, action: &Action, origin: Origin) {
+        self.step(Input::Action(*action, origin));
     }
 
     /// Handles a window event, unless it is an echo of our own changes.
@@ -117,11 +125,6 @@ impl<P: Platform> TilingManager<P> {
     /// Returns the total number of managed windows.
     pub fn window_count(&self) -> usize {
         self.tiler.window_count()
-    }
-
-    /// Returns a snapshot of bar state for each monitor.
-    pub fn bar_states(&self, update_text: &str, paused: bool) -> Vec<BarState> {
-        self.tiler.bar_states(update_text, paused)
     }
 
     /// The tiler's model of the desktop: the monitors, their workspaces
