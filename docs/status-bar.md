@@ -392,8 +392,9 @@ defaults (`ClickBinding::defaults()`), merged by `WidgetClicks`:
   action, or that names one that does not exist, is left out as if the file
   did not have it, so the binding of its widget and button stays, and the
   rest of `bar.toml` applies all the same. `WidgetClicks::rejected()` says
-  which entries and why, with the keys each one has, and the bar manager
-  logs them as it takes the config.
+  which entries and why, with the keys each one has: the bar manager logs
+  them as it takes the config, and `mosaico doctor` lists them, since
+  logging is off by default.
 - A workspace label is part of the workspaces widget. Its left click always
   goes to its workspace, which is not a binding, and its right and middle
   clicks run the workspaces widget's bindings, as any click between the

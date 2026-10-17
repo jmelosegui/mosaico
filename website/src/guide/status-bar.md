@@ -197,9 +197,10 @@ Only actions on the bar's own monitor or on the whole daemon can be bound:
 and `goto-workspace-prev` act on the monitor of the bar you click, and
 `retile` and `toggle-pause` on the whole daemon. An entry for another action,
 such as `close-focused`, which would close a window on another monitor, or
-one with a typo or a key left out, is ignored, and the rest of `bar.toml`
-still applies. The right-click of a workspace number runs what you bind on
-the `workspaces` widget, and its left click always goes to that workspace.
+one with a typo or a key left out, is ignored, and `mosaico doctor` says
+which and why; the rest of `bar.toml` still applies. The right-click of a
+workspace number runs what you bind on the `workspaces` widget, and its left
+click always goes to that workspace.
 
 The wheel needs "Scroll inactive windows when I hover over them" on in the
 Windows mouse settings, as it is by default: with it off, Windows sends the

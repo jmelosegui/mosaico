@@ -3,7 +3,7 @@
 [mosaico]
 files_over_line_limit = 16
 lines_over_line_limit = 1969
-tests = 140
+tests = 147
 unsafe_keywords = 51
 
 [mosaico-core]

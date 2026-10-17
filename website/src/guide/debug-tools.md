@@ -14,7 +14,8 @@ mosaico doctor
 It checks:
 
 1. Config directory exists
-2. All configuration files are valid TOML
+2. All configuration files are valid TOML, and how many click bindings
+   `bar.toml` gives the bar, with any it ignores
 3. All keybinding key names resolve to valid key codes
 4. Daemon status (running, stopped, or stale)
 5. Monitor enumeration and dimensions
