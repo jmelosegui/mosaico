@@ -2,7 +2,7 @@
 //! bar.
 
 use crate::Action;
-use crate::action::{Origin, workspace_after};
+use crate::action::{Origin, Scope, workspace_after};
 
 use super::{Effect, Plan, Tiler};
 
@@ -18,7 +18,7 @@ impl Tiler {
             if mon >= self.monitors.len() {
                 return;
             }
-            if acts_on_a_monitor(action) && mon != self.focused_monitor {
+            if action.scope() == Scope::Monitor && mon != self.focused_monitor {
                 self.enter_monitor(plan, mon);
             }
         }
@@ -68,19 +68,6 @@ impl Tiler {
             self.goto_workspace(plan, n);
         }
     }
-}
-
-/// Whether `action` acts on a monitor rather than on the focused window
-/// or the whole desktop.
-fn acts_on_a_monitor(action: &Action) -> bool {
-    matches!(
-        action,
-        Action::CycleLayout
-            | Action::ToggleMonocle
-            | Action::GoToWorkspace(_)
-            | Action::GoToWorkspaceNext
-            | Action::GoToWorkspacePrev
-    )
 }
 
 #[cfg(test)]

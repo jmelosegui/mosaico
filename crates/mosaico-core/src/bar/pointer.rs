@@ -1,6 +1,8 @@
 //! What the pointer does on a bar, as a platform reports it, and where it
 //! reports it.
 
+use std::str::FromStr;
+
 /// Identifies a bar while it exists.
 ///
 /// [`BarManager`](super::BarManager) gives each bar its id as it makes
@@ -29,6 +31,21 @@ pub enum Button {
     Right,
     /// The middle button, or a press of the wheel.
     Middle,
+}
+
+impl FromStr for Button {
+    type Err = String;
+
+    /// The button named `s`, as `[[mouse.click]]` names them: `"left"`,
+    /// `"right"` or `"middle"`.
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "left" => Ok(Self::Left),
+            "right" => Ok(Self::Right),
+            "middle" => Ok(Self::Middle),
+            _ => Err(format!("unknown button: {s}")),
+        }
+    }
 }
 
 /// Something the pointer did on a bar. Positions are in bar coordinates:
