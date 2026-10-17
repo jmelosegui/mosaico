@@ -15,7 +15,7 @@ fn window_events_carry_their_window() {
 fn a_drag_that_starts_is_shown_with_its_window() {
     // Arrange -- as `debug events` prints it.
     let window = WindowId::from_raw(0x10);
-    let event = WindowEvent::MoveStarted { window };
+    let event = WindowEvent::move_started(window);
 
     // Act / Assert
     assert_eq!(event.window(), Some(window));

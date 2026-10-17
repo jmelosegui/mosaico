@@ -174,7 +174,7 @@ fn dragging_a_window_to_another_monitor_moves_it_there() {
 
     // Act
     h.window(2).monitor = 1;
-    h.event(WindowEvent::Moved { window: wid(2) });
+    h.event(WindowEvent::moved(wid(2)));
 
     // Assert
     assert_eq!(h.active(0), vec![1]);

@@ -11,7 +11,8 @@ WinEvent hooks and a hidden window that receives broadcasts.
 
 | File | Purpose |
 |------|---------|
-| `crates/mosaico-core/src/event.rs` | `WindowEvent` and what each variant promises |
+| `crates/mosaico-core/src/event/window_event.rs` | `WindowEvent` and what each variant promises |
+| `crates/mosaico-core/src/event/drag.rs` | `DragStart`, `Grab` and `Edges` -- what the start of a drag carries |
 | `crates/mosaico-core/src/event/source.rs` | `EventSource` contract and `EventWatch` |
 | `crates/mosaico-core/src/event/hover.rs` | `MousePointer` contract and `FocusFollowsMouse` |
 | `crates/mosaico-core/src/event/rest.rs` | `HoverTracker` -- when the pointer has come to rest |
@@ -19,6 +20,7 @@ WinEvent hooks and a hidden window that receives broadcasts.
 | `crates/mosaico-windows/src/event_source_hooks.rs` | The two `SetWinEventHook` hooks and their callback |
 | `crates/mosaico-windows/src/event_source_sink.rs` | The hidden window for `WM_DISPLAYCHANGE` and `WM_SETTINGCHANGE` |
 | `crates/mosaico-windows/src/event.rs` | `translate()` and `translate_broadcast()` -- Win32 values to `WindowEvent` |
+| `crates/mosaico-windows/src/drag_facts.rs` | What the start and the end of a drag carry, read in the hook |
 | `crates/mosaico-windows/src/pointer.rs` | `WindowsPointer` -- the window under the pointer |
 | `crates/mosaico-windows/src/message_thread.rs` | `MessageThread` -- a thread with a message queue |
 
@@ -31,8 +33,8 @@ WinEvent hooks and a hidden window that receives broadcasts.
 | `Hidden { window }` | A window is hidden, but not necessarily closed: it stops being shown without being minimized, including a window that closes while shown (just before `Destroyed`). May be reported for a window that stays on screen |
 | `Focused { window }` | A window becomes the active one, including when the tiler focused it |
 | `MouseHover { window }` | The pointer came to rest on a window (focus-follows-mouse only) |
-| `MoveStarted { window }` | The user starts dragging a window to a new place or size; `Moved` follows when the drag ends |
-| `Moved { window }` | The user finishes dragging a window to a new place or size |
+| `MoveStarted { window, start }` | The user starts dragging a window to a new place or size; `Moved` follows when the drag ends. `start` says what the pointer holds the window by, where the window is, whether it is maximized and where the pointer is, as the platform saw the drag start |
+| `Moved { window, pointer }` | The user finishes dragging a window to a new place or size, with where the pointer is as the platform saw the drag end |
 | `Minimized { window }` | A window is minimized |
 | `Restored { window }` | A minimized window is shown again |
 | `TitleChanged { window }` | A window's title changes |
@@ -108,6 +110,37 @@ Both functions are pure. `event_tests.rs` and, for the start of a drag,
 `event_drag_tests.rs` check them with the values Windows reports in each of
 these cases, including the hide and show a GPU-accelerated application
 reports while it recreates its drawing surface.
+
+### What a Drag Carries
+
+`translate()` gives the start and the end of a drag without what was read
+with them. The hook's callback reads it as it reports each
+(`drag_facts::read`), since by the time the tiler handles the event the
+window and the pointer have moved on:
+
+- the pointer, with `GetCursorPos`, at the start and at the end;
+- at the start, the window's visible bounds, as the desktop reads them,
+  whether it is maximized (`IsZoomed`), which a drag by the title bar soon
+  ends, and what the window answers to `WM_NCHITTEST` at the pointer:
+  `HTCAPTION` is `Grab::TitleBar`, and each sizing edge or corner of the
+  frame is `Grab::Edges` with that edge, or those two. Anything else, such
+  as the client area of a window whose application starts the drag itself,
+  leaves `grab` empty. The window moves or resizes with the pointer, so
+  what is under it is what it was grabbed by, even when the hook reports a
+  little late.
+
+The point is mapped to the window's own coordinates first
+(`PhysicalToLogicalPointForPerMonitorDPI`), for a window that is not aware
+of the display's DPI. The window is asked with `SendMessageTimeoutW`, with
+`SMTO_BLOCK`, so the event thread handles nothing else meanwhile and no
+report overtakes this one, and `SMTO_ABORTIFHUNG`, for at most 50 ms; a
+window that does not answer holds nothing. `drag_facts_tests.rs` checks the
+codes, `drag_facts_read_tests.rs` a start and an end read on a hidden window
+of the test's own, and `drag_facts_hit_tests.rs` what a hidden window with
+a caption and a sizing frame answers: one that is per-monitor aware, at its
+own pixels on any display, and one that is not DPI aware, asked from a
+per-monitor aware thread at points in the display's pixels, on a display
+that is scaled.
 
 ## Event Hook Configuration
 

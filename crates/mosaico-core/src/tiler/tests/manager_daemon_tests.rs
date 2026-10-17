@@ -20,7 +20,7 @@ fn a_drag_that_starts_changes_nothing() {
     let held = manager.held_since();
 
     // Act -- the layout changes once the drag ends, with `Moved`.
-    manager.handle_event(&WindowEvent::MoveStarted { window: wid(1) });
+    manager.handle_event(&WindowEvent::move_started(wid(1)));
 
     // Assert -- nothing applied, and nothing held back either.
     assert!(platform.calls().is_empty(), "{:?}", platform.calls());

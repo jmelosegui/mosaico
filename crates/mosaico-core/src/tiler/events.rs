@@ -58,7 +58,7 @@ impl Tiler {
             // Nothing in the layout changes until the drag ends, with
             // `Moved`.
             WindowEvent::MoveStarted { .. } => {}
-            WindowEvent::Moved { window } => {
+            WindowEvent::Moved { window, .. } => {
                 // A window the user just maximized stays maximized;
                 // retiling it would snap it back into the layout.
                 let maximized = plan.is_maximized(window);

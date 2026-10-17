@@ -72,7 +72,7 @@ fn a_window_that_came_home_as_its_monocle_window_is_not_put_behind_when_dragged(
     // Act -- the user drags it onto the primary.
     h.window(2).monitor = 0;
     h.window(2).rect = Rect::new(200, 200, 640, 480);
-    h.event(WindowEvent::Moved { window: wid(2) });
+    h.event(WindowEvent::moved(wid(2)));
 
     // Assert -- as for any window dragged onto a monocle workspace, only
     // the monocle window is placed, and nothing is put behind it.

@@ -28,6 +28,9 @@ pub mod directory_watcher;
 /// DPI awareness, which [`setup`] turns on in every process.
 mod dpi;
 
+/// What the start and the end of a drag carry, read as they are reported.
+mod drag_facts;
+
 /// Window and monitor listing for the core `Enumerator` contract.
 pub mod enumerate;
 
