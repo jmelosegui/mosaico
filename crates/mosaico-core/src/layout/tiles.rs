@@ -3,7 +3,7 @@
 
 use crate::{LayoutKind, Rect};
 
-use super::SplitRatios;
+use super::{MinSize, SplitRatios};
 
 /// A workspace's windows as its layout has them: what
 /// [`resized_splits`](super::resized_splits) works out where dropped edges
@@ -19,6 +19,8 @@ pub struct Tiles<'a> {
     /// The splits, and the heights of the stacks, the slots are laid out
     /// with.
     pub(super) splits: &'a SplitRatios,
+    /// The minimum size of each window, in window order, or none at all.
+    pub(super) mins: &'a [MinSize],
 }
 
 impl<'a> Tiles<'a> {
@@ -30,7 +32,15 @@ impl<'a> Tiles<'a> {
             gap,
             slots,
             splits,
+            mins: &[],
         }
+    }
+
+    /// The same windows, each with the minimum size in `mins`, in window
+    /// order: the edges dropped are kept where no window is left smaller.
+    /// `mins` are those the layout was given, or none at all.
+    pub fn with_minimums(self, mins: &'a [MinSize]) -> Self {
+        Self { mins, ..self }
     }
 
     /// The area split `split` divides, from the slots of its windows:

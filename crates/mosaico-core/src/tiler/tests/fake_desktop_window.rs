@@ -3,7 +3,7 @@
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use crate::tiler::WindowFacts;
-use crate::{Rect, WindowId};
+use crate::{MinSize, Rect, WindowId};
 
 use super::super::MON_W;
 use super::Queued;
@@ -42,6 +42,8 @@ pub(crate) struct FakeWindow {
     /// Whether its application stops responding as the next placement of
     /// the window is made, before the placement gets to it.
     pub(crate) hangs_on_place: bool,
+    /// The smallest size the window says it can be, if any.
+    pub(crate) min_size: Option<MinSize>,
     /// What is queued for the window, oldest first, and for how many
     /// more calls.
     pub(crate) queued: Vec<(Queued, usize)>,
@@ -74,6 +76,7 @@ impl FakeWindow {
             absorbs_frames: false,
             hung: false,
             hangs_on_place: false,
+            min_size: None,
             queued: Vec::new(),
         }
     }

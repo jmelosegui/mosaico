@@ -1,7 +1,7 @@
 //! What a [`FakePlatform`] answers about the desktop: the queries the
 //! tiler asks while it decides, and the lists of windows and monitors.
 
-use crate::{Error, MonitorId, Rect, Result, WindowId};
+use crate::{Error, MinSize, MonitorId, Rect, Result, WindowId};
 
 use super::super::super::{
     Desktop, Display, Enumerator, WindowDetails, WindowFacts, WindowIdentity,
@@ -55,6 +55,10 @@ impl Desktop for FakePlatform {
 
     fn animations_allowed(&self) -> bool {
         self.shared.desktop.borrow().animations_allowed()
+    }
+
+    fn min_size(&self, window: WindowId) -> Option<MinSize> {
+        self.shared.desktop.borrow().min_size(window)
     }
 }
 

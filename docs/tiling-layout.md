@@ -18,6 +18,9 @@ contracts the manager runs on.
 | `crates/mosaico-core/src/layout/three_column.rs` | `ThreeColumnLayout` -- center master with side stacks |
 | `crates/mosaico-core/src/layout/tests.rs` | Unit tests for all three layouts and `LayoutKind` |
 | `crates/mosaico-core/src/layout/split_ratios.rs` | `SplitRatios` -- the ratio of each split of a workspace's layouts that the user moved, and the heights of each stack the user resized, one set per layout, and the layouts laid out with them |
+| `crates/mosaico-core/src/layout/min_size.rs`, `min_limits.rs`, `min_column.rs`, `split_apply.rs`, `ratio_at.rs` | `MinSize`; where a split may go so both sides keep their minimums; a column fitted to its minimum heights; the layouts laid out with them; a dragged edge's ratio within the limits |
+| `crates/mosaico-core/src/tiler/min_sizes.rs`, `plan_min_size.rs` | The minimum sizes read once per window and kept, and the plan's `min_size` read of the desktop |
+| `crates/mosaico-windows/src/tiling/min_size.rs` | `Desktop::min_size` on Windows: the application's answer to the minimum size query, within a short timeout, less its invisible frame |
 | `crates/mosaico-core/src/layout/column.rs`, `heights.rs`, `split_chains.rs` | A column of windows, shared equally or at its heights; `Heights` -- the heights of a stack the user resized; the splits and the heights kept in step with the windows as they come and go |
 | `crates/mosaico-core/src/layout/split_edges.rs`, `split_resize.rs`, `stack_edge.rs` | Which split each edge of a tile borders; `resized_splits()` -- where the edges of a tile the user resized put those splits, and the heights of a stack an edge between two of its windows trades |
 | `crates/mosaico-core/src/workspace.rs` | `Workspace` -- ordered collection of window handles per monitor, tracks `LayoutKind` |
@@ -205,8 +208,8 @@ of an equal share of it, through every change:
   them, and a retile forgets them.
 
 The floor, 26 pixels for four windows stacked on 1080 and 15 once three
-more open, can be under a window's minimum height, and such a window then
-overlaps the one beside it, as one can at BSP's tenth.
+more open, can be under a window's minimum height. A window's minimum is
+kept first, see [Minimum Sizes](#minimum-sizes).
 
 A monitor that disconnects and comes back gives each of its windows back
 its share of the stack and of its side column, once they are all back in
@@ -216,6 +219,40 @@ fill it, so a whole monitor back in order has its heights back. As at
 home, no share of the stack goes to a window back as the master, and a
 window back in the other side column, as when one before it closed while
 the monitor was away, sends both columns back to equal heights.
+
+### Minimum Sizes
+
+An application can ask for a smallest size for its window. The tiler asks
+the platform (`Desktop::min_size`, as visible bounds, `None` for a window
+with no minimum of its own or one that does not answer in time) once for
+each window it manages, when it first lays it out, and keeps the answer
+in `Tiler.min_sizes` (`tiler/min_sizes.rs`); a retile forgets the answers
+and asks again, and a window that is no longer managed is evicted. A
+platform that cannot read a minimum answers `None`, and everything is laid
+out as it was.
+
+The decision is core's and pure (`layout/min_limits.rs`, `min_column.rs`):
+
+- **Layouts.** Every layout is laid out through
+  `SplitRatios::apply_fitted`. A split that would leave a window below its
+  minimum is moved to where it keeps it, taking the space from the other
+  side. In BSP the other side is the whole region beyond the split: the
+  windows there share it, so it needs the widest minimum across the split
+  and the sum along it, with a gap. The master of VerticalStack and of
+  ThreeColumn with two windows keeps its width and the stack its widest
+  window's; the centered master of ThreeColumn leaves each side column its
+  widest. Down a column, a window below its minimum height gets it and the
+  windows with room give up what that takes in proportion to their room;
+  the column keeps its top and its bottom.
+- **Resizing.** The edge a user drags, live and at the drop, stops where
+  the window on either side would go below its minimum, which is stored
+  too, so a retile, a new window or a monitor change keeps the split
+  there (`Tiles::with_minimums`, `ratio_at`, `stack_edge`).
+- **Overflow.** Where the area cannot hold every minimum, the split or the
+  column is left where it would be without minimums, and a window that
+  does not fit overflows its slot, as before.
+- **Unchanged.** With no minimum asked for, or none that binds, no slot
+  changes by a pixel.
 
 ### BSP (Binary Space Partitioning)
 

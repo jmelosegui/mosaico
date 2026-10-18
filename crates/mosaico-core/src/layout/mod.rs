@@ -1,6 +1,11 @@
 mod bsp;
 mod column;
 mod heights;
+mod min_column;
+mod min_limits;
+mod min_size;
+mod ratio_at;
+mod split_apply;
 mod split_chains;
 mod split_changes;
 mod split_edges;
@@ -16,6 +21,7 @@ use serde::{Deserialize, Serialize};
 use crate::{Rect, WindowId};
 
 pub use bsp::BspLayout;
+pub use min_size::MinSize;
 pub(crate) use split_chains::OwnSplits;
 pub(crate) use split_changes::changes;
 pub use split_ratios::{MAX_SPLIT_RATIO, MIN_SPLIT_RATIO, SplitRatios};

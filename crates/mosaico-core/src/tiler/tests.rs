@@ -81,6 +81,8 @@ mod metrics_scenarios;
 mod metrics_support;
 #[path = "tests/metrics_tests.rs"]
 mod metrics_tests;
+#[path = "tests/min_size_layout_tests.rs"]
+mod min_size_layout_tests;
 #[path = "tests/mode_reload_settings_tests.rs"]
 mod mode_reload_settings_tests;
 #[path = "tests/mode_reload_tests.rs"]

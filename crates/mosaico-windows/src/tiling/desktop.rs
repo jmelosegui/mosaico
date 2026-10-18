@@ -1,7 +1,7 @@
 //! The desktop as the tiler reads it, through Win32 queries.
 
 use mosaico_core::tiler::{Desktop, WindowFacts, WindowIdentity};
-use mosaico_core::{MonitorId, Rect, WindowId};
+use mosaico_core::{MinSize, MonitorId, Rect, WindowId};
 
 use crate::monitor;
 use crate::window::Window;
@@ -123,5 +123,11 @@ impl Desktop for Win32Desktop {
     /// never in a remote session (see `system_settings.rs`).
     fn animations_allowed(&self) -> bool {
         crate::system_settings::animations_allowed()
+    }
+
+    /// The least size the window's application asks for, see
+    /// `min_size.rs`.
+    fn min_size(&self, window: WindowId) -> Option<MinSize> {
+        super::min_size::read(&Window::from_id(window))
     }
 }

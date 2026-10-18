@@ -1,6 +1,8 @@
 use crate::{Rect, WindowId};
 
 use super::Layout;
+use super::min_limits::{chain_limits, fit};
+use super::min_size::MinSize;
 
 /// Binary Space Partitioning layout.
 ///
@@ -46,6 +48,20 @@ impl BspLayout {
         work_area: &Rect,
         splits: &[Option<f64>],
     ) -> Vec<(WindowId, Rect)> {
+        self.apply_fitted(windows, work_area, splits, &[])
+    }
+
+    /// Lays out `windows` as [`apply_splits`](Self::apply_splits) does, with
+    /// each split kept where the windows on both sides keep their minimum
+    /// sizes, `mins`, one for each window, or none at all. A split that
+    /// cannot leave every window its minimum stays where it would be.
+    pub fn apply_fitted(
+        &self,
+        windows: &[WindowId],
+        work_area: &Rect,
+        splits: &[Option<f64>],
+        mins: &[MinSize],
+    ) -> Vec<(WindowId, Rect)> {
         if windows.is_empty() {
             return Vec::new();
         }
@@ -57,13 +73,19 @@ impl BspLayout {
             (work_area.width - self.gap * 2).max(1),
             (work_area.height - self.gap * 2).max(1),
         );
-        self.split(windows, &padded, true, splits, &mut results);
+        let mins = if mins.len() == windows.len() {
+            mins
+        } else {
+            &[]
+        };
+        self.split(windows, mins, &padded, true, splits, &mut results);
         results
     }
 
     fn split(
         &self,
         windows: &[WindowId],
+        mins: &[MinSize],
         area: &Rect,
         horizontal: bool,
         splits: &[Option<f64>],
@@ -76,8 +98,12 @@ impl BspLayout {
 
         let half = self.gap / 2;
         let ratio = splits.first().copied().flatten().unwrap_or(self.ratio);
+        let len = if horizontal { area.width } else { area.height };
+        let split = fit(
+            (len as f64 * ratio) as i32,
+            chain_limits(mins, horizontal, self.gap, len),
+        );
         let (first_area, rest_area) = if horizontal {
-            let split = (area.width as f64 * ratio) as i32;
             let first = Rect::new(area.x, area.y, (split - half).max(1), area.height);
             let rest = Rect::new(
                 area.x + split + half,
@@ -87,7 +113,6 @@ impl BspLayout {
             );
             (first, rest)
         } else {
-            let split = (area.height as f64 * ratio) as i32;
             let first = Rect::new(area.x, area.y, area.width, (split - half).max(1));
             let rest = Rect::new(
                 area.x,
@@ -100,6 +125,14 @@ impl BspLayout {
 
         results.push((windows[0], first_area));
         let deeper = splits.get(1..).unwrap_or_default();
-        self.split(&windows[1..], &rest_area, !horizontal, deeper, results);
+        let rest_mins = mins.get(1..).unwrap_or_default();
+        self.split(
+            &windows[1..],
+            rest_mins,
+            &rest_area,
+            !horizontal,
+            deeper,
+            results,
+        );
     }
 }

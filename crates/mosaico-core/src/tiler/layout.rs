@@ -52,7 +52,8 @@ impl Tiler {
         };
         let kind = state.active_ws().layout_kind();
         let (gap, ratio) = (self.layout.gap, self.layout.ratio);
-        splits.apply(kind, gap, ratio, windows, &state.work_area)
+        let mins = self.min_sizes_of(windows);
+        splits.apply_fitted(kind, gap, ratio, windows, &state.work_area, &mins)
     }
 
     /// The window a workspace in monocle on screen of monitor `idx` shows
@@ -91,6 +92,7 @@ impl Tiler {
     ) {
         self.forget_live(plan, monitor_idx);
         self.prune_stale_handles(plan, monitor_idx);
+        self.learn_min_sizes(plan, monitor_idx);
 
         let Some(state) = self.monitors.get(monitor_idx) else {
             return;

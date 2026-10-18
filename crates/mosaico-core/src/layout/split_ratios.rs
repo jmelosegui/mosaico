@@ -15,7 +15,6 @@
 use crate::{LayoutKind, Rect, WindowId};
 
 use super::heights::Heights;
-use super::{BspLayout, ThreeColumnLayout, VerticalStackLayout};
 
 /// The smallest ratio a split is given, so that neither of its sides
 /// vanishes: nothing tells the tiler how small a window can be. A window
@@ -126,18 +125,7 @@ impl SplitRatios {
         windows: &[WindowId],
         area: &Rect,
     ) -> Vec<(WindowId, Rect)> {
-        match kind {
-            LayoutKind::Bsp => BspLayout { gap, ratio }.apply_splits(windows, area, &self.bsp),
-            LayoutKind::VerticalStack => {
-                let ratio = self.vertical_stack.unwrap_or(ratio);
-                VerticalStackLayout { gap, ratio }.apply_heights(windows, area, self.stack.ends())
-            }
-            LayoutKind::ThreeColumn => {
-                let ratio = self.three_column.unwrap_or(ratio);
-                let columns = self.columns.each_ref().map(Heights::ends);
-                ThreeColumnLayout { gap, ratio }.apply_heights(windows, area, columns)
-            }
-        }
+        self.apply_fitted(kind, gap, ratio, windows, area, &[])
     }
 }
 

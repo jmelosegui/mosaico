@@ -1,6 +1,7 @@
 use super::*;
 
 use crate::LayoutKind;
+use crate::layout::{MAX_SPLIT_RATIO, MIN_SPLIT_RATIO};
 
 use super::super::split_support::{GAP, dragged, held, slots, unmoved};
 

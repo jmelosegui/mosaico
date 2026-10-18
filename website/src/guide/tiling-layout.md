@@ -237,8 +237,9 @@ trades height between those two only: every other window keeps its size.
 The edges along the edges of the screen go back to where they were when
 you let go, and a split stops a tenth of the way from either end; down a
 stack, an edge stops where either of the two windows would have less than
-a tenth of an equal share of the stack, which can be less than an app's
-smallest height, so such a window can overlap the next. Press `Esc` while
+a tenth of an equal share of the stack, and never where either window would
+fall below the smallest size its app asks for (see [Minimum
+Sizes](#minimum-sizes)). Press `Esc` while
 resizing to leave everything as it was, the windows that followed the edge
 going back to their tiles. A resize of 4 pixels or less on every edge
 changes nothing either, as a click on the edge, and an edge you hold but
@@ -266,6 +267,26 @@ in the stacks, retile.
 
 Set `resize_splits = false` under `[mouse]` in `config.toml` to have a
 window you resize go back to its slot, as before.
+
+## Minimum Sizes
+
+Some windows cannot be made smaller than a width or a height their app
+asks for. Mosaico asks each window once, when it first lays it out, and
+keeps what it says: pressing the retile hotkey asks them all again.
+
+- An edge you drag stops where the window on either side would go below
+  its minimum, while you drag it and when you let go. In BSP that is the
+  minimum of everything on that side of the split.
+- A layout gives a window its minimum when its tile would be smaller, as
+  windows open and close, when you cycle layouts and when a monitor
+  changes, and the tiles beside it give up the space, the ones with the
+  most room giving the most.
+- When the screen cannot hold every minimum, the layout is the one
+  you would have without them, and a window that does not fit overflows
+  its tile.
+
+Windows with no minimum, or ones that do not answer, are laid out exactly
+as before.
 
 ## Retiling
 

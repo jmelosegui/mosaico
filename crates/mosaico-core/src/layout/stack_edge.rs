@@ -32,6 +32,7 @@ pub(super) fn stack_edge(tiles: Tiles<'_>, first: usize, bottom: i32) -> Option<
         gap,
         slots,
         splits,
+        mins,
     } = tiles;
     let column = column_of(kind, slots.len(), first);
     let place = column.iter().position(|&i| i == first)?;
@@ -56,8 +57,18 @@ pub(super) fn stack_edge(tiles: Tiles<'_>, first: usize, bottom: i32) -> Option<
             .map(end)
             .collect(),
     };
-    let dropped = bottom - top - gaps(place);
-    Some(Heights::moved(&ends, place, share(dropped)))
+    let dropped = share(bottom - top - gaps(place));
+    // The two windows beside the edge keep their minimum heights.
+    let least = |i: usize| share(mins.get(column[i]).map_or(0, |m| m.along(false)));
+    let above = place.checked_sub(1).map_or(0.0, |i| ends[i]);
+    let below = ends.get(place + 1).copied().unwrap_or(1.0);
+    let (from, to) = (above + least(place), below - least(place + 1));
+    let dropped = if from <= to {
+        dropped.clamp(from, to)
+    } else {
+        dropped
+    };
+    Some(Heights::moved(&ends, place, dropped))
 }
 
 #[cfg(test)]

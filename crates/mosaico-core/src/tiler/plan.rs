@@ -21,6 +21,8 @@ use super::{Desktop, Effect, WindowFacts};
 mod borders;
 #[path = "plan_maximized.rs"]
 mod maximized;
+#[path = "plan_min_size.rs"]
+mod min_size;
 #[path = "plan_transitions.rs"]
 mod transitions;
 

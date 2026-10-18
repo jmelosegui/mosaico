@@ -6,16 +6,20 @@
 //! edge dropped there, and the other one mirrors it. Down a stack, the edge
 //! trades height between the two windows beside it alone
 //! (`stack_edge.rs`). An edge the user held but hardly moved leaves its
-//! split as it is.
+//! split as it is. No edge goes where a window on either side of it would
+//! be left below its minimum size, when [`Tiles::with_minimums`] says what
+//! they are and the area has room for them.
 
 use crate::Rect;
 use crate::event::Edges;
 use crate::motion::MIN_TRAVEL;
 
 use super::heights::Heights;
+use super::min_limits::limits;
+use super::ratio_at::ratio_at;
 use super::split_edges::{Border, Side, border};
 use super::stack_edge::stack_edge;
-use super::{MAX_SPLIT_RATIO, MIN_SPLIT_RATIO, SplitRatios, Tiles};
+use super::{SplitRatios, Tiles};
 
 /// The splits of `tiles` once the user, who grabbed window `index` at
 /// `start`, dropped the edges in `edges` where they are in `rect`, or
@@ -43,6 +47,7 @@ pub fn resized_splits(
         gap,
         slots,
         splits,
+        mins,
     } = tiles;
     let grabbed = [
         (edges.left, Side::Left),
@@ -72,7 +77,11 @@ pub fn resized_splits(
             Side::Left | Side::Right => (area.x, area.width),
             Side::Top | Side::Bottom => (area.y, area.height),
         };
-        Some(Moved::Ratio(split, ratio_at(border, at - from, len, gap)?))
+        let limits = limits(kind, mins, gap, split, len);
+        Some(Moved::Ratio(
+            split,
+            ratio_at(border, at - from, len, gap, limits)?,
+        ))
     };
     let moves: Vec<Moved> = grabbed
         .into_iter()
@@ -107,32 +116,6 @@ fn position(rect: Rect, side: Side) -> i32 {
         Side::Top => rect.y,
         Side::Bottom => rect.y + rect.height,
     }
-}
-
-/// The ratio that puts a split a window borders as `border` where its edge
-/// is, `at` from the start of the split's area, which is `len` long that
-/// way, with `gap` between windows.
-fn ratio_at(border: Border, at: i32, len: i32, gap: i32) -> Option<f64> {
-    if len <= 0 {
-        return None;
-    }
-    let half = gap / 2;
-    // What the layout makes of the ratio: where the split is from the start
-    // of its area, or how wide the centered master is.
-    let size = match border {
-        Border::First => at + half,
-        Border::Rest => at - half,
-        Border::MasterLeft => len - 2 * at,
-        Border::MasterRight => 2 * at - len,
-        Border::LeftColumn => len - 2 * (at + gap),
-        Border::RightColumn => 2 * (at - gap) - len,
-        // Down a stack, `stack_edge` works the heights out.
-        Border::Above | Border::Below => return None,
-    };
-    // Half a pixel more, as the layout rounds down, so that the edge lands
-    // on the pixel it was dropped at.
-    let ratio = (f64::from(size) + 0.5) / f64::from(len);
-    Some(ratio.clamp(MIN_SPLIT_RATIO, MAX_SPLIT_RATIO))
 }
 
 #[cfg(test)]
