@@ -1,10 +1,50 @@
-//! What the tests of the tiles that follow a drag share: two windows side
-//! by side for resizes, and where a border is drawn.
+//! What the tests of the tiles that follow a drag share: windows on two
+//! monitors, the slots of the second's halves and quarters, two windows
+//! side by side for resizes, and where a border is drawn.
 
 use crate::id::wid;
-use crate::tiler::tests::Harness;
+use crate::tiler::tests::{Harness, MON_W};
 use crate::tiler::{Effect, Settings, Timing};
 use crate::{Rect, WindowEvent};
+
+/// The left half of the second monitor.
+pub(super) const LEFT: Rect = Rect {
+    x: MON_W + 8,
+    y: 8,
+    width: 948,
+    height: 1064,
+};
+
+/// The right half of the second monitor.
+pub(super) const RIGHT: Rect = Rect {
+    x: MON_W + 964,
+    ..LEFT
+};
+
+/// The top of the right half of the second monitor.
+pub(super) const TOP_RIGHT: Rect = Rect {
+    height: 528,
+    ..RIGHT
+};
+
+/// The bottom of the right half of the second monitor.
+pub(super) const BOTTOM_RIGHT: Rect = Rect {
+    y: 544,
+    ..TOP_RIGHT
+};
+
+/// Windows 1 and 2 on the first monitor, and `ids` on the second, in BSP,
+/// with `settings`.
+pub(super) fn on_two(settings: Settings, ids: &[u64]) -> Harness {
+    let mut windows = vec![(1, 0), (2, 0)];
+    windows.extend(ids.iter().map(|&id| (id, 1)));
+    Harness::with_settings(settings, 2, &windows)
+}
+
+/// Whether `effects` place any window.
+pub(super) fn place_any(effects: &[Effect]) -> bool {
+    effects.iter().any(|e| matches!(e, Effect::Place { .. }))
+}
 
 /// Windows 1 and 2 side by side on one monitor, with `settings`.
 pub(super) fn pair(settings: Settings) -> Harness {

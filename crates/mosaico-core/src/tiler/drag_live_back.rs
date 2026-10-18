@@ -52,3 +52,11 @@ impl Tiler {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "tests/drag_live_manager_support.rs"]
+mod manager_support;
+
+#[cfg(test)]
+#[path = "tests/drag_live_motion_tests.rs"]
+mod motion_tests;

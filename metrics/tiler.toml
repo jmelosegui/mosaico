@@ -100,13 +100,23 @@ show_border = 4
 
 [drop_on_another_monitor]
 border_renders = 3
-calls = 17
+calls = 18
 hide_border = 1
 hide_preview = 1
 place = 3
 repaint = 3
-show_border = 8
+show_border = 9
 show_preview = 1
+
+[drop_over_another_monitor]
+border_renders = 5
+calls = 29
+hide_border = 1
+hide_preview = 1
+place = 6
+repaint = 6
+show_border = 12
+show_preview = 3
 
 [drop_to_swap]
 border_renders = 2

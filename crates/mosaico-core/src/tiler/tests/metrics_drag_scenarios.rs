@@ -1,11 +1,12 @@
 //! What dragging a tiled window and dropping it asks of the platform: onto
-//! another tile to swap them, and onto another monitor; and what resizing
-//! one by the edge between two tiles does, with one report on the way and
-//! with several.
+//! another tile to swap them, and onto another monitor, over one tile and
+//! over three places in turn; and what resizing one by the edge between
+//! two tiles does, with one report on the way and with several.
 
 use crate::WindowEvent;
 use crate::event::{DragStart, Edges, Grab};
 use crate::id::wid;
+use crate::tiler::tests::MON_W;
 use crate::tiler::tests::fake_platform::FakePlatform;
 use crate::tiler::tests::manager_support::{start, still};
 use crate::tiler::tests::metrics_support::{Manager, Measured, four, on};
@@ -60,7 +61,7 @@ pub(super) fn to_swap() -> Measured {
     let platform = arranged.0.clone();
     let over = platform.window(2).rect;
     let to = (over.center_x(), over.center_y());
-    on(arranged, |manager| drag(&platform, manager, 1, to))
+    on(arranged, |manager| drag(&platform, manager, 1, &[to]))
 }
 
 /// Two windows on each of two monitors; window 1 is dragged onto window
@@ -72,14 +73,32 @@ pub(super) fn to_another_monitor() -> Measured {
     let to = (over.center_x(), over.center_y());
     let dragged = platform.clone();
     on((platform, manager), |manager| {
-        drag(&dragged, manager, 1, to)
+        drag(&dragged, manager, 1, &[to])
+    })
+}
+
+/// Two windows on each of two monitors; window 1 is dragged over window 3
+/// on the second, on over window 4, and on to the gap above the tiles
+/// there, where it would join the end, and dropped there: the target
+/// changes twice, and the tiles there make room each time.
+pub(super) fn over_another_monitor() -> Measured {
+    let platform = FakePlatform::new(2, &[(1, 0), (2, 0), (3, 1), (4, 1)]);
+    let manager = start(&platform, None, &still());
+    let center = |id: u64| {
+        let rect = platform.window(id).rect;
+        (rect.center_x(), rect.center_y())
+    };
+    let path = [center(3), center(4), (MON_W + MON_W / 2, 2)];
+    let dragged = platform.clone();
+    on((platform, manager), |manager| {
+        drag(&dragged, manager, 1, &path)
     })
 }
 
 /// The user grabs window `id` by its title bar, which gives it focus,
-/// drags it so that the pointer is at `to`, with one position reported on
-/// the way, and drops it there.
-fn drag(platform: &FakePlatform, manager: &mut Manager, id: u64, to: (i32, i32)) {
+/// drags it so that the pointer is at each point of `path` in turn, with a
+/// position reported at each, and drops it at the last.
+fn drag(platform: &FakePlatform, manager: &mut Manager, id: u64, path: &[(i32, i32)]) {
     let window = wid(id);
     let rect = platform.window(id).rect;
     let from = (rect.center_x(), rect.y + 10);
@@ -91,13 +110,15 @@ fn drag(platform: &FakePlatform, manager: &mut Manager, id: u64, to: (i32, i32))
         pointer: Some(from),
     };
     manager.handle_event(&WindowEvent::MoveStarted { window, start });
-    platform.edit(id, |w| {
-        w.rect.x += to.0 - from.0;
-        w.rect.y += to.1 - from.1;
-        w.monitor = usize::from(to.0 >= crate::tiler::tests::MON_W);
-    });
-    platform.point_at(to);
-    manager.handle_event(&WindowEvent::LocationChanged { window });
-    let pointer = Some(to);
+    for &to in path {
+        platform.edit(id, |w| {
+            w.rect.x = rect.x + to.0 - from.0;
+            w.rect.y = rect.y + to.1 - from.1;
+            w.monitor = usize::from(to.0 >= MON_W);
+        });
+        platform.point_at(to);
+        manager.handle_event(&WindowEvent::LocationChanged { window });
+    }
+    let pointer = path.last().copied();
     manager.handle_event(&WindowEvent::Moved { window, pointer });
 }

@@ -1,6 +1,7 @@
 //! Where the tiles a drop is decided against are laid out: those of each
-//! monitor, the slot of a window and the one it would get on another
-//! monitor, and whether a window lies on a monitor.
+//! monitor, the slot of a window, the layout another monitor would have
+//! with it and the slot it would get there, and whether a window lies on a
+//! monitor.
 
 use crate::{Rect, WindowId};
 
@@ -37,16 +38,17 @@ impl Tiler {
             .map(|(_, rect)| rect)
     }
 
-    /// The slot `window` would get on the workspace on screen of monitor
-    /// `idx`, put before `before` there or at the end, with a split of its
-    /// own at the configured ratio, or an equal share down a stack. None in
-    /// monocle, where only the monocle window is placed.
-    pub(in crate::tiler) fn slot_joining(
+    /// Where the windows of the workspace on screen of monitor `idx` would
+    /// be laid out with `window` put before `before` there, or at the end,
+    /// with a split of its own at the configured ratio, or an equal share
+    /// down a stack. None in monocle, where only the monocle window is
+    /// placed.
+    pub(in crate::tiler) fn positions_joining(
         &self,
         idx: usize,
         before: Option<WindowId>,
         window: WindowId,
-    ) -> Option<Rect> {
+    ) -> Option<Vec<(WindowId, Rect)>> {
         let ws = self.monitors.get(idx)?.active_ws();
         if ws.monocle() {
             return None;
@@ -56,7 +58,19 @@ impl Tiler {
         let at = before.and_then(|w| ws.index_of(w)).unwrap_or(windows.len());
         splits.insert(at, windows.len());
         windows.insert(at, window);
-        let positions = self.positions_of(idx, &windows, &splits);
+        Some(self.positions_of(idx, &windows, &splits))
+    }
+
+    /// The slot `window` would get on the workspace on screen of monitor
+    /// `idx`, put before `before` there or at the end, as
+    /// [`positions_joining`](Self::positions_joining) lays it out.
+    pub(in crate::tiler) fn slot_joining(
+        &self,
+        idx: usize,
+        before: Option<WindowId>,
+        window: WindowId,
+    ) -> Option<Rect> {
+        let positions = self.positions_joining(idx, before, window)?;
         positions
             .into_iter()
             .find(|&(w, _)| w == window)
