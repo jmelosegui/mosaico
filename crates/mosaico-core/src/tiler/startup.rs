@@ -27,6 +27,9 @@ pub struct Settings {
     /// Whether a tiled window dropped on another tile takes its slot, or
     /// goes before it on another monitor.
     pub drag_to_swap: bool,
+    /// Whether the edges of a tiled window the user resizes move the splits
+    /// they border.
+    pub resize_splits: bool,
     /// Whether windows move to their new place over time, and how.
     pub animations: AnimationConfig,
     /// The ways the platform can hide windows. A `layout.hiding` it does
@@ -83,7 +86,11 @@ impl Tiler {
             fresh: true,
             bordered: HashSet::new(),
             decorated: HashSet::new(),
-            mouse: drag::Mouse::new(settings.mouse_follows_focus, settings.drag_to_swap),
+            mouse: drag::Mouse::new(
+                settings.mouse_follows_focus,
+                settings.drag_to_swap,
+                settings.resize_splits,
+            ),
             focused_monitor: 0,
             focused_window: None,
             focused_maximized: false,

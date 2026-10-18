@@ -1,9 +1,8 @@
 //! Layout application: tiled layouts and monocle mode.
 
-use crate::{BspLayout, Layout, LayoutKind, Rect, ThreeColumnLayout, VerticalStackLayout};
-
-use crate::WindowId;
 use crate::config::HidingBehaviour;
+use crate::layout::SplitRatios;
+use crate::{Rect, WindowId};
 
 use super::removal::untile;
 use super::{Plan, Tiler, Timing};
@@ -31,26 +30,31 @@ impl Tiler {
         monocle_rect_for(&state.work_area, self.layout.gap)
     }
 
-    /// Layout positions for the active workspace on the given monitor.
+    /// Layout positions for the active workspace on the given monitor,
+    /// each split where the user moved it.
     pub(super) fn compute_positions(&self, monitor_idx: usize) -> Vec<(WindowId, Rect)> {
         let Some(state) = self.monitors.get(monitor_idx) else {
             return Vec::new();
         };
-        self.positions_of(monitor_idx, state.active_ws().windows())
+        let ws = state.active_ws();
+        self.positions_of(monitor_idx, ws.windows(), ws.split_ratios())
     }
 
     /// Where the layout of the active workspace on monitor `idx` puts
-    /// `windows`, in their order.
-    pub(super) fn positions_of(&self, idx: usize, windows: &[WindowId]) -> Vec<(WindowId, Rect)> {
+    /// `windows`, in their order, with its splits at `splits`, or at the
+    /// configured ratio where the user did not move them.
+    pub(super) fn positions_of(
+        &self,
+        idx: usize,
+        windows: &[WindowId],
+        splits: &SplitRatios,
+    ) -> Vec<(WindowId, Rect)> {
         let Some(state) = self.monitors.get(idx) else {
             return Vec::new();
         };
-        let (gap, ratio, area) = (self.layout.gap, self.layout.ratio, &state.work_area);
-        match state.active_ws().layout_kind() {
-            LayoutKind::Bsp => BspLayout { gap, ratio }.apply(windows, area),
-            LayoutKind::VerticalStack => VerticalStackLayout { gap, ratio }.apply(windows, area),
-            LayoutKind::ThreeColumn => ThreeColumnLayout { gap, ratio }.apply(windows, area),
-        }
+        let kind = state.active_ws().layout_kind();
+        let (gap, ratio) = (self.layout.gap, self.layout.ratio);
+        splits.apply(kind, gap, ratio, windows, &state.work_area)
     }
 
     /// Lays out the monitor now and refreshes every border.

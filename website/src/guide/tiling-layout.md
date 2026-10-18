@@ -97,7 +97,8 @@ default = "bsp"       # Default layout for all workspaces
   screen. Set to `0` for no gaps.
 - **ratio** -- controls how much space the first window in each split
   receives. `0.5` means equal halves; `0.6` gives 60% to the primary
-  window.
+  window. A split you resize with the mouse keeps where you put it (see
+  [Resizing Tiles](#resizing-tiles)); the others follow this ratio.
 - **default** -- the layout algorithm used for any workspace that does not
   have an explicit override. Accepted values: `"bsp"`, `"vertical-stack"`,
   `"three-column"`.
@@ -174,9 +175,9 @@ and when Windows snaps or maximizes it on its monitor as you drop it.
 Maximized by Windows on another monitor, it joins that monitor's windows
 and stays maximized. Press `Esc` while dragging to leave everything as it
 was, even with the pointer over another tile, and a click on the title
-bar changes nothing either. Dragging a window by an edge resizes it, and
-it goes back to its slot when you let go. A window Mosaico does not tile
-can be dragged anywhere without moving the tiles under it.
+bar changes nothing either. Dragging a window by an edge resizes the
+tiles instead (see [Resizing Tiles](#resizing-tiles)). A window Mosaico
+does not tile can be dragged anywhere without moving the tiles under it.
 
 While you drag, nothing else moves the window or the pointer, whatever
 you press: a window that opens meanwhile is tiled around it, and the
@@ -191,6 +192,40 @@ Set `drag_to_swap = false` under `[mouse]` in `config.toml` to have every
 dropped window go back to its slot, or join the end of the other
 monitor's windows, as before.
 
+## Resizing Tiles
+
+Drag the edge between two tiles to resize them: when you let go, the split
+between them moves to where you dropped the edge, and the windows on the
+other side follow. Drag a corner where two splits meet to move both.
+
+| Layout | Edges that resize |
+|--------|-------------------|
+| BSP | every edge between two tiles |
+| VerticalStack | the edge between the master and the stack |
+| ThreeColumn | both edges of the master, and the inner edge of the side columns; the master stays centered, so both its edges move together |
+
+The other edges, along the edges of the screen and between two windows of
+a stack or of a side column, go back to where they were when you let go,
+and a split stops a tenth of the way from either end. Press `Esc` while
+resizing to leave everything as it was. A resize of 4 pixels or less on
+every edge changes nothing either, as a click on the edge, and an edge you
+hold but hardly move leaves its split where it was. While you hold a window
+by its edge, nothing else moves it, as when you drag it by its title bar.
+Pressing a hotkey, or using a status bar, while resizing ends the resize
+without moving a split, and the window goes back to its slot when you let
+go; pausing the hotkeys, from their key or the **PAUSED** mark, leaves the
+resize as it is.
+
+Each workspace keeps where you put its splits, for each layout: cycling
+layouts brings them back, monocle leaves them alone, and a monitor that
+disconnects and comes back brings them back with its windows. When two
+windows swap, each takes the other's tile at its size. A window that opens
+gets a split of its own at the configured `ratio`, and a window that closes
+takes its split with it. To put them all back at `ratio`, retile.
+
+Set `resize_splits = false` under `[mouse]` in `config.toml` to have a
+window you resize go back to its slot, as before.
+
 ## Retiling
 
 Mosaico automatically retiles when windows are opened, closed, minimized,
@@ -199,6 +234,10 @@ time:
 
 - Press `Alt + Shift + R`
 - Or run `mosaico action retile`
+
+Retiling this way also puts every split you moved on the workspaces on
+screen back at the configured `ratio`, in all their layouts. Workspaces out
+of view keep theirs, and the retiles Mosaico does on its own keep them all.
 
 ## Window Management
 

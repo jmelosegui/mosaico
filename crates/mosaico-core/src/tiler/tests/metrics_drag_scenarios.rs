@@ -1,12 +1,42 @@
 //! What dragging a tiled window and dropping it asks of the platform: onto
-//! another tile to swap them, and onto another monitor.
+//! another tile to swap them, and onto another monitor; and what resizing
+//! one by the edge between two tiles does.
 
 use crate::WindowEvent;
-use crate::event::{DragStart, Grab};
+use crate::event::{DragStart, Edges, Grab};
 use crate::id::wid;
 use crate::tiler::tests::fake_platform::FakePlatform;
 use crate::tiler::tests::manager_support::{start, still};
 use crate::tiler::tests::metrics_support::{Manager, Measured, four, on};
+
+/// Four windows on one monitor; window 1, the left half, is resized by its
+/// right edge, which window 2 is beyond, 200 pixels to the right, and let
+/// go there.
+pub(super) fn resize() -> Measured {
+    let arranged = four();
+    let platform = arranged.0.clone();
+    on(arranged, |manager| {
+        let window = wid(1);
+        let rect = platform.window(1).rect;
+        let edge = Edges {
+            right: true,
+            ..Edges::default()
+        };
+        let at = |rect: crate::Rect| (rect.x + rect.width - 1, rect.center_y());
+        manager.handle_event(&WindowEvent::Focused { window });
+        let start = DragStart {
+            grab: Some(Grab::Edges(edge)),
+            rect: Some(rect),
+            maximized: Some(false),
+            pointer: Some(at(rect)),
+        };
+        manager.handle_event(&WindowEvent::MoveStarted { window, start });
+        platform.edit(1, |w| w.rect.width += 200);
+        manager.handle_event(&WindowEvent::LocationChanged { window });
+        let pointer = Some(at(platform.window(1).rect));
+        manager.handle_event(&WindowEvent::Moved { window, pointer });
+    })
+}
 
 /// Four windows on one monitor; window 1 is dragged onto window 2 and
 /// dropped there.

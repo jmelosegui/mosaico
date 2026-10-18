@@ -67,6 +67,7 @@ pub(super) const SCENARIOS: &[Scenario] = &[
     ("bar_scroll_burst", bar::scroll_burst),
     ("drop_to_swap", drag::to_swap),
     ("drop_on_another_monitor", drag::to_another_monitor),
+    ("resize_split", drag::resize),
     ("config_reload", config_reload),
     ("bar_reserved", || {
         on(four(), |m| m.adjust_work_areas_for_bar(30, &[]))

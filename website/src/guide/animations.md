@@ -51,6 +51,8 @@ Windows move to their new place when you:
 
 - swap or move windows within a monitor, from the keyboard or by dropping a
   window you drag on another, which slides from where you let go;
+- resize tiles by dragging the edge between them, for the windows the split
+  moves;
 - cycle layouts, or toggle monocle mode;
 - open or close a window, for the windows that make room or take the space;
 - change the gap or the split ratio in `config.toml`.

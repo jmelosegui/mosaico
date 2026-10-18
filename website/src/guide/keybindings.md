@@ -57,7 +57,7 @@ modifiers = ["alt", "shift"]
 | `move-right` | Move window right |
 | `move-up` | Move window up (swap on same monitor) |
 | `move-down` | Move window down |
-| `retile` | Re-apply the tiling layout |
+| `retile` | Re-apply the tiling layout, with the splits you moved back at the configured ratio |
 | `toggle-monocle` | Toggle monocle (full-screen) mode |
 | `cycle-layout` | Cycle to the next tiling layout (BSP -> VStack -> 3Col) |
 | `close-focused` | Close the focused window |

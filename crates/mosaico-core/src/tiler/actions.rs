@@ -27,9 +27,11 @@ impl Tiler {
             Action::Move(dir) => self.move_direction(plan, *dir),
             Action::Retile => {
                 // The user's repair for a stale desktop, which includes a
-                // border that lost what the platform drew of it.
+                // border that lost what the platform drew of it, and the
+                // way back to the configured ratio from the splits they
+                // moved.
                 plan.emit(Effect::RedrawBorders);
-                self.retile_all(plan);
+                self.retile_from_ratio(plan);
             }
             Action::ToggleMonocle => self.toggle_monocle(plan),
             Action::CloseFocused => {
