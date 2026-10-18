@@ -1,18 +1,25 @@
 //! What the tests of the tiles that follow a drag share: windows on two
-//! monitors, the slots of the second's halves and quarters, two windows
-//! side by side for resizes, and where a border is drawn.
+//! monitors, the second's in monocle or not, the slots of its halves and
+//! quarters, two windows side by side for resizes, and where a border is
+//! drawn.
 
 use crate::id::wid;
 use crate::tiler::tests::{Harness, MON_W};
 use crate::tiler::{Effect, Settings, Timing};
-use crate::{Rect, WindowEvent};
+use crate::{Action, Rect, WindowEvent};
+
+/// Where monocle shows its window on the second monitor.
+pub(super) const FRONT: Rect = Rect {
+    x: MON_W + 8,
+    y: 8,
+    width: 1904,
+    height: 1064,
+};
 
 /// The left half of the second monitor.
 pub(super) const LEFT: Rect = Rect {
-    x: MON_W + 8,
-    y: 8,
     width: 948,
-    height: 1064,
+    ..FRONT
 };
 
 /// The right half of the second monitor.
@@ -39,6 +46,18 @@ pub(super) fn on_two(settings: Settings, ids: &[u64]) -> Harness {
     let mut windows = vec![(1, 0), (2, 0)];
     windows.extend(ids.iter().map(|&id| (id, 1)));
     Harness::with_settings(settings, 2, &windows)
+}
+
+/// As [`on_two`], with the first of `ids` in monocle on the second
+/// monitor; then window 1 takes focus back.
+pub(super) fn monocle_on_second(settings: Settings, ids: &[u64]) -> Harness {
+    let mut h = on_two(settings, ids);
+    h.event(WindowEvent::Focused {
+        window: wid(ids[0]),
+    });
+    h.action(Action::ToggleMonocle);
+    h.event(WindowEvent::Focused { window: wid(1) });
+    h
 }
 
 /// Whether `effects` place any window.

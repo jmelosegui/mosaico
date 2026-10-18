@@ -5,13 +5,13 @@
 //! then would leave (`drag_live_layout.rs`): the workspace of its monitor
 //! with the splits its held edges would move, for a resize, or that of
 //! another monitor with the window put where it would join, for a move
-//! over it. Each other window of that workspace is placed in its slot there
-//! at once, never moved there over time, and only when the drag has not
-//! put it there already, or, the first time, when it is not there. Nothing
-//! is committed: the workspace keeps its windows and splits, and the
-//! dragged window its slot, until the drop. A drop that lands as they were
-//! laid out finds them in place, so only the window it drops settles into
-//! its slot.
+//! over it, tiled even in monocle. Each other window of that workspace is
+//! placed in its slot there at once, never moved there over time, and only
+//! when the drag has not put it there already, or, the first time, when it
+//! is not there. Nothing is committed: the workspace keeps its windows,
+//! splits and monocle, and the dragged window its slot, until the drop. A
+//! drop that lands as they were laid out finds them in place, so only the
+//! window it drops settles into its slot.
 //!
 //! The tiles the drag moved go back where their workspace has them, with
 //! a transition if due, once it no longer lays their monitor out

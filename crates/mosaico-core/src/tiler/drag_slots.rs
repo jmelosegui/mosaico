@@ -9,14 +9,16 @@ use super::super::Tiler;
 use super::target::{DropArea, contains};
 
 impl Tiler {
-    /// What a drop target is worked out from, monitor by monitor.
-    pub(in crate::tiler) fn drop_areas(&self) -> Vec<DropArea> {
+    /// What a drop target is worked out from, monitor by monitor, for a
+    /// window dragged from monitor `from`. A workspace in monocle counts as
+    /// tiled, but on that monitor, where the window goes back.
+    pub(in crate::tiler) fn drop_areas(&self, from: usize) -> Vec<DropArea> {
         let area = |idx: usize| {
             let mon = &self.monitors[idx];
-            let monocle = mon.active_ws().monocle();
+            let back = idx == from && mon.active_ws().monocle();
             DropArea {
                 area: mon.os_work_area,
-                tiles: (!monocle).then(|| self.compute_positions(idx)),
+                tiles: (!back).then(|| self.compute_positions(idx)),
             }
         };
         (0..self.monitors.len()).map(area).collect()
@@ -41,8 +43,7 @@ impl Tiler {
     /// Where the windows of the workspace on screen of monitor `idx` would
     /// be laid out with `window` put before `before` there, or at the end,
     /// with a split of its own at the configured ratio, or an equal share
-    /// down a stack. None in monocle, where only the monocle window is
-    /// placed.
+    /// down a stack. A workspace in monocle is laid out as if it were tiled.
     pub(in crate::tiler) fn positions_joining(
         &self,
         idx: usize,
@@ -50,9 +51,6 @@ impl Tiler {
         window: WindowId,
     ) -> Option<Vec<(WindowId, Rect)>> {
         let ws = self.monitors.get(idx)?.active_ws();
-        if ws.monocle() {
-            return None;
-        }
         let mut windows = ws.windows().to_vec();
         let mut splits = ws.split_ratios().clone();
         let at = before.and_then(|w| ws.index_of(w)).unwrap_or(windows.len());

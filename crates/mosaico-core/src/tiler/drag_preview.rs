@@ -6,11 +6,11 @@
 //! (`drag_drop.rs`), and the preview shows the slot it would get: its
 //! own, that of the tile under the pointer, or the one it would get on
 //! another monitor once put before the tile under the pointer, which in
-//! BSP is not that tile. A drop that would place it nowhere, as onto
-//! another monitor's monocle workspace, shows none, and neither does one
-//! that would be handled as before drops moved windows, as a resize or a
-//! window back where it started. The preview is drawn again only when
-//! where it shows changes, and hidden as the drag ends or is interrupted.
+//! BSP is not that tile, and where a workspace in monocle is laid out as
+//! if it were tiled. A drop that would be handled as before drops moved
+//! windows shows none, as a resize or a window back where it started. The
+//! preview is drawn again only when where it shows changes, and hidden as
+//! the drag ends or is interrupted.
 //! A focus change that leaves the drag going shows it again, which puts
 //! it back just behind the window the user drags. Without reports while
 //! the window is dragged, as with window contents hidden while dragging,

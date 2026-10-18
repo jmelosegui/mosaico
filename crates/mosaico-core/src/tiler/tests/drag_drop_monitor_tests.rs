@@ -25,27 +25,29 @@ fn maximized_on_second(h: &mut Harness) -> Vec<Effect> {
 }
 
 #[test]
-fn a_window_dropped_on_a_monocle_workspace_joins_it_behind_nothing() {
+fn a_window_dropped_on_a_monocle_workspace_ends_monocle_there() {
     // Arrange -- the second monitor shows window 3 in monocle, window 4
     // behind it; then window 1 on the first takes focus back.
     let windows = [(1, 0), (2, 0), (3, 1), (4, 1)];
     let mut h = Harness::with_settings(swapping(), 2, &windows);
+    let behind = h.rect_of(4);
     h.event(WindowEvent::Focused { window: wid(3) });
     h.action(Action::ToggleMonocle);
     h.event(WindowEvent::Focused { window: wid(1) });
-    let front = h.rect_of(3);
 
-    // Act -- onto the monocle window.
-    let effects = drag_to(&mut h, 1, (front.center_x(), front.center_y()));
+    // Act -- over where window 4 is tiled, behind the monocle window.
+    drag_to(&mut h, 1, center(behind));
 
-    // Assert -- as for any window dragged onto a monocle workspace, it
-    // joins the end, only the monocle window is placed there, and nothing
-    // is put behind it.
-    assert_eq!(h.active(1), vec![3, 4, 1]);
-    assert!(places(&effects, 3), "{effects:?}");
-    assert!(!places(&effects, 1) && !places(&effects, 4), "{effects:?}");
-    let behind = |e: &Effect| matches!(e, Effect::PutBehind { .. });
-    assert!(!effects.iter().any(behind), "{effects:?}");
+    // Assert -- as the owner chose while testing, monocle ends there, and
+    // window 1 goes before window 4 and keeps focus, as on any tiled
+    // workspace.
+    let ws = h.workspace(1, 0);
+    assert!(!ws.monocle() && ws.monocle_window().is_none());
+    assert_eq!(h.active(1), vec![3, 1, 4]);
+    assert_eq!(h.rect_of(3), Rect::new(MON_W + 8, 8, 948, 1064));
+    assert_eq!(h.rect_of(1), Rect::new(MON_W + 964, 8, 948, 528));
+    assert_eq!(h.rect_of(4), Rect::new(MON_W + 964, 544, 948, 528));
+    assert_eq!(h.tiler.focused_window(), Some(wid(1)));
 }
 
 #[test]

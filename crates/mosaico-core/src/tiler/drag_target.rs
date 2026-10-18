@@ -15,7 +15,7 @@ pub(in crate::tiler) struct DropArea {
     /// bar's strip included.
     pub(in crate::tiler) area: Rect,
     /// Where each window of the workspace on screen is laid out, in
-    /// order, or `None` in monocle, where a window dropped joins the end.
+    /// order, or `None` in monocle on the dragged window's own monitor.
     pub(in crate::tiler) tiles: Option<Vec<(WindowId, Rect)>>,
 }
 

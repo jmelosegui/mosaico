@@ -60,3 +60,15 @@ mod manager_support;
 #[cfg(test)]
 #[path = "tests/drag_live_motion_tests.rs"]
 mod motion_tests;
+
+#[cfg(test)]
+#[path = "tests/drag_live_monocle_tests.rs"]
+mod monocle_tests;
+
+#[cfg(test)]
+#[path = "tests/drag_live_monocle_drop_tests.rs"]
+mod monocle_drop_tests;
+
+#[cfg(test)]
+#[path = "tests/drag_live_monocle_motion_tests.rs"]
+mod monocle_motion_tests;
