@@ -80,3 +80,7 @@ mod maximized_tests;
 #[cfg(test)]
 #[path = "tests/drag_live_gap_tests.rs"]
 mod gap_tests;
+
+#[cfg(test)]
+#[path = "tests/drag_live_gone_tests.rs"]
+mod gone_tests;

@@ -125,5 +125,9 @@ mod resize_tests;
 mod resize_end_tests;
 
 #[cfg(test)]
+#[path = "tests/drag_live_resize_master_tests.rs"]
+mod resize_master_tests;
+
+#[cfg(test)]
 #[path = "tests/drag_live_resize_cases_tests.rs"]
 mod resize_cases_tests;
