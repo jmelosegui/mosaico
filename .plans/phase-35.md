@@ -367,11 +367,12 @@ the platform's docs (the `os_names` metric counts them in core).
     handled as today. Alt+2 hides it with its workspace and ends the drag.
 11. A window opening during a drag: it is tiled, but its focus does not move the
     pointer until the drag ends.
-12. A neighbour with a minimum size: the ratio is clamped to 0.1 to 0.9, and the
-    retile places both windows as today. Down a stack, the floor is a tenth of
-    an equal share of the column, 26 pixels for four windows stacked on 1080
-    and 15 once three more open, which can be under a window's minimum
-    height, so such windows can overlap, as with BSP's tenth.
+12. A neighbour with a minimum size (35.7): an edge stops where either side
+    keeps its minimum, and every layout gives a window its minimum, taking
+    the space from the others. Where the area cannot hold every minimum the
+    layout is as without them and the window overflows its slot. Down a
+    stack the floor is a tenth of an equal share of the column, 26 pixels
+    for four windows stacked on 1080, which a minimum height can exceed.
 13. Wheel input with "Scroll inactive windows when I hover over them" off: the
     bar may get none. 35.1 checks it, and documents the dependency if so.
 14. Window contents hidden while dragging: no position reports reach the tiler
@@ -421,6 +422,9 @@ crates/
     tiler/drag_mouse.rs        # the drag, its live tiles and where it sent them
     tiler/removal.rs, tiler/step.rs  # what ends a live layout
     tiler/tests/drag_live_*    # NEW: the live layout's tests
+    layout/min_*.rs, ratio_at.rs, split_apply.rs  # NEW: minimum sizes (35.7)
+    tiler/min_sizes.rs         # NEW: minimum sizes read once per window (35.7)
+    tiler/desktop.rs           # Desktop::min_size (35.7)
     tiler/adopt.rs             # the drop decides instead of reassign_monitor's snap back
     tiler/applier.rs, tiler/coalesce.rs  # what a drag start drops
     daemon/dedup.rs            # MoveStarted and Moved are barriers
@@ -438,6 +442,7 @@ crates/
     daemon_types.rs            # DaemonMsg::BarPointer
     daemon_loop.rs, daemon_loop_task.rs, daemon_loop_run.rs, daemon_loop_commands.rs
     decorations.rs, border/    # the drop preview overlay
+    tiling/min_size.rs         # NEW: the minimum size of a window (35.7)
   mosaico/src/main.rs          # the new actions in the CLI
   mosaico/tests/               # integration tests for a bar click and a drop
 metrics/                       # baselines recorded with each step
@@ -586,6 +591,34 @@ Added while testing 35.5 on the desktop, as a pull request of its own.
 - [ ] Manual test: grab a window that has no focus, by its title bar and by an
       edge, and watch it take focus and keep its border through the drag
 
+### 35.7 Minimum sizes
+
+Added while testing 35.6: some windows cannot be made smaller than a width
+or a height of their own, and the owner chose both of these.
+
+- [x] Desktop::min_size in core, an optional minimum visible size per
+      window, None by default, read once per window when it is first
+      laid out and kept, read again for all on a retile
+- [x] The Windows reading: the window's answer to the minimum size query,
+      sent with a short timeout so a hung app cannot stall the tiler, less
+      its invisible frame, and what the system gives every window left out
+- [x] An edge a user drags stops where the window on either side keeps its
+      minimum width or height, live and at the drop, in BSP (the whole
+      region on each side), the master splits and stack heights
+- [x] Every layout gives a window its minimum when its slot is smaller,
+      taking the space from the neighbours with room: BSP, VerticalStack,
+      ThreeColumn and the stacks and side columns with heights
+- [x] Where the area cannot hold every minimum, the layout is as without
+      them, and the window overflows its slot
+- [x] With no minimum binding, every layout is as before to the pixel: the
+      existing tests and the metrics baselines show it
+- [x] Tests: the limits of each split, the column fit, a drag that stops at
+      a minimum (held and dropped, from either side), a minimum that does
+      not bind, each layout on opening a window, the overflow, and one read
+      per window until a retile
+- [ ] Manual test: with an app that has a large minimum width or height,
+      such as a settings window, drag the edge toward it in BSP and a
+      stack, open it next to others, and cycle layouts
 ### Verification
 
 - [x] Manual test: click and scroll the bar on every monitor, in both workspace

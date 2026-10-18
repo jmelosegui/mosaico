@@ -208,9 +208,9 @@ column, with the master staying centered. The edge between two windows of
 a stack or a column trades height between those two only, and every other
 window keeps its size. The outer edges go back, and a split stops a tenth of
 its area from either end, or down a stack where either of the two windows
-would have less than a tenth of an equal share of the stack, which can be
-under a window's minimum height, so that it overlaps the next, as at the
-tenth of a split. Each workspace keeps the splits moved and the heights of
+would have less than a tenth of an equal share of the stack, and never where
+a window on either side would fall below its minimum size, see
+[Minimum Sizes](tiling-layout.md#minimum-sizes). Each workspace keeps the splits moved and the heights of
 the stacks resized, for each of its layouts: a split nobody moved stays at
 `[layout] ratio`, and a stack nobody resized is shared equally, as every
 split and stack of the workspaces on screen is again after a retile
