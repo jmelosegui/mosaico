@@ -84,3 +84,7 @@ mod gap_tests;
 #[cfg(test)]
 #[path = "tests/drag_live_gone_tests.rs"]
 mod gone_tests;
+
+#[cfg(test)]
+#[path = "tests/drag_live_swap_tests.rs"]
+mod swap_tests;
