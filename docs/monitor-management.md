@@ -350,7 +350,8 @@ This places the window at the entry side of the target monitor.
 
 A tiled window the user drags onto another monitor with `[mouse]
 drag_to_swap` on joins that monitor's workspace before the tile under the
-pointer, or at the end, and that monitor takes focus with it. The monitor is
+pointer, where it was going while the pointer is in a gap between tiles,
+or at the end, and that monitor takes focus with it. The monitor is
 the one the pointer is on as the drag ends, never the one the window's rect
 is mostly on, which the system rescales on its way between monitors of
 different scales. One the system maximizes there as it is dropped joins it

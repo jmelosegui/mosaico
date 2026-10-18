@@ -255,7 +255,11 @@ daemon action path (carry_out)  -> action with an origin          { monitor, fro
   taking focus other than by the tiler's doing end the drag, as the end of a
   drag may never be reported.
 - The insert position on another monitor is before the tile under the pointer,
-  or at the end; the preview shows the slot the window gets in that monitor's
+  or at the end over an outer gap or the bar. In a gap between tiles, inside
+  the box they fill, it keeps the target the last report decided (the end
+  with none), so the tiles that made room do not bounce; the owner chose
+  this in the #160 review, round 1. The preview shows the slot the window
+  gets in that monitor's
   layout once it is inserted, which in BSP is not the tile under the pointer.
 
 ### Split resizing
@@ -410,6 +414,12 @@ crates/
     tiler/empty_focus.rs       # the bar strip is part of its monitor
     tiler/drag.rs              # NEW: drag tracking and drop targets
     tiler/drag_live.rs         # NEW: the tiles a drop would move, laid out live (35.6)
+    tiler/drag_live_layout.rs  # NEW: where they go, left alone under a maximized window
+    tiler/drag_live_back.rs    # NEW: putting them back, what each drag sent where
+    tiler/drag_aim.rs          # NEW: the target kept in a gap between tiles
+    tiler/drag_mouse.rs        # the drag, its live tiles and where it sent them
+    tiler/removal.rs, tiler/step.rs  # what ends a live layout
+    tiler/tests/drag_live_*    # NEW: the live layout's tests
     tiler/adopt.rs             # the drop decides instead of reassign_monitor's snap back
     tiler/applier.rs, tiler/coalesce.rs  # what a drag start drops
     daemon/dedup.rs            # MoveStarted and Moved are barriers
@@ -567,7 +577,10 @@ Added while testing 35.5 on the desktop, as a pull request of its own.
       floor, and watch the tiles beyond it follow, then Esc
 - [ ] Manual test: drag a window over another monitor, tiled and in monocle,
       over its tiles and its bar, back over its own, with Esc and a key, and
-      drop it there, with transitions on and off
+      drop it there, with transitions on and off; cross the gap between two
+      tiles there and check nothing bounces; drag over a monitor with a
+      maximized window and check only the preview shows; in a stack, check
+      whether the open slot jumping under the pointer is acceptable
 - [ ] Manual test: grab a window that has no focus, by its title bar and by an
       edge, and watch it take focus and keep its border through the drag
 

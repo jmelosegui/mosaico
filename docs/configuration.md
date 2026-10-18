@@ -198,7 +198,8 @@ into a layout change. The edge between two tiles moves the split between
 them, and the windows beyond it follow, while the edge is dragged, one gap
 from it, and the split moves once it is let go; a corner where two splits
 meet moves both. Where a split stops, the windows beyond it stop too, and
-the window held may overlap them until it is let go. In the vertical stack the master's edge and the edges between
+the window held may overlap them until it is let go. In the vertical stack
+the master's edge and the edges between
 the windows of the stack resize, and in three columns the master's edges,
 the inner edges of the side columns and the edges between the windows of a
 column, with the master staying centered. The edge between two windows of

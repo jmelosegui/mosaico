@@ -34,6 +34,7 @@ contracts the manager runs on.
 | `crates/mosaico-core/src/tiler/drag.rs`, `drag_mouse.rs` | The drag the tiler follows, keyed on the window the user drags; `Mouse`, what the mouse does |
 | `crates/mosaico-core/src/tiler/drag_border.rs`, `drag_end.rs` | The dragged window's focus, taken as its drag starts, and its border, drawn where each report has it; what interrupts a drag, and what ends one before its `Moved` |
 | `crates/mosaico-core/src/tiler/drag_target.rs` | `target()`, `cancelled()` and `ending()` -- where a dropped window lands, and how its drag ended, as plain functions |
+| `crates/mosaico-core/src/tiler/drag_aim.rs` | Where a window dragged over another monitor goes while the pointer is in a gap between tiles: the target the last report noted |
 | `crates/mosaico-core/src/tiler/drag_drop.rs`, `drag_slots.rs`, `drag_preview.rs` | `on_moved()` -- what a drop does; the slots a drop is decided against, and the layout another monitor would have with the window; `preview_drop()` -- the preview of where the window lands |
 | `crates/mosaico-core/src/tiler/drag_resize.rs` | `move_splits()` -- the splits a tiled window resized by its edges moves; `splits_dropped()` -- those it would move if let go now |
 | `crates/mosaico-core/src/tiler/drag_live.rs`, `drag_live_layout.rs`, `drag_live_back.rs` | `follow_live()` -- the tiles a drop would move, laid out live on each report of the dragged window; `live_layout()` -- what a drop now would leave; `settle_live()`, `forget_live()` -- putting them back once the drag no longer lays them out |
@@ -892,7 +893,8 @@ from the pointer, never from the window's rect:
 | over another tile of its monitor | takes that tile's slot, and the other window its own |
 | over its own slot, a gap or the bar, or anywhere on its monitor in monocle | goes back to its slot |
 | over a tile of another monitor, which in monocle there is the tile its tiled layout has under the pointer | joins that monitor's workspace before that tile, and the monitor takes focus with it |
-| over a gap of another monitor, or its bar | joins the end of that workspace |
+| over a gap between tiles of another monitor, inside the box they fill | goes where the last report had it go there, so the tiles do not bounce between two tiles (`drag_aim.rs`); at the end with none |
+| over an outer gap of another monitor, or its bar | joins the end of that workspace |
 | on no monitor, as over a taskbar | is handled as before |
 
 A monitor counts with the bar's strip (its work area as the platform reports
@@ -1016,12 +1018,16 @@ the pointer where the desktop has it, by the rules the drop follows
   tile beyond it stops there too, and the held window may overlap it, or
   leave a wider gap, until the drop, when it settles to the clamp;
 - for a move over another monitor, with `drag_to_swap` on, that monitor's
-  workspace with the window put before the tile under the pointer, or at
-  the end over a gap or the bar, by the insertion, split and stack-height
-  rules the drop uses (`positions_joining`, which the preview's slot comes
-  from too), a workspace in monocle laid out tiled: its tiles make room for
-  the window, and the preview shows the slot left open. The window's own
-  monitor keeps its slot, so dragging back over it is clean.
+  workspace with the window put before the tile under the pointer, where
+  the last report put it while the pointer is in a gap between tiles
+  (`drag_aim.rs`), or at the end over an outer gap or the bar, by the
+  insertion, split and stack-height rules the drop uses
+  (`positions_joining`, which the preview's slot comes from too), a
+  workspace in monocle laid out tiled: its tiles make room for the
+  window, and the preview shows the slot left open. A monitor with a
+  maximized or fullscreen window on screen is left alone, and only the
+  preview shows there. The window's own monitor keeps its slot, so
+  dragging back over it is clean.
 
 Each window of that layout but the dragged one is placed in its slot,
 only when its slot is not where the drag last sent it, or, before the
