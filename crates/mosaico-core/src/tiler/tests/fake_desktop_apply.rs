@@ -93,6 +93,8 @@ impl FakeDesktop {
             Effect::DropBorder { window } => {
                 self.borders.remove(&window);
             }
+            Effect::ShowPreview { rect, .. } => self.preview = Some(rect),
+            Effect::HidePreview => self.preview = None,
             _ => {}
         }
     }

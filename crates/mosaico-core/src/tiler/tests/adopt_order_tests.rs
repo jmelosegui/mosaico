@@ -107,7 +107,7 @@ fn a_window_taken_in_where_the_user_dropped_it_is_moved_before_the_window_there(
     h.desktop.windows.insert(wid(99), FakeWindow::app(0));
 
     // Act
-    let effects = h.event(WindowEvent::Moved { window: wid(99) }).to_vec();
+    let effects = h.event(WindowEvent::moved(wid(99))).to_vec();
 
     // Assert
     assert_moved_first(&h, &effects, 99);

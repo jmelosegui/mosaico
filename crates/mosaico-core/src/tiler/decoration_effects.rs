@@ -13,16 +13,16 @@ use super::Effect;
 use super::window_effects::report;
 
 /// Carries out `effect` through `decorations` if it draws, hides or
-/// drops a border, has every border drawn from scratch, or changes the
-/// corners of a window.
+/// drops a border, has every border drawn from scratch, changes the
+/// corners of a window, or shows or hides the drop preview.
 ///
 /// Failures are logged rather than returned, as in
-/// [`apply_window_effect`](super::apply_window_effect). A border that
-/// could not be created, the only way drawing one fails, is a warning,
-/// unless the platform does not draw borders at all. Other failures,
-/// such as a window that closed in the meantime, are only logged for
-/// debugging. Effects that change a window or move the pointer are left
-/// to `apply_window_effect`.
+/// [`apply_window_effect`](super::apply_window_effect). A border or a
+/// preview that could not be created, the only way drawing one fails, is
+/// a warning, unless the platform does not draw them at all. Other
+/// failures, such as a window that closed in the meantime, are only logged
+/// for debugging. Effects that change a window or move the pointer are
+/// left to `apply_window_effect`.
 pub fn apply_decoration_effect(effect: &Effect, decorations: &mut dyn Decorations) {
     match *effect {
         Effect::Border {
@@ -49,6 +49,16 @@ pub fn apply_decoration_effect(effect: &Effect, decorations: &mut dyn Decoration
         Effect::Undecorate { window } => {
             report("undecorate", window, decorations.reset_corners(window))
         }
+        Effect::ShowPreview {
+            window,
+            rect,
+            ref style,
+        } => report_preview(window, decorations.show_preview(window, rect, style)),
+        Effect::HidePreview => {
+            if let Err(e) = decorations.hide_preview() {
+                crate::log_debug!("hiding the drop preview failed: {}", e);
+            }
+        }
         Effect::Place { .. }
         | Effect::PrePlace { .. }
         | Effect::Hide { .. }
@@ -74,6 +84,18 @@ fn report_border(window: WindowId, result: crate::Result<()>) {
     }
 }
 
+/// Logs a drop preview the platform could not show, as loudly as a
+/// border.
+fn report_preview(window: WindowId, result: crate::Result<()>) {
+    if let Err(e) = result {
+        let level = border_failure_level(&e);
+        crate::log::write(
+            level,
+            format_args!("drop preview of {} failed: {}", window, e),
+        );
+    }
+}
+
 /// How loudly a border the platform could not draw is logged: a
 /// warning, unless the platform does not draw borders at all, which it
 /// says on every redraw.
@@ -83,3 +105,7 @@ pub(super) fn border_failure_level(error: &Error) -> Level {
         _ => Level::Warn,
     }
 }
+
+#[cfg(test)]
+#[path = "tests/decoration_preview_tests.rs"]
+mod preview_tests;

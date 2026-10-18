@@ -1,9 +1,12 @@
-//! The report of a drag the user starts, and the event it becomes.
+//! The reports of a drag the user starts and ends, and the events they
+//! become.
 
+use mosaico_core::event::DragStart;
 use mosaico_core::{WindowEvent, WindowId};
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::{
-    EVENT_SYSTEM_MOVESIZESTART, OBJID_CARET, OBJID_CLIENT, OBJID_VSCROLL, OBJID_WINDOW,
+    EVENT_SYSTEM_MOVESIZEEND, EVENT_SYSTEM_MOVESIZESTART, OBJID_CARET, OBJID_CLIENT, OBJID_VSCROLL,
+    OBJID_WINDOW,
 };
 
 use super::translate;
@@ -21,9 +24,25 @@ fn a_drag_that_starts_on_a_window_is_reported_for_it() {
     // Act
     let event = drag_started(OBJID_WINDOW.0);
 
-    // Assert
+    // Assert -- what was read with it is added in the hook.
     let window = WindowId::from_raw(TOP as u64);
-    assert_eq!(event, Some(WindowEvent::MoveStarted { window }));
+    let start = DragStart::default();
+    assert_eq!(event, Some(WindowEvent::MoveStarted { window, start }));
+}
+
+#[test]
+fn a_drag_that_ends_on_a_window_is_reported_for_it() {
+    // Act
+    let event = translate(
+        EVENT_SYSTEM_MOVESIZEEND,
+        HWND(TOP as *mut _),
+        OBJID_WINDOW.0,
+    );
+
+    // Assert -- where the pointer is is added in the hook.
+    let window = WindowId::from_raw(TOP as u64);
+    let pointer = None;
+    assert_eq!(event, Some(WindowEvent::Moved { window, pointer }));
 }
 
 #[test]

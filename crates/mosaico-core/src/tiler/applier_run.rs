@@ -48,6 +48,25 @@ impl Applier {
                 apply_window_effect(effect, platform.desktop(), platform.control());
                 self.show_state(window, left_by(effect), platform);
             }
+            // While the user drags a window the pointer is theirs: it goes
+            // where it was asked once the drag ends (`applier_drag.rs`).
+            Effect::Focus {
+                window,
+                move_cursor: true,
+            }
+            | Effect::CenterCursor { window }
+                if self.holds_pointer() =>
+            {
+                self.owe_pointer(window);
+                if let Effect::Focus { .. } = effect {
+                    let move_cursor = false;
+                    let focus = Effect::Focus {
+                        window,
+                        move_cursor,
+                    };
+                    apply_window_effect(&focus, platform.desktop(), platform.control());
+                }
+            }
             Effect::Focus {
                 window,
                 move_cursor: true,
@@ -95,9 +114,11 @@ impl Applier {
                 }
                 apply_decoration_effect(effect, platform.decorations());
             }
-            Effect::Decorate { .. } | Effect::Undecorate { .. } | Effect::RedrawBorders => {
-                apply_decoration_effect(effect, platform.decorations())
-            }
+            Effect::Decorate { .. }
+            | Effect::Undecorate { .. }
+            | Effect::RedrawBorders
+            | Effect::ShowPreview { .. }
+            | Effect::HidePreview => apply_decoration_effect(effect, platform.decorations()),
         }
         self.expectations.applied(effect, now);
         if self

@@ -5,33 +5,47 @@
 
 use std::time::Instant;
 
-use crate::WindowEvent;
+use crate::{WindowEvent, WindowId};
 
 use super::super::Platform;
 use super::Applier;
 use super::shows::ShowState;
 
 impl Applier {
-    /// Why an event is an echo of our own effects, if it is one.
+    /// Why an event is an echo of our own effects, or is not for the tiler
+    /// to see, if it is either, with the tiler's focus on `focused`.
     pub(in crate::tiler) fn echo(
         &mut self,
         event: &WindowEvent,
+        focused: Option<WindowId>,
         platform: &mut dyn Platform,
         now: Instant,
     ) -> Option<&'static str> {
-        // Nothing held for a window that no longer exists may be applied.
-        if let WindowEvent::Destroyed { window } = *event {
+        // Nothing held for a window that no longer exists may be applied,
+        // nor what was held for one the user grabs, which was decided
+        // before they took it.
+        if let WindowEvent::Destroyed { window } | WindowEvent::MoveStarted { window, .. } = *event
+        {
             self.held.forget(window);
             self.release_dropped_focus();
+        }
+        if let WindowEvent::Destroyed { window } = *event {
             self.moved_on_screen.remove(&window);
         }
         self.posted_seen(event, platform, now);
         // A window that slides under a pointer at rest is not one the user
-        // pointed at.
-        if matches!(event, WindowEvent::MouseHover { .. }) && self.is_moving() {
-            return Some("windows are moving");
+        // pointed at, and focus follows mouse rests while the user holds a
+        // window (`applier_drag.rs`).
+        if let WindowEvent::MouseHover { .. } = event {
+            if self.is_moving() {
+                return Some("windows are moving");
+            }
+            if self.holds_pointer() {
+                return Some("a window is held");
+            }
         }
         let echo = self.expectations.echo(event, now);
+        self.drag_seen(event, echo.is_some(), focused, platform.desktop());
         self.motion_seen(event, echo.is_some(), platform.desktop(), now);
         echo
     }
@@ -50,7 +64,7 @@ impl Applier {
             WindowEvent::Hidden { window } => posted.reported(window, ShowState::Hidden),
             WindowEvent::Minimized { window } => posted.reported(window, ShowState::Minimized),
             WindowEvent::LocationChanged { window } => self.landed(window, platform, now),
-            WindowEvent::MoveStarted { window } => {
+            WindowEvent::MoveStarted { window, .. } => {
                 posted.sent.remove(&window);
                 posted.placed.remove(&window);
             }

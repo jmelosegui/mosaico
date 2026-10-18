@@ -14,7 +14,7 @@ fn adopt_by_drag(h: &mut Harness, id: u64, class: &str) {
         facts.class = class.into();
     }
     h.desktop.windows.insert(wid(id), window);
-    h.event(WindowEvent::Moved { window: wid(id) });
+    h.event(WindowEvent::moved(wid(id)));
 }
 
 #[test]

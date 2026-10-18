@@ -101,7 +101,7 @@ fn a_window_the_user_grabs_on_its_way_is_no_longer_waited_for() {
     let (platform, mut manager, _) = slow_swap();
 
     // Act -- the user grabs it, and drags it away.
-    manager.handle_event(&WindowEvent::MoveStarted { window: wid(1) });
+    manager.handle_event(&WindowEvent::move_started(wid(1)));
     platform.edit(1, |w| w.rect.y += 100);
     manager.handle_event(&WindowEvent::LocationChanged { window: wid(1) });
 

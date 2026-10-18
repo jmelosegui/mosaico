@@ -46,7 +46,7 @@ fn a_moving_window_the_user_grabs_is_logged_as_grabbed() {
     let (_platform, mut manager) = moving();
 
     // Act
-    manager.handle_event(&WindowEvent::MoveStarted { window: wid(1) });
+    manager.handle_event(&WindowEvent::move_started(wid(1)));
 
     // Assert
     let how = "stopped where it was, grabbed by the user";

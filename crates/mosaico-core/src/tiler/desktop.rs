@@ -1,6 +1,11 @@
-use crate::{MonitorId, MonitorKey, Rect, WindowId};
+use crate::{MonitorId, Rect, WindowId};
 
 use super::WindowIdentity;
+
+#[path = "desktop_display.rs"]
+mod display;
+
+pub use display::Display;
 
 /// Read-only view of the desktop the tiler decides against.
 ///
@@ -36,7 +41,16 @@ pub trait Desktop {
     /// The window's visible bounds, as the user sees them.
     fn rect(&self, window: WindowId) -> Option<Rect>;
 
-    /// The window that owns this one, for dialogs and property sheets.
+    /// The window that owns this one, as a window owns its dialogs and
+    /// property sheets: an owned window stays in front of its owner and
+    /// goes away with it.
+    ///
+    /// The direct owner only, not the owner's own owner in turn. `None`
+    /// for a window nothing owns, and from a platform without owned
+    /// windows. The tiler counts focus the system gives an owned window as
+    /// focus on its owner: the border goes to the owner, and when that is
+    /// the window the tiler gave focus, neither a drag going on nor the
+    /// pointer it holds ends for it.
     fn owner(&self, window: WindowId) -> Option<WindowId>;
 
     /// Who the window belongs to: what tells it apart from a later
@@ -119,32 +133,4 @@ pub struct WindowFacts {
     /// Whether the window has a title bar. Windows without one are only
     /// managed when a rule asks for it.
     pub has_caption: bool,
-}
-
-/// A connected monitor, as [`Enumerator`](super::Enumerator) lists it.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Display {
-    /// Session id. Platforms may hand out new ids on every display
-    /// change, so this only identifies a monitor until the next one.
-    pub id: MonitorId,
-    /// Identity that survives reconnects. See [`MonitorKey`].
-    pub key: MonitorKey,
-    /// Usable area, excluding taskbars, docks and panels.
-    pub work_area: Rect,
-    /// Whether this is the primary monitor.
-    pub primary: bool,
-}
-
-impl crate::Monitor for Display {
-    fn key(&self) -> &MonitorKey {
-        &self.key
-    }
-
-    fn work_area(&self) -> Rect {
-        self.work_area
-    }
-
-    fn is_primary(&self) -> bool {
-        self.primary
-    }
 }

@@ -68,23 +68,30 @@ fn without_transitions_the_pointer_follows_focus_to_where_the_desktop_has_the_wi
 }
 
 #[test]
-fn the_pointer_follows_focus_to_where_the_user_dragged_a_window() {
+fn the_pointer_follows_focus_to_a_dragged_window_once_it_is_dropped() {
     // Arrange -- right after a swap, the user drags window 2 a little.
     let (platform, mut manager) = two(&animated());
+    let left = platform.window(1).rect;
     swap(&mut manager);
     settle(&platform, &mut manager);
-    manager.handle_event(&WindowEvent::MoveStarted { window: wid(2) });
+    manager.handle_event(&WindowEvent::move_started(wid(2)));
     platform.edit(2, |w| w.rect.x += 100);
-    let at = platform.window(2).rect;
     platform.take_calls();
 
-    // Act -- focus goes to it, the pointer following.
+    // Act -- focus goes to it, the pointer following, and then the user
+    // drops it.
     manager.handle_action(&Action::Focus(Direction::Left));
     manager.flush_pending();
+    let dragging = platform.take_calls();
+    manager.handle_event(&WindowEvent::moved(wid(2)));
 
-    // Assert -- to where the user has it, not to its slot.
+    // Assert -- the pointer stays with the user while they drag, then goes
+    // to the slot the window goes back to, not to where they left it.
+    let moves = |c: &Call| matches!(c, Call::MoveCursor(..));
+    assert!(dragging.contains(&Call::Focus(wid(2))), "{dragging:?}");
+    assert!(!dragging.iter().any(moves), "{dragging:?}");
     let calls = platform.take_calls();
-    assert!(calls.contains(&centered_on(at)), "{calls:?}");
+    assert!(calls.contains(&centered_on(left)), "{calls:?}");
 }
 
 #[test]

@@ -14,8 +14,8 @@ impl WindowEvent {
             | Self::Hidden { window }
             | Self::Focused { window }
             | Self::MouseHover { window }
-            | Self::MoveStarted { window }
-            | Self::Moved { window }
+            | Self::MoveStarted { window, .. }
+            | Self::Moved { window, .. }
             | Self::Minimized { window }
             | Self::Restored { window }
             | Self::TitleChanged { window }

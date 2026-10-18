@@ -48,7 +48,7 @@ impl Drop for HiddenWindow {
 
 /// Default handler, required because `WNDCLASSW` wants a
 /// `extern "system"` function pointer rather than the raw import.
-unsafe extern "system" fn test_wnd_proc(
+pub(crate) unsafe extern "system" fn test_wnd_proc(
     hwnd: HWND,
     msg: u32,
     wparam: WPARAM,

@@ -52,10 +52,13 @@ impl<P: Platform> TilingManager<P> {
     /// ([`handle_display_change`](Self::handle_display_change)). The
     /// windows it stops are placed at their targets after the rebuild, or
     /// when there is none ([`display_change_skipped`](Self::display_change_skipped)),
-    /// unless something placed them or took them out of view meanwhile.
+    /// unless something placed them or took them out of view meanwhile. A
+    /// drag going on is interrupted, so no drop is decided against the
+    /// monitors as they were.
     pub fn display_changing(&mut self) {
         let now = self.platform.now();
         self.applier.display_changing(now);
+        self.step(Input::DisplayChanging);
     }
 
     /// Ends a display change the daemon does not rebuild for, as when it

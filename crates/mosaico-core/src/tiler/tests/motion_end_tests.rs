@@ -42,7 +42,7 @@ fn a_moving_window_that_is_minimized_hidden_or_grabbed_stops_while_the_other_goe
         // Act
         match stop {
             Stop::Minimize => manager.handle_action(&Action::MinimizeFocused),
-            Stop::Grab => manager.handle_event(&WindowEvent::MoveStarted { window: wid(1) }),
+            Stop::Grab => manager.handle_event(&WindowEvent::move_started(wid(1))),
             Stop::Destroy => {
                 platform.close_window(1);
                 manager.handle_event(&WindowEvent::Destroyed { window: wid(1) });
