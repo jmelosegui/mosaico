@@ -349,13 +349,21 @@ This places the window at the entry side of the target monitor.
 ## Monitor Reassignment
 
 A tiled window the user drags onto another monitor with `[mouse]
-drag_to_swap` on joins that monitor's workspace before the tile under the
-pointer, or at the end, and that monitor takes focus with it. The monitor is
+drag_to_swap` on joins that monitor's workspace before or after the tile
+under the pointer, whichever gives it a slot under the pointer, where it
+was going while the pointer is in a gap between tiles,
+or at the end, and that monitor takes focus with it. The monitor is
 the one the pointer is on as the drag ends, never the one the window's rect
 is mostly on, which the system rescales on its way between monitors of
 different scales. One the system maximizes there as it is dropped joins it
 too, and stays maximized until it is restored (see
-[tiling-layout.md](tiling-layout.md#dragging-windows)).
+[tiling-layout.md](tiling-layout.md#dragging-windows)). While the window is
+dragged over that monitor, the tiles there make room for it at once, as
+they would once it joins, and go back once the drag leaves the monitor, for
+Escape or a key too; a workspace there in monocle is laid out tiled
+meanwhile, and leaves monocle as the window joins it. The window's own
+monitor keeps its slot until the drop (see
+[tiling-layout.md](tiling-layout.md#tiles-that-follow-a-drag)).
 
 `reassign_monitor(hwnd)` handles the other manual window drags between
 monitors: those with `drag_to_swap` off, of windows the tiler did not follow

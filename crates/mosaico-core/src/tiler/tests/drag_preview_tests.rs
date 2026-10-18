@@ -5,6 +5,7 @@ use crate::config::{Color, CornerStyle};
 use crate::id::wid;
 use crate::tiler::tests::{Harness, MON_W};
 use crate::tiler::{Effect, PreviewStyle};
+use crate::{Action, Rect, WindowEvent};
 
 use super::super::support::{center, grab, report_at, shown, swapping};
 
@@ -57,6 +58,27 @@ fn on_another_monitor_the_preview_shows_the_slot_the_window_gets() {
 }
 
 #[test]
+fn over_a_monocle_workspace_of_another_monitor_the_preview_shows_its_tiled_slot() {
+    // Arrange -- the second monitor shows window 3 in monocle, window 4
+    // behind it.
+    let windows = [(1, 0), (2, 0), (3, 1), (4, 1)];
+    let mut h = Harness::with_settings(swapping(), 2, &windows);
+    let behind = h.rect_of(4);
+    h.event(WindowEvent::Focused { window: wid(3) });
+    h.action(Action::ToggleMonocle);
+    grab(&mut h, 1);
+
+    // Act -- over where window 4 is tiled.
+    let effects = report_at(&mut h, 1, center(behind));
+
+    // Assert -- as the owner chose while testing, monocle is set aside
+    // there: window 1 would go before window 4, at the top of the right
+    // half.
+    let slot = Rect::new(MON_W + 964, 8, 948, 528);
+    assert_eq!(shown(&effects), Some(slot));
+}
+
+#[test]
 fn the_preview_is_drawn_again_only_when_where_it_shows_changes() {
     // Arrange -- shown over window 2.
     let mut h = Harness::with_settings(swapping(), 1, &[(1, 0), (2, 0)]);
@@ -67,8 +89,9 @@ fn the_preview_is_drawn_again_only_when_where_it_shows_changes() {
     // Act -- the pointer moves on over the same tile.
     let effects = report_at(&mut h, 1, (right.x + 20, right.y + 30));
 
-    // Assert
-    assert!(effects.is_empty(), "{effects:?}");
+    // Assert -- nothing but the dragged window's border moves.
+    let previews = |e: &Effect| matches!(e, Effect::ShowPreview { .. } | Effect::HidePreview);
+    assert!(!effects.iter().any(previews), "{effects:?}");
 }
 
 #[test]

@@ -5,28 +5,33 @@
 //! known from what the pointer grabbed as it started. The tiler follows
 //! the drag of a tiled window from its start to its end. Meanwhile the
 //! user has the window: no layout pass places it, so it never animates
-//! either, and once it has left where it started its border is hidden
-//! (`drag_border.rs`). What was held back for the window is dropped as
+//! either, and it is the focused window, with its border on it wherever
+//! it goes (`drag_border.rs`). What was held back for the window is dropped as
 //! the drag starts, and the pointer is left alone until it ends, whatever
 //! moves focus meanwhile (`applier_drag.rs`).
 //!
 //! The drag ends with its `Moved`, and the window lands where it is
 //! dropped (`drag_drop.rs`), or before it, as `drag_end.rs` says. A
-//! preview shows where it would land meanwhile (`drag_preview.rs`). A
-//! window resized by edges that border splits moves them instead
-//! (`drag_resize.rs`).
+//! preview shows where it would land meanwhile (`drag_preview.rs`), and
+//! the tiles its drop would move follow it (`drag_live.rs`). A window
+//! resized by edges that border splits moves them (`drag_resize.rs`).
 
 use crate::event::{DragStart, Grab};
 use crate::{Rect, WindowId};
 
-use super::{Effect, Plan, Tiler};
+use super::{Plan, Tiler};
+use target::Target;
 
+#[path = "drag_aim.rs"]
+mod aim;
 #[path = "drag_border.rs"]
 mod border;
 #[path = "drag_drop.rs"]
 mod dropping;
 #[path = "drag_end.rs"]
 mod end;
+#[path = "drag_live.rs"]
+mod live;
 #[path = "drag_mouse.rs"]
 mod mouse;
 #[path = "drag_preview.rs"]
@@ -56,15 +61,18 @@ pub(super) struct Drag {
     pub(super) start: Rect,
     /// Where the pointer was as the drag started, if the platform read it.
     pub(super) pointer: Option<(i32, i32)>,
-    /// Whether a report found the window away from where it started: its
-    /// border is hidden from then on.
-    pub(super) left_start: bool,
+    /// Whether the tiler took focus for the window as the drag started,
+    /// and no report has said since that the system gave it focus.
+    pub(super) focus_owed: bool,
     /// Whether the tiler decides where the window lands, and whether a
     /// resize moves the splits its edges border, until an action, from a
     /// key, a command or a bar, or a display change interrupts the drag.
     pub(super) decides: bool,
     /// Where the preview shows the window would land, while it shows.
     pub(super) preview: Option<Rect>,
+    /// Where the last report had the window join another monitor, if it
+    /// did, which the pointer in a gap between tiles there keeps.
+    pub(super) joining: Option<Target>,
 }
 
 impl Tiler {
@@ -99,27 +107,11 @@ impl Tiler {
             from_maximized,
             start: start_rect,
             pointer: start.pointer,
-            left_start: false,
+            focus_owed: false,
             decides: true,
             preview: None,
+            joining: None,
         });
-    }
-
-    /// Stops following the drag, if the tiler follows one, hides its
-    /// preview, and returns it.
-    pub(super) fn end_drag(&mut self, plan: &mut Plan) -> Option<Drag> {
-        let drag = self.mouse.drag.take()?;
-        crate::log_debug!("drag {} ends", drag.window);
-        if drag.preview.is_some() {
-            plan.emit(Effect::HidePreview);
-        }
-        Some(drag)
-    }
-
-    /// Whether the tiler follows the drag of `window`: until it ends,
-    /// nothing places the window.
-    pub(super) fn is_dragged(&self, window: WindowId) -> bool {
-        self.mouse.drag.as_ref().is_some_and(|d| d.window == window)
     }
 }
 

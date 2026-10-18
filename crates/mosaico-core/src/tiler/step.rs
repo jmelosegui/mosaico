@@ -24,7 +24,8 @@ impl Tiler {
         let mut plan = Plan::new(desktop, now);
         // Every action, from a key, a command or a bar, and a display
         // change, from when it is noted, leave where a dragged window lands
-        // to its end, and the tiler stopping ends the drag (`drag_end.rs`).
+        // to its end, and the tiler stopping ends the drag (`drag_end.rs`)
+        // and leaves the tiles it laid out live where they are.
         if matches!(
             input,
             Input::Action(..) | Input::DisplayChanging | Input::Displays { .. }
@@ -32,6 +33,7 @@ impl Tiler {
             self.interrupt_drag(&mut plan);
         } else if let Input::Shutdown = input {
             self.end_drag(&mut plan);
+            self.leave_live();
         }
         match input {
             Input::Action(action, origin) => {
@@ -52,6 +54,9 @@ impl Tiler {
             Input::Shutdown => self.restore_all_windows(&mut plan),
         }
         self.end_drag_of_gone(&mut plan);
+        // Whatever the step laid out, a monitor a drag no longer lays out
+        // live goes back to its layout (`drag_live.rs`).
+        self.settle_live(&mut plan);
         if seed {
             self.seed_filling(desktop);
         }

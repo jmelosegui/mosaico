@@ -34,6 +34,7 @@ impl Tiler {
     fn take_focus(&mut self, plan: &mut Plan, window: WindowId, from_mouse: bool) {
         self.focused_window = Some(window);
         self.focused_maximized = plan.is_maximized(window);
+        self.focus_asked(window);
         plan.emit(Effect::Focus {
             window,
             move_cursor: self.mouse.follows_focus && !from_mouse && !plan.from_pointer,

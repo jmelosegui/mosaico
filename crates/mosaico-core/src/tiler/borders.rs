@@ -81,8 +81,7 @@ impl Tiler {
     }
 
     /// How the border around `window` on monitor `mon_idx` is drawn, or
-    /// `None` when it should be hidden, as it is once the user drags it
-    /// away from where it was.
+    /// `None` when it should be hidden.
     fn border_style(
         &self,
         plan: &Plan,
@@ -90,9 +89,6 @@ impl Tiler {
         mon_idx: usize,
         rect: Rect,
     ) -> Option<BorderStyle> {
-        if self.hides_border(window) {
-            return None;
-        }
         let is_focused = self.focused_window == Some(window);
         let on_focused_monitor = mon_idx == self.focused_monitor;
         let focused_is_maximized = self.focused_window.is_some_and(|w| plan.is_maximized(w));

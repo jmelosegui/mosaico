@@ -65,13 +65,21 @@ monitor.
 ## Manual Dragging
 
 If you drag a tiled window by its title bar to a different monitor and drop
-it there, it joins that monitor's windows before the tile under the
-pointer, or at the end when the pointer is over a gap or its status bar,
-and that monitor takes focus. A preview shows where it will land while you
-drag. Where the pointer is decides, not where most of the window is, so a
-window Windows rescales on its way to a monitor of another scale lands
-where you point. Both monitors are retiled. A window Windows maximizes
-there as you drop it joins that monitor too, and stays maximized. See
+it there, it joins that monitor's windows where the room they make opens
+under the pointer, before or after the window there, or at the end when the
+pointer is over the monitor's edge gap or
+its status bar, and that monitor takes focus. In the gap between two
+windows it keeps going where it was, so the windows do not bounce. A
+preview shows where it will land while you drag, and the windows of that
+monitor make room for it as you drag over them, going back when you
+leave; one in monocle is laid out side by side meanwhile, and leaves
+monocle when you drop the window there. With "Show window contents while
+dragging" off in Windows, there is no preview and the windows move only
+once you drop it. Where the
+pointer is decides, not where most of the window is, so a window Windows
+rescales on its way to a monitor of another scale lands where you point.
+Both monitors are retiled. A window Windows maximizes there as you drop it
+joins that monitor too, and stays maximized. See
 [Dragging Windows](tiling-layout.md#dragging-windows).
 
 With `drag_to_swap = false` under `[mouse]` in `config.toml`, or for a

@@ -9,14 +9,14 @@ use crate::tiler::{Effect, Settings};
 use crate::{Rect, WindowEvent};
 
 /// The right edge of a window, held alone.
-pub(super) const RIGHT: Edges = held(false, false, true, false);
+pub(in crate::tiler) const RIGHT: Edges = held(false, false, true, false);
 
 /// The left edge of a window, held alone.
-pub(super) const LEFT: Edges = held(true, false, false, false);
+pub(in crate::tiler) const LEFT: Edges = held(true, false, false, false);
 
 /// Settings with the edges of a window the user resizes moving the splits
 /// they border.
-pub(super) fn resizing() -> Settings {
+pub(in crate::tiler) fn resizing() -> Settings {
     Settings {
         resize_splits: true,
         ..Settings::default()
@@ -24,7 +24,7 @@ pub(super) fn resizing() -> Settings {
 }
 
 /// The edges of a window held at once.
-pub(super) const fn held(left: bool, top: bool, right: bool, bottom: bool) -> Edges {
+pub(in crate::tiler) const fn held(left: bool, top: bool, right: bool, bottom: bool) -> Edges {
     Edges {
         left,
         top,
@@ -36,13 +36,19 @@ pub(super) const fn held(left: bool, top: bool, right: bool, bottom: bool) -> Ed
 /// The user grabs window `id` by `edges` where it is, which gives it
 /// focus, and resizes it to `rect`, which the window reports, without
 /// letting go.
-pub(super) fn grab_to(h: &mut Harness, id: u64, edges: Edges, rect: Rect) {
+pub(in crate::tiler) fn grab_to(h: &mut Harness, id: u64, edges: Edges, rect: Rect) {
     grab_by(h, id, Some(Grab::Edges(edges)), edges, rect);
 }
 
 /// As [`grab_to`], with the platform telling `grab` of the drag: the
 /// edges, or nothing, as for a window that runs its own resize loop.
-pub(super) fn grab_by(h: &mut Harness, id: u64, grab: Option<Grab>, edges: Edges, rect: Rect) {
+pub(in crate::tiler) fn grab_by(
+    h: &mut Harness,
+    id: u64,
+    grab: Option<Grab>,
+    edges: Edges,
+    rect: Rect,
+) {
     let (window, start) = (wid(id), h.rect_of(id));
     h.event(WindowEvent::Focused { window });
     let start = DragStart {
@@ -58,13 +64,23 @@ pub(super) fn grab_by(h: &mut Harness, id: u64, grab: Option<Grab>, edges: Edges
 
 /// The user resizes window `id` by `edges` to `rect`, as [`grab_to`]
 /// does, and lets go of it there. Returns what letting go does.
-pub(super) fn resize_to(h: &mut Harness, id: u64, edges: Edges, rect: Rect) -> Vec<Effect> {
+pub(in crate::tiler) fn resize_to(
+    h: &mut Harness,
+    id: u64,
+    edges: Edges,
+    rect: Rect,
+) -> Vec<Effect> {
     grab_to(h, id, edges, rect);
     let_go(h, id, edges, rect)
 }
 
 /// As [`resize_to`], for a window whose grab the platform cannot tell.
-pub(super) fn resize_untold(h: &mut Harness, id: u64, edges: Edges, rect: Rect) -> Vec<Effect> {
+pub(in crate::tiler) fn resize_untold(
+    h: &mut Harness,
+    id: u64,
+    edges: Edges,
+    rect: Rect,
+) -> Vec<Effect> {
     grab_by(h, id, None, edges, rect);
     let_go(h, id, edges, rect)
 }
@@ -79,7 +95,7 @@ fn let_go(h: &mut Harness, id: u64, edges: Edges, rect: Rect) -> Vec<Effect> {
 
 /// Where the pointer holds a window at `rect` by `edges`: on the edge, or
 /// at the corner.
-pub(super) fn holding(rect: Rect, edges: Edges) -> (i32, i32) {
+pub(in crate::tiler) fn holding(rect: Rect, edges: Edges) -> (i32, i32) {
     let along = |near: bool, far: bool, start: i32, len: i32| match (near, far) {
         (true, _) => start,
         (_, true) => start + len - 1,
@@ -92,7 +108,7 @@ pub(super) fn holding(rect: Rect, edges: Edges) -> (i32, i32) {
 
 /// Whether the splits of the workspace on screen of the first monitor of
 /// `h` are where the layout puts them unless the user moves them.
-pub(super) fn unmoved(h: &Harness) -> bool {
+pub(in crate::tiler) fn unmoved(h: &Harness) -> bool {
     let ws = h.tiler.monitors()[0].active();
     let mut fresh = SplitRatios::default();
     (0..ws.len()).for_each(|index| fresh.insert(index, index));

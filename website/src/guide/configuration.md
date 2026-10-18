@@ -93,16 +93,18 @@ while you drag a window, the pointer stays with you, either way.
 
 With `drag_to_swap`, on by default, dropping a tiled window you drag by its
 title bar on another tile swaps the two, and dropping it on another monitor
-puts it there before the tile under the pointer, with a preview showing
-where it will land while you drag. With `false`, a dropped window goes back
-to its slot, or joins the end of the other monitor's windows. See
+puts it there next to the tile under the pointer, with a preview showing
+where it will land while you drag, and the windows there making room for
+it, out of monocle once you drop it. With `false`, a dropped window goes
+back to its slot, or joins the end of the other monitor's windows. See
 [Dragging Windows](tiling-layout.md#dragging-windows).
 
 With `resize_splits`, on by default, dragging the edge between two tiles
-resizes them: the split between them moves to where you let go, and a
-corner where two splits meet moves both. Each workspace keeps where you put
-its splits, for each layout. With `false`, a window you resize goes back to
-its slot. See [Resizing Tiles](tiling-layout.md#resizing-tiles).
+resizes them: the windows on the other side follow the edge as you drag
+it, the split between them moves to where you let go, and a corner where
+two splits meet moves both. Each workspace keeps where you put its splits,
+for each layout. With `false`, a window you resize goes back to its slot.
+See [Resizing Tiles](tiling-layout.md#resizing-tiles).
 
 ## `keybindings.toml`
 

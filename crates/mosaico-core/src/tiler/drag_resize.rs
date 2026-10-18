@@ -20,9 +20,10 @@
 //! the platform could not tell the grab, as for a window that runs its own
 //! move and resize loops, the edges held are read from how the window
 //! changed (`drag_resize_grab.rs`); a drag that moved both edges of an
-//! axis, or left the window off its own monitor, resized nothing.
+//! axis, or left the window off its own monitor, resized nothing. While the
+//! drag goes on, the tiles beyond the held edges follow them, laid out live
+//! with the splits a drop then would set (`drag_live.rs`).
 
-use crate::event::Edges;
 use crate::layout::{SplitRatios, Tiles, changes, resized_splits};
 use crate::{Rect, WindowId};
 
@@ -44,25 +45,7 @@ impl Tiler {
         drag: &Drag,
         pointer: Option<(i32, i32)>,
     ) -> bool {
-        // A window maximized as the drag ends stays so, as the end of any
-        // drag leaves it.
-        if !self.mouse.resize_splits || plan.is_maximized(drag.window) {
-            return false;
-        }
-        let Some(edges) = self.held_edges(plan, drag) else {
-            return false;
-        };
-        // The layout pass would drop a window that left without a report,
-        // and the chain would shift under the new ratios.
-        self.prune_stale_handles(plan, drag.monitor);
-        let Some(rect) = plan.rect(drag.window) else {
-            return false;
-        };
-        let slot = self.slot_of(drag.monitor, drag.window);
-        if cancelled(drag, rect, pointer, slot) {
-            return false;
-        }
-        let Some(splits) = self.splits_moved(drag, edges, rect) else {
+        let Some(splits) = self.splits_dropped(plan, drag, pointer) else {
             return false;
         };
         let Some(mon) = self.monitors.get_mut(drag.monitor) else {
@@ -83,15 +66,33 @@ impl Tiler {
         true
     }
 
-    /// The splits of the workspace on screen of the monitor of the window
-    /// `drag` is about, tiled there, once its `edges` are dropped at `rect`,
-    /// or `None` when they move no split, as in monocle, where no edge
-    /// borders one.
-    fn splits_moved(&self, drag: &Drag, edges: Edges, rect: Rect) -> Option<SplitRatios> {
-        let idx = drag.monitor;
-        let ws = self.monitors.get(idx).map(|mon| mon.active_ws())?;
+    /// The splits [`move_splits`](Self::move_splits) would set if the drag
+    /// `drag` is about ended now with the pointer at `pointer`, or `None`
+    /// when it would move none. A window gone or minimized without a report
+    /// leaves the layout first.
+    pub(in crate::tiler) fn splits_dropped(
+        &mut self,
+        plan: &mut Plan,
+        drag: &Drag,
+        pointer: Option<(i32, i32)>,
+    ) -> Option<SplitRatios> {
+        // A window maximized as the drag ends stays so, as the end of any
+        // drag leaves it.
+        if !self.mouse.resize_splits || plan.is_maximized(drag.window) {
+            return None;
+        }
+        let edges = self.held_edges(plan, drag)?;
+        // The layout pass would drop a window that left without a report,
+        // and the chain would shift under the new ratios.
+        self.prune_stale_handles(plan, drag.monitor);
+        let rect = plan.rect(drag.window)?;
+        if cancelled(drag, rect, pointer, self.slot_of(drag.monitor, drag.window)) {
+            return None;
+        }
+        // In monocle, no edge borders a split.
+        let ws = self.monitors.get(drag.monitor).map(|mon| mon.active_ws())?;
         let index = ws.index_of(drag.window).filter(|_| !ws.monocle())?;
-        let positions = self.compute_positions(idx);
+        let positions = self.compute_positions(drag.monitor);
         let slot = |w: &WindowId| positions.iter().find(|(p, _)| p == w).map(|&(_, r)| r);
         let slots: Vec<Rect> = ws.windows().iter().filter_map(slot).collect();
         if slots.len() != ws.len() {
@@ -104,7 +105,7 @@ impl Tiler {
 
 #[cfg(test)]
 #[path = "tests/drag_resize_support.rs"]
-mod support;
+pub(super) mod support;
 
 #[cfg(test)]
 #[path = "tests/drag_resize_tests.rs"]

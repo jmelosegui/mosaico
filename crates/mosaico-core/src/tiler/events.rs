@@ -56,9 +56,17 @@ impl Tiler {
                 self.remove_from_tiling(plan, window, "min", true);
             }
             // Nothing in the layout changes until the drag ends, with
-            // `Moved`, but the drag of a tiled window is followed.
-            WindowEvent::MoveStarted { window, start } => self.start_drag(plan, window, &start),
-            WindowEvent::Moved { window, pointer } => self.on_moved(plan, window, pointer),
+            // `Moved`, but the drag of a tiled window is followed, and its
+            // window has focus (`drag_border.rs`).
+            WindowEvent::MoveStarted { window, start } => {
+                self.start_drag(plan, window, &start);
+                self.focus_dragged(plan);
+            }
+            WindowEvent::Moved { window, pointer } => {
+                let owed = self.owes_focus(window);
+                self.on_moved(plan, window, pointer);
+                self.give_owed_focus(plan, window, owed);
+            }
             WindowEvent::Focused { window } => {
                 self.end_drag_for_focus(plan, window);
                 self.restack_preview(plan);
@@ -87,9 +95,12 @@ impl Tiler {
         self.note_filling(plan, window);
         // A window the user drags is theirs until they drop it: where it
         // is only hides its border, once it has left where it started, and
-        // moves the preview of where it would land.
+        // moves the tiles a drop then would move, and the preview of where
+        // it would land.
         if self.is_dragged(window) {
             self.drag_reported(plan);
+            self.aim_drag(plan);
+            self.follow_live(plan);
             self.preview_drop(plan);
             return;
         }

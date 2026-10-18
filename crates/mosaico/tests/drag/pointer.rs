@@ -79,6 +79,12 @@ impl Resting {
 /// and releases it there, giving the system time to handle each step, then
 /// puts the pointer back where it was.
 pub fn drag(from: (i32, i32), to: (i32, i32)) {
+    drag_holding(from, to, || {});
+}
+
+/// As [`drag`], calling `while_held` at `to` with the button still down,
+/// before it is released there.
+pub fn drag_holding(from: (i32, i32), to: (i32, i32), while_held: impl FnOnce()) {
     let mut held = Held::new();
     send(from, win32::MOUSEEVENTF_MOVE);
     held.down = true;
@@ -90,6 +96,7 @@ pub fn drag(from: (i32, i32), to: (i32, i32)) {
             win32::MOUSEEVENTF_MOVE,
         );
     }
+    while_held();
     send(to, win32::MOUSEEVENTF_LEFTUP);
     held.down = false;
 }

@@ -6,7 +6,7 @@ use crate::event::Grab;
 use crate::motion::hardly_apart;
 use crate::{Rect, WindowId};
 
-use super::Drag;
+use super::{Drag, aim::kept};
 
 /// What a drop target is worked out from, for one monitor.
 #[derive(Debug, Clone, PartialEq)]
@@ -15,7 +15,7 @@ pub(in crate::tiler) struct DropArea {
     /// bar's strip included.
     pub(in crate::tiler) area: Rect,
     /// Where each window of the workspace on screen is laid out, in
-    /// order, or `None` in monocle, where a window dropped joins the end.
+    /// order, or `None` in monocle on the dragged window's own monitor.
     pub(in crate::tiler) tiles: Option<Vec<(WindowId, Rect)>>,
 }
 
@@ -39,8 +39,8 @@ pub(in crate::tiler) enum Target {
 /// Where the window `drag` is about lands when dropped at `pointer`: on
 /// its own monitor, in the slot of the tile under the pointer, or back in
 /// its own when there is none, as over a gap or in monocle; on another
-/// monitor, before the tile under the pointer, or at the end. `None` when
-/// the pointer is on no monitor.
+/// monitor, before the tile under the pointer, where it was going in a gap
+/// between tiles ([`kept`]), or at the end. `None` off every monitor.
 pub(in crate::tiler) fn target(
     drag: &Drag,
     pointer: (i32, i32),
@@ -59,7 +59,7 @@ pub(in crate::tiler) fn target(
     Some(if index != drag.monitor {
         Target::Join {
             monitor: index,
-            before: under,
+            before: under.or_else(|| kept(drag, index, on, pointer)),
         }
     } else {
         match under {

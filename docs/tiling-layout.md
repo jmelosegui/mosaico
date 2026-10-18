@@ -32,10 +32,12 @@ contracts the manager runs on.
 | `crates/mosaico-core/src/tiler/layout.rs`, `layout_actions.rs` | `apply_layout_on()`, `retile_all()`, `toggle_monocle()`, `cycle_layout()` -- layout application |
 | `crates/mosaico-core/src/tiler/workspace.rs` | `goto_workspace()`, `send_to_workspace()` -- workspace switching |
 | `crates/mosaico-core/src/tiler/drag.rs`, `drag_mouse.rs` | The drag the tiler follows, keyed on the window the user drags; `Mouse`, what the mouse does |
-| `crates/mosaico-core/src/tiler/drag_border.rs`, `drag_end.rs` | The dragged window's border, hidden once it leaves where it started; what interrupts a drag, and what ends one before its `Moved` |
+| `crates/mosaico-core/src/tiler/drag_border.rs`, `drag_end.rs` | The dragged window's focus, taken as its drag starts, and its border, drawn where each report has it; what interrupts a drag, and what ends one before its `Moved` |
 | `crates/mosaico-core/src/tiler/drag_target.rs` | `target()`, `cancelled()` and `ending()` -- where a dropped window lands, and how its drag ended, as plain functions |
-| `crates/mosaico-core/src/tiler/drag_drop.rs`, `drag_slots.rs`, `drag_preview.rs` | `on_moved()` -- what a drop does; the slots a drop is decided against; `preview_drop()` -- the preview of where the window lands |
-| `crates/mosaico-core/src/tiler/drag_resize.rs` | `move_splits()` -- the splits a tiled window resized by its edges moves |
+| `crates/mosaico-core/src/tiler/drag_aim.rs` | Where a window dragged over another monitor goes while the pointer is in a gap between tiles: the target the last report noted |
+| `crates/mosaico-core/src/tiler/drag_drop.rs`, `drag_slots.rs`, `drag_preview.rs` | `on_moved()` -- what a drop does; the slots a drop is decided against, and the layout another monitor would have with the window; `preview_drop()` -- the preview of where the window lands |
+| `crates/mosaico-core/src/tiler/drag_resize.rs` | `move_splits()` -- the splits a tiled window resized by its edges moves; `splits_dropped()` -- those it would move if let go now |
+| `crates/mosaico-core/src/tiler/drag_live.rs`, `drag_live_layout.rs`, `drag_live_back.rs` | `follow_live()` -- the tiles a drop would move, laid out live on each report of the dragged window; `live_layout()` -- what a drop now would leave; `settle_live()`, `forget_live()` -- putting them back once the drag no longer lays them out |
 | `crates/mosaico-core/src/tiler/applier_drag.rs` | The pointer while the user drags a window: left alone, and moved where it was last asked once the drag ends |
 | `crates/mosaico-core/src/tiler/manager.rs`, `manager_inputs.rs` | `TilingManager` -- runs the tiler on a `Platform`, event/action dispatch |
 | `crates/mosaico-core/src/tiler/manager_frames.rs` | `wants_frames()`, `frame_due(after)`, `frame()`, `turn_off_transitions()` -- what the daemon drives transitions with |
@@ -427,7 +429,11 @@ The `TilingManager` supports hot-reloading of configuration:
 
 `apply_layout_on(monitor_idx)`:
 
-1. Prunes stale handles: windows that closed, hid or minimized themselves
+1. Forgets what a drag laid out live there (`forget_live`), as the pass puts
+   every tile where the workspace has it; in monocle, the windows the drag
+   moved behind the monocle window go back where they were (see
+   [Tiles That Follow a Drag](#tiles-that-follow-a-drag)). Then prunes stale
+   handles: windows that closed, hid or minimized themselves
    without a report. A window the tiler hid with `hide` is kept while it still
    exists and is still hidden, since a display change bringing it into view
    shows it right after the retile.
@@ -459,14 +465,17 @@ when the focused window is maximized or restored.
 
 ### Placements That Animate
 
-Every `Effect::Place` carries a `transition`: `Snap`, the window is put in
-place at once, or `Animate`, it may move there over a short time. The layout
-passes place windows through `Plan::place`, which records the monitor each
-placement lays its window out on, and every placement starts as `Snap`. As
-the step finishes, `Plan::finish` (`plan.rs`) runs the step decision,
-`motion::step_animates`, over the placements of the step (`mark` in
-`plan_transitions.rs`) and marks the ones it allows `Animate`. It needs facts
-only the step has:
+Every `Effect::Place` carries a `transition`: `Snap`, the window is put
+in place at once, or `Animate`, it may move there over a short time. The
+layout passes place windows through `Plan::place`, which records the
+monitor each placement lays its window out on, and every placement
+starts as `Snap`. As the step finishes, `Plan::finish` (`plan.rs`)
+runs the step decision, `motion::step_animates`, over the placements
+of the step (`mark` in `plan_transitions.rs`) and marks the ones it
+allows `Animate`. The tiles a resize lays out live are placed without
+`Plan::place`, so they always snap, while those of another monitor that
+make room for a dragged window go through it (see [Tiles That Follow a
+Drag](#tiles-that-follow-a-drag)). It needs facts only the step has:
 
 - whether transitions are on (`[animations]` enabled, with a duration above
   zero), which the tiler takes from `Settings` at start and from every
@@ -735,6 +744,21 @@ A workspace whose monocle window the user sent or dragged away stays in
 monocle for it to come back, but is tiled meanwhile. A window that lands there
 is tiled with the others and keeps focus, as on any tiled workspace.
 
+A tiled window the user drags onto another monitor with `drag_to_swap` on
+ends monocle on the workspace there, as `exit_monocle` and `Alt+T` end it:
+monocle and the monocle window are cleared, which forgets the windows waiting
+behind it, and the window joins before or after the tile under the pointer
+in the tiled layout, or at the end, with focus, as on any tiled workspace, and every
+border is drawn again for the tiled layout (see
+[Where a Window Lands](#where-a-window-lands)). While it is dragged over that
+monitor, the workspace is laid out tiled with the window in it, live, but
+stays in monocle until the drop: once the drag leaves, the monocle window
+fills the work area again, in front, focus stays where it was, and the others
+go back where monocle had them. The owner chose this while testing 35.6;
+until then such a drop joined the end, and only the monocle window was
+placed. With `drag_to_swap` off, a drop there joins the end and leaves
+monocle on, as before.
+
 The workspace keeps the windows that wait (`Workspace::wait_behind`), so a
 window that leaves it, by any way, leaves nothing waiting, and leaving monocle
 forgets them all.
@@ -765,13 +789,24 @@ desktop when the platform could not read it. Until the drag ends:
 - the window keeps its slot in the layout, so a window that opens is tiled
   around it, but no layout pass places it, so it never animates either,
   whatever the user does with the keyboard or the bars meanwhile;
-- its border is hidden once a position report finds it away from where it
-  started, as it would only show where the window was (`drag_border.rs`).
-  A click on the title bar, which the platform reports as a drag that
-  moves nothing, leaves it drawn;
-- its position reports only hide its border and move the preview of where
-  it would land, never the maximize logic that would put it back in its
-  slot;
+- it is the focused window from the start (`drag_border.rs`): when it was
+  not, the tiler takes focus for it, on its monitor, and draws the borders
+  again, the one it left in the unfocused style and its own in the focused
+  one, or the monocle one, without asking the platform, as the system gave
+  focus to the window it drags and asking during its move or size loop
+  could end it. A focus report for it ends nothing. The drop asks the
+  platform to focus it when no report since said the system did, nor was
+  the platform asked to, and leaves the pointer where the user let go;
+- its border stays on it: each position report draws it where the window
+  is, which a move only puts in place and a resize draws again as its size
+  changes, through whatever interrupts the drag. Without reports, as with
+  window contents hidden while dragging, it stays where it was until the
+  drop. The owner chose this while testing 35.6; until then the border was
+  hidden once a report found the window away from where it started;
+- its position reports only draw its border, lay out live the tiles a drop
+  then would move (see [Tiles That Follow a Drag](#tiles-that-follow-a-drag))
+  and move the preview of where it would land, never the maximize logic
+  that would put it back in its slot;
 - the tiling manager drops what was held back for it from a burst of keys
   as the drag starts, as for a window that leaves the layout, and leaves the
   pointer alone while any window is dragged, tiled or not
@@ -811,8 +846,8 @@ The platform may not report the end of every drag (see
 [window-events.md](window-events.md#how-events-drive-tiling)). One whose end
 is lost is over at the first of these. Until then, as when the user goes on
 with the keyboard alone, its window is not laid out, its border stays
-hidden, the pointer does not follow focus, and focus does not follow the
-pointer.
+where its last report put it, the pointer does not follow focus, and focus
+does not follow the pointer.
 
 ### Where a Window Lands
 
@@ -857,16 +892,23 @@ from the pointer, never from the window's rect:
 |----------------|------------|
 | over another tile of its monitor | takes that tile's slot, and the other window its own |
 | over its own slot, a gap or the bar, or anywhere on its monitor in monocle | goes back to its slot |
-| over a tile of another monitor | joins that monitor's workspace before that tile, and the monitor takes focus with it |
-| over a gap of another monitor, its bar, or a monocle workspace there | joins the end of that workspace; on a monocle workspace, only the monocle window is placed and nothing is put behind it, as for any window dragged onto one |
+| over a tile of another monitor, which in monocle there is the tile its tiled layout has under the pointer | joins that monitor's workspace where the slot it gets holds the pointer: where the last report had it while that slot still does, else before that tile, after it, or anywhere else that does, else before that tile (`drag_aim.rs`); the monitor takes focus with it |
+| over a gap between tiles of another monitor, inside the box they fill | goes where the last report had it go there, so the tiles do not bounce between two tiles (`drag_aim.rs`); at the end with none |
+| over an outer gap of another monitor, or its bar | joins the end of that workspace |
 | on no monitor, as over a taskbar | is handled as before |
 
 A monitor counts with the bar's strip (its work area as the platform reports
 it), and in global mode the window joins the workspace on screen there, as
-every monitor shows the same number. The window keeps focus, and the
-pointer stays where the user dropped it. The drop's placements may animate
-like any other, as both windows of a swap stay on their monitor, and a
-window the transitions had sent somewhere moves from where it was dropped.
+every monitor shows the same number. A workspace there in monocle leaves it
+as the window joins, as [Monocle Mode](#monocle-mode) says. The window keeps
+focus, and the pointer stays where the user dropped it. The drop's
+placements may animate like any other, as both windows of a swap stay on
+their monitor, and a window the transitions had sent somewhere moves from
+where it was dropped. The tiles of another monitor the window joins have
+made room for it already, as the drag went over them (see
+[Tiles That Follow a Drag](#tiles-that-follow-a-drag)), so the drop moves
+none of them, but for a window dropped where its last report did not have
+the pointer.
 
 A drag the tiler did not follow, as of a window it does not manage, one
 that was interrupted, one whose end has no pointer, and every drop with
@@ -912,15 +954,18 @@ moves against the drag.
 
 A window gone or minimized without a report leaves the layout first
 (`prune_stale_handles`), so the splits are worked out against the windows
-that stay. `move_splits` sets the splits `resized_splits` returns with
-`Workspace::set_split_ratios`, and logs the layout, each split moved with
-its ratio, and the ends of each stack resized. The monitor is then laid
-out again, the resized window included: the windows beyond the split
-follow the edge, and the window's edges that border no split, its outer
-edges, go back. The placements may animate like any other, from where the
-user let go. The ratio comes from where the window is, so a resize whose
-end has no pointer, or that ends with the pointer over a bar, moves its
-split all the same.
+that stay. `splits_dropped` works them out, as the drag ends and on each of
+its reports before, and `move_splits` sets the splits `resized_splits`
+returns with `Workspace::set_split_ratios`, and logs the layout, each split
+moved with its ratio, and the ends of each stack resized. The monitor is
+then laid out again, the resized window included: the windows beyond the
+split have followed the edge already, live, as the user dragged it (see
+[Tiles That Follow a Drag](#tiles-that-follow-a-drag)), so they stay where
+they are, and the window's edges that border no split, its outer edges, go
+back. The placements may animate like any other, from where the user let
+go, which leaves the resized window's own. The ratio comes from where the
+window is, so a resize whose end has no pointer, or that ends with the
+pointer over a bar, moves its split all the same.
 
 A resize of 4 pixels or less on every edge goes back to the slot, as a
 click or a cancel would: `drag_target::cancelled` takes a window left
@@ -932,7 +977,8 @@ display change interrupted, and every resize with `resize_splits` off are
 handled as before too: the window goes back to its slot. `toggle-pause`
 never reaches the tiler, so it leaves a resize alone, as it does any drag.
 A window left maximized as the drag ends stays maximized and moves no
-split, as at the end of any drag. A resize shows no preview.
+split, as at the end of any drag. A resize shows no preview: the tiles that
+follow its edges show where they go instead.
 
 A window that runs its own move and resize loops, as one with a frame of
 its own may, reports no grab: no hit test at the pointer tells what it
@@ -956,6 +1002,80 @@ not move: one that ends more than 4 pixels from both the start read and
 its slot, as when the start was read late on a window off its slot, moves
 its split there.
 
+### Tiles That Follow a Drag
+
+While the tiler follows a drag and decides where the window lands, each of
+its position reports lays out live what dropping it then would leave, with
+the pointer where the desktop has it, by the rules the drop follows
+(`drag_live.rs`, `drag_live_layout.rs`):
+
+- for a resize by edges that border splits, with `resize_splits` on, its
+  monitor's workspace with the splits `move_splits` would set from where the
+  window is (`splits_dropped`), the held edges, read from the window for one
+  that reports no grab, the bounds, the floor of a stack and the trade down
+  it included: the tiles beyond each held edge follow it, one gap from it,
+  and every other tile stays. Where a clamp or the floor stops a split, the
+  tile beyond it stops there too, and the held window may overlap it, or
+  leave a wider gap, until the drop, when it settles to the clamp;
+- for a move over another monitor, with `drag_to_swap` on, that monitor's
+  workspace with the window put before or after the tile under the pointer,
+  wherever its slot holds the pointer, where the last report put it while
+  that slot still does or the pointer is in a gap between tiles
+  (`drag_aim.rs`), or at the end over an outer gap or the bar, by the
+  insertion, split and stack-height rules the drop uses
+  (`positions_joining`, which the preview's slot comes from too), a
+  workspace in monocle laid out tiled: its tiles make room for the
+  window, and the preview shows the slot left open. A monitor with a
+  maximized or fullscreen window on screen is left alone, and only the
+  preview shows there. The window's own monitor keeps its slot, so
+  dragging back over it is clean;
+- for a move over another tile of its own monitor, with `drag_to_swap`
+  on, the tile it would swap with in the dragged window's slot, which the
+  owner chose while testing 35.6: every other tile stays.
+
+Each window of that layout but the dragged one is placed in its slot,
+only when its slot is not where the drag last sent it, or, before the
+drag has sent it anywhere, where the desktop has it, so a report that
+moves no slot places nothing, and the tiles move only as the target
+does, not with every pointer move. For a resize,
+`follow_live` emits `Effect::Place` with `Transition::Snap` itself,
+never through `Plan::place`, so the step decision never marks it: the
+tiles track the edge report by report, at once, even with transitions
+on. The tiles that make room for a move go through `Plan::place`, as any
+layout change does, so they glide to their slots with transitions on, and snap
+with them off. When the target changes while they glide, each turns from
+where it is, as any new placement of a moving window does, and a report
+over the same tile starts nothing again, as a target a motion already has
+changes nothing. The dragged window is never placed. Its border follows
+it. Nothing is committed: the workspace keeps its windows, splits, heights
+and monocle until the drop, but for a window gone or minimized without a
+report, which leaves its layout first, as at the drop. The daemon hands
+the tiler only the latest report of a dragged window for each pass of
+its loop (`daemon/dedup.rs`), so there is one such layout a pass at most.
+
+A drop that lands as the tiles were laid out finds them in place, or on
+their way there: its layout pass gives them the slots they have or are
+going to, which changes nothing, and only the dropped window settles into
+its slot, with a transition if due.
+
+The tiles go back where their workspace has them, with a transition if due,
+once the drag no longer lays them out (`drag_live_back.rs`): as it moves on
+to where a drop would move none, as over its own slot or off every
+monitor, or to a resize that moves no split, as
+within 4 pixels of where it started; for Escape, whose report finds the
+window back where it started; and as the step ends that interrupts the
+drag, from a key, a command, a click or the wheel on a bar or a display
+change, that ends it otherwise than by laying that monitor out, as a drop
+elsewhere, another window taking focus or the dragged window leaving, or
+that starts another drag. Each goes back to its slot, or in monocle, the
+monocle window to fill the work area, in front, focus where it was, and
+the others where they were before the drag moved them. Any layout of that
+monitor meanwhile, as for a window that opens there or a config read
+again, puts them back too, and the next report lays them out live again.
+The tiler stopping leaves them where they are. Without position reports
+while the window is dragged, as with window contents hidden while dragging,
+nothing follows, and the drop moves the tiles as before.
+
 ### The Drop Preview
 
 While a window is dragged with `drag_to_swap` on, each of its position
@@ -963,14 +1083,14 @@ reports works out where it would land if dropped now, with the pointer
 where it is, by the rule the drop follows (`drag_preview.rs`), and the
 tiler emits `Effect::ShowPreview` with the slot it would get: its own, that
 of the tile under the pointer, or the one it would get on another monitor
-once put before the tile under the pointer, which in BSP is not that tile.
-So a window a few pixels off its size previews the tile it would swap
-with, and one whose size changed more on its own monitor previews its own
-slot. The tiler emits nothing while that slot stays the same. A resize, a
-drop that would place the window nowhere, as onto another monitor's
-monocle workspace, a window back where it started, and a pointer off every
-monitor hide it (`Effect::HidePreview`), and so does the end of the drag or
-its interruption, however it comes. A focus change that leaves the drag
+once put where that slot holds the pointer, if any does,
+a workspace there in monocle laid out as tiled. So a window a few pixels
+off its size previews the tile it would swap with, and one whose size
+changed more on its own monitor previews its own slot. The tiler emits
+nothing while that slot stays the same. A resize, which has the tiles that
+follow its edges instead, a window back where it started, and a pointer off
+every monitor hide it (`Effect::HidePreview`), and so does the end of the
+drag or its interruption, however it comes. A focus change that leaves the drag
 going shows it again, which puts it back just behind the dragged window.
 Without position reports while the window is dragged, as with window
 contents hidden while dragging, there is no preview, and the drop decides
@@ -1150,31 +1270,67 @@ and showing windows cause are kept from undoing a switch as described in
   pointer, hover and reloads, on the tiling manager, the fake platform and
   its clock (`motion_*_tests.rs`). The motion model is tested on its own
   in `motion/tests/` (see [animations.md](animations.md#tests))
-- Drag tests in the same place: where a drop lands and how a drag ended, as
-  plain functions (`drag_target_tests.rs`, `drag_cancel_tests.rs`,
-  `drag_ending_tests.rs`); on a `Tiler`, each drop target, a drop the
-  system snapped or maximized, on its monitor or another, Escape with the
-  pointer over another tile, a click, a start read late, a resize, a drag
-  without position reports, a window the tiler leaves alone or does not
-  manage yet, a monocle workspace, global mode, a key, the wheel over a bar
-  or a display change mid-drag, a window wider than its slot, one rescaled
-  across two monitors and `drag_to_swap` off (`drag_drop*_tests.rs`); what
-  the tiler leaves alone while it follows a drag, where it starts, its
-  border, and what ends one, reported or not (`drag_tests.rs`,
-  `drag_start_tests.rs`, `drag_border_tests.rs`, `drag_end_tests.rs`,
-  `drag_lost_tests.rs`); a drag and the bars: a click on the dragged
-  window's own bar mid-drag, a drop over a bar, and a window dragged out of
-  maximized (`drag_bar_tests.rs`); the preview, over a bar too, and the bars
-  while a window is dragged (`drag_preview*_tests.rs`); and, on the tiling
-  manager, what was held back for a grabbed window, the pointer while a
-  window is dragged or resized and what gives it back or leaves it where
-  the user has it, focus follows mouse while a window is held, a key while
-  a window is held with transitions on, a drop with them on, and a click
-  that leaves the border drawn (`applier_drag*_tests.rs`,
-  `drag_hold_tests.rs`, `drag_drop_motion_tests.rs`,
-  `manager_daemon_tests.rs`). The metrics scenarios `drop_to_swap` and
-  `drop_on_another_monitor` count what a swap and a drop on another monitor
-  ask of the platform
+- Drag tests in the same place: where a drop lands and how a drag ended,
+  as plain functions (`drag_target_tests.rs`, `drag_cancel_tests.rs`,
+  `drag_ending_tests.rs`); on a `Tiler`, each drop target, a drop the system
+  snapped or maximized, on its monitor or another, Escape with the pointer
+  over another tile, a click, a start read late, a resize, a drag without
+  position reports, a window the tiler leaves alone or does not manage
+  yet, a monocle workspace, global mode, a key, the wheel over a bar or
+  a display change mid-drag, a window wider than its slot, one rescaled
+  across two monitors and `drag_to_swap` off (`drag_drop*_tests.rs`);
+  what the tiler leaves alone while it follows a drag, where it starts, its
+  border and its focus, and what ends one, reported or not (`drag_tests.rs`,
+  `drag_start_tests.rs`, `drag_border_tests.rs`, `drag_focus_tests.rs`,
+  `drag_end_tests.rs`, `drag_lost_tests.rs`); a drag and the bars:
+  a click on the dragged window's own bar mid-drag, a drop over a
+  bar, and a window dragged out of maximized (`drag_bar_tests.rs`);
+  the preview, over a bar too, and the bars while a window is dragged
+  (`drag_preview*_tests.rs`); and, on the tiling manager, what was held
+  back for a grabbed window, the pointer while a window is dragged or
+  resized and what gives it back or leaves it where the user has it,
+  focus follows mouse while a window is held, a key while a window is
+  held with transitions on, a drop with them on, and a click that leaves
+  the border drawn (`applier_drag*_tests.rs`, `drag_hold_tests.rs`,
+  `drag_drop_motion_tests.rs`, `manager_daemon_tests.rs`). The
+  metrics scenarios `drop_to_swap` and `drop_on_another_monitor` count
+  what a swap and a drop on another monitor ask of the platform, and
+  `drop_over_another_monitor` a drag over another monitor whose target
+  changes twice before its drop
+- Tests of the tiles that follow a drag, in the same place: on a `Tiler`,
+  the tiles beyond an edge, both sides of a corner, the one beyond an
+  edge down a stack and a side column, and one stopped at the floor,
+  placed at once with their borders, the window and the splits left alone;
+  a report that moves nothing or no split, `resize_splits` off, monocle,
+  a window that reports no grab, a window opening, monocle turned on and
+  a config read again mid-drag, Escape, a key, a display change, another
+  drag and the tiler stopping, and the drop that finds them in place
+  (`drag_live_resize*_tests.rs`); the tiles of another monitor that make
+  room where the window's slot holds the pointer (`drag_live_join_tests.rs`)
+  or at the end over its bar, again
+  as the pointer moves on and back, put back over the window's own monitor,
+  for Escape, a key and the window's own monitor laid out meanwhile, to
+  their slots wherever they were, left alone with `drag_to_swap` off and
+  for windows the tiler leaves alone or does not manage yet, many reports
+  over one tile, a window there minimized without a report, one the system
+  maximizes there as it is dropped, and the stacks of the vertical stack
+  and the three columns (`drag_live_drop*_tests.rs`); a monocle workspace
+  there laid out tiled, of one window too, put back with its monocle window
+  in front and the others where monocle left them, however they were,
+  for the pointer leaving, Escape, a key and a click on its bar, a window
+  there minimized without a report left so, the drop over its bar that ends
+  monocle, and the drops left as before (`drag_live_monocle*_tests.rs`);
+  and, on the tiling manager with transitions on, the tiles of another
+  monitor that glide to make room, in monocle too, turn from where they are
+  as the target changes, glide back as the drag leaves, mid-glide too, start
+  nothing again for reports over one tile and keep their way through a drop,
+  and snap with transitions off, a drop that leaves them where they are,
+  and a tile a resize sent somewhere that is not sent there again while
+  on its way (`drag_live_motion_tests.rs`, `drag_live_glide_tests.rs`,
+  `drag_live_monocle_motion_tests.rs`, `drag_resize_motion_tests.rs`). The
+  scheduler of the daemon hands on one report of a dragged window a pass
+  (`daemon/tests/scheduler_drag_tests.rs`), and the metrics scenario
+  `drop_over_another_monitor_animated` counts the frames of the glides
 - Split tests on a `Tiler`, in the same place: what retiling, on two
   monitors, out of view and in a layout off screen, cycling layouts,
   monocle, a swap, a window opening or closing, a config reload, a drop on
@@ -1205,16 +1361,20 @@ and showing windows cause are kept from undoing a switch as described in
   moved at its size, with the edges read from its rect alone, and a swap,
   layouts cycled or a retile after a resize (`drag_resize*_tests.rs`); and,
   on the tiling manager with transitions on, a window held by its edge that
-  nothing places, and the windows a resize moves sliding into their slots
-  (`drag_resize_motion_tests.rs`). The metrics scenario `resize_split`
-  counts what a resize asks of the platform
+  nothing places, and the windows a resize moves following it at once, with
+  only the resized window sliding into its slot at the drop
+  (`drag_resize_motion_tests.rs`). The metrics scenarios `resize_split` and
+  `resize_split_followed` count what a resize asks of the platform, with one
+  report on the way and with five
 - `crates/mosaico/tests/drag_and_drop.rs` drags two notepads by their title
   bar on the live desktop, with the real pointer and transitions off, so it
   runs on demand with the desktop suites, never with the safe ones: one
   dropped on the other swaps places with it, and one dropped on its own
   slot goes back to it. It also drags the left one by its right edge, once
   a click on its title bar has brought it to the front, and finds the right
-  one one gap after where the edge was dropped. It checks first that the
+  one one gap after the edge while it is still held, which needs window
+  contents shown while dragging, and one gap after where the edge was
+  dropped once it is let go. It checks first that the
   notepads are alone and side by side on workspace 8, and otherwise fails
   saying its setup is wrong. It grabs a notepad where the notepad says its
   caption or its right edge is, the caption below the band that resizes it

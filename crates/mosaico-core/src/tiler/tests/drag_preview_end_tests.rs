@@ -25,7 +25,7 @@ fn showing() -> Harness {
 fn the_preview_is_hidden_as_the_window_is_dropped() {
     // Arrange
     let mut h = showing();
-    let right = h.rect_of(2);
+    let right = h.desktop.preview.expect("shown");
 
     // Act
     let effects = drop_at(&mut h, 1, center(right));
@@ -76,7 +76,7 @@ fn the_dragged_window_reporting_focus_has_the_preview_shown_behind_it_again() {
     // Arrange -- as it comes back in front of a window the tiler gave
     // focus meanwhile.
     let mut h = showing();
-    let right = h.rect_of(2);
+    let right = h.desktop.preview.expect("shown");
 
     // Act
     let effects = h.event(WindowEvent::Focused { window: wid(1) }).to_vec();
@@ -90,7 +90,7 @@ fn a_window_that_opens_mid_drag_reporting_its_focus_has_the_preview_shown_again(
     // Arrange -- window 3 opens while the preview shows, and the tiler
     // gives it focus.
     let mut h = showing();
-    let right = h.rect_of(2);
+    let right = h.desktop.preview.expect("shown");
     h.open(3, 0);
 
     // Act -- window 3 reports the focus it was given.
@@ -104,7 +104,7 @@ fn a_window_that_opens_mid_drag_reporting_its_focus_has_the_preview_shown_again(
 fn a_drag_a_key_interrupted_shows_no_preview_as_it_goes_on() {
     // Arrange
     let mut h = showing();
-    let right = h.rect_of(2);
+    let right = h.desktop.preview.expect("shown");
     h.action(Action::Focus(Direction::Right));
 
     // Act -- window 2 reports the focus the key gave it, and the window

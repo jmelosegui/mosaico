@@ -83,7 +83,7 @@ impl Tiler {
 /// Whether a window on `mon`, `maximized` or not, at `rect`, wants the
 /// pointer under the monitor's bar: maximized, or over the whole of the
 /// monitor's work area, as a fullscreen window is.
-fn fills(mon: &MonitorState, maximized: bool, rect: Option<Rect>) -> bool {
+pub(in crate::tiler) fn fills(mon: &MonitorState, maximized: bool, rect: Option<Rect>) -> bool {
     maximized || rect.is_some_and(|rect| covers(&rect, &mon.os_work_area))
 }
 

@@ -1,11 +1,11 @@
-//! The drags that show no preview: resizes, drops that would place the
-//! window nowhere, and a pointer off every monitor.
+//! The drags that show no preview: resizes, and a pointer off every
+//! monitor.
 
+use crate::WindowEvent;
 use crate::event::{DragStart, Edges, Grab};
 use crate::id::wid;
 use crate::tiler::Effect;
 use crate::tiler::tests::{Harness, MON_H};
-use crate::{Action, WindowEvent};
 
 use super::super::support::{grab, move_to, swapping};
 
@@ -71,25 +71,6 @@ fn without_a_grab_the_preview_shows_until_the_window_changes_size() {
 }
 
 #[test]
-fn a_window_over_a_monocle_workspace_of_another_monitor_shows_no_preview() {
-    // Arrange -- the second monitor shows window 3 in monocle.
-    let windows = [(1, 0), (2, 0), (3, 1), (4, 1)];
-    let mut h = Harness::with_settings(swapping(), 2, &windows);
-    h.event(WindowEvent::Focused { window: wid(3) });
-    h.action(Action::ToggleMonocle);
-    let front = h.rect_of(3);
-    grab(&mut h, 1);
-
-    // Act -- where it would join, nothing places it.
-    let over = (front.center_x(), front.center_y());
-    move_to(&mut h, 1, over);
-    let shows = reported(&mut h, 1, over);
-
-    // Assert
-    assert!(!shows);
-}
-
-#[test]
 fn a_pointer_off_every_monitor_hides_the_preview() {
     // Arrange -- shown over window 2.
     let mut h = Harness::with_settings(swapping(), 1, &[(1, 0), (2, 0)]);
@@ -103,7 +84,9 @@ fn a_pointer_off_every_monitor_hides_the_preview() {
         .event(WindowEvent::LocationChanged { window: wid(1) })
         .to_vec();
 
-    // Assert
+    // Assert -- the preview hides, as the dragged window's border moves.
+    let previews = |e: &&Effect| matches!(e, Effect::ShowPreview { .. } | Effect::HidePreview);
+    let previewed: Vec<&Effect> = effects.iter().filter(previews).collect();
     assert!(shown);
-    assert_eq!(effects, [Effect::HidePreview]);
+    assert_eq!(previewed, [&Effect::HidePreview]);
 }

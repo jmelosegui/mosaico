@@ -110,7 +110,7 @@ off. See [Dragging Windows](tiling-layout.md#dragging-windows).
 | Drop it | Result |
 |---------|--------|
 | On another tile | The two swap places |
-| On another monitor | It joins there, before the tile under the pointer |
+| On another monitor | It joins there, with its new slot under the pointer |
 | On its own slot, in a gap, or with `Esc` pressed | It goes back to its slot |
 
 Drag the edge between two tiles to resize them, or a corner where two

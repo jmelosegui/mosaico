@@ -243,14 +243,22 @@ do:
 - transitions were not turned off for the session since the step, which
   only a placement held back meanwhile can find.
 
-So swaps, moves within a monitor, ratio changes, cycling layouts, monocle on
-and off, the reflow when a window opens or closes, and what a dropped window
-or a split the user resized moves animate, the dropped or resized window
-included, from where the user let go. The window that just opened does not,
-and neither do the windows a workspace switch shows. A window the user drags
-or resizes is never placed while they hold it, whatever they do with the
-keyboard or the bars meanwhile, so it never animates then (see
-[tiling-layout.md](tiling-layout.md#dragging-windows)).
+So swaps, moves within a monitor, ratio changes, cycling layouts, monocle
+on and off, the reflow when a window opens or closes, and what a dropped
+window or a split the user resized moves animate, the dropped or resized
+window included, from where the user let go. The window that just opened
+does not, and neither do the windows a workspace switch shows. A window the
+user drags or resizes is never placed while they hold it, whatever they do
+with the keyboard or the bars meanwhile, so it never animates then (see
+[tiling-layout.md](tiling-layout.md#dragging-windows)). The tiles beyond
+an edge the user drags follow it at once on each report, never through the
+step decision, so they never animate, as they have to keep up with the
+edge. Those of another monitor that make room for a window dragged over
+it are placed as any layout change, so they glide there, turn from where
+they are as the target changes, and glide back as the drag leaves. Either
+way the drop finds them in place, or on their way there, and leaves them
+alone: only the dropped or resized window moves into its slot then (see
+[tiling-layout.md](tiling-layout.md#tiles-that-follow-a-drag)).
 
 ## The Frame Contract
 

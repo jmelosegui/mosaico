@@ -178,22 +178,30 @@ is.
 `drag_to_swap` (default `true`) turns the drags the user makes into layout
 changes. A tiled window dragged by its title bar and dropped on another tile
 of its monitor swaps places with it, and one dropped on another monitor
-joins that monitor's workspace before the tile under the pointer, or at the
-end, which it also does over that monitor's bar or a gap there. Over its
-own slot, a gap, its monitor's bar, a monocle workspace of its own monitor,
-or snapped or maximized there by the system as it is dropped, it goes back
-to its slot; maximized by the system on another monitor, it joins that
+joins that monitor's workspace before or after the tile under the pointer,
+whichever gives it a slot under the pointer, or at the
+end, which it also does over that monitor's bar or a gap there. A workspace
+there in monocle leaves it, and the window joins it tiled. Over its own
+slot, a gap, its monitor's bar, a monocle workspace of its own monitor, or
+snapped or maximized there by the system as it is dropped, it goes back to
+its slot; maximized by the system on another monitor, it joins that
 monitor's workspace and stays maximized. A drag cancelled with Escape, and
 a click on the title bar, change nothing. While it is dragged, a
-translucent preview in the focused border's color shows where it will
-land. With `false`, a dropped window goes back to its slot, or joins the end
-of the other monitor's workspace, as before. See
+translucent preview in the focused border's color shows where it will land,
+the tile it would swap with moves into its slot, and over another monitor,
+the tiles there make room for it as they would once it joins, until the
+drag leaves, when they go back. With `false`, a
+dropped window goes back to its slot, or joins the end of the other
+monitor's workspace, as before, and nothing makes room for it. See
 [tiling-layout.md](tiling-layout.md#dragging-windows).
 
 `resize_splits` (default `true`) turns resizing a tiled window by its edges
 into a layout change. The edge between two tiles moves the split between
-them, and the windows beyond it follow; a corner where two splits meet
-moves both. In the vertical stack the master's edge and the edges between
+them, and the windows beyond it follow, while the edge is dragged, one gap
+from it, and the split moves once it is let go; a corner where two splits
+meet moves both. Where a split stops, the windows beyond it stop too, and
+the window held may overlap them until it is let go. In the vertical stack
+the master's edge and the edges between
 the windows of the stack resize, and in three columns the master's edges,
 the inner edges of the side columns and the edges between the windows of a
 column, with the master staying centered. The edge between two windows of
@@ -514,10 +522,10 @@ same way.
   manager calls `reload_config()` which updates the layout gap/ratio, hiding
   strategy, `BorderConfig`, whether the mouse follows focus, whether a drop
   moves a dragged window (`drag_to_swap`, from its next report or drop),
-  whether a resize moves splits (`resize_splits`, read as a resize ends, so
-  from the next one that ends, one held through the reload included) and the
-  `[animations]` settings, then retiles all windows, with a new ratio for
-  every split the user did not move; the daemon starts or
+  whether a resize moves splits (`resize_splits`, read on each report of a
+  resize and as it ends, so from the next report, of one held through the
+  reload too) and the `[animations]` settings, then retiles all windows,
+  with a new ratio for every split the user did not move; the daemon starts or
   stops focus-follows-mouse. Transitions that start after the reload use the
   new settings. A motion in flight goes on as it is while its target stays the
   same, a reload that moves its target turns it there with the new duration,
