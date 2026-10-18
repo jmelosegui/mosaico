@@ -3,6 +3,7 @@
 
 use crate::{Rect, WindowId};
 
+use super::super::super::bar_states::fills;
 use super::super::super::{Plan, Tiler};
 use super::super::Drag;
 use super::super::target::Target;
@@ -29,6 +30,7 @@ impl Tiler {
             return Some((drag.monitor, positions));
         }
         match self.drop_target(plan, drag, pointer)? {
+            Target::Join { monitor, .. } if self.has_filling(plan, monitor) => None,
             Target::Join { monitor, before } => {
                 self.prune_stale_handles(plan, monitor);
                 let positions = self.positions_joining(monitor, before, drag.window)?;
@@ -36,6 +38,17 @@ impl Tiler {
             }
             Target::Back | Target::Swap(_) => None,
         }
+    }
+
+    /// Whether a window of the workspace on screen of monitor `idx` is
+    /// maximized or fills the monitor, as a fullscreen one does, so that
+    /// only a drop there may change it, as it would stop being so.
+    fn has_filling(&self, plan: &Plan, idx: usize) -> bool {
+        let Some(mon) = self.monitors.get(idx) else {
+            return false;
+        };
+        (mon.active_ws().windows().iter())
+            .any(|&window| fills(mon, plan.is_maximized(window), plan.rect(window)))
     }
 }
 
