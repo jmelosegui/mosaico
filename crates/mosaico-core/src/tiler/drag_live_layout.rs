@@ -54,3 +54,7 @@ mod drop_cases_tests;
 #[cfg(test)]
 #[path = "tests/drag_live_drop_stack_tests.rs"]
 mod drop_stack_tests;
+
+#[cfg(test)]
+#[path = "tests/drag_live_maximized_tests.rs"]
+mod maximized_tests;
