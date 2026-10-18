@@ -76,3 +76,7 @@ mod drop_stack_tests;
 #[cfg(test)]
 #[path = "tests/drag_live_maximized_tests.rs"]
 mod maximized_tests;
+
+#[cfg(test)]
+#[path = "tests/drag_live_gap_tests.rs"]
+mod gap_tests;
