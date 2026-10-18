@@ -92,3 +92,21 @@ fn a_window_there_minimized_without_a_report_leaves_before_the_tiles_make_room()
     assert_eq!(h.active(1), vec![3]);
     assert!(h.window(4).minimized);
 }
+
+#[test]
+fn over_the_slot_of_a_window_there_minimized_without_a_report_the_tiles_make_room_as_the_drop() {
+    // Arrange -- window 4 minimized without a report, the pointer over
+    // where it was laid out.
+    let mut h = on_two(swapping(), &[3, 4]);
+    let over = center(RIGHT);
+    h.window(4).minimized = true;
+    grab(&mut h, 1);
+
+    // Act
+    report_at(&mut h, 1, over);
+
+    // Assert -- window 3, now alone there and under the pointer, makes
+    // room for window 1 before it, as a drop there would (#160 review,
+    // round 1, finding 3).
+    assert_eq!(h.placements(), vec![(3, RIGHT, Timing::Now)]);
+}
