@@ -231,7 +231,9 @@ it land.
 ### Action Handling
 
 `Tiler::handle_action()` (in `actions.rs`) dispatches `Action` variants to
-dedicated methods in the split tiler modules:
+dedicated methods in the split tiler modules. An action from a bar first
+moves focus to the bar's monitor when it acts on a monitor, and its step
+moves no pointer (see [actions.md](actions.md#origins)):
 
 - `Focus(dir)` -> `focus_direction(dir)` (in `navigation.rs`) -- spatial
   navigation. Left/Right use `resolve_horizontal_target()` and can cross
@@ -251,6 +253,9 @@ dedicated methods in the split tiler modules:
 - `MinimizeFocused` -> asks the platform to minimize the focused window
 - `GoToWorkspace(n)` -> `goto_workspace(n)` (in `workspace.rs`) -- switches
   to workspace N on the focused monitor
+- `GoToWorkspaceNext` / `GoToWorkspacePrev` -> `step_workspace(1)` /
+  `step_workspace(-1)` (in `actions.rs`) -- switches to the workspace after or
+  before the one on screen, following `[workspaces] wrap`
 - `SendToWorkspace(n)` -> `send_to_workspace(n)` (in `workspace.rs`) -- sends
   focused window to workspace N
 

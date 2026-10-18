@@ -10,7 +10,8 @@ All settings have sensible defaults, so configuration files are optional.
 | File | Purpose |
 |------|---------|
 | `crates/mosaico-core/src/config/mod.rs` | `Config`, `Config::validate()` |
-| `crates/mosaico-core/src/config/types.rs` | `LayoutConfig`, `WorkspacesConfig`, `BorderConfig`, `BorderColors`, `MouseConfig`, `CornerStyle`, `WorkspaceMode` |
+| `crates/mosaico-core/src/config/types.rs` | `LayoutConfig`, `BorderConfig`, `BorderColors`, `MouseConfig`, `CornerStyle` |
+| `crates/mosaico-core/src/config/workspaces.rs` | `WorkspacesConfig`, `WorkspaceMode`, the `[workspaces]` section |
 | `crates/mosaico-core/src/config/rules.rs` | `WindowRule`, `should_manage()`, `matching_rule()`, `default_rules()` |
 | `crates/mosaico-core/src/config/hiding_behaviour.rs` | `HidingBehaviour`, how windows are hidden on a workspace switch |
 | `crates/mosaico-core/src/config/animations.rs` | `AnimationConfig`, the `[animations]` section: window transitions |
@@ -19,6 +20,7 @@ All settings have sensible defaults, so configuration files are optional.
 | `crates/mosaico-core/src/config/reload/` | `ConfigReloader`, `ConfigReload`: which files hot-reload and how (`mod.rs`); `ConfigWatch`: opening the watcher after the files are recorded, and the watch loop (`run.rs`) |
 | `crates/mosaico-core/src/config/keybinding.rs` | `Keybinding`, `Modifier`, `defaults()`, `Keybinding::combo()` |
 | `crates/mosaico-core/src/config/bar.rs` | `BarConfig`, `BarColors`, `WidgetConfig` |
+| `crates/mosaico-core/src/config/bar_mouse.rs` | `BarMouseConfig`, `BarScroll`, the `[mouse]` section of `bar.toml` |
 | `crates/mosaico-core/src/log.rs` | `LogConfig`, the `[logging]` section, and the logger |
 | `crates/mosaico-core/src/config/theme_config.rs` | `ThemeConfig`, the `[theme]` section |
 | `crates/mosaico-core/src/config/theme.rs` | `Theme` enum |
@@ -33,7 +35,9 @@ All settings have sensible defaults, so configuration files are optional.
 - `LayoutConfig` -- `default: LayoutKind` (default `bsp`), `gap: i32` (default
   8), `ratio: f64` (default 0.5), `hiding: HidingBehaviour` (default `Cloak`)
 - `WorkspacesConfig` -- `mode: WorkspaceMode` (default `per-monitor`),
-  `layouts: HashMap<u8, LayoutKind>` (per-workspace layout overrides)
+  `wrap: bool` (default false: stepping through the workspaces stops at
+  either end), `layouts: HashMap<u8, LayoutKind>` (per-workspace layout
+  overrides)
 - `MouseConfig` -- `follows_focus: bool` (default true),
   `focus_follows_mouse: bool` (default false)
 - `HidingBehaviour` (enum) -- `Cloak`, `Hide`, `Minimize`, each described by
@@ -68,8 +72,11 @@ All settings have sensible defaults, so configuration files are optional.
 - `Theme` (enum) -- `Catppuccin(CatppuccinFlavor)`, `RosePine(RosePineFlavor)`,
   `TokyoNight(TokyoNightFlavor)`
 - `BarConfig` -- `enabled: bool`, `height: i32`, `monitors: Vec<usize>`
-  (empty for every monitor), `left/right: Vec<WidgetConfig>`,
-  `colors: BarColors`, and the font, padding and pill settings
+  (empty for every monitor), `mouse: BarMouseConfig`,
+  `left/right: Vec<WidgetConfig>`, `colors: BarColors`, and the font,
+  padding and pill settings
+- `BarMouseConfig` -- `enabled: bool` (default true: the bar takes clicks
+  and the wheel), `scroll: BarScroll` (default `workspaces`, or `none`)
 - `BarColors` -- `background`, `foreground`, `accent`, the workspace,
   separator, widget and pill colors (support named colors)
 - `KeybindingsFile` -- wrapper for TOML deserialization of `[[keybinding]]`
@@ -91,6 +98,7 @@ hiding = "cloak" # How windows hide on workspace switch: "cloak", "hide", "minim
 
 [workspaces]
 mode = "per-monitor"  # "per-monitor" (default) or "global"
+wrap = false          # Stepping past the last workspace goes back to the first
 
 [workspaces.layouts]  # Per-workspace layout overrides
 # Available values: "bsp", "vertical-stack", "three-column"
@@ -167,6 +175,10 @@ enabled = true
 height = 28
 monitors = []        # 0-based monitor indices; empty for all of them
 
+[mouse]
+enabled = true          # false keeps the bar click-through, as before
+scroll = "workspaces"   # What scrolling over the bar does: "workspaces" or "none"
+
 [colors]
 background = "#1e1e2e"   # Hex, or empty for the theme's own
 foreground = "#cdd6f4"
@@ -182,6 +194,16 @@ format = "%H:%M"
 [[right]]
 type = "cpu"
 ```
+
+The `[mouse]` section says what the mouse does on the bar. A left click on a
+workspace number goes to that workspace on the bar's own monitor, and the
+wheel steps through that monitor's workspaces the way `goto-workspace-next`
+and `goto-workspace-prev` do, with `[workspaces] wrap` from `config.toml`.
+`enabled = false` keeps the bar click-through, as it was before it took the
+mouse, and `scroll = "none"` leaves the wheel alone. Even with the mouse on,
+the bar lets the pointer through over a maximized or fullscreen window, and
+elsewhere takes it only where it draws something. See
+[status-bar.md](status-bar.md#pointer-input).
 
 ### `rules.toml`
 
@@ -256,28 +278,40 @@ A missing file is never created. Files that exist change in two ways:
   (`[layout.workspaces]` becomes `[workspaces.layouts]`, and `focused` /
   `monocle` under `[borders]` move to `[borders.colors]`), after copying the
   file to `config.toml.pre-0.9.bak` (`.bak.1`, `.bak.2`, ... when that
-  exists). Comments and formatting survive. This happens wherever the file is
-  loaded: at daemon startup, on hot-reload and in `mosaico doctor`.
+  exists). Comments, formatting, the line endings (CRLF or LF) and a byte
+  order mark survive. This happens wherever the file is loaded: at daemon
+  startup, on hot-reload and in `mosaico doctor`.
 - At daemon startup, the `merge_missing_*` methods add what a newer version
-  introduced, by appending to the file or, for one key, inserting into it:
+  introduced, by appending to the file or, for two keys, inserting into it:
   - `merge_missing_config_sections()` appends a documented `[workspaces]`
-    section when `config.toml` has none. For the `unfocused` border color,
-    when `[borders.colors]` is an active table without the key, it inserts
-    `unfocused = ""` there under a comment, even if a comment in the file
-    already mentions the option. That rewrites the file in place (through
-    `toml_edit`, so comments and formatting survive) without a backup.
-    Otherwise it appends a comment block about the option, unless the file
-    already mentions `unfocused` anywhere. Last, it appends a comment block
-    about window transitions, unless the file has an `animations` table, as
-    the template writes it, or an `[animations]` header line commented out,
-    as the block itself has. A line that only mentions the section does not
-    count. The block is all comments and names no default value, so the file
-    keeps the defaults until the user writes the section, and says nothing
-    wrong about them when they change.
+    section when `config.toml` has none. A `[workspaces]` table from before
+    `wrap` gets `wrap = false` inserted at its end under a comment, the way
+    the `unfocused` color is inserted below, and a `workspaces` section in
+    another form, such as an inline table, gets a comment block about `wrap`
+    instead, unless the file mentions `wrap` anywhere. For the `unfocused`
+    border color, when `[borders.colors]` is an active table without the
+    key, it inserts `unfocused = ""` there under a comment, even if a
+    comment in the file already mentions the option. That rewrites the file
+    in place (through `toml_edit`, so comments, formatting, the line endings
+    and a byte order mark survive) without a backup. Otherwise it appends a
+    comment block about the option, unless the file already mentions
+    `unfocused` anywhere. Last, it appends a comment block about window
+    transitions, unless the file has an `animations` table, as the template
+    writes it, or an `[animations]` header line commented out, as the block
+    itself has. A line that only mentions the section does not count. The
+    block is all comments and names no default value, so the file keeps the
+    defaults until the user writes the section, and says nothing wrong about
+    them when they change.
   - `merge_missing_keybindings()` and `merge_missing_bar_widgets()` append the
     default bindings and bar widgets the files lack; see
     [keyboard-bindings.md](keyboard-bindings.md) and
-    [status-bar.md](status-bar.md).
+    [status-bar.md](status-bar.md). `merge_missing_bar_widgets()` first
+    appends a comment block about the bar's `[mouse]` section, unless
+    `bar.toml` has a `mouse` table or a `[mouse]` header line commented out,
+    the way the animations block is added to `config.toml`. A `bar.toml`
+    that is TOML but holds a value the bar cannot take gets the block too,
+    and the bar falls back to the defaults; one that is not TOML is left
+    alone.
 
 ### Validation
 
@@ -394,7 +428,7 @@ same way.
   have is swapped for one it has, with a warning in the log, as at startup.
   Windows hidden before the change are shown again the way they were hidden.
   The workspace mode
-  (`workspaces.mode`) is reloaded live. Turning `"global"` on switches every
+  (`workspaces.mode`) and `workspaces.wrap` are reloaded live. Turning `"global"` on switches every
   monitor to the focused monitor's workspace, hiding and showing windows as
   a workspace switch does; turning it off leaves each monitor on the
   workspace it shows. Per-workspace layout overrides
@@ -415,7 +449,9 @@ same way.
   download overwrites hand edits. Put your own rules in `user-rules.toml`.
 - **bar.toml**: the `BarManager` is recreated with `reload()`, colors are
   re-resolved against the current theme, work areas are reset and re-adjusted
-  for the new bar height, and all monitors are retiled.
+  for the new bar height, and all monitors are retiled. The bars are made
+  again, with the new `[mouse]` settings, so a press or wheel turns made on
+  the old ones are dropped.
 - **keybindings.toml**: **not** hot-reloaded. Hotkey changes require a daemon
   restart because `RegisterHotKey` binds at the Win32 thread level.
 

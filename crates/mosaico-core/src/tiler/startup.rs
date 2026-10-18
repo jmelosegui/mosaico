@@ -7,7 +7,9 @@ use crate::action::MAX_WORKSPACES;
 use crate::config::{AnimationConfig, BorderConfig, LayoutConfig, WindowRule, WorkspacesConfig};
 use crate::{HidingSupport, LayoutKind, WindowId};
 
-use super::{Desktop, Display, Effect, MonitorState, Plan, Tiler, hidden_how, reconnect};
+use super::{
+    Desktop, Display, Effect, MonitorState, Plan, Tiler, bar_states, hidden_how, reconnect,
+};
 
 /// Everything the tiler is configured with at startup.
 #[derive(Debug, Clone, Default)]
@@ -71,6 +73,7 @@ impl Tiler {
             hiding_support: settings.hiding_support,
             hidden_how: hidden_how::HiddenHow::default(),
             workspace_mode: settings.workspaces.mode,
+            workspace_wrap: settings.workspaces.wrap,
             rules: settings.rules,
             border_config: settings.borders,
             animations: settings.animations,
@@ -81,6 +84,7 @@ impl Tiler {
             focused_monitor: 0,
             focused_window: None,
             focused_maximized: false,
+            filling: bar_states::Filling::default(),
             empty_focus_claim: None,
             adopt_rejected: HashSet::new(),
         };
@@ -94,6 +98,7 @@ impl Tiler {
                 tiler.decorate(&mut plan, window);
             }
         }
+        tiler.seed_filling(desktop);
         tiler.retile_all(&mut plan);
         tiler.focus_initial(&mut plan);
         let start = tiler.step_kind(true);

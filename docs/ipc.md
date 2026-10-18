@@ -45,11 +45,11 @@ mid-request, instead of hanging.
 A request is the command plus the protocol version of the client:
 
 ```json
-{"version":1,"command":"Stop"}
+{"version":2,"command":"Stop"}
 ```
 
 ```json
-{"version":1,"command":"Action","action":"focus-left"}
+{"version":2,"command":"Action","action":"focus-left"}
 ```
 
 The version sits next to the command's own fields, so a daemon built before
@@ -68,7 +68,8 @@ The daemon checks every request before running it, and always answers:
 | carried out, but the reply is larger than the limit | `too-large`, in place of the reply |
 
 Bump `PROTOCOL_VERSION` whenever a change would make one side misread the
-other.
+other. Version 2 added the `goto-workspace-next` and `goto-workspace-prev`
+actions, which a daemon of version 1 cannot read.
 
 ## Responses
 

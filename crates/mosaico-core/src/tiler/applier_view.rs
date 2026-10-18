@@ -78,6 +78,19 @@ impl Desktop for PostedView<'_> {
         self.desktop.cursor()
     }
 
+    /// The desktop's, but for the windows a change on its way hides or
+    /// minimizes.
+    fn windows_on_screen(&self) -> Vec<WindowId> {
+        let mut windows = self.desktop.windows_on_screen();
+        windows.retain(|window| {
+            !matches!(
+                self.states.get(window),
+                Some(ShowState::Hidden | ShowState::Minimized)
+            )
+        });
+        windows
+    }
+
     fn candidate(&self, window: WindowId) -> Option<WindowFacts> {
         self.desktop.candidate(window)
     }
@@ -90,3 +103,7 @@ impl Desktop for PostedView<'_> {
         self.desktop.animations_allowed()
     }
 }
+
+#[cfg(test)]
+#[path = "tests/applier_view_tests.rs"]
+mod tests;

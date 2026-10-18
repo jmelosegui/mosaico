@@ -172,9 +172,11 @@ daemon action path (carry_out)  -> action with an origin          { monitor, fro
 - The content says which items are clickable, and the platform answers the
   pointer shape synchronously by calling core's `hit` on the regions it last
   returned.
-- While input is on, the bar paints its background at an alpha of at least 1,
-  invisible but enough for the whole strip to take input, since a layered
-  window passes input through fully transparent pixels.
+- While input is on, the bar paints its clickable items at an alpha of at least
+  1, invisible but enough for the whole of each item to take input, since a
+  layered window passes input through fully transparent pixels. The rest of
+  the strip keeps the alpha it is painted with, so where a transparent bar
+  draws nothing, a window under it keeps its clicks.
 - The bar is click-through while a maximized or fullscreen window is on its
   monitor: core decides from `Desktop` on each bar update, and the platform
   switches.
@@ -354,21 +356,21 @@ need nothing from phase 34; 35.3 needs `MoveStarted` (34.2); 35.4 needs 35.3.
 
 ### 35.1 Bar clicks and scrolling
 
-- [ ] `BarId`, `PointerSink` and item regions in the bar contracts, and
+- [x] `BarId`, `PointerSink` and item regions in the bar contracts, and
       click-through over maximized or fullscreen windows
-- [ ] Hit testing in core against the drawn regions, with tests for every item
+- [x] Hit testing in core against the drawn regions, with tests for every item
       kind, the gaps, paint order, duplicate widgets, stale bars and a redraw
       between press and release
-- [ ] Wheel steps added up and applied once the wheel goes quiet, with tests for
+- [x] Wheel steps added up and applied once the wheel goes quiet, with tests for
       notches, fractions, direction changes and bursts
-- [ ] Actions with an origin: workspace clicks and scrolls act on the bar's
+- [x] Actions with an origin: workspace clicks and scrolls act on the bar's
       monitor, focus per the rules above, no pointer moves; global mode
-- [ ] `goto-workspace-next` and `goto-workspace-prev`, with `[workspaces] wrap`,
+- [x] `goto-workspace-next` and `goto-workspace-prev`, with `[workspaces] wrap`,
       in keybindings and the CLI
-- [ ] Windows: input without activation, capture, the cursor, minimum alpha,
+- [x] Windows: input without activation, capture, the cursor, minimum alpha,
       click-through switching; tests on hidden bar windows of the test's own
-- [ ] `[mouse] enabled` and `scroll` in bar.toml, templates and hints
-- [ ] Metrics scenarios: a click on the focused and on another monitor's bar, and
+- [x] `[mouse] enabled` and `scroll` in bar.toml, templates and hints
+- [x] Metrics scenarios: a click on the focused and on another monitor's bar, and
       a scroll burst
 - [ ] Check wheel input with "Scroll inactive windows when I hover over them"
       off, and document what it needs

@@ -27,3 +27,7 @@ mod tests;
 #[cfg(test)]
 #[path = "template_animations_tests.rs"]
 mod animations_tests;
+
+#[cfg(test)]
+#[path = "template_mouse_tests.rs"]
+mod mouse_tests;

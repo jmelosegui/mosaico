@@ -12,11 +12,11 @@ fn a_display_change_in_the_wake_that_flushes_is_noted_before_the_flush() {
     let t0 = Instant::now();
     let mut scheduler = Scheduler::default();
     let held = Some(t0);
-    scheduler.begin_wait(held, None, t0);
+    scheduler.begin_wait(held, None, None, t0);
     scheduler.step(received(vec![event(titled(1))]), t0 + ms(10));
 
     // Act -- the display changes as the loop gets back to waiting.
-    let wait = scheduler.begin_wait(held, None, t0 + MAX_HOLD);
+    let wait = scheduler.begin_wait(held, None, None, t0 + MAX_HOLD);
     let steps = scheduler.step(display_changed(), t0 + MAX_HOLD);
 
     // Assert -- what moves stops first, so the swap the flush releases is
@@ -33,7 +33,7 @@ fn a_display_change_in_the_wake_that_rebuilds_is_noted_again_after_the_rebuild()
     scheduler.step(display_changed(), t0);
 
     // Act -- another change comes as the first has settled.
-    let wait = scheduler.begin_wait(None, None, t0 + SETTLE);
+    let wait = scheduler.begin_wait(None, None, None, t0 + SETTLE);
     let steps = scheduler.step(display_changed(), t0 + SETTLE);
     let later = scheduler.step(timed_out(), t0 + SETTLE * 2);
 

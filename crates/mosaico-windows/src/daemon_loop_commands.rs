@@ -1,6 +1,7 @@
 //! What the user asks for: actions from hotkeys and commands from the
 //! CLI.
 
+use mosaico_core::action::Origin;
 use mosaico_core::bar::BarManager;
 use mosaico_core::ipc::{Command, DAEMON_VERSION, DaemonStatus, PROTOCOL_VERSION, Response};
 
@@ -8,26 +9,15 @@ use crate::tiling::{TilingManager, TilingViews};
 
 use super::daemon_inputs::Inputs;
 
-/// Carries out an action from a hotkey. Nobody waits for an answer, and
-/// [`carry_out`] has already logged a failure.
-pub(super) fn handle_action(
-    action: mosaico_core::Action,
-    manager: &mut TilingManager,
-    bar_mgr: &mut BarManager,
-    inputs: &Inputs,
-    hotkeys_paused: &mut bool,
-    get_update: &dyn Fn() -> String,
-) {
-    let _ = carry_out(action, manager, bar_mgr, inputs, hotkeys_paused, get_update);
-}
-
-/// Carries out an action from a hotkey or the CLI, then refreshes the bar.
+/// Carries out an action from a hotkey, the CLI or a bar, which `origin`
+/// says, then refreshes the bar.
 ///
 /// Fails only when something the action needed reported an error, which
 /// is logged here, whoever sent the action. An action with nothing to act
 /// on, such as focusing left at the left edge, does nothing and succeeds.
-fn carry_out(
+pub(super) fn carry_out(
     action: mosaico_core::Action,
+    origin: Origin,
     manager: &mut TilingManager,
     bar_mgr: &mut BarManager,
     inputs: &Inputs,
@@ -38,7 +28,7 @@ fn carry_out(
         toggle_pause(inputs, hotkeys_paused);
         Ok(())
     } else {
-        run_action(&action, manager, bar_mgr)
+        run_action(&action, origin, manager, bar_mgr)
     };
     if let Err(e) = &done {
         mosaico_core::log_warn!("{action}: {e}");
@@ -69,6 +59,7 @@ fn toggle_pause(inputs: &Inputs, hotkeys_paused: &mut bool) {
 /// drawn from scratch.
 fn run_action(
     action: &mosaico_core::Action,
+    origin: Origin,
     manager: &mut TilingManager,
     bar_mgr: &BarManager,
 ) -> mosaico_core::Result<()> {
@@ -76,11 +67,11 @@ fn run_action(
         mosaico_core::log_info!("Retile: re-reading work areas");
         let indices = bar_mgr.bar_monitor_indices().to_vec();
         let reread = manager.reset_and_adjust_work_areas(bar_mgr.bar_height(), &indices);
-        manager.handle_action(action);
+        manager.handle_action_from(action, origin);
         manager.refresh_visible_windows();
         return reread;
     }
-    manager.handle_action(action);
+    manager.handle_action_from(action, origin);
     Ok(())
 }
 
@@ -110,6 +101,7 @@ pub(super) fn handle_command(
         Command::Action { action } => {
             let done = carry_out(
                 *action,
+                Origin::Focused,
                 manager,
                 bar_mgr,
                 inputs,

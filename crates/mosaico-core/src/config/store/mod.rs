@@ -1,12 +1,15 @@
 mod load;
 mod merge_animations;
 mod merge_bar;
+mod merge_bar_mouse;
 mod merge_config;
 mod merge_keybindings;
 mod merge_unfocused;
+mod merge_wrap;
 mod migrate;
 mod migrate_borders;
 mod migrate_workspaces;
+mod write_back;
 
 #[cfg(test)]
 #[path = "tests/support.rs"]
@@ -33,7 +36,8 @@ use super::report;
 /// that exist: loading `config.toml` rewrites keys from older versions
 /// after saving a backup next to it, and the `merge_missing_*` methods
 /// add what newer versions introduced, appending it or, for the
-/// `unfocused` border color, inserting it into `[borders.colors]`.
+/// `unfocused` border color and `[workspaces] wrap`, inserting it into
+/// their tables.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConfigStore {
     dir: PathBuf,

@@ -1,27 +1,42 @@
 //! The status bars on every monitor.
 
+use std::rc::Rc;
+
 use crate::Rect;
 use crate::config::Theme;
 use crate::config::bar::BarConfig;
 
 use super::{
-    BarContent, BarRenderer, BarState, BarSurface, CpuTracker, SystemInfo, SystemReadings,
+    BarContent, BarRenderer, BarState, CpuTracker, PointerSink, SystemInfo, SystemReadings,
 };
+
+#[path = "manager_bars.rs"]
+mod bars;
+#[path = "manager_pointer.rs"]
+mod pointer;
+#[path = "manager_slot.rs"]
+mod slot;
 
 /// The status bars on every monitor, and the space they take.
 ///
 /// Decides which monitors get a bar, how tall it is and what each one
 /// shows, has a [`BarRenderer`] put the bars on screen, and reads the
 /// machine through [`SystemInfo`]. The daemon refreshes it after every
-/// change it makes and once a second.
+/// change it makes and once a second, and hands it what the pointer does
+/// on the bars, which it turns into actions.
 pub struct BarManager {
     /// The bars on screen. Declared before `renderer`, so they are
     /// dropped before the renderer that made them.
-    bars: Vec<Box<dyn BarSurface>>,
+    bars: Vec<slot::Slot>,
     /// The monitor index of each bar in `bars`.
     bar_monitor_indices: Vec<usize>,
     renderer: Box<dyn BarRenderer>,
     system: Box<dyn SystemInfo>,
+    /// Where every bar reports what the pointer does on it.
+    sink: Rc<dyn PointerSink>,
+    /// The generation of the bars on screen. Bars made again get the
+    /// next one, so the ids of the bars they replace are never reused.
+    generation: u64,
     /// The config, with its colors resolved against the theme.
     config: BarConfig,
     /// The config as loaded from the file, before theme resolution.
@@ -38,11 +53,12 @@ pub struct BarManager {
 
 impl BarManager {
     /// Makes a bar on each monitor the config shows one on, with the
-    /// colors resolved against `theme`. A monitor whose bar cannot be
-    /// made goes without one.
+    /// colors resolved against `theme`, reporting what the pointer does on
+    /// it to `sink`. A monitor whose bar cannot be made goes without one.
     pub fn new(
         renderer: Box<dyn BarRenderer>,
         system: Box<dyn SystemInfo>,
+        sink: Rc<dyn PointerSink>,
         config: BarConfig,
         monitor_areas: Vec<Rect>,
         theme: Theme,
@@ -52,6 +68,8 @@ impl BarManager {
             bar_monitor_indices: Vec::new(),
             renderer,
             system,
+            sink,
+            generation: 0,
             raw_config: config.clone(),
             config,
             monitor_areas,
@@ -83,93 +101,21 @@ impl BarManager {
     ///
     /// The machine is read once for all bars, and not at all while no
     /// monitor has a bar. A monitor that `states` has no entry for shows
-    /// [`BarState::default`].
+    /// [`BarState::default`]. Each bar lets the pointer through while
+    /// `[mouse] enabled` is off, and while its state says a maximized or
+    /// fullscreen window is under it; otherwise it takes the pointer.
     pub fn update(&mut self, states: &[BarState]) {
         if self.bars.is_empty() {
             return;
         }
         let readings = SystemReadings::read(self.system.as_ref(), &self.config, self.cpu.as_mut());
         let fallback = BarState::default();
-        for (bar, &monitor) in self.bars.iter_mut().zip(&self.bar_monitor_indices) {
-            let state = states.get(monitor).unwrap_or(&fallback);
+        for bar in &mut self.bars {
+            let state = states.get(bar.id.monitor).unwrap_or(&fallback);
+            bar.let_through(!self.config.mouse.enabled || state.maximized);
             let content = BarContent::build(&self.config, state, &readings);
-            if let Err(e) = bar.draw(&self.config, &content) {
-                crate::log_debug!("Bar on monitor {monitor} not drawn: {e}");
-            }
+            bar.draw(&self.config, &content, state);
         }
-    }
-
-    /// Re-resolves the colors against a theme that may have changed.
-    ///
-    /// The whole config starts again from the copy loaded from the file,
-    /// then every color, the `[colors]` table and each widget's `color`,
-    /// is resolved against `theme`: a color given by name follows the new
-    /// theme, and an empty one takes its default. Anything else changed in
-    /// the config since it was loaded is undone too; only
-    /// [`reload`](Self::reload) replaces that copy.
-    pub fn resolve_colors(&mut self, theme: Theme) {
-        self.config = self.raw_config.clone();
-        self.config.resolve_colors(theme);
-    }
-
-    /// Hides every bar.
-    pub fn hide_all(&mut self) {
-        for (bar, monitor) in self.bars.iter_mut().zip(&self.bar_monitor_indices) {
-            if let Err(e) = bar.hide() {
-                crate::log_debug!("Bar on monitor {monitor} not hidden: {e}");
-            }
-        }
-    }
-
-    /// Replaces the bars after a display change: drops the old ones,
-    /// re-resolves the colors as [`resolve_colors`](Self::resolve_colors)
-    /// does and makes new ones for `monitor_areas`.
-    pub fn rebuild_for_monitors(&mut self, monitor_areas: Vec<Rect>, theme: Theme) {
-        self.monitor_areas = monitor_areas;
-        self.resolve_colors(theme);
-        self.create_bars();
-    }
-
-    /// Replaces the bars with ones for `config` and returns the new bar
-    /// height. `config` also becomes the copy that
-    /// [`resolve_colors`](Self::resolve_colors) starts from. The colors are
-    /// left as loaded, so resolve them next.
-    pub fn reload(&mut self, config: BarConfig) -> i32 {
-        self.raw_config = config.clone();
-        self.config = config;
-        self.create_bars();
-        self.cpu = self.cpu_tracker();
-        self.bar_height()
-    }
-
-    /// Drops every bar, then makes one on each monitor the config shows
-    /// one on.
-    fn create_bars(&mut self) {
-        self.bars.clear();
-        self.bar_monitor_indices.clear();
-        if !self.config.enabled {
-            return;
-        }
-        for (i, &area) in self.monitor_areas.iter().enumerate() {
-            if !self.config.should_show_on(i) {
-                continue;
-            }
-            match self.renderer.create(area) {
-                Ok(bar) => {
-                    self.bars.push(bar);
-                    self.bar_monitor_indices.push(i);
-                }
-                // Same index as the `monitors` list in bar.toml.
-                Err(e) => crate::log_warn!("No bar on monitor {i}: {e}"),
-            }
-        }
-    }
-
-    /// A CPU tracker while a CPU widget is configured.
-    fn cpu_tracker(&self) -> Option<CpuTracker> {
-        self.config
-            .has_cpu_widget()
-            .then(|| CpuTracker::new(self.system.as_ref()))
     }
 }
 

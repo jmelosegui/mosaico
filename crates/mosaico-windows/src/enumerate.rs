@@ -60,26 +60,40 @@ impl Enumerator for WindowsEnumerator {
 }
 
 /// Enumerates all visible, non-minimized, top-level application windows.
+fn enumerate_windows() -> Result<Vec<WindowId>> {
+    top_level_windows(should_include_window)
+}
+
+/// The top-level windows that `keep` accepts, topmost first.
 ///
 /// This calls the Win32 `EnumWindows` API, which iterates over every top-level
 /// window and invokes a callback for each one. We filter inside the callback
-/// to keep only "real" application windows.
-fn enumerate_windows() -> Result<Vec<WindowId>> {
-    let mut windows: Vec<WindowId> = Vec::new();
+/// with `keep`, such as to keep only "real" application windows.
+pub(crate) fn top_level_windows(keep: fn(HWND) -> bool) -> Result<Vec<WindowId>> {
+    let mut walk = Walk {
+        keep,
+        windows: Vec::new(),
+    };
 
     // SAFETY: EnumWindows calls our callback for each top-level window.
-    // We pass a pointer to our Vec as LPARAM (user data). The callback
-    // casts it back to &mut Vec<WindowId> to collect results. This is safe
-    // because EnumWindows runs synchronously — the Vec outlives the call.
+    // We pass a pointer to our Walk as LPARAM (user data). The callback
+    // casts it back to &mut Walk to collect results. This is safe because
+    // EnumWindows runs synchronously, so the Walk outlives the call.
     unsafe {
         EnumWindows(
             Some(enum_window_callback),
-            LPARAM(&mut windows as *mut _ as isize),
+            LPARAM(&mut walk as *mut _ as isize),
         )
     }
     .or_platform("list windows")?;
 
-    Ok(windows)
+    Ok(walk.windows)
+}
+
+/// What [`top_level_windows`] keeps, and the windows it kept so far.
+struct Walk {
+    keep: fn(HWND) -> bool,
+    windows: Vec<WindowId>,
 }
 
 /// Callback invoked by `EnumWindows` for each top-level window.
@@ -90,14 +104,14 @@ fn enumerate_windows() -> Result<Vec<WindowId>> {
 ///
 /// Win32 can't call Rust closures directly. Instead, we use `extern "system"`
 /// (the Windows calling convention) and pass data through an `LPARAM` — a
-/// pointer-sized integer used as "user data". We cast our `Vec<WindowId>` pointer
+/// pointer-sized integer used as "user data". We cast our `Walk` pointer
 /// into an `LPARAM` when calling `EnumWindows`, and cast it back here.
 unsafe extern "system" fn enum_window_callback(hwnd: HWND, lparam: LPARAM) -> BOOL {
-    // SAFETY: lparam is a pointer to our Vec<WindowId>, cast from enumerate_windows().
-    let windows = unsafe { &mut *(lparam.0 as *mut Vec<WindowId>) };
+    // SAFETY: lparam is a pointer to our Walk, cast from top_level_windows().
+    let walk = unsafe { &mut *(lparam.0 as *mut Walk) };
 
-    if should_include_window(hwnd) {
-        windows.push(Window::new(hwnd).id());
+    if (walk.keep)(hwnd) {
+        walk.windows.push(Window::new(hwnd).id());
     }
 
     BOOL(1) // TRUE — continue enumerating

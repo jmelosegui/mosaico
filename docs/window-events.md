@@ -155,7 +155,10 @@ in a row, and only once until the pointer moves to another window. A poll
 that finds no window is skipped. Turning the setting off in `config.toml`
 stops the thread, and turning it back on starts a new one. On Windows the
 pointer is read with `GetCursorPos`, `WindowFromPoint` and
-`GetAncestor(GA_ROOT)`.
+`GetAncestor(GA_ROOT)`. While the bar takes the pointer, a pointer resting on
+what it draws finds the bar, which the tiler does not manage, so it focuses
+nothing; a bar that lets the pointer through, over a maximized window or with
+the bar's `[mouse] enabled = false`, finds the window under it, as before.
 
 ## How Events Drive Tiling
 
@@ -171,7 +174,7 @@ pointer is read with `GetCursorPos`, `WindowFromPoint` and
 | `Minimized` | Remove from workspace, re-tile, and stop the window's transition, if it is really minimized |
 | `Restored` | Re-add to workspace, re-tile |
 | `TitleChanged` | Adopt a window that only became recognizable once it had a title |
-| `LocationChanged` | Notice the focused window entering or leaving maximized state; once a window still to land where a posted placement takes it reports being there, or being anywhere once the wait for it by time is over, repaint it again and draw its border there (`applier_landing.rs`) |
+| `LocationChanged` | Notice the focused window entering or leaving maximized state, and any window on screen starting or stopping to be maximized or fullscreen, for the bars (`bar_filling.rs`); once a window still to land where a posted placement takes it reports being there, or being anywhere once the wait for it by time is over, repaint it again and draw its border there (`applier_landing.rs`) |
 
 ## Design Decisions
 

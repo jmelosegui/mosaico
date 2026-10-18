@@ -16,8 +16,23 @@ Or via the CLI:
 
 ```sh
 mosaico action go-to-workspace 3
+mosaico action go-to-workspace-next
+mosaico action go-to-workspace-prev
 mosaico action send-to-workspace 5
 ```
+
+`goto-workspace-next` and `goto-workspace-prev` step to the workspace after
+or before the one on screen. They have no default shortcut; bind them in
+`keybindings.toml` (see [Keybindings](keybindings.md)). A step past the last
+workspace stays there, unless `wrap` is on:
+
+```toml
+[workspaces]
+wrap = true   # past the last workspace, go back to the first
+```
+
+You can also click a workspace number on the [status bar](status-bar.md#the-mouse),
+or scroll over the bar, to switch the workspaces of that bar's monitor.
 
 ## Behavior
 
@@ -92,10 +107,16 @@ workspace on its current monitor, then flips every other monitor to the
 same workspace number so the view stays in sync.
 
 The mode is hot-reloaded: change it in `config.toml` and the next
-workspace switch follows the new mode without restarting the daemon.
+workspace switch follows the new mode without restarting the daemon. So is
+`wrap`.
+
+A click on a workspace number of the status bar follows the mode too: in
+global mode every monitor switches, and focus goes to the monitor whose bar
+you clicked.
 
 ## Status Bar Integration
 
 If the status bar is enabled with a `workspaces` widget, it displays
 pill-shaped indicators showing which workspace is active and which
-workspaces contain windows.
+workspaces contain windows. Click one to go to that workspace on that
+monitor, or scroll over the bar to step through them.

@@ -15,10 +15,18 @@ impl Tiler {
             Input::Bar(_) => self.fresh,
             _ => false,
         };
+        // The steps that go with the bars being made again.
+        let seed = matches!(
+            input,
+            Input::Displays { .. } | Input::WorkAreas { .. } | Input::Bar(_)
+        );
         self.fresh = false;
         let mut plan = Plan::new(desktop, now);
         match input {
-            Input::Action(action) => self.handle_action(&mut plan, &action),
+            Input::Action(action, origin) => {
+                plan.from_pointer = origin.from_pointer();
+                self.handle_action(&mut plan, &action, origin);
+            }
             Input::Event(event) => self.handle_event(&mut plan, &event),
             Input::Displays { monitors, bar } => {
                 self.handle_display_change(&mut plan, monitors, &bar)
@@ -30,6 +38,9 @@ impl Tiler {
             Input::RefreshBorders => self.update_border(&mut plan),
             Input::RepaintAll => self.repaint_visible(&mut plan),
             Input::Shutdown => self.restore_all_windows(&mut plan),
+        }
+        if seed {
+            self.seed_filling(desktop);
         }
         plan.finish(&self.step_kind(rebuild))
     }

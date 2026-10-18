@@ -31,6 +31,9 @@ hiding = "cloak" # How windows hide on workspace switch: "cloak", "hide", "minim
 # "per-monitor" (default): only the focused monitor switches.
 # "global": all monitors switch in lockstep, like Windows virtual desktops.
 mode = "per-monitor"
+# Whether stepping past the last workspace, with goto-workspace-next or the
+# wheel over the bar, goes back to the first.
+wrap = false
 
 [workspaces.layouts]
 # Available: "bsp", "vertical-stack", "three-column"
@@ -83,7 +86,8 @@ moves along when you move the focused window. Clicking a window leaves the
 pointer where it is. With `focus_follows_mouse`, off by default, resting the
 pointer on a tiled window focuses it without a click: after three checks of
 the pointer, 100 ms apart, as long as the window is on the monitor that has
-focus.
+focus. A click or a scroll on the status bar never moves the pointer, either
+way.
 
 ## `keybindings.toml`
 
@@ -105,6 +109,10 @@ Configures the status bar. See [Status Bar](status-bar.md) for details.
 enabled = true
 height = 28
 monitors = []            # 0-based monitor indices; empty for all of them
+
+[mouse]
+enabled = true           # Take clicks and the wheel; false keeps the bar click-through
+scroll = "workspaces"    # What scrolling over the bar does: "workspaces" or "none"
 
 [colors]
 background = "#1e1e2e"   # Hex, or empty for the theme's own

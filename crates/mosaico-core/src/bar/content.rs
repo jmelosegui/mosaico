@@ -1,15 +1,23 @@
-//! What each bar shows, in drawing order.
+//! What each bar shows, in drawing order, and what each item is to the
+//! pointer.
 
 use crate::WindowId;
-use crate::config::bar::{BarConfig, WidgetConfig};
+use crate::config::bar::BarConfig;
 
-use super::widget_text::{is_shown, label};
-use super::{BarState, SystemReadings};
+use super::{BarSide, BarState, SystemReadings};
+
+#[path = "content_items.rs"]
+mod items;
+#[path = "content_regions.rs"]
+mod regions;
 
 /// Everything one bar shows, in drawing order.
 ///
 /// Built from the bar config, the monitor's [`BarState`] and the
-/// [`SystemReadings`], so a platform only decides how it looks.
+/// [`SystemReadings`], so a platform only decides how it looks. Each item
+/// also knows the widget it shows, and whether it takes clicks, which a
+/// platform reads through [`region`](Self::region) and
+/// [`label_region`](Self::label_region) as it draws.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct BarContent {
     /// Drawn from the left edge, left to right.
@@ -20,6 +28,13 @@ pub struct BarContent {
     /// widgets are drawn as such only on the left, and as plain pills
     /// showing their icon on the right.
     pub right: Vec<BarItem>,
+    /// The index in the config's `left` list of the widget each item of
+    /// `left` shows, in the same order, and `None` for a separator.
+    left_widgets: Vec<Option<usize>>,
+    /// The same for `right`.
+    right_widgets: Vec<Option<usize>>,
+    /// Whether a click on a workspace label goes to that workspace.
+    labels_clickable: bool,
 }
 
 /// One thing drawn on a bar.
@@ -51,89 +66,22 @@ pub enum BarItem {
     Separator(String),
 }
 
-/// Which side of the bar a widget is on.
-#[derive(Clone, Copy, PartialEq)]
-enum Side {
-    Left,
-    Right,
-}
-
 impl BarContent {
     /// What a bar with `config` shows on a monitor in `state`.
     ///
     /// Each side lists its shown widgets in config order, with the
-    /// separator between them when one is configured.
+    /// separator between them when one is configured. The workspace labels
+    /// take clicks while `[mouse] enabled` is on; no widget takes any yet.
     pub fn build(config: &BarConfig, state: &BarState, readings: &SystemReadings) -> Self {
+        let (left, left_widgets) = items::side(config, BarSide::Left, state, readings);
+        let (right, right_widgets) = items::side(config, BarSide::Right, state, readings);
         Self {
-            left: side(config, &config.left, Side::Left, state, readings),
-            right: side(config, &config.right, Side::Right, state, readings),
+            left,
+            right,
+            left_widgets,
+            right_widgets,
+            labels_clickable: config.mouse.enabled,
         }
-    }
-}
-
-/// The items of one side of the bar.
-fn side(
-    config: &BarConfig,
-    widgets: &[WidgetConfig],
-    side: Side,
-    state: &BarState,
-    readings: &SystemReadings,
-) -> Vec<BarItem> {
-    let mut items = Vec::new();
-    for widget in widgets.iter().filter(|w| is_shown(w, state, readings)) {
-        if !items.is_empty() && !config.separator.is_empty() {
-            items.push(BarItem::Separator(format!(" {} ", config.separator)));
-        }
-        items.push(item(config, widget, side, state, readings));
-    }
-    items
-}
-
-/// How `widget` is drawn.
-///
-/// Only the left side has the workspace container and the window icon.
-/// On the right those widgets have always been plain pills showing their
-/// icon.
-fn item(
-    config: &BarConfig,
-    widget: &WidgetConfig,
-    side: Side,
-    state: &BarState,
-    readings: &SystemReadings,
-) -> BarItem {
-    match widget {
-        WidgetConfig::Workspaces { .. } if side == Side::Left => BarItem::Workspaces {
-            labels: (1..=state.workspace_count).map(|n| n.to_string()).collect(),
-            active: state.active_workspace,
-        },
-        WidgetConfig::ActiveWindow { .. } if side == Side::Left => {
-            BarItem::WindowIcon(state.focused_window)
-        }
-        _ => pill(config, widget, state, readings),
-    }
-}
-
-/// A pill with the widget's label, in the widget's color when it has one
-/// and in the bar's colors otherwise.
-fn pill(
-    config: &BarConfig,
-    widget: &WidgetConfig,
-    state: &BarState,
-    readings: &SystemReadings,
-) -> BarItem {
-    let color = widget.color();
-    let (text_color, border_color) = if color.is_empty() {
-        (
-            config.colors.foreground.clone(),
-            config.colors.pill_border.clone(),
-        )
-    } else {
-        (color.to_string(), color.to_string())
-    };
-    BarItem::Pill {
-        label: label(widget, state, readings),
-        text_color,
-        border_color,
     }
 }
 
