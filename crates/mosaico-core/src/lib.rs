@@ -77,7 +77,7 @@ pub use hiding::{HidingEvents, HidingSupport};
 pub use id::{MonitorId, WindowId};
 pub use instance::Instance;
 pub use ipc::{Command, Response};
-pub use layout::{BspLayout, Layout, LayoutKind, ThreeColumnLayout, VerticalStackLayout};
+pub use layout::{BspLayout, Layout, LayoutKind, MinSize, ThreeColumnLayout, VerticalStackLayout};
 pub use monitor::{EdidIdentity, Monitor, MonitorKey, match_monitors, pnp_manufacturer};
 pub use rect::Rect;
 pub use window::WindowControl;

@@ -1,4 +1,4 @@
-use crate::{MonitorId, Rect, WindowId};
+use crate::{MinSize, MonitorId, Rect, WindowId};
 
 use super::WindowIdentity;
 
@@ -118,6 +118,20 @@ pub trait Desktop {
     fn changes_posted(&self, window: WindowId) -> bool {
         let _ = window;
         false
+    }
+
+    /// The smallest size the window's application lets it have, in the
+    /// units of [`rect`](Self::rect) (visible bounds, no invisible frame),
+    /// or `None` for a window with no minimum of its own or one the
+    /// platform cannot read it for. A side of 0 is no minimum that way,
+    /// and what the system gives every window is not one.
+    ///
+    /// The tiler keeps windows this big where the area has room for them
+    /// all, and does not resize an edge past it. It asks once per window,
+    /// and again for all on a retile, so the answer must not wait long on
+    /// an application that does not respond.
+    fn min_size(&self, _window: WindowId) -> Option<MinSize> {
+        None
     }
 }
 

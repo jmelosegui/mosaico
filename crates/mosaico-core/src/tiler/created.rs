@@ -58,6 +58,7 @@ impl Tiler {
     /// real when it is shown.
     pub(super) fn pre_place(&mut self, plan: &mut Plan, window: WindowId) {
         let idx = self.focused_monitor;
+        self.learn_min_size(plan, window);
         let Some(state) = self.monitors.get(idx) else {
             return;
         };

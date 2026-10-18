@@ -1,7 +1,10 @@
-use crate::{Rect, WindowId};
+use crate::{LayoutKind, Rect, WindowId};
 
 use super::Layout;
 use super::column::column_slots;
+use super::min_column::fit_column;
+use super::min_limits::{fit, limits};
+use super::min_size::MinSize;
 
 /// Master/stack layout with one master pane on the left and remaining
 /// windows stacked vertically on the right.
@@ -44,6 +47,22 @@ impl VerticalStackLayout {
         work_area: &Rect,
         stack: Option<&[f64]>,
     ) -> Vec<(WindowId, Rect)> {
+        self.apply_fitted(windows, work_area, stack, &[])
+    }
+
+    /// Lays out `windows` as [`apply_heights`](Self::apply_heights) does,
+    /// with the master's edge kept where the master and the stack keep
+    /// their minimum sizes, `mins`, one for each window or none at all, and
+    /// the windows of the stack tall enough for theirs, the height coming
+    /// from those with room. What cannot leave every window its minimum is
+    /// left as it would be.
+    pub fn apply_fitted(
+        &self,
+        windows: &[WindowId],
+        work_area: &Rect,
+        stack: Option<&[f64]>,
+        mins: &[MinSize],
+    ) -> Vec<(WindowId, Rect)> {
         if windows.is_empty() {
             return Vec::new();
         }
@@ -60,7 +79,13 @@ impl VerticalStackLayout {
         }
 
         let half = self.gap / 2;
-        let master_w = (padded.width as f64 * self.ratio) as i32;
+        let mins = if mins.len() == windows.len() {
+            mins
+        } else {
+            &[]
+        };
+        let limits = limits(LayoutKind::VerticalStack, mins, self.gap, 0, padded.width);
+        let master_w = fit((padded.width as f64 * self.ratio) as i32, limits);
 
         let master = Rect::new(padded.x, padded.y, (master_w - half).max(1), padded.height);
 
@@ -69,7 +94,8 @@ impl VerticalStackLayout {
         // Stack slots are separated by a full `gap` so inner spacing matches
         // the outer padding.
         let area = Rect::new(stack_x, padded.y, stack_w, padded.height);
-        let slots = column_slots(&area, windows.len() - 1, self.gap, stack);
+        let mut slots = column_slots(&area, windows.len() - 1, self.gap, stack);
+        fit_column(&mut slots, mins.get(1..).unwrap_or_default(), self.gap);
 
         let mut results = Vec::with_capacity(windows.len());
         results.push((windows[0], master));

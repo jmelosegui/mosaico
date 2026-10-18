@@ -98,7 +98,9 @@ impl Tiler {
         if slots.len() != ws.len() {
             return None;
         }
-        let tiles = Tiles::new(ws.layout_kind(), self.layout.gap, &slots, ws.split_ratios());
+        let mins = self.min_sizes_of(ws.windows());
+        let tiles = Tiles::new(ws.layout_kind(), self.layout.gap, &slots, ws.split_ratios())
+            .with_minimums(&mins);
         resized_splits(tiles, index, edges, drag.start, rect)
     }
 }
@@ -106,6 +108,10 @@ impl Tiler {
 #[cfg(test)]
 #[path = "tests/drag_resize_support.rs"]
 pub(super) mod support;
+
+#[cfg(test)]
+#[path = "tests/min_size_resize_tests.rs"]
+mod min_size_tests;
 
 #[cfg(test)]
 #[path = "tests/drag_resize_tests.rs"]

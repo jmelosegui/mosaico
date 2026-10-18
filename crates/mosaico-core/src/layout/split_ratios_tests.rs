@@ -1,6 +1,7 @@
 use super::super::Layout;
 use super::*;
 use crate::id::wids;
+use crate::{BspLayout, ThreeColumnLayout, VerticalStackLayout};
 
 /// A 1920x1080 area, laid out without gaps so the slots are easy to read.
 const AREA: Rect = Rect {

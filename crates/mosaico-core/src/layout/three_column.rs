@@ -1,7 +1,10 @@
-use crate::{Rect, WindowId};
+use crate::{LayoutKind, Rect, WindowId};
 
 use super::Layout;
 use super::column::column_slots;
+use super::min_column::fit_column;
+use super::min_limits::{fit, limits};
+use super::min_size::MinSize;
 
 /// Three-column layout with a master pane in the center and stacks on
 /// both sides. Extra windows alternate between the left and right stacks.
@@ -45,6 +48,22 @@ impl ThreeColumnLayout {
         work_area: &Rect,
         columns: [Option<&[f64]>; 2],
     ) -> Vec<(WindowId, Rect)> {
+        self.apply_fitted(windows, work_area, columns, &[])
+    }
+
+    /// Lays out `windows` as [`apply_heights`](Self::apply_heights) does,
+    /// with the master's width kept where the master and the columns beside
+    /// it keep their minimum sizes, `mins`, one for each window or none at
+    /// all, and the windows of each column tall enough for theirs, the
+    /// height coming from those with room. What cannot leave every window
+    /// its minimum is left as it would be.
+    pub fn apply_fitted(
+        &self,
+        windows: &[WindowId],
+        work_area: &Rect,
+        columns: [Option<&[f64]>; 2],
+        mins: &[MinSize],
+    ) -> Vec<(WindowId, Rect)> {
         let [left_heights, right_heights] = columns;
         if windows.is_empty() {
             return Vec::new();
@@ -62,10 +81,16 @@ impl ThreeColumnLayout {
         }
 
         let half = self.gap / 2;
+        let mins = if mins.len() == windows.len() {
+            mins
+        } else {
+            &[]
+        };
+        let limits = limits(LayoutKind::ThreeColumn, mins, self.gap, 0, padded.width);
+        let master_w = fit((padded.width as f64 * self.ratio) as i32, limits);
 
         // 2 windows: master left, second right.
         if windows.len() == 2 {
-            let master_w = (padded.width as f64 * self.ratio) as i32;
             let master = Rect::new(padded.x, padded.y, (master_w - half).max(1), padded.height);
             let right = Rect::new(
                 padded.x + master_w + half,
@@ -78,7 +103,6 @@ impl ThreeColumnLayout {
 
         // 3+ windows: master in center, extras alternate left/right.
         // Reserve a full `gap` on each side of the master (2 × gap total).
-        let master_w = (padded.width as f64 * self.ratio) as i32;
         let side_w = (padded.width - master_w - self.gap * 2) / 2;
         let left_x = padded.x;
         let master_x = padded.x + side_w + self.gap;
@@ -99,13 +123,23 @@ impl ThreeColumnLayout {
         // Each column's slots are separated by a full `gap`, so the inner
         // spacing matches the outer padding.
         let left_area = Rect::new(left_x, padded.y, side_w.max(1), padded.height);
-        let left_slots = column_slots(&left_area, left.len(), self.gap, left_heights);
+        let mut left_slots = column_slots(&left_area, left.len(), self.gap, left_heights);
+        fit_column(&mut left_slots, &column_mins(mins, 0), self.gap);
         results.extend(left.into_iter().zip(left_slots));
 
         let right_area = Rect::new(right_x, padded.y, right_w, padded.height);
-        let right_slots = column_slots(&right_area, right.len(), self.gap, right_heights);
+        let mut right_slots = column_slots(&right_area, right.len(), self.gap, right_heights);
+        fit_column(&mut right_slots, &column_mins(mins, 1), self.gap);
         results.extend(right.into_iter().zip(right_slots));
 
         results
     }
+}
+
+/// The minimums of the windows of the left column, or of the right one,
+/// top down: the windows after the master alternate between them. Empty
+/// when the layout has no minimums.
+fn column_mins(mins: &[MinSize], column: usize) -> Vec<MinSize> {
+    let sides = mins.get(1..).unwrap_or_default();
+    sides.iter().copied().skip(column).step_by(2).collect()
 }

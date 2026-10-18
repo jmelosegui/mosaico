@@ -44,6 +44,7 @@ mod layout_actions;
 mod lifecycle;
 mod lookup;
 mod manager;
+mod min_sizes;
 mod navigation;
 mod navigation_helpers;
 mod placement;
@@ -124,10 +125,9 @@ pub struct Tiler {
     /// Windows that currently have a border, so the ones that leave the
     /// screen can have theirs destroyed.
     bordered: HashSet<WindowId>,
-    /// Windows given the configured corners, so that only those get the
-    /// system's corners back. A minimized window leaves the layout but
-    /// stays here; one dropped from it for no longer being shown does
-    /// not.
+    /// Windows given the configured corners, so only those get the
+    /// system's corners back. A minimized window stays here; one no longer
+    /// shown does not.
     decorated: HashSet<WindowId>,
     mouse: drag::Mouse,
     focused_monitor: usize,
@@ -140,10 +140,10 @@ pub struct Tiler {
     /// Pins `focused_monitor` while its active workspace is empty. See
     /// [`empty_focus`].
     empty_focus_claim: Option<empty_focus::EmptyFocusClaim>,
-    /// Windows the rules already rejected, so the deferred events that
-    /// keep arriving for them are not judged again. Cleared when the
-    /// rules change; entries are removed when the window is destroyed.
+    /// Windows the rules rejected, not judged again for later events.
+    /// Cleared when the rules change; removed when the window is destroyed.
     adopt_rejected: HashSet<WindowId>,
+    min_sizes: min_sizes::MinSizes,
 }
 
 #[cfg(test)]

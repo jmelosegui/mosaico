@@ -97,6 +97,7 @@ impl Tiler {
             filling: bar_states::Filling::default(),
             empty_focus_claim: None,
             adopt_rejected: HashSet::new(),
+            min_sizes: super::min_sizes::MinSizes::default(),
         };
 
         let mut plan = Plan::new(desktop, now);

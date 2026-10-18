@@ -3,7 +3,7 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::frames::FrameTable;
-use crate::{MonitorId, Rect, WindowId};
+use crate::{MinSize, MonitorId, Rect, WindowId};
 
 use super::super::{Desktop, WindowFacts, WindowIdentity};
 
@@ -39,6 +39,8 @@ pub(crate) struct FakeDesktop {
     /// The windows whose changes it says are posted, for the tiler on its
     /// own: through the manager, the window control says.
     pub(crate) posting: HashSet<WindowId>,
+    /// How many times a minimum size was asked for.
+    pub(crate) min_size_reads: std::cell::Cell<usize>,
 }
 
 impl Desktop for FakeDesktop {
@@ -119,5 +121,10 @@ impl Desktop for FakeDesktop {
 
     fn changes_posted(&self, window: WindowId) -> bool {
         self.posting.contains(&window)
+    }
+
+    fn min_size(&self, window: WindowId) -> Option<MinSize> {
+        self.min_size_reads.set(self.min_size_reads.get() + 1);
+        self.windows.get(&window).and_then(|w| w.min_size)
     }
 }
