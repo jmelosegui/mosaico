@@ -31,8 +31,13 @@ impl Tiler {
         }
         match self.drop_target(plan, drag, pointer)? {
             Target::Join { monitor, .. } if self.has_filling(plan, monitor) => None,
-            Target::Join { monitor, before } => {
+            Target::Join { monitor, .. } => {
+                // Decided again on the layout the preview and the drop see.
                 self.prune_stale_handles(plan, monitor);
+                let Target::Join { monitor, before } = self.drop_target(plan, drag, pointer)?
+                else {
+                    return None;
+                };
                 let positions = self.positions_joining(monitor, before, drag.window)?;
                 Some((monitor, positions))
             }
