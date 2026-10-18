@@ -89,8 +89,9 @@ fn the_preview_is_drawn_again_only_when_where_it_shows_changes() {
     // Act -- the pointer moves on over the same tile.
     let effects = report_at(&mut h, 1, (right.x + 20, right.y + 30));
 
-    // Assert
-    assert!(effects.is_empty(), "{effects:?}");
+    // Assert -- nothing but the dragged window's border moves.
+    let previews = |e: &Effect| matches!(e, Effect::ShowPreview { .. } | Effect::HidePreview);
+    assert!(!effects.iter().any(previews), "{effects:?}");
 }
 
 #[test]

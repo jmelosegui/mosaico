@@ -61,14 +61,19 @@ impl Tiler {
     /// the tiler's doing: a window other than the one dragged, the one the
     /// tiler gave focus, and a window that one owns, as a dialog of it the
     /// system gives focus in its place. The user has moved on, whether or
-    /// not the end of the drag was reported.
+    /// not the end of the drag was reported. The dragged window taking
+    /// focus ends nothing, and its drop owes it focus no more.
     pub(in crate::tiler) fn end_drag_for_focus(&mut self, plan: &mut Plan, window: WindowId) {
-        let Some(drag) = &self.mouse.drag else {
+        let Some(drag) = self.mouse.drag.as_mut() else {
             return;
         };
+        if drag.window == window {
+            drag.focus_owed = false;
+            return;
+        }
         let focused = self.focused_window;
         let ours = focused.is_some_and(|f| f == window || plan.owner(window) == Some(f));
-        if drag.window != window && !ours {
+        if !ours {
             crate::log_debug!("drag {} given up for {}", drag.window, window);
             self.end_drag(plan);
         }

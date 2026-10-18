@@ -1,14 +1,15 @@
 //! Resizing tiled windows by their edges on the tiling manager, with
 //! transitions on: the window the user resizes is never placed while they
-//! hold it, the windows the new split moves follow it at once, and the
-//! drop moves only the window back into its slot.
+//! hold it, the windows the new split moves follow it at once, sent where
+//! it puts them once, and the drop moves only the window back into its
+//! slot.
 
-use crate::WindowEvent;
 use crate::event::{DragStart, Edges, Grab};
 use crate::id::wid;
 use crate::tiler::TilingManager;
 use crate::tiler::tests::fake_platform::{Call, FakePlatform};
 use crate::tiler::tests::manager_support::{animated, settle, start};
+use crate::{Action, Direction, WindowEvent};
 
 type Manager = TilingManager<FakePlatform>;
 
@@ -101,4 +102,28 @@ fn the_windows_a_resize_moves_follow_it_at_once_and_only_its_window_settles_at_t
     assert!(moves(&dropped, 1), "{dropped:?}");
     assert_eq!(platform.window(1).rect, wider);
     assert_eq!(platform.window(2).rect.x, wider.x + wider.width + 8);
+}
+
+#[test]
+fn a_tile_still_on_its_way_to_where_a_resize_put_it_is_not_sent_there_again() {
+    // Arrange -- windows 1 and 2 swapped and back over time, so what is
+    // sent to them may be on its way for a moment.
+    let platform = FakePlatform::new(1, &[(1, 0), (2, 0)]);
+    let mut manager = start(&platform, None, &animated());
+    for direction in [Direction::Right, Direction::Left] {
+        manager.handle_action(&Action::Move(direction));
+        manager.flush_pending();
+        settle(&platform, &mut manager);
+    }
+    platform.take_calls();
+
+    // Act -- 300 pixels wider, reported twice before window 2 gets to
+    // where the first report sent it.
+    widen(&platform, &mut manager, 1);
+    manager.handle_event(&WindowEvent::LocationChanged { window: wid(1) });
+
+    // Assert -- window 2 was sent there once.
+    let calls = platform.take_calls();
+    let second = |c: &&Call| matches!(c, Call::Place(window, _) if *window == wid(2));
+    assert_eq!(calls.iter().filter(second).count(), 1, "{calls:?}");
 }

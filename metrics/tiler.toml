@@ -101,31 +101,40 @@ show_border = 4
 [drop_on_another_monitor]
 border_renders = 3
 calls = 18
-hide_border = 1
 hide_preview = 1
 place = 3
 repaint = 3
-show_border = 9
+show_border = 10
 show_preview = 1
 
 [drop_over_another_monitor]
 border_renders = 5
-calls = 29
-hide_border = 1
+calls = 31
 hide_preview = 1
 place = 6
 repaint = 6
-show_border = 12
+show_border = 15
+show_preview = 3
+
+[drop_over_another_monitor_animated]
+border_renders = 5
+calls = 90
+hide_border = 5
+hide_preview = 1
+move_border = 10
+place = 6
+place_frames = 44
+repaint = 6
+show_border = 15
 show_preview = 3
 
 [drop_to_swap]
 border_renders = 2
 calls = 15
-hide_border = 1
 hide_preview = 1
 place = 2
 repaint = 2
-show_border = 8
+show_border = 9
 show_preview = 1
 
 [focus_burst_of_9]
@@ -259,18 +268,16 @@ show_border = 9
 [resize_split]
 border_renders = 4
 calls = 18
-hide_border = 1
 place = 3
 repaint = 3
-show_border = 11
+show_border = 12
 
 [resize_split_followed]
-border_renders = 16
-calls = 54
-hide_border = 1
+border_renders = 20
+calls = 58
 place = 15
 repaint = 15
-show_border = 23
+show_border = 28
 
 [retile]
 border_renders = 4

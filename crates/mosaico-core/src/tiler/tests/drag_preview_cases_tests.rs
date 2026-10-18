@@ -84,7 +84,9 @@ fn a_pointer_off_every_monitor_hides_the_preview() {
         .event(WindowEvent::LocationChanged { window: wid(1) })
         .to_vec();
 
-    // Assert
+    // Assert -- the preview hides, as the dragged window's border moves.
+    let previews = |e: &&Effect| matches!(e, Effect::ShowPreview { .. } | Effect::HidePreview);
+    let previewed: Vec<&Effect> = effects.iter().filter(previews).collect();
     assert!(shown);
-    assert_eq!(effects, [Effect::HidePreview]);
+    assert_eq!(previewed, [&Effect::HidePreview]);
 }

@@ -8,7 +8,7 @@ use crate::event::{DragStart, Edges, Grab};
 use crate::id::wid;
 use crate::tiler::tests::MON_W;
 use crate::tiler::tests::fake_platform::FakePlatform;
-use crate::tiler::tests::manager_support::{start, still};
+use crate::tiler::tests::manager_support::{settle, start, still};
 use crate::tiler::tests::metrics_support::{Manager, Measured, four, on};
 
 /// Four windows on one monitor; window 1, the left half, is resized by its
@@ -61,7 +61,9 @@ pub(super) fn to_swap() -> Measured {
     let platform = arranged.0.clone();
     let over = platform.window(2).rect;
     let to = (over.center_x(), over.center_y());
-    on(arranged, |manager| drag(&platform, manager, 1, &[to]))
+    on(arranged, |manager| {
+        drag(&platform, manager, 1, &[to], false)
+    })
 }
 
 /// Two windows on each of two monitors; window 1 is dragged onto window
@@ -73,7 +75,7 @@ pub(super) fn to_another_monitor() -> Measured {
     let to = (over.center_x(), over.center_y());
     let dragged = platform.clone();
     on((platform, manager), |manager| {
-        drag(&dragged, manager, 1, &[to])
+        drag(&dragged, manager, 1, &[to], false)
     })
 }
 
@@ -84,21 +86,34 @@ pub(super) fn to_another_monitor() -> Measured {
 pub(super) fn over_another_monitor() -> Measured {
     let platform = FakePlatform::new(2, &[(1, 0), (2, 0), (3, 1), (4, 1)]);
     let manager = start(&platform, None, &still());
+    let path = path_over(&platform);
+    let dragged = platform.clone();
+    on((platform, manager), |manager| {
+        drag(&dragged, manager, 1, &path, false)
+    })
+}
+
+/// Where the pointer goes as window 1 is dragged over another monitor:
+/// over window 3, over window 4, and to the gap above them.
+pub(super) fn path_over(platform: &FakePlatform) -> [(i32, i32); 3] {
     let center = |id: u64| {
         let rect = platform.window(id).rect;
         (rect.center_x(), rect.center_y())
     };
-    let path = [center(3), center(4), (MON_W + MON_W / 2, 2)];
-    let dragged = platform.clone();
-    on((platform, manager), |manager| {
-        drag(&dragged, manager, 1, &path)
-    })
+    [center(3), center(4), (MON_W + MON_W / 2, 2)]
 }
 
 /// The user grabs window `id` by its title bar, which gives it focus,
 /// drags it so that the pointer is at each point of `path` in turn, with a
-/// position reported at each, and drops it at the last.
-fn drag(platform: &FakePlatform, manager: &mut Manager, id: u64, path: &[(i32, i32)]) {
+/// position reported at each, the windows let settle after each when
+/// `settling`, and drops it at the last.
+pub(super) fn drag(
+    platform: &FakePlatform,
+    manager: &mut Manager,
+    id: u64,
+    path: &[(i32, i32)],
+    settling: bool,
+) {
     let window = wid(id);
     let rect = platform.window(id).rect;
     let from = (rect.center_x(), rect.y + 10);
@@ -118,6 +133,9 @@ fn drag(platform: &FakePlatform, manager: &mut Manager, id: u64, path: &[(i32, i
         });
         platform.point_at(to);
         manager.handle_event(&WindowEvent::LocationChanged { window });
+        if settling {
+            settle(platform, manager);
+        }
     }
     let pointer = path.last().copied();
     manager.handle_event(&WindowEvent::Moved { window, pointer });

@@ -23,7 +23,7 @@ fn drag() -> Drag {
         from_maximized: false,
         start: SLOT,
         pointer: Some((250, 50)),
-        left_start: true,
+        focus_owed: false,
         decides: true,
         preview: None,
     }

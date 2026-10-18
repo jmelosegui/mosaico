@@ -6,12 +6,15 @@
 //! with the splits its held edges would move, for a resize, or that of
 //! another monitor with the window put where it would join, for a move
 //! over it, tiled even in monocle. Each other window of that workspace is
-//! placed in its slot there at once, never moved there over time, and only
-//! when the drag has not put it there already, or, the first time, when it
-//! is not there. Nothing is committed: the workspace keeps its windows,
-//! splits and monocle, and the dragged window its slot, until the drop. A
-//! drop that lands as they were laid out finds them in place, so only the
-//! window it drops settles into its slot.
+//! placed in its slot there, only when the drag has not sent it there
+//! already, or, the first time, when it is not there: at once for a
+//! resize, which tracks the edge report by report, and as any layout
+//! change for another monitor, gliding there with transitions on, from
+//! wherever it is as the target changes. Nothing is committed: the
+//! workspace keeps its windows, splits and monocle, and the dragged window
+//! its slot, until the drop. A drop that lands as they were laid out finds
+//! them in place, or on their way there, so only the window it drops
+//! settles into its slot.
 //!
 //! The tiles the drag moved go back where their workspace has them, with
 //! a transition if due, once it no longer lays their monitor out
@@ -49,9 +52,10 @@ pub(in crate::tiler) struct Live {
 impl Tiler {
     /// Lays out live what dropping the window the tiler follows the drag of
     /// would leave now, while the tiler decides where it lands: each other
-    /// window of that layout is placed in its slot at once, unless it is
-    /// there already. The windows it moved on a monitor it no longer lays
-    /// out go back where their workspace has them.
+    /// window of that layout is placed in its slot, at once for a resize,
+    /// unless the drag sent it there already. The windows it moved on a
+    /// monitor it no longer lays out go back where their workspace has
+    /// them.
     pub(in crate::tiler) fn follow_live(&mut self, plan: &mut Plan) {
         let Some(drag) = self.mouse.drag.clone().filter(|d| d.decides) else {
             return;
@@ -62,6 +66,9 @@ impl Tiler {
             self.put_back(plan, left);
         }
         let Some((idx, positions)) = laid else {
+            return;
+        };
+        let Some(monitor) = self.monitors.get(idx).map(|mon| mon.id) else {
             return;
         };
         let mut live = self.mouse.live.take().unwrap_or(Live {
@@ -81,12 +88,19 @@ impl Tiler {
                 Some(i) => live.moved[i].2 = rect,
                 None => live.moved.push((window, at, rect)),
             }
-            plan.emit(Effect::Place {
-                window,
-                rect,
-                timing: Timing::Now,
-                transition: Transition::Snap,
-            });
+            if idx == drag.monitor {
+                // A resize tracks the edge, report by report, at once.
+                plan.emit(Effect::Place {
+                    window,
+                    rect,
+                    timing: Timing::Now,
+                    transition: Transition::Snap,
+                });
+            } else {
+                // The tiles of another monitor make room as any layout
+                // change does, and glide there with transitions on.
+                plan.place(window, rect, Timing::Now, monitor);
+            }
             self.show_border_for(plan, window, rect, idx);
         }
         self.mouse.live = (!live.moved.is_empty()).then_some(live);

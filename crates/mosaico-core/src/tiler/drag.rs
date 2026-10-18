@@ -5,8 +5,8 @@
 //! known from what the pointer grabbed as it started. The tiler follows
 //! the drag of a tiled window from its start to its end. Meanwhile the
 //! user has the window: no layout pass places it, so it never animates
-//! either, and once it has left where it started its border is hidden
-//! (`drag_border.rs`). What was held back for the window is dropped as
+//! either, and it is the focused window, with its border on it wherever
+//! it goes (`drag_border.rs`). What was held back for the window is dropped as
 //! the drag starts, and the pointer is left alone until it ends, whatever
 //! moves focus meanwhile (`applier_drag.rs`).
 //!
@@ -58,9 +58,9 @@ pub(super) struct Drag {
     pub(super) start: Rect,
     /// Where the pointer was as the drag started, if the platform read it.
     pub(super) pointer: Option<(i32, i32)>,
-    /// Whether a report found the window away from where it started: its
-    /// border is hidden from then on.
-    pub(super) left_start: bool,
+    /// Whether the tiler took focus for the window as the drag started,
+    /// and no report has said since that the system gave it focus.
+    pub(super) focus_owed: bool,
     /// Whether the tiler decides where the window lands, and whether a
     /// resize moves the splits its edges border, until an action, from a
     /// key, a command or a bar, or a display change interrupts the drag.
@@ -101,7 +101,7 @@ impl Tiler {
             from_maximized,
             start: start_rect,
             pointer: start.pointer,
-            left_start: false,
+            focus_owed: false,
             decides: true,
             preview: None,
         });

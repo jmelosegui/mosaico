@@ -78,8 +78,9 @@ fn the_pointer_follows_focus_to_a_dragged_window_once_it_is_dropped() {
     platform.edit(2, |w| w.rect.x += 100);
     platform.take_calls();
 
-    // Act -- focus goes to it, the pointer following, and then the user
-    // drops it.
+    // Act -- the drag gives it focus, then focus goes to window 1 and back
+    // to it, the pointer following, and then the user drops it.
+    manager.handle_action(&Action::Focus(Direction::Right));
     manager.handle_action(&Action::Focus(Direction::Left));
     manager.flush_pending();
     let dragging = platform.take_calls();

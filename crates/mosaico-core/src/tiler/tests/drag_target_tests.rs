@@ -34,7 +34,7 @@ fn drag(grab: Option<Grab>) -> Drag {
         from_maximized: false,
         start: Rect::new(10, 40, 480, 750),
         pointer: Some((250, 50)),
-        left_start: true,
+        focus_owed: false,
         decides: true,
         preview: None,
     }

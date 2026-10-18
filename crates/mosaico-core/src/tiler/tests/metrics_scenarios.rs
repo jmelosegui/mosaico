@@ -23,6 +23,8 @@ mod bar;
 mod display;
 #[path = "metrics_drag_scenarios.rs"]
 mod drag;
+#[path = "metrics_glide_scenarios.rs"]
+mod glide;
 
 /// A scenario: its name, and how to run it.
 pub(super) type Scenario = (&'static str, fn() -> Measured);
@@ -68,6 +70,10 @@ pub(super) const SCENARIOS: &[Scenario] = &[
     ("drop_to_swap", drag::to_swap),
     ("drop_on_another_monitor", drag::to_another_monitor),
     ("drop_over_another_monitor", drag::over_another_monitor),
+    (
+        "drop_over_another_monitor_animated",
+        glide::over_another_monitor,
+    ),
     ("resize_split", drag::resize),
     ("resize_split_followed", drag::resize_followed),
     ("config_reload", config_reload),

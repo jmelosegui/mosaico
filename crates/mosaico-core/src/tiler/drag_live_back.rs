@@ -62,6 +62,14 @@ mod manager_support;
 mod motion_tests;
 
 #[cfg(test)]
+#[path = "tests/drag_live_glide_tests.rs"]
+mod glide_tests;
+
+#[cfg(test)]
+#[path = "tests/drag_live_glide_drop_tests.rs"]
+mod glide_drop_tests;
+
+#[cfg(test)]
 #[path = "tests/drag_live_monocle_tests.rs"]
 mod monocle_tests;
 
