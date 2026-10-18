@@ -130,11 +130,11 @@ show_preview = 3
 
 [drop_to_swap]
 border_renders = 2
-calls = 15
+calls = 16
 hide_preview = 1
 place = 2
 repaint = 2
-show_border = 9
+show_border = 10
 show_preview = 1
 
 [focus_burst_of_9]

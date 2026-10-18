@@ -187,8 +187,9 @@ its slot; maximized by the system on another monitor, it joins that
 monitor's workspace and stays maximized. A drag cancelled with Escape, and
 a click on the title bar, change nothing. While it is dragged, a
 translucent preview in the focused border's color shows where it will land,
-and over another monitor, the tiles there make room for it as they would
-once it joins, until the drag leaves, when they go back. With `false`, a
+the tile it would swap with moves into its slot, and over another monitor,
+the tiles there make room for it as they would once it joins, until the
+drag leaves, when they go back. With `false`, a
 dropped window goes back to its slot, or joins the end of the other
 monitor's workspace, as before, and nothing makes room for it. See
 [tiling-layout.md](tiling-layout.md#dragging-windows).

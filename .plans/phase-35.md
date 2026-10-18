@@ -137,7 +137,7 @@ reported as invalid and ignored.
 
 | Drag | Drop | Result |
 |------|------|--------|
-| A tiled window by its title bar | on another tile of the same monitor | The two swap places |
+| A tiled window by its title bar | on another tile of the same monitor | The two swap places; the other moves into the dragged window's slot while it is dragged over it, which the owner chose while testing 35.6 |
 | A tiled window by its title bar | on another monitor | It joins that monitor's workspace before the tile under the pointer, or at the end, instead of always at the end; the tiles there make room for it while it is dragged over them (35.6) |
 | A tiled window by its title bar | on its own slot, in a gap, cancelled with Esc, or snapped or maximized by the system | It goes back to its slot, as today |
 | A tiled window by an edge that borders another split | anywhere | The split follows the edge (35.4), down a stack too (35.5), and the tiles beyond it follow the edge while it is dragged (35.6) |

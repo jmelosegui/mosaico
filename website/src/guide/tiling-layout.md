@@ -185,7 +185,9 @@ drop moves. A monitor in monocle is laid out with its windows side by
 side while you drag over it, and goes back to monocle when you leave it;
 dropping the window there ends monocle, and the window joins the others
 side by side. Your own monitor keeps the window's slot until you drop
-it, so you can drag back over it as it was. With "Show window contents
+it, so you can drag back over it as it was. On your own monitor, the
+window under the pointer moves into that slot while you drag, showing
+the swap before you drop. With "Show window contents
 while dragging" off in Windows, there is no preview and nothing makes
 room: the windows move only once you drop it.
 

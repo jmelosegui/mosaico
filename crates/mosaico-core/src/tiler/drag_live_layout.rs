@@ -8,26 +8,28 @@ use super::super::super::{Plan, Tiler};
 use super::super::Drag;
 use super::super::target::Target;
 
+/// A monitor, where each window of its workspace on screen goes, and
+/// whether that follows a resize.
+type Laid = (usize, Vec<(WindowId, Rect)>, bool);
+
 impl Tiler {
     /// The monitor whose tiles dropping the window `drag` is about would
     /// move now, with the pointer where the desktop has it, and where each
     /// window of its workspace on screen would then be, the one dragged
     /// included: its own monitor, with the splits its held edges would move
-    /// (`move_splits`), or another monitor, with the window put where it
-    /// would join (`drop_on`). `None` when the drop would move no tile, as
-    /// a resize that moves no split, a swap or a window back in its slot. A
+    /// (`move_splits`) or the tile it would swap with in its slot, or
+    /// another monitor, with the window put where it would join
+    /// (`drop_on`). `None` when the drop would move no tile, as a resize
+    /// that moves no split or a window back in its slot. A
     /// window gone or minimized without a report leaves that workspace
-    /// first, as at the drop.
-    pub(super) fn live_layout(
-        &mut self,
-        plan: &mut Plan,
-        drag: &Drag,
-    ) -> Option<(usize, Vec<(WindowId, Rect)>)> {
+    /// first, as at the drop. Also whether it is a resize, whose tiles
+    /// track the edge at once.
+    pub(super) fn live_layout(&mut self, plan: &mut Plan, drag: &Drag) -> Option<Laid> {
         let pointer = plan.cursor();
         if let Some(splits) = self.splits_dropped(plan, drag, pointer) {
             let ws = self.monitors.get(drag.monitor)?.active_ws();
             let positions = self.positions_of(drag.monitor, ws.windows(), &splits);
-            return Some((drag.monitor, positions));
+            return Some((drag.monitor, positions, true));
         }
         match self.drop_target(plan, drag, pointer)? {
             Target::Join { monitor, .. } if self.has_filling(plan, monitor) => None,
@@ -39,9 +41,16 @@ impl Tiler {
                     return None;
                 };
                 let positions = self.positions_joining(monitor, before, drag.window)?;
-                Some((monitor, positions))
+                Some((monitor, positions, false))
             }
-            Target::Back | Target::Swap(_) => None,
+            Target::Swap(other) => {
+                let slot = self.slot_of(drag.monitor, drag.window)?;
+                let positions = (self.compute_positions(drag.monitor).into_iter())
+                    .map(|(w, rect)| (w, if w == other { slot } else { rect }))
+                    .collect();
+                Some((drag.monitor, positions, false))
+            }
+            Target::Back => None,
         }
     }
 

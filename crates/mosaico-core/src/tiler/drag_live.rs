@@ -3,13 +3,14 @@
 //! While the tiler follows the drag of a tiled window and decides where it
 //! lands, each report of where the window is lays out what dropping it
 //! then would leave (`drag_live_layout.rs`): the workspace of its monitor
-//! with the splits its held edges would move, for a resize, or that of
-//! another monitor with the window put where it would join, for a move
-//! over it, tiled even in monocle. Each other window of that workspace is
+//! with the splits its held edges would move, for a resize, or with the
+//! tile it would swap with in its slot, or that of another monitor with
+//! the window put where it would join, for a move over it, tiled even in
+//! monocle. Each other window of that workspace is
 //! placed in its slot there, only when the drag has not sent it there
 //! already, or, the first time, when it is not there: at once for a
 //! resize, which tracks the edge report by report, and as any layout
-//! change for another monitor, gliding there with transitions on, from
+//! change for a move, gliding there with transitions on, from
 //! wherever it is as the target changes. Nothing is committed: the
 //! workspace keeps its windows, splits and monocle, and the dragged window
 //! its slot, until the drop. A drop that lands as they were laid out finds
@@ -61,11 +62,11 @@ impl Tiler {
             return;
         };
         let laid = self.live_layout(plan, &drag);
-        let elsewhere = |live: &Live| laid.as_ref().is_none_or(|(idx, _)| *idx != live.monitor);
+        let elsewhere = |live: &Live| laid.as_ref().is_none_or(|(idx, ..)| *idx != live.monitor);
         if let Some(left) = self.mouse.live.take_if(|live| elsewhere(live)) {
             self.put_back(plan, left);
         }
-        let Some((idx, positions)) = laid else {
+        let Some((idx, positions, resizing)) = laid else {
             return;
         };
         let Some(monitor) = self.monitors.get(idx).map(|mon| mon.id) else {
@@ -93,7 +94,7 @@ impl Tiler {
                 None => live.moved.push((window, at, rect)),
             }
             self.mouse.note_sent(window, rect, false);
-            if idx == drag.monitor {
+            if resizing {
                 // A resize tracks the edge, report by report, at once.
                 plan.emit(Effect::Place {
                     window,
@@ -102,7 +103,7 @@ impl Tiler {
                     transition: Transition::Snap,
                 });
             } else {
-                // The tiles of another monitor make room as any layout
+                // Tiles that make room for a move do so as any layout
                 // change does, and glide there with transitions on.
                 plan.place(window, rect, Timing::Now, monitor);
             }

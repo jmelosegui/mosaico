@@ -1027,18 +1027,21 @@ the pointer where the desktop has it, by the rules the drop follows
   window, and the preview shows the slot left open. A monitor with a
   maximized or fullscreen window on screen is left alone, and only the
   preview shows there. The window's own monitor keeps its slot, so
-  dragging back over it is clean.
+  dragging back over it is clean;
+- for a move over another tile of its own monitor, with `drag_to_swap`
+  on, the tile it would swap with in the dragged window's slot, which the
+  owner chose while testing 35.6: every other tile stays.
 
 Each window of that layout but the dragged one is placed in its slot,
 only when its slot is not where the drag last sent it, or, before the
 drag has sent it anywhere, where the desktop has it, so a report that
-moves no slot places nothing, and the tiles of another monitor move only
-as the insertion point does, not with every pointer move. For a resize,
+moves no slot places nothing, and the tiles move only as the target
+does, not with every pointer move. For a resize,
 `follow_live` emits `Effect::Place` with `Transition::Snap` itself,
 never through `Plan::place`, so the step decision never marks it: the
 tiles track the edge report by report, at once, even with transitions
-on. The tiles of another monitor go through `Plan::place`, as any layout
-change does, so they glide to their slots with transitions on, and snap
+on. The tiles that make room for a move go through `Plan::place`, as any
+layout change does, so they glide to their slots with transitions on, and snap
 with them off. When the target changes while they glide, each turns from
 where it is, as any new placement of a moving window does, and a report
 over the same tile starts nothing again, as a target a motion already has
@@ -1056,8 +1059,8 @@ its slot, with a transition if due.
 
 The tiles go back where their workspace has them, with a transition if due,
 once the drag no longer lays them out (`drag_live_back.rs`): as it moves on
-to where a drop would move none, as over its own monitor, onto a tile to
-swap with or off every monitor, or to a resize that moves no split, as
+to where a drop would move none, as over its own slot or off every
+monitor, or to a resize that moves no split, as
 within 4 pixels of where it started; for Escape, whose report finds the
 window back where it started; and as the step ends that interrupts the
 drag, from a key, a command, a click or the wheel on a bar or a display
