@@ -70,6 +70,10 @@ mod glide_tests;
 mod glide_drop_tests;
 
 #[cfg(test)]
+#[path = "tests/drag_live_return_tests.rs"]
+mod return_tests;
+
+#[cfg(test)]
 #[path = "tests/drag_live_monocle_tests.rs"]
 mod monocle_tests;
 
