@@ -159,6 +159,9 @@ area. Other windows remain in the workspace but are not repositioned.
 - Toggle with `Alt + T` or `mosaico action toggle-monocle`
 - The focus border color changes to the configured monocle color
 - Each monitor has its own independent monocle state
+- Dropping a window you drag onto another monitor in monocle ends monocle
+  there, and the window joins its tiles (see
+  [Dragging Windows](#dragging-windows))
 
 ## Dragging Windows
 
@@ -168,6 +171,17 @@ the pointer, or at the end when the pointer is over a gap or the status
 bar. While you drag, a translucent preview in the focused border's color
 shows where the window will land: on another monitor, that is the slot it
 gets there, which in BSP is not always the tile under the pointer.
+
+While you drag a window over another monitor, the windows there make room
+for it at once, as they will once you drop it, and the preview shows the
+slot they leave open. They move again only when the window would go
+somewhere else, and they go back when you leave that monitor, press `Esc`
+or a hotkey, or use a status bar. When you drop it there, they are already
+in place, and only the window you drop moves. A monitor in monocle is laid
+out with its windows side by side while you drag over it, and goes back to
+monocle when you leave it; dropping the window there ends monocle, and the
+window joins the others side by side. Your own monitor keeps the window's
+slot until you drop it, so you can drag back over it as it was.
 
 The window goes back to its slot when you drop it on its own slot, in a
 gap, on its monitor's status bar, or anywhere on its monitor in monocle,
@@ -190,13 +204,17 @@ windows there, and it stays there when you let go.
 
 Set `drag_to_swap = false` under `[mouse]` in `config.toml` to have every
 dropped window go back to its slot, or join the end of the other
-monitor's windows, as before.
+monitor's windows, as before, with nothing making room for it while you
+drag.
 
 ## Resizing Tiles
 
-Drag the edge between two tiles to resize them: when you let go, the split
-between them moves to where you dropped the edge, and the windows on the
-other side follow. Drag a corner where two splits meet to move both.
+Drag the edge between two tiles to resize them: the windows on the other
+side follow the edge as you drag it, keeping the configured gap from it,
+and when you let go, the split between them moves to where you dropped the
+edge. Drag a corner where two splits meet to move both. Where a split
+stops, the windows beyond it stop there too, and the window you hold can
+overlap them until you let go, when it settles into its slot.
 
 | Layout | Edges that resize |
 |--------|-------------------|
@@ -211,14 +229,17 @@ you let go, and a split stops a tenth of the way from either end; down a
 stack, an edge stops where either of the two windows would have less than
 a tenth of an equal share of the stack, which can be less than an app's
 smallest height, so such a window can overlap the next. Press `Esc` while
-resizing to leave everything as it was. A resize of 4 pixels or less on
-every edge changes nothing either, as a click on the edge, and an edge you
-hold but hardly move leaves its split where it was. While you hold a
-window by its edge, nothing else moves it, as when you drag it by its
-title bar. Pressing a hotkey, or using a status bar, while resizing ends
-the resize without moving a split, and the window goes back to its slot
-when you let go; pausing the hotkeys, from their key or the **PAUSED**
-mark, leaves the resize as it is.
+resizing to leave everything as it was, the windows that followed the edge
+going back to their tiles. A resize of 4 pixels or less on every edge
+changes nothing either, as a click on the edge, and an edge you hold but
+hardly move leaves its split where it was. While you hold a window by its
+edge, nothing else moves it, as when you drag it by its title bar.
+Pressing a hotkey, or using a status bar, while resizing ends the resize
+without moving a split: the windows that followed the edge go back, and
+the window goes back to its slot when you let go; pausing the hotkeys,
+from their key or the **PAUSED** mark, leaves the resize as it is. With
+"Show window contents while dragging" off in Windows, the windows follow
+the edge only once you let go.
 
 Each workspace keeps where you put its splits, and the heights you gave
 its stacks, for each layout: cycling layouts brings them back, monocle

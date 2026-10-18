@@ -250,7 +250,14 @@ included, from where the user let go. The window that just opened does not,
 and neither do the windows a workspace switch shows. A window the user drags
 or resizes is never placed while they hold it, whatever they do with the
 keyboard or the bars meanwhile, so it never animates then (see
-[tiling-layout.md](tiling-layout.md#dragging-windows)).
+[tiling-layout.md](tiling-layout.md#dragging-windows)). The tiles that follow
+a drag meanwhile, those beyond an edge the user drags and those of another
+monitor that make room for a window dragged over it, are placed at once on
+each report, never through the step decision, so they never animate either,
+and the drop finds them in place: only the dropped or resized window moves
+into its slot then. The tiles a drag leaves go back to their slots as any
+placement does, and may animate there (see
+[tiling-layout.md](tiling-layout.md#tiles-that-follow-a-drag)).
 
 ## The Frame Contract
 

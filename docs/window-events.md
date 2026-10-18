@@ -212,7 +212,7 @@ or size loop. The next report once the window is let go applies as usual.
 | `Minimized` | Remove from workspace, re-tile, and stop the window's transition, if it is really minimized |
 | `Restored` | Re-add to workspace, re-tile |
 | `TitleChanged` | Adopt a window that only became recognizable once it had a title |
-| `LocationChanged` | Notice any window on screen starting or stopping to be maximized or fullscreen, for the bars (`bar_filling.rs`), the one the user drags too; then hide the border of a window the user drags once it has left where it started, and move the preview of where it would land, or otherwise notice the focused window entering or leaving maximized state; once a window still to land where a posted placement takes it reports being there, or being anywhere once the wait for it by time is over, repaint it again and draw its border there (`applier_landing.rs`) |
+| `LocationChanged` | Notice any window on screen starting or stopping to be maximized or fullscreen, for the bars (`bar_filling.rs`), the one the user drags too; then hide the border of a window the user drags once it has left where it started, lay out live the tiles its drop would move, and move the preview of where it would land, or otherwise notice the focused window entering or leaving maximized state; once a window still to land where a posted placement takes it reports being there, or being anywhere once the wait for it by time is over, repaint it again and draw its border there (`applier_landing.rs`) |
 
 A drag of a tiled window lasts from its `MoveStarted` to its `Moved`.
 Windows does not say that `EVENT_SYSTEM_MOVESIZEEND` follows every

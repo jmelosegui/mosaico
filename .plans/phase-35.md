@@ -137,15 +137,19 @@ reported as invalid and ignored.
 | Drag | Drop | Result |
 |------|------|--------|
 | A tiled window by its title bar | on another tile of the same monitor | The two swap places |
-| A tiled window by its title bar | on another monitor | It joins that monitor's workspace before the tile under the pointer, or at the end, instead of always at the end |
+| A tiled window by its title bar | on another monitor | It joins that monitor's workspace before the tile under the pointer, or at the end, instead of always at the end; the tiles there make room for it while it is dragged over them (35.6) |
 | A tiled window by its title bar | on its own slot, in a gap, cancelled with Esc, or snapped or maximized by the system | It goes back to its slot, as today |
-| A tiled window by an edge that borders another split | anywhere | The split follows the edge (35.4), down a stack too (35.5) |
+| A tiled window by an edge that borders another split | anywhere | The split follows the edge (35.4), down a stack too (35.5), and the tiles beyond it follow the edge while it is dragged (35.6) |
 | A tiled window by an outer edge | anywhere | It goes back, as today |
 | A window the tiler does not manage but would tile | onto a monitor | It is taken in there, as today |
 | A window the tiler leaves alone | anywhere | Nothing, and the tiles under it stay put |
 
-- A drop on a workspace in monocle keeps today's rule for windows dragged onto
-  one: only the monocle window is placed, and nothing is put behind it.
+- A drop on another monitor's workspace in monocle ends monocle there, as
+  `exit_monocle` does, and the window joins before the tile under the pointer
+  in its tiled layout, or at the end. The owner chose this while testing 35.6;
+  until then such a drop kept the rule for windows dragged onto a monocle
+  workspace: only the monocle window was placed, and nothing was put behind
+  it. With `drag_to_swap` off, a drop there still joins the end in monocle.
 - A `Moved` the tiler did not see start, or one without a pointer position, is
   handled as today (`reassign_monitor`).
 
@@ -216,6 +220,17 @@ daemon action path (carry_out)  -> action with an origin          { monitor, fro
   pointer, and the preview follows it. Without position changes during the drag
   (window contents not shown while dragging), `Moved` decides from the final
   rect and pointer alone, without a preview.
+- 35.6, added while testing 35.5 on the desktop, lays out live what the drop
+  would do: each position change of a drag the tiler decides places the tiles
+  beyond a held edge at the splits the drop would set, or the tiles of another
+  monitor at the slots they get with the window put where it would join, a
+  workspace there in monocle laid out tiled, at once and without a transition,
+  and only those whose slot changed. The window itself is never placed, and
+  nothing is committed until the drop, which finds them in place. Once the drag
+  no longer lays them out, as it leaves, for Escape, a key, a bar action, a
+  display change or a drop elsewhere, they go back where their workspace has
+  them, a monocle workspace with its monocle window in front again, and they
+  may animate back. Without position changes, nothing follows.
 - `Moved` ends the drag and applies the drop. A final rect within a few pixels
   of the rect at the start, or equal to the window's slot, or a pointer back
   within a few pixels of where the drag started it, is a cancel or a click on
@@ -348,6 +363,9 @@ the platform's docs (the `os_names` metric counts them in core).
     height, so such windows can overlap, as with BSP's tenth.
 13. Wheel input with "Scroll inactive windows when I hover over them" off: the
     bar may get none. 35.1 checks it, and documents the dependency if so.
+14. Window contents hidden while dragging: no position reports reach the tiler
+    during a drag, so no tile follows it live, and the drop moves them as
+    before.
 
 ## Later
 
@@ -361,7 +379,8 @@ the platform's docs (the `os_names` metric counts them in core).
 - Media controls on the media widget, once phase 19 lands.
 - Dragging a workspace label onto another monitor's bar to move the whole
   workspace there.
-- Neighbours following an edge while it is dragged, instead of on the drop.
+- Laying out the window's own monitor without it while it is dragged over
+  another.
 
 ## New and Modified Files
 
@@ -384,6 +403,7 @@ crates/
     tiler/navigation.rs        # no CenterCursor for pointer-origin work
     tiler/empty_focus.rs       # the bar strip is part of its monitor
     tiler/drag.rs              # NEW: drag tracking and drop targets
+    tiler/drag_live.rs         # NEW: the tiles a drop would move, laid out live (35.6)
     tiler/adopt.rs             # the drop decides instead of reassign_monitor's snap back
     tiler/applier.rs, tiler/coalesce.rs  # what a drag start drops
     daemon/dedup.rs            # MoveStarted and Moved are barriers
@@ -500,6 +520,40 @@ Added while testing 35.4 on the desktop, as a pull request of its own.
 - [x] Up and down for the windows of a stack in phase 25's plan
 - [ ] Manual test: resize the windows of a stack in the vertical stack and in
       both columns of the three columns
+
+### 35.6 Live resize and live drop
+
+Added while testing 35.5 on the desktop, as a pull request of its own.
+
+- [x] The tiles beyond the edges of a resize, laid out live on each report at
+      the splits the drop would set, held edges, bounds, the floor and the
+      trade down a stack included, for a window that reports no grab too
+- [x] The tiles of another monitor, laid out live with the window put where it
+      would join, before the tile under the pointer or at the end, by the
+      insertion, split and stack-height rules of the drop
+- [x] Placed at once, never animated, only when their slot changes, at most
+      once a pass of the daemon loop, the window itself never placed and
+      nothing committed until the drop, which finds them in place
+- [x] Put back, with a transition if due, once the drag no longer lays them
+      out: as it leaves, for Escape, a key, a bar action, a display change, a
+      drop elsewhere or another drag, and by a layout of their monitor
+      meanwhile
+- [x] A drop on another monitor in monocle ends monocle there, as the owner
+      chose while testing: laid out tiled live, put back with its monocle
+      window in front, and tiled at the drop
+- [x] Tests for each layout, a corner, a stack, a side column, the floor,
+      Escape, a key, a bar click, a display change, the options off, monocle,
+      no grab, many reports, a report that moves nothing, the bar strip,
+      stacks there, a window minimized without a report, one maximized at
+      the drop, transitions on and drops that move only the window; a check
+      while the edge is held in the desktop resize test; metrics scenarios
+      for a resize with several reports and a drag that changes its target
+      twice
+- [ ] Manual test: drag the edge between two tiles, down a stack and to the
+      floor, and watch the tiles beyond it follow, then Esc
+- [ ] Manual test: drag a window over another monitor, tiled and in monocle,
+      over its tiles and its bar, back over its own, with Esc and a key, and
+      drop it there, with transitions on and off
 
 ### Verification
 
