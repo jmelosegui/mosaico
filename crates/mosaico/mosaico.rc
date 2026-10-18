@@ -1,0 +1,3 @@
+// The application icon shown by Explorer, shortcuts and the taskbar.
+// The first icon resource in the executable is the one Windows uses.
+1 ICON "../../images/logo/mosaico.ico"
