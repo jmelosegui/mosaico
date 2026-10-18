@@ -78,7 +78,11 @@ impl Tiler {
         });
         for (window, rect) in positions.into_iter().filter(|&(w, _)| w != drag.window) {
             let put = live.moved.iter().position(|&(w, ..)| w == window);
-            let Some(at) = put.map(|i| live.moved[i].2).or_else(|| plan.rect(window)) else {
+            let sent = put.map(|i| live.moved[i].2);
+            let Some(at) = sent
+                .or_else(|| self.mouse.sent_to(window))
+                .or_else(|| plan.rect(window))
+            else {
                 continue;
             };
             if at == rect {
@@ -88,6 +92,7 @@ impl Tiler {
                 Some(i) => live.moved[i].2 = rect,
                 None => live.moved.push((window, at, rect)),
             }
+            self.mouse.note_sent(window, rect, false);
             if idx == drag.monitor {
                 // A resize tracks the edge, report by report, at once.
                 plan.emit(Effect::Place {
@@ -104,24 +109,6 @@ impl Tiler {
             self.show_border_for(plan, window, rect, idx);
         }
         self.mouse.live = (!live.moved.is_empty()).then_some(live);
-    }
-
-    /// Puts the windows a drag moved live back where their workspace has
-    /// them, once the tiler no longer follows that drag deciding where its
-    /// window lands. Runs as each step ends, so a monitor the step laid out
-    /// already, as a drop onto it does, is not put back twice.
-    pub(in crate::tiler) fn settle_live(&mut self, plan: &mut Plan) {
-        let drag = self.mouse.drag.as_ref();
-        let followed = |live: &Live| drag.is_some_and(|d| d.decides && d.window == live.window);
-        if let Some(live) = self.mouse.live.take_if(|live| !followed(live)) {
-            self.put_back(plan, live);
-        }
-    }
-
-    /// Forgets what a drag laid out live without laying anything out, as the
-    /// tiler stops and leaves every window where it is.
-    pub(in crate::tiler) fn leave_live(&mut self) {
-        self.mouse.live = None;
     }
 }
 

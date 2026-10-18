@@ -103,6 +103,7 @@ impl Tiler {
             }
             let rect = self.monocle_rect(monitor_idx);
             plan.place(front, rect, timing, monitor);
+            self.note_laid_out(front, rect);
             self.show_border_for(plan, front, rect, monitor_idx);
             self.place_waiting_behind(plan, monitor_idx, front, rect, timing);
             return;
@@ -110,6 +111,7 @@ impl Tiler {
         for (window, rect) in self.compute_positions(monitor_idx) {
             if !self.is_dragged(window) {
                 plan.place(window, rect, timing, monitor);
+                self.note_laid_out(window, rect);
                 self.show_border_for(plan, window, rect, monitor_idx);
             }
         }
