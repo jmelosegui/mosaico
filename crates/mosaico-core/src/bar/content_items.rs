@@ -3,17 +3,28 @@
 use crate::config::bar::{BarConfig, WidgetConfig};
 
 use super::super::widget_text::{is_shown, label};
-use super::super::{BarSide, BarState, SystemReadings};
+use super::super::{BarSide, BarState, SystemReadings, WidgetClicks};
 use super::BarItem;
 
-/// The items of one side of the bar, and the index in the config's list
-/// of that side of the widget each one shows, `None` for a separator.
+/// The widget an item of a bar shows.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(super) struct Shown {
+    /// The widget's index in the config's list of its side.
+    pub(super) index: usize,
+    /// Whether a click on it runs an action.
+    pub(super) clickable: bool,
+}
+
+/// The items of one side of the bar, and the widget each one shows,
+/// `None` for a separator. A widget is clickable when `clicks` has a
+/// button run an action on it.
 pub(super) fn side(
     config: &BarConfig,
     side: BarSide,
     state: &BarState,
     readings: &SystemReadings,
-) -> (Vec<BarItem>, Vec<Option<usize>>) {
+    clicks: &WidgetClicks,
+) -> (Vec<BarItem>, Vec<Option<Shown>>) {
     let widgets = match side {
         BarSide::Left => &config.left,
         BarSide::Right => &config.right,
@@ -29,7 +40,8 @@ pub(super) fn side(
             shown.push(None);
         }
         items.push(item(config, widget, side, state, readings));
-        shown.push(Some(index));
+        let clickable = clicks.clickable(widget.kind(), side);
+        shown.push(Some(Shown { index, clickable }));
     }
     (items, shown)
 }

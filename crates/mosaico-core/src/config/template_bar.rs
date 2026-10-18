@@ -50,6 +50,29 @@ enabled = true\n\
 # workspaces of its monitor, \"none\" does nothing.\n\
 scroll = \"workspaces\"\n\
 \n\
+# Each [[mouse.click]] entry, with double brackets, has a click with a button\n\
+# (\"left\", \"right\" or \"middle\") on a widget, named by its type, run an action\n\
+# named as in keybindings.toml: cycle-layout, toggle-monocle,\n\
+# goto-workspace-N, goto-workspace-next and goto-workspace-prev act on the\n\
+# bar's own monitor, and retile and toggle-pause on the whole daemon. No\n\
+# other action can be bound. These are the defaults: deleting an entry keeps\n\
+# its default, a later entry for the same widget and button wins, and\n\
+# action = \"none\" removes the binding.\n\
+[[mouse.click]]\n\
+widget = \"layout\"\n\
+button = \"left\"\n\
+action = \"cycle-layout\"\n\
+\n\
+[[mouse.click]]\n\
+widget = \"layout\"\n\
+button = \"right\"\n\
+action = \"toggle-monocle\"\n\
+\n\
+[[mouse.click]]\n\
+widget = \"paused\"\n\
+button = \"left\"\n\
+action = \"toggle-pause\"\n\
+\n\
 # Override individual theme colors (hex or named: blue, green, mauve, etc.).\n\
 # [colors]\n\
 # background = \"#1e1e2e\"\n\

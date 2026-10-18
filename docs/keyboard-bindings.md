@@ -154,7 +154,10 @@ modifiers = ["alt", "shift"]
 
 Then restart the daemon. The status bar shows a red **PAUSED** indicator while
 hotkeys are suspended. Pausing pauses the hotkeys only: clicks and the wheel
-on the bar keep working.
+on the bar keep working, and a left click on the indicator resumes them (see
+[status-bar.md](status-bar.md#widget-clicks)). Clicks on the bar's widgets
+run actions named as key bindings name them, but only actions on a monitor
+or on the whole daemon.
 
 ## Key Name Resolution
 

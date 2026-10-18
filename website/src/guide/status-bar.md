@@ -127,36 +127,80 @@ other new default widgets from future versions).
 
 ## The Mouse
 
-The bar takes clicks and the wheel, on its own monitor:
+The bar takes clicks and the wheel. Workspaces, the layout and monocle change
+on the bar's own monitor:
 
 | Where | What | Result |
 |-------|------|--------|
 | A workspace number | left click | Go to that workspace (every monitor in global mode) |
 | On the bar | wheel | The workspace before (up, left) or after (down, right) |
-| A workspace number | hover | The pointer shows a hand |
+| The layout widget | left click | Cycle the layout |
+| The layout widget | right click | Toggle monocle |
+| The **PAUSED** mark | left click | Resume the hotkeys |
+| Anything you can click | hover | The pointer shows a hand |
 
-A click on another monitor's bar moves focus to that monitor, as if you had
-gone there, and the pointer always stays where you left it. The turns of a
+A click on another monitor's bar that changes its workspace, layout or
+monocle moves focus to that monitor, as if you had gone there. One that runs
+`retile` or `toggle-pause`, such as a click on **PAUSED**, leaves focus where
+it is. Either way the pointer stays where you left it. The turns of a
 burst of the wheel, or of a touchpad's swipe, add up, and once the wheel
 goes quiet the bar switches as many workspaces on as they come to. A slow
 high-resolution wheel gets there too, a fraction at a time. Stepping past
 the last workspace stops there, or goes round to the first with
 `[workspaces] wrap = true` in `config.toml`. Clicks keep working while the
-hotkeys are paused.
+hotkeys are paused, which is how the **PAUSED** mark resumes them.
 
 The bar never takes focus. Over a maximized or fullscreen window, managed or
 not, it lets the pointer through, so the window's own title bar and tabs
-work as before. Elsewhere it takes clicks only where it draws something:
-with the default transparent background, a window that reaches under the
-bar, such as a Snap half, still gets its clicks there between the bar's
-labels and pills. With any `background_opacity` above 0, the bar takes
-clicks over all of its strip.
+work as before. Elsewhere it takes clicks only over what you can click, each
+over its whole column of the bar, and where it draws something: with the
+default transparent background, a window that reaches under the bar, such as
+a Snap half, still gets its clicks there between the bar's labels and pills.
+With any `background_opacity` above 0, the bar takes clicks over all of its
+strip.
 
 ```toml
 [mouse]
 enabled = true           # false keeps the bar click-through
 scroll = "workspaces"    # "workspaces" or "none"
 ```
+
+What a click on a widget does is up to you. Each `[[mouse.click]]` entry
+binds a button, `left`, `right` or `middle`, on a widget, named by its type,
+to an action, named as in `keybindings.toml`, in place of what that button
+does there now, and a later entry for the same widget and button wins. It
+works on every widget of that type:
+
+```toml
+[[mouse.click]]
+widget = "clock"
+button = "middle"
+action = "retile"
+
+[[mouse.click]]
+widget = "layout"
+button = "left"
+action = "goto-workspace-next"   # instead of cycling the layout
+
+[[mouse.click]]
+widget = "layout"
+button = "right"
+action = "none"                  # a right click does nothing
+```
+
+`action = "none"` turns a click off, a default included, and a widget with
+no click left takes none. Deleting an entry brings back the default for that
+widget and button.
+
+Only actions on the bar's own monitor or on the whole daemon can be bound:
+`cycle-layout`, `toggle-monocle`, `goto-workspace-N`, `goto-workspace-next`
+and `goto-workspace-prev` act on the monitor of the bar you click, and
+`retile` and `toggle-pause` on the whole daemon. An entry for another action,
+such as `close-focused`, which would close a window on another monitor, or
+one with a typo or a key left out, is ignored, and `mosaico doctor` says
+which and why; the rest of `bar.toml` still applies. The right-click of a
+workspace number runs what you bind on the `workspaces` widget, and its left
+click always goes to that workspace.
 
 The wheel needs "Scroll inactive windows when I hover over them" on in the
 Windows mouse settings, as it is by default: with it off, Windows sends the

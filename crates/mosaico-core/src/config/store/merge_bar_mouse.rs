@@ -6,23 +6,39 @@ use super::{append_to_file, file_error, read_file};
 
 /// Comment block appended to `bar.toml` when the file has no `[mouse]`
 /// section, so existing users find out that the bar takes clicks and the
-/// wheel now, and how to turn that off. It is all comments: the file
-/// keeps the defaults until the user writes the section. It names no
-/// default value, since it stays in the file when the defaults change.
+/// wheel now, how to bind clicks on its widgets, and how to turn that off.
+/// It is all comments: the file keeps the defaults until the user writes
+/// the section. It names no default value or binding, since it stays in
+/// the file when the defaults change.
 pub(super) const BAR_MOUSE_HINT_SNIPPET: &str = r##"
 # Added automatically -- new in this version of mosaico
 # The [mouse] section says what the mouse does on the bar: a click on a
-# workspace number goes to that workspace, and the wheel steps through the
-# workspaces, on the bar's own monitor. Recognized keys:
+# workspace number goes to that workspace and the wheel steps through the
+# workspaces, on the bar's own monitor, and clicks on widgets run actions.
+# Recognized keys:
 #   enabled  whether the bar takes clicks and the wheel: true or false.
 #            With false the bar lets the pointer through to the windows
 #            under it.
 #   scroll   what scrolling over the bar does: "workspaces" steps through
 #            the workspaces of the bar's monitor, "none" does nothing.
+# Each [[mouse.click]] entry has a click with the "left", "right" or
+# "middle" button on a widget, named by its type, run an action, named as
+# in keybindings.toml, in place of what that click does now, and a later
+# entry for the same widget and button wins. cycle-layout, toggle-monocle,
+# goto-workspace-N, goto-workspace-next and goto-workspace-prev act on the
+# bar's own monitor, retile and toggle-pause on the whole daemon, and no
+# other action can be bound. action = "none" removes what the click does,
+# and deleting an entry keeps the default.
 #
 # Example, to keep the bar out of the pointer's way:
 #   [mouse]
 #   enabled = false
+#
+# Example, to retile with a middle click on the clock:
+#   [[mouse.click]]
+#   widget = "clock"
+#   button = "middle"
+#   action = "retile"
 "##;
 
 /// Appends a comment block about the bar's `[mouse]` section to the bar

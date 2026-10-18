@@ -1,12 +1,13 @@
-//! Where an action comes from.
+//! Where an action comes from, and what it acts on.
+
+use super::Action;
 
 /// Where an action comes from, which decides the monitor it acts on and
 /// whether the pointer may move for it.
 ///
-/// Actions that act on a monitor (cycling the layout, monocle and the
-/// workspace switches) act on the monitor the origin names. The others,
-/// such as focusing or closing a window, act on the focused window
-/// whatever their origin.
+/// Actions that act on a monitor ([`Scope::Monitor`]) act on the monitor
+/// the origin names. The others act on the focused window, or on the
+/// whole daemon, whatever their origin.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum Origin {
     /// A hotkey or the command line. The action acts on the focused
@@ -36,3 +37,42 @@ impl Origin {
         matches!(self, Self::Bar(_))
     }
 }
+
+/// What an action acts on, which decides where it may come from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Scope {
+    /// The focused window: focusing or moving from it, sending it to
+    /// another workspace, closing or minimizing it. A click on the bar of
+    /// one monitor would act on a window of another, so a bar never runs
+    /// these.
+    FocusedWindow,
+    /// A monitor: its layout, monocle and the workspace on screen. From a
+    /// bar, the bar's monitor.
+    Monitor,
+    /// The whole daemon: laying out every monitor again, and pausing the
+    /// hotkeys.
+    Daemon,
+}
+
+impl Action {
+    /// What the action acts on.
+    pub fn scope(self) -> Scope {
+        match self {
+            Self::Focus(_)
+            | Self::Move(_)
+            | Self::SendToWorkspace(_)
+            | Self::CloseFocused
+            | Self::MinimizeFocused => Scope::FocusedWindow,
+            Self::CycleLayout
+            | Self::ToggleMonocle
+            | Self::GoToWorkspace(_)
+            | Self::GoToWorkspaceNext
+            | Self::GoToWorkspacePrev => Scope::Monitor,
+            Self::Retile | Self::TogglePause => Scope::Daemon,
+        }
+    }
+}
+
+#[cfg(test)]
+#[path = "action_scope_tests.rs"]
+mod scope_tests;

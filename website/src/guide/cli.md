@@ -58,7 +58,8 @@ Checks performed:
 6. `rules.toml` syntax validation
 7. Community rules cache age
 8. `user-rules.toml` syntax validation
-9. `bar.toml` syntax validation
+9. `bar.toml` syntax validation, how many click bindings the bar has, and
+   each one it ignores, with why
 10. Autostart status: warns when the startup entry starts another copy of
     mosaico or other arguments, or is turned off in the startup apps
     settings, fails when the program it starts no longer exists

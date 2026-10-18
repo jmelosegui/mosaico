@@ -159,7 +159,9 @@ workspace's layout to the next variant:
     Bsp -> VerticalStack -> ThreeColumn -> Bsp -> ...
 
 `LayoutKind::next()` implements this rotation. After cycling, the workspace
-is immediately retiled with the new algorithm.
+is immediately retiled with the new algorithm. A left click on the layout
+widget of a monitor's bar cycles that monitor's layout, and a right click
+toggles its monocle (see [status-bar.md](status-bar.md#widget-clicks)).
 
 The current layout name is available via `LayoutKind::name()` for status-bar
 display (`"BSP"`, `"VStack"`, `"3Col"`).

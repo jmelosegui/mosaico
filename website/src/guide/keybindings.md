@@ -114,7 +114,7 @@ modifiers = ["alt", "shift"]
 ```
 
 Press `Alt+Shift+P` to pause — the status bar shows a red **PAUSED** indicator.
-Press it again to resume. You can also use the CLI:
+Press it again, or click the indicator, to resume. You can also use the CLI:
 
 ```sh
 mosaico pause

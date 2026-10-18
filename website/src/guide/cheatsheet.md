@@ -86,6 +86,9 @@ forces a fresh re-application of the current layout.
 | `Alt + T` | Toggle monocle mode | `mosaico action toggle-monocle` |
 | `Alt + Shift + R` | Retile | `mosaico action retile` |
 
+On the [status bar](status-bar.md#the-mouse), click the layout widget to
+cycle the layout of that monitor, or right-click it to toggle monocle there.
+
 Per-workspace layout overrides are configured under
 `[workspaces.layouts]` in `config.toml`. See
 [Tiling & Layouts](tiling-layout.md).
@@ -102,7 +105,7 @@ Per-workspace layout overrides are configured under
 Pause every Mosaico hotkey (including the pause hotkey itself stays
 active so you can resume) when running a full-screen application that
 needs to claim its own keybindings. The status bar shows a red `PAUSED`
-pill while paused.
+pill while paused; click it to resume.
 
 | Shortcut | Action | CLI |
 |----------|--------|-----|
