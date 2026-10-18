@@ -50,8 +50,9 @@ from phase 34 (34.2), and drops and resizes animate when transitions are on.
   whichever window has focus. What a drag is (a move or a resize, and of which
   edges) is known when it starts, from where the pointer grabbed the window, and
   where it was dropped is read when it ended, not when the daemon got to it.
-- While a window is dragged, a preview shows where it will land, and nothing
-  else moves the window, its border or the pointer.
+- While a window is dragged, a preview shows where it will land, nothing else
+  moves the window or the pointer, and the window has focus and its border,
+  which follows it.
 - Every new kind of work the tiler does has a metrics scenario, recorded with
   the change.
 
@@ -210,27 +211,32 @@ daemon action path (carry_out)  -> action with an origin          { monitor, fro
   them.
 - `MoveStarted` for a tiled window starts a drag for it: what was held for the
   window is dropped (as `Untile` does), nothing places the window until the drag
-  ends, its border is hidden once a position report finds it away from where it
-  started, so a click on the title bar leaves it, and pointer moves from the
-  tiler wait until the drag ends. A drag that started on a maximized window, as
-  the platform saw it then, is a move. When the platform cannot say what was
-  grabbed, comparing the window's size at the start and at the end tells a
-  move from a resize.
+  ends, and pointer moves from the tiler wait until the drag ends. The window
+  is the tiler's focused one from the drag's start, without asking the platform
+  mid-drag, and the drop asks it when no report said the system gave the window
+  focus; its border stays on it, drawn where each position report has it. The
+  owner chose this while testing 35.6; until then the border was hidden once a
+  report found the window away from where it started, so a click on the title
+  bar left it. A drag that started on a maximized window, as the platform saw
+  it then, is a move. When the platform cannot say what was grabbed, comparing
+  the window's size at the start and at the end tells a move from a resize.
 - While a move goes on, each position change works out the drop target from the
   pointer, and the preview follows it. Without position changes during the drag
   (window contents not shown while dragging), `Moved` decides from the final
   rect and pointer alone, without a preview.
 - 35.6, added while testing 35.5 on the desktop, lays out live what the drop
   would do: each position change of a drag the tiler decides places the tiles
-  beyond a held edge at the splits the drop would set, or the tiles of another
-  monitor at the slots they get with the window put where it would join, a
-  workspace there in monocle laid out tiled, at once and without a transition,
-  and only those whose slot changed. The window itself is never placed, and
-  nothing is committed until the drop, which finds them in place. Once the drag
-  no longer lays them out, as it leaves, for Escape, a key, a bar action, a
-  display change or a drop elsewhere, they go back where their workspace has
-  them, a monocle workspace with its monocle window in front again, and they
-  may animate back. Without position changes, nothing follows.
+  beyond a held edge at the splits the drop would set, at once and without a
+  transition, or the tiles of another monitor at the slots they get with the
+  window put where it would join, a workspace there in monocle laid out tiled,
+  as any layout change, gliding there with transitions on and turning from
+  where they are as the target changes, and only those whose slot changed. The
+  window itself is never placed, and nothing is committed until the drop, which
+  finds them in place or on their way. Once the drag no longer lays them out,
+  as it leaves, for Escape, a key, a bar action, a display change or a drop
+  elsewhere, they go back where their workspace has them, a monocle workspace
+  with its monocle window in front again, and they may animate back. Without
+  position changes, nothing follows.
 - `Moved` ends the drag and applies the drop. A final rect within a few pixels
   of the rect at the start, or equal to the window's slot, or a pointer back
   within a few pixels of where the drag started it, is a cancel or a click on
@@ -531,9 +537,12 @@ Added while testing 35.5 on the desktop, as a pull request of its own.
 - [x] The tiles of another monitor, laid out live with the window put where it
       would join, before the tile under the pointer or at the end, by the
       insertion, split and stack-height rules of the drop
-- [x] Placed at once, never animated, only when their slot changes, at most
+- [x] The tiles beyond an edge placed at once, never animated, and those of
+      another monitor as any layout change, gliding with transitions on, as
+      the owner asked while testing, only when their slot changes, at most
       once a pass of the daemon loop, the window itself never placed and
-      nothing committed until the drop, which finds them in place
+      nothing committed until the drop, which finds them in place or on
+      their way
 - [x] Put back, with a transition if due, once the drag no longer lays them
       out: as it leaves, for Escape, a key, a bar action, a display change, a
       drop elsewhere or another drag, and by a layout of their monitor
@@ -541,6 +550,11 @@ Added while testing 35.5 on the desktop, as a pull request of its own.
 - [x] A drop on another monitor in monocle ends monocle there, as the owner
       chose while testing: laid out tiled live, put back with its monocle
       window in front, and tiled at the drop
+- [x] The dragged window keeps its border, drawn where each report has it,
+      through what interrupts its drag, and is the focused window from its
+      start, its border in the focused or the monocle style and the one it
+      left unfocused, without the platform asked mid-drag; the drop focuses it
+      when no report said the system did, as the owner chose while testing
 - [x] Tests for each layout, a corner, a stack, a side column, the floor,
       Escape, a key, a bar click, a display change, the options off, monocle,
       no grab, many reports, a report that moves nothing, the bar strip,
@@ -554,6 +568,8 @@ Added while testing 35.5 on the desktop, as a pull request of its own.
 - [ ] Manual test: drag a window over another monitor, tiled and in monocle,
       over its tiles and its bar, back over its own, with Esc and a key, and
       drop it there, with transitions on and off
+- [ ] Manual test: grab a window that has no focus, by its title bar and by an
+      edge, and watch it take focus and keep its border through the drag
 
 ### Verification
 

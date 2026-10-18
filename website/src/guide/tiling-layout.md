@@ -172,16 +172,18 @@ bar. While you drag, a translucent preview in the focused border's color
 shows where the window will land: on another monitor, that is the slot it
 gets there, which in BSP is not always the tile under the pointer.
 
-While you drag a window over another monitor, the windows there make room
-for it at once, as they will once you drop it, and the preview shows the
-slot they leave open. They move again only when the window would go
-somewhere else, and they go back when you leave that monitor, press `Esc`
-or a hotkey, or use a status bar. When you drop it there, they are already
-in place, and only the window you drop moves. A monitor in monocle is laid
-out with its windows side by side while you drag over it, and goes back to
-monocle when you leave it; dropping the window there ends monocle, and the
-window joins the others side by side. Your own monitor keeps the window's
-slot until you drop it, so you can drag back over it as it was.
+While you drag a window over another monitor, the windows there make
+room for it, as they will once you drop it, gliding there when animations
+are on, and the preview shows the slot they leave open. They move again
+only when the window would go somewhere else, turning from wherever
+they are, and they go back the same way when you leave that monitor,
+press `Esc` or a hotkey, or use a status bar. When you drop it there,
+they are already in place, or on their way, and only the window you
+drop moves. A monitor in monocle is laid out with its windows side by
+side while you drag over it, and goes back to monocle when you leave it;
+dropping the window there ends monocle, and the window joins the others
+side by side. Your own monitor keeps the window's slot until you drop
+it, so you can drag back over it as it was.
 
 The window goes back to its slot when you drop it on its own slot, in a
 gap, on its monitor's status bar, or anywhere on its monitor in monocle,
@@ -193,14 +195,16 @@ bar changes nothing either. Dragging a window by an edge resizes the
 tiles instead (see [Resizing Tiles](#resizing-tiles)). A window Mosaico
 does not tile can be dragged anywhere without moving the tiles under it.
 
-While you drag, nothing else moves the window or the pointer, whatever
-you press: a window that opens meanwhile is tiled around it, and the
-pointer follows focus only once you let go. Pressing a hotkey, or using a
-status bar, while dragging hides the preview, and the window goes back to
-its slot when you drop it, or joins the end of the other monitor's
-windows; pausing the hotkeys, from their key or the **PAUSED** mark,
-leaves the drag as it is. Switching workspaces hides it with the other
-windows there, and it stays there when you let go.
+The window you drag, by its title bar or an edge, takes focus as you
+grab it, and keeps its border all along, which follows it as it moves
+and changes size. While you drag, nothing else moves the window or the
+pointer, whatever you press: a window that opens meanwhile is tiled
+around it, and the pointer follows focus only once you let go. Pressing
+a hotkey, or using a status bar, while dragging hides the preview, and
+the window goes back to its slot when you drop it, or joins the end of
+the other monitor's windows; pausing the hotkeys, from their key or the
+**PAUSED** mark, leaves the drag as it is. Switching workspaces hides
+it with the other windows there, and it stays there when you let go.
 
 Set `drag_to_swap = false` under `[mouse]` in `config.toml` to have every
 dropped window go back to its slot, or join the end of the other
@@ -210,11 +214,11 @@ drag.
 ## Resizing Tiles
 
 Drag the edge between two tiles to resize them: the windows on the other
-side follow the edge as you drag it, keeping the configured gap from it,
-and when you let go, the split between them moves to where you dropped the
-edge. Drag a corner where two splits meet to move both. Where a split
-stops, the windows beyond it stop there too, and the window you hold can
-overlap them until you let go, when it settles into its slot.
+side follow the edge as you drag it, at once, keeping the configured gap
+from it, and when you let go, the split between them moves to where you
+dropped the edge. Drag a corner where two splits meet to move both. Where
+a split stops, the windows beyond it stop there too, and the window you
+hold can overlap them until you let go, when it settles into its slot.
 
 | Layout | Edges that resize |
 |--------|-------------------|

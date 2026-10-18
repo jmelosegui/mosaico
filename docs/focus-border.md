@@ -283,14 +283,18 @@ to land, so a border dropped meanwhile is not drawn again.
 
 ### Borders of Dragged Windows
 
-The border of a tiled window the user drags is hidden once a position
-report finds the window away from where the drag started, and stays hidden
-however often the tiler brings the borders in line meanwhile, since it
-would only show where the window was. A click on the title bar, which the
-platform reports as a drag that moves nothing, leaves it drawn. It is drawn
-again as the drop places the window, or as anything else draws the borders
-once the drag has ended (see
-[tiling-layout.md](tiling-layout.md#dragging-windows)).
+A tiled window the user drags is the focused one from the start of its
+drag, so its border takes the focused style, or the monocle one, and the
+border of the window that had focus the unfocused one. Its border stays on
+it through the drag, whatever interrupts it: each position report draws it
+where the window is, which a move only puts in place, as the picture is
+the same, and a resize draws again as its size changes, and so does
+anything else that draws the borders meanwhile. Without reports, as with
+window contents hidden while dragging, it stays where it was until the
+drop places the window. The owner chose this while testing 35.6; until
+then the border was hidden once a report found the window away from where
+the drag started (see
+[tiling-layout.md](tiling-layout.md#while-a-window-is-dragged)).
 
 ### Drop Preview
 
