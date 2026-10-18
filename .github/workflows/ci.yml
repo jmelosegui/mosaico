@@ -64,9 +64,10 @@ jobs:
     # tests/window_management.rs drives a live daemon, launches notepad and
     # asserts on real DWM geometry, borders and cursor position,
     # tests/window_transitions.rs samples where windows are while they
-    # swap, and tests/drag_and_drop.rs drags notepads with the real
-    # pointer. A hosted runner has no interactive desktop to do that
-    # against, so they run on demand rather than on every pull request.
+    # swap, tests/drag_and_drop.rs drags notepads with the real pointer,
+    # and tests/bar_click.rs clicks and scrolls the bar with it. A hosted
+    # runner has no interactive desktop to do that against, so they run on
+    # demand rather than on every pull request.
     if: github.event_name == 'workflow_dispatch'
     runs-on: windows-latest
     timeout-minutes: 30
@@ -90,3 +91,8 @@ jobs:
         # Runs even when an earlier suite failed, so every suite reports.
         if: '!cancelled()'
         run: cargo test -p mosaico --test drag_and_drop
+
+      - name: Bar click tests
+        # Runs even when an earlier suite failed, so every suite reports.
+        if: '!cancelled()'
+        run: cargo test -p mosaico --test bar_click
