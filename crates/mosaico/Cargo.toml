@@ -10,6 +10,9 @@ clap = { version = "4", features = ["derive"] }
 mosaico-core = { path = "../mosaico-core" }
 mosaico-windows = { path = "../mosaico-windows" }
 
+[build-dependencies]
+embed-resource = "3"
+
 [dev-dependencies]
 zip = { version = "2", default-features = false, features = ["deflate"] }
 
