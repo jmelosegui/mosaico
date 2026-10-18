@@ -1,10 +1,8 @@
 //! Layout application: tiled layouts and monocle mode.
 
-use crate::config::HidingBehaviour;
 use crate::layout::SplitRatios;
 use crate::{Rect, WindowId};
 
-use super::removal::untile;
 use super::{Plan, Tiler, Timing};
 
 /// The rect a monocle window fills, given a work area and a gap.
@@ -57,6 +55,17 @@ impl Tiler {
         splits.apply(kind, gap, ratio, windows, &state.work_area)
     }
 
+    /// The window a workspace in monocle on screen of monitor `idx` shows
+    /// in front: its monocle window, or the focused window when monocle
+    /// was toggled without one, when that is on the workspace. `None` for a
+    /// tiled workspace, and for one whose monocle window is away, which is
+    /// tiled until it comes back.
+    pub(super) fn monocle_front(&self, idx: usize) -> Option<WindowId> {
+        let ws = self.monitors.get(idx)?.active_ws();
+        let front = ws.monocle_window().or(self.focused_window);
+        front.filter(|&w| ws.monocle() && ws.contains(w))
+    }
+
     /// Lays out the monitor now and refreshes every border.
     pub(super) fn apply_layout_on(&mut self, plan: &mut Plan, monitor_idx: usize) {
         self.apply_layout_positions(plan, monitor_idx, Timing::Now);
@@ -72,79 +81,37 @@ impl Tiler {
     /// position at that moment. Deciding here instead would go
     /// wrong for a window with a coalesced placement still pending. The
     /// window the user drags keeps its slot but gets nothing until they
-    /// drop it.
+    /// drop it, and what its drag laid out live there is forgotten, see
+    /// [`forget_live`](Self::forget_live).
     pub(super) fn apply_layout_positions(
         &mut self,
         plan: &mut Plan,
         monitor_idx: usize,
         timing: Timing,
     ) {
+        self.forget_live(plan, monitor_idx);
         self.prune_stale_handles(plan, monitor_idx);
 
         let Some(state) = self.monitors.get(monitor_idx) else {
             return;
         };
         let monitor = state.id;
-        if state.active_ws().monocle() {
-            // The monocle window fills the work area. Fall back to the
-            // focused window when monocle was toggled without a target.
-            let target = state.active_ws().monocle_window().or(self.focused_window);
-            if let Some(front) = target
-                && state.active_ws().contains(front)
-            {
-                if self.is_dragged(front) {
-                    return;
-                }
-                let rect = self.monocle_rect(monitor_idx);
-                plan.place(front, rect, timing, monitor);
-                self.show_border_for(plan, front, rect, monitor_idx);
-                self.place_waiting_behind(plan, monitor_idx, front, rect, timing);
+        // The monocle window fills the work area.
+        if let Some(front) = self.monocle_front(monitor_idx) {
+            if self.is_dragged(front) {
                 return;
             }
+            let rect = self.monocle_rect(monitor_idx);
+            plan.place(front, rect, timing, monitor);
+            self.show_border_for(plan, front, rect, monitor_idx);
+            self.place_waiting_behind(plan, monitor_idx, front, rect, timing);
+            return;
         }
         for (window, rect) in self.compute_positions(monitor_idx) {
             if !self.is_dragged(window) {
                 plan.place(window, rect, timing, monitor);
                 self.show_border_for(plan, window, rect, monitor_idx);
             }
-        }
-    }
-
-    /// Removes windows that are gone or minimized from the monitor's
-    /// active workspace.
-    ///
-    /// Some applications close without reporting it, and a window can
-    /// be minimized without a report, for example before it was
-    /// adopted. Either would leave an empty slot in the layout.
-    ///
-    /// A window that is no longer shown is also forgotten as decorated,
-    /// so a later window given its id does not get the system's corners
-    /// back for it. A minimized one keeps the tiler's corners until it
-    /// hides or closes. Either leaves the layout, see [`untile`].
-    ///
-    /// A window the tiler hid with "hide" is kept while it still exists
-    /// and is still hidden: it is out of view by the tiler's doing, and
-    /// the display change that brings it into view, by moving it or by
-    /// switching its monitor's workspace, shows it after this retile
-    /// (#119, #124).
-    pub(super) fn prune_stale_handles(&mut self, plan: &mut Plan, monitor_idx: usize) {
-        let Some(state) = self.monitors.get_mut(monitor_idx) else {
-            return;
-        };
-        let stale: Vec<WindowId> = state
-            .active_ws()
-            .windows()
-            .iter()
-            .copied()
-            .filter(|&w| self.hidden_how.still_hidden(plan, w) != Some(HidingBehaviour::Hide))
-            .filter(|&w| !plan.is_visible(w) || plan.is_minimized(w))
-            .collect();
-        for window in stale {
-            untile(plan, state.active_ws_mut(), window);
-            if !plan.is_visible(window) {
-                self.decorated.remove(&window);
-            }
-            crate::log_info!("-prune {} (stale or minimized)", window);
         }
     }
 }

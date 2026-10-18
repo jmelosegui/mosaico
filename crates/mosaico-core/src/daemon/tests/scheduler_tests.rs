@@ -13,6 +13,8 @@ use super::*;
 mod cap_tests;
 #[path = "scheduler_display_tests.rs"]
 mod display_tests;
+#[path = "scheduler_drag_tests.rs"]
+mod drag_tests;
 #[path = "scheduler_flush_tests.rs"]
 mod flush_tests;
 #[path = "scheduler_frame_tests.rs"]

@@ -248,11 +248,19 @@ show_border = 9
 
 [resize_split]
 border_renders = 4
-calls = 15
+calls = 18
 hide_border = 1
 place = 3
 repaint = 3
-show_border = 8
+show_border = 11
+
+[resize_split_followed]
+border_renders = 16
+calls = 54
+hide_border = 1
+place = 15
+repaint = 15
+show_border = 23
 
 [retile]
 border_renders = 4

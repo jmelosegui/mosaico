@@ -1,6 +1,7 @@
 //! What dragging a tiled window and dropping it asks of the platform: onto
 //! another tile to swap them, and onto another monitor; and what resizing
-//! one by the edge between two tiles does.
+//! one by the edge between two tiles does, with one report on the way and
+//! with several.
 
 use crate::WindowEvent;
 use crate::event::{DragStart, Edges, Grab};
@@ -13,6 +14,18 @@ use crate::tiler::tests::metrics_support::{Manager, Measured, four, on};
 /// right edge, which window 2 is beyond, 200 pixels to the right, and let
 /// go there.
 pub(super) fn resize() -> Measured {
+    resize_in(&[200])
+}
+
+/// As [`resize`], with the edge reported five times on its way, 40
+/// pixels apart, each moving the tiles beyond it.
+pub(super) fn resize_followed() -> Measured {
+    resize_in(&[40; 5])
+}
+
+/// Four windows on one monitor; window 1 is resized by its right edge, as
+/// far as each of `steps` takes it in turn, reporting each, and let go.
+fn resize_in(steps: &[i32]) -> Measured {
     let arranged = four();
     let platform = arranged.0.clone();
     on(arranged, |manager| {
@@ -31,8 +44,10 @@ pub(super) fn resize() -> Measured {
             pointer: Some(at(rect)),
         };
         manager.handle_event(&WindowEvent::MoveStarted { window, start });
-        platform.edit(1, |w| w.rect.width += 200);
-        manager.handle_event(&WindowEvent::LocationChanged { window });
+        for &step in steps {
+            platform.edit(1, |w| w.rect.width += step);
+            manager.handle_event(&WindowEvent::LocationChanged { window });
+        }
         let pointer = Some(at(platform.window(1).rect));
         manager.handle_event(&WindowEvent::Moved { window, pointer });
     })

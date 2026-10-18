@@ -87,9 +87,11 @@ impl Tiler {
         self.note_filling(plan, window);
         // A window the user drags is theirs until they drop it: where it
         // is only hides its border, once it has left where it started, and
-        // moves the preview of where it would land.
+        // moves the tiles a drop then would move, and the preview of where
+        // it would land.
         if self.is_dragged(window) {
             self.drag_reported(plan);
+            self.follow_live(plan);
             self.preview_drop(plan);
             return;
         }

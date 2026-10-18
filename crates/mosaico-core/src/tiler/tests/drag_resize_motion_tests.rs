@@ -1,6 +1,7 @@
 //! Resizing tiled windows by their edges on the tiling manager, with
 //! transitions on: the window the user resizes is never placed while they
-//! hold it, and the windows the new split moves slide into their slots.
+//! hold it, the windows the new split moves follow it at once, and the
+//! drop moves only the window back into its slot.
 
 use crate::WindowEvent;
 use crate::event::{DragStart, Edges, Grab};
@@ -70,15 +71,19 @@ fn a_window_resized_while_another_opens_is_left_where_the_user_has_it() {
 }
 
 #[test]
-fn the_windows_a_resize_moves_slide_into_their_new_slots() {
+fn the_windows_a_resize_moves_follow_it_at_once_and_only_its_window_settles_at_the_drop() {
     // Arrange
     let platform = FakePlatform::new(1, &[(1, 0), (2, 0)]);
     let mut manager = start(&platform, None, &animated());
     settle(&platform, &mut manager);
-    widen(&platform, &mut manager, 1);
-    let wider = platform.window(1).rect;
+    platform.take_calls();
 
-    // Act -- let go there.
+    // Act -- 300 pixels wider, which window 2 follows, and let go with
+    // the window 50 pixels shorter, its bottom edge an outer one.
+    widen(&platform, &mut manager, 1);
+    let followed = (platform.take_calls(), manager.wants_frames());
+    let wider = platform.window(1).rect;
+    platform.edit(1, |w| w.rect.height -= 50);
     let pointer = Some((wider.x + wider.width - 1, wider.center_y()));
     manager.handle_event(&WindowEvent::Moved {
         window: wid(1),
@@ -86,10 +91,14 @@ fn the_windows_a_resize_moves_slide_into_their_new_slots() {
     });
     let moving = manager.wants_frames();
     settle(&platform, &mut manager);
+    let dropped = platform.take_calls();
 
-    // Assert -- window 2 slides up to the edge, and window 1 stays where it
-    // was let go.
+    // Assert -- window 2 is placed beside the edge at once, with no frame;
+    // the drop leaves it there, and window 1 slides back to its height.
+    assert!(moves(&followed.0, 2) && !followed.1, "{:?}", followed.0);
     assert!(moving);
+    assert!(!moves(&dropped, 2), "{dropped:?}");
+    assert!(moves(&dropped, 1), "{dropped:?}");
     assert_eq!(platform.window(1).rect, wider);
     assert_eq!(platform.window(2).rect.x, wider.x + wider.width + 8);
 }

@@ -12,9 +12,9 @@
 //!
 //! The drag ends with its `Moved`, and the window lands where it is
 //! dropped (`drag_drop.rs`), or before it, as `drag_end.rs` says. A
-//! preview shows where it would land meanwhile (`drag_preview.rs`). A
-//! window resized by edges that border splits moves them instead
-//! (`drag_resize.rs`).
+//! preview shows where it would land meanwhile (`drag_preview.rs`), and
+//! the tiles its drop would move follow it (`drag_live.rs`). A window
+//! resized by edges that border splits moves them (`drag_resize.rs`).
 
 use crate::event::{DragStart, Grab};
 use crate::{Rect, WindowId};
@@ -27,6 +27,8 @@ mod border;
 mod dropping;
 #[path = "drag_end.rs"]
 mod end;
+#[path = "drag_live.rs"]
+mod live;
 #[path = "drag_mouse.rs"]
 mod mouse;
 #[path = "drag_preview.rs"]
