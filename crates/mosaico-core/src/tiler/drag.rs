@@ -19,8 +19,11 @@
 use crate::event::{DragStart, Grab};
 use crate::{Rect, WindowId};
 
-use super::{Effect, Plan, Tiler};
+use super::{Plan, Tiler};
+use target::Target;
 
+#[path = "drag_aim.rs"]
+mod aim;
 #[path = "drag_border.rs"]
 mod border;
 #[path = "drag_drop.rs"]
@@ -67,6 +70,9 @@ pub(super) struct Drag {
     pub(super) decides: bool,
     /// Where the preview shows the window would land, while it shows.
     pub(super) preview: Option<Rect>,
+    /// Where the last report had the window join another monitor, if it
+    /// did, which the pointer in a gap between tiles there keeps.
+    pub(super) joining: Option<Target>,
 }
 
 impl Tiler {
@@ -104,24 +110,8 @@ impl Tiler {
             focus_owed: false,
             decides: true,
             preview: None,
+            joining: None,
         });
-    }
-
-    /// Stops following the drag, if the tiler follows one, hides its
-    /// preview, and returns it.
-    pub(super) fn end_drag(&mut self, plan: &mut Plan) -> Option<Drag> {
-        let drag = self.mouse.drag.take()?;
-        crate::log_debug!("drag {} ends", drag.window);
-        if drag.preview.is_some() {
-            plan.emit(Effect::HidePreview);
-        }
-        Some(drag)
-    }
-
-    /// Whether the tiler follows the drag of `window`: until it ends,
-    /// nothing places the window.
-    pub(super) fn is_dragged(&self, window: WindowId) -> bool {
-        self.mouse.drag.as_ref().is_some_and(|d| d.window == window)
     }
 }
 

@@ -26,6 +26,7 @@ fn drag() -> Drag {
         focus_owed: false,
         decides: true,
         preview: None,
+        joining: None,
     }
 }
 

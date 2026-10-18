@@ -99,6 +99,7 @@ impl Tiler {
         // it would land.
         if self.is_dragged(window) {
             self.drag_reported(plan);
+            self.aim_drag(plan);
             self.follow_live(plan);
             self.preview_drop(plan);
             return;
