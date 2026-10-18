@@ -65,8 +65,9 @@ monitor.
 ## Manual Dragging
 
 If you drag a tiled window by its title bar to a different monitor and drop
-it there, it joins that monitor's windows before the tile under the
-pointer, or at the end when the pointer is over the monitor's edge gap or
+it there, it joins that monitor's windows where the room they make opens
+under the pointer, before or after the window there, or at the end when the
+pointer is over the monitor's edge gap or
 its status bar, and that monitor takes focus. In the gap between two
 windows it keeps going where it was, so the windows do not bounce. A
 preview shows where it will land while you drag, and the windows of that

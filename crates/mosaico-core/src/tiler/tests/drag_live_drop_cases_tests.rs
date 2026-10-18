@@ -6,7 +6,7 @@
 use crate::WindowEvent;
 use crate::id::wid;
 use crate::tiler::drag::live::support::{RIGHT, on_two, place_any};
-use crate::tiler::drag::support::{center, grab, report_at, swapping};
+use crate::tiler::drag::support::{center, drop_at, grab, report_at, swapping};
 use crate::tiler::tests::fake_desktop::FakeWindow;
 use crate::tiler::{Effect, Settings, Timing};
 
@@ -105,8 +105,10 @@ fn over_the_slot_of_a_window_there_minimized_without_a_report_the_tiles_make_roo
     // Act
     report_at(&mut h, 1, over);
 
-    // Assert -- window 3, now alone there and under the pointer, makes
-    // room for window 1 before it, as a drop there would (#160 review,
-    // round 1, finding 3).
-    assert_eq!(h.placements(), vec![(3, RIGHT, Timing::Now)]);
+    // Assert -- window 3, now alone there, keeps the left half, as window
+    // 1 would join after it, under the pointer, as a drop there would
+    // (#160 review, round 1, finding 3).
+    assert_eq!(h.placements(), vec![]);
+    drop_at(&mut h, 1, over);
+    assert_eq!(h.active(1), vec![3, 1]);
 }

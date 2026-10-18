@@ -747,8 +747,8 @@ is tiled with the others and keeps focus, as on any tiled workspace.
 A tiled window the user drags onto another monitor with `drag_to_swap` on
 ends monocle on the workspace there, as `exit_monocle` and `Alt+T` end it:
 monocle and the monocle window are cleared, which forgets the windows waiting
-behind it, and the window joins before the tile under the pointer in the
-tiled layout, or at the end, with focus, as on any tiled workspace, and every
+behind it, and the window joins before or after the tile under the pointer
+in the tiled layout, or at the end, with focus, as on any tiled workspace, and every
 border is drawn again for the tiled layout (see
 [Where a Window Lands](#where-a-window-lands)). While it is dragged over that
 monitor, the workspace is laid out tiled with the window in it, live, but
@@ -892,7 +892,7 @@ from the pointer, never from the window's rect:
 |----------------|------------|
 | over another tile of its monitor | takes that tile's slot, and the other window its own |
 | over its own slot, a gap or the bar, or anywhere on its monitor in monocle | goes back to its slot |
-| over a tile of another monitor, which in monocle there is the tile its tiled layout has under the pointer | joins that monitor's workspace before that tile, and the monitor takes focus with it |
+| over a tile of another monitor, which in monocle there is the tile its tiled layout has under the pointer | joins that monitor's workspace where the slot it gets holds the pointer: where the last report had it while that slot still does, else before that tile, after it, or anywhere else that does, else before that tile (`drag_aim.rs`); the monitor takes focus with it |
 | over a gap between tiles of another monitor, inside the box they fill | goes where the last report had it go there, so the tiles do not bounce between two tiles (`drag_aim.rs`); at the end with none |
 | over an outer gap of another monitor, or its bar | joins the end of that workspace |
 | on no monitor, as over a taskbar | is handled as before |
@@ -1018,8 +1018,9 @@ the pointer where the desktop has it, by the rules the drop follows
   tile beyond it stops there too, and the held window may overlap it, or
   leave a wider gap, until the drop, when it settles to the clamp;
 - for a move over another monitor, with `drag_to_swap` on, that monitor's
-  workspace with the window put before the tile under the pointer, where
-  the last report put it while the pointer is in a gap between tiles
+  workspace with the window put before or after the tile under the pointer,
+  wherever its slot holds the pointer, where the last report put it while
+  that slot still does or the pointer is in a gap between tiles
   (`drag_aim.rs`), or at the end over an outer gap or the bar, by the
   insertion, split and stack-height rules the drop uses
   (`positions_joining`, which the preview's slot comes from too), a
@@ -1082,7 +1083,7 @@ reports works out where it would land if dropped now, with the pointer
 where it is, by the rule the drop follows (`drag_preview.rs`), and the
 tiler emits `Effect::ShowPreview` with the slot it would get: its own, that
 of the tile under the pointer, or the one it would get on another monitor
-once put before the tile under the pointer, which in BSP is not that tile,
+once put where that slot holds the pointer, if any does,
 a workspace there in monocle laid out as tiled. So a window a few pixels
 off its size previews the tile it would swap with, and one whose size
 changed more on its own monitor previews its own slot. The tiler emits
@@ -1305,7 +1306,8 @@ and showing windows cause are kept from undoing a switch as described in
   a config read again mid-drag, Escape, a key, a display change, another
   drag and the tiler stopping, and the drop that finds them in place
   (`drag_live_resize*_tests.rs`); the tiles of another monitor that make
-  room before the tile under the pointer or at the end over its bar, again
+  room where the window's slot holds the pointer (`drag_live_join_tests.rs`)
+  or at the end over its bar, again
   as the pointer moves on and back, put back over the window's own monitor,
   for Escape, a key and the window's own monitor laid out meanwhile, to
   their slots wherever they were, left alone with `drag_to_swap` off and

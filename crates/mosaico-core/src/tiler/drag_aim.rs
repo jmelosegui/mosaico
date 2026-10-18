@@ -9,12 +9,17 @@
 //! crosses from one tile to the next. Over an outer gap or the bar's
 //! strip the window joins the end, as it does in a gap with no target
 //! noted, as before a first report.
+//!
+//! Over a tile, the window joins where the slot it gets holds the pointer,
+//! so the room the tiles make opens under it: where it was going while
+//! that slot still does, else before that tile, after it, or anywhere that
+//! does, else before that tile.
 
 use crate::WindowId;
 
 use super::super::{Plan, Tiler};
 use super::Drag;
-use super::target::{DropArea, Target};
+use super::target::{DropArea, Target, contains, target};
 
 impl Tiler {
     /// Notes where the window the user drags would join another monitor if
@@ -30,6 +35,55 @@ impl Tiler {
         if let Some(drag) = self.mouse.drag.as_mut() {
             drag.joining = joining;
         }
+    }
+
+    /// Where the window `drag` is about lands dropped with the pointer at
+    /// `pointer`, as [`target`] has it, joining another monitor where its
+    /// slot holds the pointer ([`join_under`](Self::join_under)).
+    pub(in crate::tiler) fn lands_at(&self, drag: &Drag, pointer: (i32, i32)) -> Option<Target> {
+        match target(drag, pointer, &self.drop_areas(drag.monitor))? {
+            Target::Join { monitor, before } => Some(Target::Join {
+                monitor,
+                before: self.join_under(drag, monitor, before, pointer),
+            }),
+            other => Some(other),
+        }
+    }
+
+    /// Where the window `drag` is about joins monitor `idx`, `before` a
+    /// tile there or at the end, so that the slot it gets holds `pointer`:
+    /// where the last report had it while that slot still does, so the
+    /// tiles that made room stay put, else before the tile `before` names,
+    /// after it, or anywhere else that does, in that order, else `before`.
+    pub(in crate::tiler) fn join_under(
+        &self,
+        drag: &Drag,
+        idx: usize,
+        before: Option<WindowId>,
+        pointer: (i32, i32),
+    ) -> Option<WindowId> {
+        let holds = |at: Option<WindowId>| {
+            let slot = self.slot_joining(idx, at, drag.window);
+            slot.is_some_and(|rect| contains(rect, pointer))
+        };
+        let noted = match drag.joining {
+            Some(Target::Join { monitor, before }) if monitor == idx => Some(before),
+            _ => None,
+        };
+        let windows = self.monitors.get(idx).map(|m| m.active_ws().windows());
+        let windows = windows.unwrap_or_default();
+        let next = |w: WindowId| {
+            let at = windows.iter().position(|&o| o == w)?;
+            Some(windows.get(at + 1).copied())
+        };
+        let after = before.and_then(next);
+        let anywhere = windows.iter().map(|&w| Some(w)).chain([None]);
+        let mut tried = noted
+            .into_iter()
+            .chain([before])
+            .chain(after)
+            .chain(anywhere);
+        tried.find(|&at| holds(at)).unwrap_or(before)
     }
 }
 

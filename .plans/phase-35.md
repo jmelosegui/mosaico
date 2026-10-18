@@ -254,13 +254,14 @@ daemon action path (carry_out)  -> action with an origin          { monitor, fro
   switch, a close, hide or minimize of the dragged window, and another window
   taking focus other than by the tiler's doing end the drag, as the end of a
   drag may never be reported.
-- The insert position on another monitor is before the tile under the pointer,
+- The insert position on another monitor is before or after the tile under the
+  pointer, whichever gives the window a slot under the pointer, where it was
+  going while that slot still does, as the owner asked while testing #160,
   or at the end over an outer gap or the bar. In a gap between tiles, inside
   the box they fill, it keeps the target the last report decided (the end
   with none), so the tiles that made room do not bounce; the owner chose
   this in the #160 review, round 1. The preview shows the slot the window
-  gets in that monitor's
-  layout once it is inserted, which in BSP is not the tile under the pointer.
+  gets in that monitor's layout once it is inserted.
 
 ### Split resizing
 
@@ -579,8 +580,9 @@ Added while testing 35.5 on the desktop, as a pull request of its own.
       over its tiles and its bar, back over its own, with Esc and a key, and
       drop it there, with transitions on and off; cross the gap between two
       tiles there and check nothing bounces; drag over a monitor with a
-      maximized window and check only the preview shows; in a stack, check
-      whether the open slot jumping under the pointer is acceptable
+      maximized window and check only the preview shows; in BSP and a stack,
+      check the open slot opens under the pointer, over the top and the
+      bottom of a tile
 - [ ] Manual test: grab a window that has no focus, by its title bar and by an
       edge, and watch it take focus and keep its border through the drag
 

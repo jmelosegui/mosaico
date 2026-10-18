@@ -3,8 +3,9 @@
 //! With `[mouse] drag_to_swap`, a window the tiler followed the drag of
 //! lands where the pointer drops it (`drag_target.rs`): in the slot of
 //! another tile of its monitor, which takes its slot, or on another
-//! monitor's workspace, before the tile under the pointer or at the end,
-//! which leaves monocle there. Dropped over its own slot, a gap or a
+//! monitor's workspace, where the slot it gets holds the pointer, before
+//! or after the tile under it (`drag_aim.rs`), or at the end, which leaves
+//! monocle there. Dropped over its own slot, a gap or a
 //! monocle workspace of its own monitor, or snapped or maximized there by
 //! the system, it goes back to its slot. One the system maximized on
 //! another monitor joins it, and stays maximized there, and one it
@@ -21,7 +22,7 @@ use crate::WindowId;
 
 use super::super::{Plan, Tiler, Timing};
 use super::Drag;
-use super::target::{Ending, Target, cancelled, ending, target};
+use super::target::{Ending, Target, cancelled, ending};
 
 impl Tiler {
     /// Handles the end of a drag of `window`, with the pointer at `pointer`
@@ -71,7 +72,7 @@ impl Tiler {
         if cancelled(drag, rect, pointer, slot) {
             return None;
         }
-        let lands = pointer.and_then(|at| target(drag, at, &self.drop_areas(drag.monitor)));
+        let lands = pointer.and_then(|at| self.lands_at(drag, at));
         // A window across two monitors was rescaled on its way, not snapped.
         let home = self.lies_on(drag.monitor, rect);
         let at_home = home && matches!(lands, Some(Target::Back | Target::Swap(_)));

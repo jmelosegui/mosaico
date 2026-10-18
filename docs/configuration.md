@@ -178,7 +178,8 @@ is.
 `drag_to_swap` (default `true`) turns the drags the user makes into layout
 changes. A tiled window dragged by its title bar and dropped on another tile
 of its monitor swaps places with it, and one dropped on another monitor
-joins that monitor's workspace before the tile under the pointer, or at the
+joins that monitor's workspace before or after the tile under the pointer,
+whichever gives it a slot under the pointer, or at the
 end, which it also does over that monitor's bar or a gap there. A workspace
 there in monocle leaves it, and the window joins it tiled. Over its own
 slot, a gap, its monitor's bar, a monocle workspace of its own monitor, or

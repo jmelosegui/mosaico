@@ -166,13 +166,13 @@ area. Other windows remain in the workspace but are not repositioned.
 ## Dragging Windows
 
 Drag a tiled window by its title bar and drop it on another tile to swap
-the two. Drop it on another monitor to put it there, before the tile under
-the pointer, or at the end when the pointer is over the monitor's edge
+the two. Drop it on another monitor to put it there, next to the tile under
+the pointer, where the room the windows make opens under the pointer, or at
+the end when the pointer is over the monitor's edge
 gap or the status bar; in the gap between two windows it keeps going
 where it was. While you drag, a translucent preview in the focused
 border's color shows where the window will land: on another monitor,
-that is the slot it gets there, which in BSP is not always the tile
-under the pointer.
+that is the slot it gets there.
 
 While you drag a window over another monitor, the windows there make
 room for it, as they will once you drop it, gliding there when animations

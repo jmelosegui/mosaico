@@ -93,7 +93,7 @@ while you drag a window, the pointer stays with you, either way.
 
 With `drag_to_swap`, on by default, dropping a tiled window you drag by its
 title bar on another tile swaps the two, and dropping it on another monitor
-puts it there before the tile under the pointer, with a preview showing
+puts it there next to the tile under the pointer, with a preview showing
 where it will land while you drag, and the windows there making room for
 it, out of monocle once you drop it. With `false`, a dropped window goes
 back to its slot, or joins the end of the other monitor's windows. See
