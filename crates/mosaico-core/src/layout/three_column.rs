@@ -1,6 +1,7 @@
 use crate::{Rect, WindowId};
 
 use super::Layout;
+use super::column::column_slots;
 
 /// Three-column layout with a master pane in the center and stacks on
 /// both sides. Extra windows alternate between the left and right stacks.
@@ -26,37 +27,25 @@ impl Default for ThreeColumnLayout {
     }
 }
 
-impl ThreeColumnLayout {
-    /// Fills a vertical stack of windows into the given area, separating
-    /// adjacent slots by a full `gap` so the inner spacing matches the
-    /// outer padding.
-    fn fill_stack(
-        &self,
-        windows: &[WindowId],
-        area: &Rect,
-        gap: i32,
-        results: &mut Vec<(WindowId, Rect)>,
-    ) {
-        if windows.is_empty() {
-            return;
-        }
-        let count = windows.len() as i32;
-        let slot_h = (area.height - gap * (count - 1)) / count;
-
-        for (i, &window) in windows.iter().enumerate() {
-            let sy = area.y + (i as i32) * (slot_h + gap);
-            let sh = if i as i32 == count - 1 {
-                (area.y + area.height - sy).max(1)
-            } else {
-                slot_h.max(1)
-            };
-            results.push((window, Rect::new(area.x, sy, area.width, sh)));
-        }
+impl Layout for ThreeColumnLayout {
+    fn apply(&self, windows: &[WindowId], work_area: &Rect) -> Vec<(WindowId, Rect)> {
+        self.apply_heights(windows, work_area, [None, None])
     }
 }
 
-impl Layout for ThreeColumnLayout {
-    fn apply(&self, windows: &[WindowId], work_area: &Rect) -> Vec<(WindowId, Rect)> {
+impl ThreeColumnLayout {
+    /// Lays out `windows` as [`Layout::apply`] does, with the windows of the
+    /// left column and of the right one at the heights `columns` gives
+    /// them: where each but the last ends, as a share of the column without
+    /// its gaps, or shared equally without them. The windows after the
+    /// master alternate between the left column and the right one.
+    pub fn apply_heights(
+        &self,
+        windows: &[WindowId],
+        work_area: &Rect,
+        columns: [Option<&[f64]>; 2],
+    ) -> Vec<(WindowId, Rect)> {
+        let [left_heights, right_heights] = columns;
         if windows.is_empty() {
             return Vec::new();
         }
@@ -103,21 +92,19 @@ impl Layout for ThreeColumnLayout {
             Rect::new(master_x, padded.y, master_w, padded.height),
         ));
 
-        let mut left_windows = Vec::new();
-        let mut right_windows = Vec::new();
-        for (i, &window) in windows[1..].iter().enumerate() {
-            if i % 2 == 0 {
-                left_windows.push(window);
-            } else {
-                right_windows.push(window);
-            }
-        }
+        let sides = &windows[1..];
+        let left: Vec<WindowId> = sides.iter().copied().step_by(2).collect();
+        let right: Vec<WindowId> = sides.iter().copied().skip(1).step_by(2).collect();
 
+        // Each column's slots are separated by a full `gap`, so the inner
+        // spacing matches the outer padding.
         let left_area = Rect::new(left_x, padded.y, side_w.max(1), padded.height);
-        self.fill_stack(&left_windows, &left_area, self.gap, &mut results);
+        let left_slots = column_slots(&left_area, left.len(), self.gap, left_heights);
+        results.extend(left.into_iter().zip(left_slots));
 
         let right_area = Rect::new(right_x, padded.y, right_w, padded.height);
-        self.fill_stack(&right_windows, &right_area, self.gap, &mut results);
+        let right_slots = column_slots(&right_area, right.len(), self.gap, right_heights);
+        results.extend(right.into_iter().zip(right_slots));
 
         results
     }

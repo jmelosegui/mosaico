@@ -140,19 +140,25 @@ which keeps a `ReconnectMemory` (`tiler/reconnect.rs`) owned by the core
 - **Paired monitors** keep their workspaces and active workspace.
 - **Removed monitors** are passed to `ReconnectMemory::park()`. Each window
   moves to the same workspace index on the primary monitor (the host), and
-  a `Displaced { home, workspace, slot, split, host, host_workspace }`
-  record is kept for it, `split` being the ratio of its own split of the
-  BSP chain there, read before any window leaves, if the user moved it. The
-  monitor's workspaces, now empty but still carrying their layout, monocle,
-  last focused window and the masters' ratios, are parked under its key with
-  its active workspace.
+  a `Displaced { home, workspace, slot, splits, host, host_workspace }`
+  record is kept for it, `splits` being what it owned there, read before
+  any window leaves: its split of the BSP chain where the user moved it,
+  and its share of the stack and of its side column where the user resized
+  them. The monitor's workspaces, now empty but still carrying their
+  layout, monocle, last focused window and the masters' ratios, are parked
+  under its key with its active workspace.
 - **Returning monitors** (unpaired, but with a parked key) get their parked
   workspaces back through `unpark()`. `restore()` then moves each window
   whose home is that monitor back to its workspace, in slot order, but only
   if it is still on the host workspace it was put on, and once they are all
-  back, gives each its split of the BSP chain again at its place there,
-  whichever layout is on screen. A window the user moved somewhere else
-  stays there. The record is dropped either way.
+  back, gives each its split and its shares again at its place there,
+  whichever layout is on screen: in each column, the windows back keep
+  their shares and the others share what is left, so a whole monitor back
+  in order has the heights of its stacks back, but no share of the stack
+  goes to a window back as the master, and a window back in the other side
+  column sends both columns back to equal heights, as the same close at home
+  does. A window the user moved somewhere else stays there. The record is
+  dropped either way.
   A returning monitor's workspace whose monocle window did not come back
   leaves monocle. A workspace whose monocle window went home is settled once
   the windows that moved have joined it: it stays in monocle when windows wait

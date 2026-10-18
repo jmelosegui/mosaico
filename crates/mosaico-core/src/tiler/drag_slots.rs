@@ -39,8 +39,8 @@ impl Tiler {
 
     /// The slot `window` would get on the workspace on screen of monitor
     /// `idx`, put before `before` there or at the end, with a split of its
-    /// own at the configured ratio. None in monocle, where only the monocle
-    /// window is placed.
+    /// own at the configured ratio, or an equal share down a stack. None in
+    /// monocle, where only the monocle window is placed.
     pub(in crate::tiler) fn slot_joining(
         &self,
         idx: usize,

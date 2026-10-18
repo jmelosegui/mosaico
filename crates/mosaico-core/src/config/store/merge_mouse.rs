@@ -29,9 +29,9 @@ pub(super) const DRAG_TO_SWAP_HINT_SNIPPET: &str = r##"
 pub(super) const RESIZE_SPLITS_HINT_SNIPPET: &str = r##"
 # Added automatically -- new in this version of mosaico
 # `resize_splits` under [mouse]: drag the edge between two tiles to resize
-# them, and the split between them follows the edge; a corner where two
-# splits meet moves both. Set it to false to have a tiled window you
-# resize go back to its slot.
+# them: the split between them follows the edge, and two windows of a stack
+# trade height; a corner where two splits meet moves both. Set it to false
+# to have a tiled window you resize go back to its slot.
 #
 # Example:
 #   [mouse]

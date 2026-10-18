@@ -1,7 +1,7 @@
 //! What the user's retile does to the splits they moved: the workspace on
 //! screen of every monitor forgets them, in all its layouts, so every
-//! split is back at the configured ratio, while a workspace out of view
-//! keeps its own.
+//! split is back at the configured ratio, or an equal share down a stack,
+//! while a workspace out of view keeps its own.
 
 use crate::tiler::tests::Harness;
 use crate::{Action, LayoutKind, Rect};

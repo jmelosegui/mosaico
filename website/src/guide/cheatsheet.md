@@ -79,7 +79,7 @@ workspaces.
 Cycle through Mosaico's three tiling algorithms or switch the focused
 workspace into monocle mode (one window fills the work area). Retile
 forces a fresh re-application of the current layout, with every split you
-moved back at the configured ratio.
+moved back at the configured ratio, or an equal share in a stack.
 
 | Shortcut | Action | CLI |
 |----------|--------|-----|

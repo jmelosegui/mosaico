@@ -1,7 +1,8 @@
 //! Bringing back the state and the windows of a monitor that is
 //! connected again.
 
-use crate::{LayoutKind, MonitorKey, Workspace, match_monitors};
+use crate::layout::OwnSplits;
+use crate::{MonitorKey, Workspace, match_monitors};
 
 use crate::WindowId;
 
@@ -28,8 +29,9 @@ impl ReconnectMemory {
     }
 
     /// Sends windows whose home is `home` back to `monitors[home_idx]`,
-    /// each with the split of the BSP chain it had there, once all are back
-    /// in their places.
+    /// each with the splits and the share of its stacks it had there, once
+    /// all are back in their places: in every layout, those it still has
+    /// where it is, so a whole stack back has its heights back.
     ///
     /// A window only moves if it is still on the monitor and workspace it
     /// was displaced to; otherwise the user moved it and it stays. Either
@@ -63,12 +65,16 @@ impl ReconnectMemory {
             }
             monitors[home_idx].workspaces[d.workspace].insert(d.slot, window);
             moved.push(window);
-            splits.extend(d.split.map(|ratio| (window, d.workspace, ratio)));
+            splits.push((window, d.workspace, d.slot, d.splits));
         }
-        for (window, wi, ratio) in splits {
-            let ws = &mut monitors[home_idx].workspaces[wi];
-            if let Some(split) = ws.index_of(window) {
-                ws.set_split_ratio_of(LayoutKind::Bsp, split, ratio);
+        for (wi, ws) in monitors[home_idx].workspaces.iter_mut().enumerate() {
+            let here = splits.iter().filter(|back| back.1 == wi);
+            let at = |&(window, _, slot, own): &(WindowId, usize, usize, OwnSplits)| {
+                Some((ws.index_of(window)?, slot, own))
+            };
+            let back: Vec<_> = here.filter_map(at).collect();
+            if !back.is_empty() {
+                ws.give_splits(&back);
             }
         }
         moved
@@ -82,3 +88,7 @@ mod split_tests;
 #[cfg(test)]
 #[path = "tests/reconnect_away_tests.rs"]
 mod away_tests;
+
+#[cfg(test)]
+#[path = "tests/reconnect_stack_tests.rs"]
+mod stack_tests;

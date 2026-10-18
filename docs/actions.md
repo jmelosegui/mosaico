@@ -67,7 +67,7 @@ Directions parse from and serialize to lowercase strings: `"left"`, `"right"`,
 | `Move(Right)` | Swap/move window right (crosses monitors) | Alt+Shift+L |
 | `Move(Up)` | Swap window up (same monitor only) | Alt+Shift+K |
 | `Move(Down)` | Swap window down (same monitor only) | Alt+Shift+J |
-| `Retile` | Re-apply layout on all monitors, with every split of the workspaces on screen back at `[layout] ratio` | Alt+Shift+R |
+| `Retile` | Re-apply layout on all monitors, with every split of the workspaces on screen back at `[layout] ratio`, or an equal share down a stack | Alt+Shift+R |
 | `ToggleMonocle` | Toggle monocle mode on focused monitor | Alt+T |
 | `CycleLayout` | Cycle to the next layout on the focused monitor | Alt+N |
 | `CloseFocused` | Close the focused window via `WM_CLOSE` | Alt+Q |

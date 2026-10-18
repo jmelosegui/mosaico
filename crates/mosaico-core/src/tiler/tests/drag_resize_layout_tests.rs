@@ -1,7 +1,7 @@
 //! Resizing tiled windows by their edges in the vertical stack and in
 //! three columns, with `resize_splits` on: the master's edges move the
-//! master split, and the edges between windows of a stack or of a side
-//! column go back.
+//! master split. The edges down a stack or a side column are in
+//! `drag_resize_stack_tests.rs` and `drag_resize_stack_cases_tests.rs`.
 
 use crate::tiler::tests::Harness;
 use crate::{Action, LayoutKind, Rect};
@@ -36,38 +36,6 @@ fn the_edge_of_the_master_of_the_stack_moves_the_whole_stack() {
     assert_eq!(h.rect_of(1), wider);
     assert_eq!(h.rect_of(2), Rect::new(1164, 8, 748, 528));
     assert_eq!(h.rect_of(3), Rect::new(1164, 544, 748, 528));
-}
-
-#[test]
-fn the_edge_between_two_windows_of_the_stack_goes_back() {
-    // Arrange
-    let mut h = laid_out(LayoutKind::VerticalStack, 3);
-    let (top, bottom) = (h.rect_of(2), h.rect_of(3));
-
-    // Act -- the bottom edge of the first of the stack, 100 pixels down.
-    let taller = Rect {
-        height: top.height + 100,
-        ..top
-    };
-    resize_to(&mut h, 2, held(false, false, false, true), taller);
-
-    // Assert
-    assert_eq!((h.rect_of(2), h.rect_of(3)), (top, bottom));
-}
-
-#[test]
-fn a_corner_of_the_stack_moves_the_master_split_and_its_other_edge_goes_back() {
-    // Arrange
-    let mut h = laid_out(LayoutKind::VerticalStack, 3);
-    let bottom = h.rect_of(3);
-
-    // Act -- its top left corner 100 pixels left and 100 up.
-    let bigger = Rect::new(864, 444, 1048, 628);
-    resize_to(&mut h, 3, held(true, true, false, false), bigger);
-
-    // Assert -- the left edge stays where it was dropped, the top goes back.
-    assert_eq!(h.rect_of(3), Rect::new(864, bottom.y, 1048, bottom.height));
-    assert_eq!(h.rect_of(1).width, 848);
 }
 
 #[test]
@@ -110,26 +78,6 @@ fn the_inner_edge_of_a_column_moves_both_edges_of_the_master() {
 }
 
 #[test]
-fn the_edges_between_and_around_the_windows_of_a_column_go_back() {
-    // Arrange -- windows 2 and 4 share the left column.
-    let mut h = laid_out(LayoutKind::ThreeColumn, 5);
-    let (top, bottom) = (h.rect_of(2), h.rect_of(4));
-
-    // Act -- the bottom of the first, then the left of the second, which is
-    // at the edge of the monitor.
-    let taller = Rect {
-        height: top.height + 100,
-        ..top
-    };
-    resize_to(&mut h, 2, held(false, false, false, true), taller);
-    let wider = Rect::new(bottom.x + 40, bottom.y, bottom.width - 40, bottom.height);
-    resize_to(&mut h, 4, held(true, false, false, false), wider);
-
-    // Assert
-    assert_eq!((h.rect_of(2), h.rect_of(4)), (top, bottom));
-}
-
-#[test]
 fn two_windows_in_three_columns_split_as_in_the_stack() {
     // Arrange
     let mut h = laid_out(LayoutKind::ThreeColumn, 2);
@@ -143,3 +91,15 @@ fn two_windows_in_three_columns_split_as_in_the_stack() {
     assert_eq!(h.rect_of(2), wider);
     assert_eq!(h.rect_of(1), Rect::new(8, 8, 748, 1064));
 }
+
+#[path = "drag_resize_stack_tests.rs"]
+mod stack_tests;
+
+#[path = "drag_resize_stack_cases_tests.rs"]
+mod stack_cases_tests;
+
+#[path = "drag_resize_stack_open_tests.rs"]
+mod stack_open_tests;
+
+#[path = "drag_resize_stack_floor_tests.rs"]
+mod stack_floor_tests;

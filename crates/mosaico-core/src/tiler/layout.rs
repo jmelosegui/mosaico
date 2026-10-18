@@ -41,8 +41,8 @@ impl Tiler {
     }
 
     /// Where the layout of the active workspace on monitor `idx` puts
-    /// `windows`, in their order, with its splits at `splits`, or at the
-    /// configured ratio where the user did not move them.
+    /// `windows`, in order, with its splits at `splits`, and those nobody
+    /// moved at the configured ratio, or an equal share down a stack.
     pub(super) fn positions_of(
         &self,
         idx: usize,

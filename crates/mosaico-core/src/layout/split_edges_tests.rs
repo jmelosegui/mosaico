@@ -28,29 +28,43 @@ fn in_bsp_a_window_borders_its_own_split_and_the_two_it_lies_beyond() {
 }
 
 #[test]
-fn in_the_vertical_stack_only_the_edge_of_the_master_borders_a_split() {
+fn in_the_vertical_stack_the_master_and_the_edges_between_windows_of_the_stack_border_splits() {
     // Act
     let four = bordered(LayoutKind::VerticalStack, 4);
 
-    // Assert -- the edges between windows of the stack border none.
-    let stacked = [Some(0), None, None, None];
-    let expected = [[None, None, Some(0), None], stacked, stacked, stacked];
+    // Assert -- left, top, right, bottom: the stack's windows border the
+    // master's split with their left edge, the split above them with their
+    // top edge and their own with their bottom edge, but for the first and
+    // the last of the stack.
+    let expected = [
+        [None, None, Some(0), None],
+        [Some(0), None, None, Some(1)],
+        [Some(0), Some(1), None, Some(2)],
+        [Some(0), Some(2), None, None],
+    ];
     assert_eq!(four, expected);
 }
 
 #[test]
-fn in_three_columns_the_master_and_the_inner_edges_of_the_columns_border_it() {
+fn in_three_columns_the_master_the_inner_edges_and_those_down_a_column_border_splits() {
     // Act -- the windows after the master go left, right, left, right.
     let five = bordered(LayoutKind::ThreeColumn, 5);
     let two = bordered(LayoutKind::ThreeColumn, 2);
 
-    // Assert -- two windows split as in the vertical stack.
-    let (left, right) = ([None, None, Some(0), None], [Some(0), None, None, None]);
+    // Assert -- windows 1 and 3 share the left column, and 2 and 4 the
+    // right one; two windows split as in the vertical stack.
+    let expected = [
+        [Some(0), None, Some(0), None],
+        [None, None, Some(0), Some(1)],
+        [Some(0), None, None, Some(2)],
+        [None, Some(1), Some(0), None],
+        [Some(0), Some(2), None, None],
+    ];
+    assert_eq!(five, expected);
     assert_eq!(
-        five,
-        [[Some(0), None, Some(0), None], left, right, left, right]
+        two,
+        [[None, None, Some(0), None], [Some(0), None, None, None]]
     );
-    assert_eq!(two, [left, right]);
 }
 
 #[test]

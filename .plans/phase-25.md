@@ -37,32 +37,52 @@ edge, at split 1, moves up):
 
 ## The Model
 
-What 35.4 built, which this phase uses as it is:
+What 35.4 and 35.5 built, which this phase uses as it is:
 
 - Split `k` divides windows `k..` into window `k` and the rest. Each split
   of the BSP chain is one, side by side for even `k` and one above the
-  other for odd `k`. In VerticalStack and ThreeColumn, split 0, at the
-  master's edges, is the only one, and the ThreeColumn master stays
-  centered, so both its edges move together.
+  other for odd `k`. In VerticalStack and ThreeColumn, split 0 is at the
+  master's edges, and the ThreeColumn master stays centered, so both its
+  edges move together. The vertical stack's stack and each side column of
+  the three columns are shared equally until the user resizes one, which
+  then has heights: a share of the column's height without its gaps for
+  each window, summing to 1, each at least a tenth of an equal share.
 - Each `Workspace` keeps a `SplitRatios` (`layout/split_ratios.rs`), one set
-  per layout, with the ratio of each split the user moved; every other
-  split is at `[layout] ratio`. A ratio is kept within `MIN_SPLIT_RATIO` and
-  `MAX_SPLIT_RATIO` (0.1 and 0.9). `Workspace::set_split_ratio` moves a
-  split of the layout on screen.
+  per layout, with the ratio of each split the user moved and the heights
+  of each stack the user resized; every other split is at `[layout] ratio`,
+  and every other stack shared equally. A ratio is kept within
+  `MIN_SPLIT_RATIO` and `MAX_SPLIT_RATIO` (0.1 and 0.9).
+  `Workspace::set_split_ratios` puts on the workspace the splits a resize
+  gives, as `move_splits` does with those `resized_splits` returns;
+  `set_split_ratio` and `set_heights` are seams for tests.
 - `split_edges::border` (`layout/split_edges.rs`) says which split an edge
   of a window borders, and how: in BSP, window `k`'s far edge borders split
   `k` unless it is the last window, and its near edges splits `k - 1` and
   `k - 2`; in VerticalStack, the master's right edge and the left edge of
   every window of the stack; in ThreeColumn, the master's two edges and the
-  inner edge of every window of a side column. Other edges border none.
+  inner edge of every window of a side column; and down a stack or a
+  column, a window's top edge the split between it and the window above
+  and its bottom edge the one below, but at the ends. Outer edges border
+  none.
 - `resized_splits` (`layout/split_resize.rs`) turns edges at a new place
-  into ratios, to the pixel and within the bounds, and leaves alone an edge
-  moved 4 pixels or less from its slot or from where it started.
-- A window inserted at `k` gets a split at `ratio` at split `k`, one removed
-  takes its split with it, a swap keeps every split where it is, cycling
-  layouts finds each layout's own, monocle leaves them, a retile puts every
-  split of the workspaces on screen back at `ratio`, and a config reload
-  with a new `ratio` moves only the splits nobody moved.
+  into the splits and heights they give, to the pixel and within the
+  bounds, and leaves alone an edge moved 4 pixels or less from its slot or
+  from where it started. It takes the windows' slots and the splits they
+  are laid out with, as `Tiles`, and returns the splits once the edges are
+  dropped, or none when they move nothing. Down a stack or a column, an
+  edge trades height between the two windows beside it alone
+  (`layout/stack_edge.rs`): their two shares change, keeping their sum, so
+  every other edge stays where it is, and the edge stops where either
+  window would have less than a tenth of an equal share of the column.
+- A window inserted at `k` gets a split at `ratio` at split `k`, and an
+  equal share of a resized stack, which the others there give up in
+  proportion; one removed takes its split with it and gives its share back
+  in proportion; in the three columns, one that comes or goes before the
+  last side window sends both columns back to equal heights. A swap keeps
+  every split and height where it is, cycling layouts finds each layout's
+  own, monocle leaves them, a retile forgets every split and height of the
+  workspaces on screen, and a config reload with a new `ratio` moves only
+  the splits nobody moved.
 
 ## Configuration
 
@@ -131,14 +151,20 @@ screen of the focused monitor:
    focus, and every window can both grow and shrink on an axis it has a
    split on. The ThreeColumn master grows on both sides with
    `resize-right`, which moves its right edge right, and shrinks with
-   `resize-left`, its left edge following as the master stays centered. A
-   split stops at the same bounds as with the mouse.
+   `resize-left`, its left edge following as the master stays centered.
+   Down a stack or a column, a press moves the edge by a step and trades
+   height between the two windows beside it alone, as the mouse does, with
+   the same floor, a tenth of an equal share of the column; every other
+   edge stays where it is. A split stops at the same bounds as with the
+   mouse.
 3. The monitor is laid out again with `Timing::Coalesced`, like a move, so
    a burst of presses ends in one layout pass, and the placements may
-   animate. A press that changes no ratio, as at a bound, lays nothing out
-   and sets nothing. It compares the ratio in effect, the configured one for
-   a split that has none of its own, so a split that follows `ratio` and
-   already sits at the bound it is pressed toward keeps following it.
+   animate. A press that moves no edge, as at a bound, lays nothing out and
+   sets nothing. For a split that has no ratio of its own, it compares the
+   configured one, so a split that follows `ratio` and already sits at the
+   bound it is pressed toward keeps following it. A press on a stack nobody
+   resized always moves its edge, as an equal share is ten times the floor,
+   and gives the stack heights.
 
 | Layout | Window | Left / right | Up / down |
 |--------|--------|--------------|-----------|
@@ -147,13 +173,16 @@ screen of the focused monitor:
 | BSP, three windows | 2 and 3, the right half | split 0 | split 1 |
 | BSP, four windows | 3, below 2, left of 4 | split 2 | split 1 |
 | BSP, five windows | 4, above 5, right of 3 | split 2 | split 3 |
-| VerticalStack | any | split 0 | nothing |
+| VerticalStack | the master | split 0 | nothing |
+| VerticalStack, two windows | the other | split 0 | nothing |
+| VerticalStack, three or more | a window of the stack | split 0 | its own split down the stack, or the one above it for the last |
 | ThreeColumn, two windows | either, as in VerticalStack | split 0 | nothing |
 | ThreeColumn, three or more | the master | split 0: right widens it on both sides, left narrows it | nothing |
-| ThreeColumn, three or more | a window of a side column | split 0, at its inner edge | nothing |
+| ThreeColumn, three or more | a window of a side column | split 0, at its inner edge | its own split down the column, or the one above it for the last; nothing for a window alone there |
 
 There is no `reset-splits` action: a retile already puts every split of
-the workspaces on screen back at `ratio` (35.4).
+the workspaces on screen back at `ratio`, and every stack back to equal
+heights (35.4, 35.5).
 
 ## Architecture
 
@@ -162,13 +191,17 @@ the workspaces on screen back at `ratio` (35.4).
   keybindings, IPC and `mosaico action` get it. In `Action::scope()`
   (35.2), it acts on the focused window, so a bar click binding may not
   name it.
-- `layout/split_step.rs`: `stepped_splits(kind, gap, slots, index,
-  direction, step)`, a pure function that picks the edge as above, moves it
-  from the window's slot and calls `resized_splits` with that slot as the
-  start, not the window's rect: the window may still be sliding from the
-  press before, and its rect would put the edge where it happens to be on
-  the way. Unit tests for every window, edge and direction in every layout
-  of one to five windows, the bounds and the centered master.
+- `layout/split_step.rs`: `stepped_splits(tiles, index, direction, step)`,
+  with the `Tiles` that `resized_splits` takes, a pure function that picks
+  the edge as above, moves it from the window's slot and calls
+  `resized_splits` with that slot as the start, not the window's rect: the
+  window may still be sliding from the press before, and its rect would put
+  the edge where it happens to be on the way. It returns the splits once
+  the edge has moved, or none, which `resize_focused` sets with
+  `Workspace::set_split_ratios`. Unit tests for every window, edge and
+  direction in every layout of one to five windows, the bounds, the
+  centered master, and down a stack every other edge kept where it is and
+  the floor.
 - `tiler/resize_actions.rs`: `resize_focused(plan, direction)`, dispatched
   from `actions.rs`.
 - `LayoutConfig` moves to a file of its own first, as `config/types.rs` is

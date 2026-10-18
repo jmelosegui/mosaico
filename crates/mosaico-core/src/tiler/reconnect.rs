@@ -6,12 +6,13 @@
 //! workspace) are parked under its [`MonitorKey`]. When a monitor with
 //! that key is connected again, the parked state is restored and every
 //! window that is still where it was put goes back to its old workspace
-//! and position, with the split of the BSP chain it had there. A window
-//! the user has moved since then stays where the user put it.
+//! and position, with the splits and the share of its stacks it had there.
+//! A window the user has moved since then stays where the user put it.
 
 use std::collections::HashMap;
 
-use crate::{LayoutKind, MonitorKey, Workspace};
+use crate::layout::OwnSplits;
+use crate::{MonitorKey, Workspace};
 
 use crate::WindowId;
 
@@ -39,9 +40,8 @@ struct Displaced {
     home: MonitorKey,
     workspace: usize,
     slot: usize,
-    /// The ratio of its own split of the BSP chain there, if the user
-    /// moved it.
-    split: Option<f64>,
+    /// What it owned there of the splits and the stacks, in each layout.
+    splits: OwnSplits,
     host: MonitorKey,
     host_workspace: usize,
 }
@@ -57,9 +57,9 @@ impl ReconnectMemory {
         let mut moved = Vec::new();
         for (wi, ws) in gone.workspaces.iter_mut().enumerate() {
             let last_focused = ws.last_focused();
-            // Each window takes its own split with it as it leaves.
-            let chain = |k| ws.split_ratios().ratio(LayoutKind::Bsp, k);
-            let splits: Vec<Option<f64>> = (0..ws.len()).map(chain).collect();
+            // Each window takes its own splits with it as it leaves.
+            let owned = |k| ws.split_ratios().owned_by(k);
+            let splits: Vec<OwnSplits> = (0..ws.len()).map(owned).collect();
             for (slot, window) in ws.windows().to_vec().into_iter().enumerate() {
                 ws.remove(window);
                 let target = host.workspaces.len().saturating_sub(1).min(wi);
@@ -82,13 +82,12 @@ impl ReconnectMemory {
     }
 
     /// Records that `window` left its home monitor `home` for `host`, from
-    /// workspace `ws` and slot `slot` there, where its own split was at
-    /// `split`.
+    /// workspace `ws` and slot `slot` there, where it owned `splits`.
     fn record(
         &mut self,
         window: WindowId,
         home: &MonitorKey,
-        (ws, slot, split): (usize, usize, Option<f64>),
+        (ws, slot, splits): (usize, usize, OwnSplits),
         host: &MonitorKey,
     ) {
         if home.is_unknown() {
@@ -103,7 +102,7 @@ impl ReconnectMemory {
             home: home.clone(),
             workspace: ws,
             slot,
-            split,
+            splits,
             host: host.clone(),
             host_workspace: ws,
         });

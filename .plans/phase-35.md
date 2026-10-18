@@ -1,6 +1,6 @@
 # Phase 35: Mouse Interaction
 
-**Status:** Complete
+**Status:** In Progress
 
 **Goal:** Let the mouse drive the tiler: click the bar to change workspaces,
 scroll it to step through them, click its widgets, drag a tiled window onto
@@ -139,8 +139,8 @@ reported as invalid and ignored.
 | A tiled window by its title bar | on another tile of the same monitor | The two swap places |
 | A tiled window by its title bar | on another monitor | It joins that monitor's workspace before the tile under the pointer, or at the end, instead of always at the end |
 | A tiled window by its title bar | on its own slot, in a gap, cancelled with Esc, or snapped or maximized by the system | It goes back to its slot, as today |
-| A tiled window by an edge that borders another split | anywhere | The split follows the edge (35.4) |
-| A tiled window by an outer edge, or an edge 35.4 does not resize | anywhere | It goes back, as today |
+| A tiled window by an edge that borders another split | anywhere | The split follows the edge (35.4), down a stack too (35.5) |
+| A tiled window by an outer edge | anywhere | It goes back, as today |
 | A window the tiler does not manage but would tile | onto a monitor | It is taken in there, as today |
 | A window the tiler leaves alone | anywhere | Nothing, and the tiles under it stay put |
 
@@ -242,7 +242,8 @@ daemon action path (carry_out)  -> action with an origin          { monitor, fro
 - 35.4 resizes the splits that have a ratio today or get one here: each split of
   the BSP chain (split `k` divides windows `k..` into window `k` and the rest),
   the master edge of the vertical stack, and the master edges of the three
-  columns. Other edges (between windows of a stack, or of a side column) go back.
+  columns. Other edges (between windows of a stack, or of a side column) go
+  back; 35.5 changed that, and resizes them too.
 - The ratios live with each workspace, one set per layout, and start from
   `layout.ratio`. A swap keeps them (the slots keep their sizes, the windows
   trade places); inserting a window at `k` inserts the default ratio at split
@@ -270,6 +271,30 @@ daemon action path (carry_out)  -> action with an origin          { monitor, fro
   stayed. One that moved both edges of an axis, as a move, a rescale across
   monitors or a snap does, or that leaves the window off its own monitor,
   goes back, as today.
+- 35.5, added while testing 35.4 on the desktop, resizes the stacks too. The
+  stack of the vertical stack, and each side column of the three columns,
+  is shared equally until the user drags an edge between two of its windows,
+  laid out to the pixel as before. Then it gets heights: each window has a
+  share of the column's height without its gaps, the shares summing to 1,
+  and each window ends where its share and those above it put it, rounded,
+  the last at the bottom, so the gaps stay whole. Down a stack, a window's
+  top and bottom edges border the splits between it and the windows beside
+  it, but at the ends, and its corners combine them with the master's
+  edges. Dragging such an edge trades height between those two windows
+  only: their two shares change, keeping their sum, and every other edge
+  stays where it was, to the pixel. Every window keeps a tenth of an equal
+  share of its column, where the edge stops, so an edge never moves against
+  the drag. A window that joins a resized stack gets an equal share, which
+  the others give up in proportion, and one that leaves gives its share
+  back in proportion, so none is squeezed as windows come and go. In the
+  three columns, a window that comes or goes before the last side window
+  moves those after it to the other column, and both columns go back to
+  equal heights; one that joins after the last, or the last that leaves,
+  changes only its own column. A swap, cycling layouts, monocle and reloads
+  keep the heights, a retile forgets them, and a monitor that comes back
+  gives its windows back their shares, so a whole monitor back in order has
+  its heights back, to the pixel, while a window back in the other side
+  column evens both columns, as a close at home does.
 - Phase 25's keyboard resizing is rewritten against this model.
 
 ### Platform contracts
@@ -317,7 +342,10 @@ the platform's docs (the `os_names` metric counts them in core).
 11. A window opening during a drag: it is tiled, but its focus does not move the
     pointer until the drag ends.
 12. A neighbour with a minimum size: the ratio is clamped to 0.1 to 0.9, and the
-    retile places both windows as today.
+    retile places both windows as today. Down a stack, the floor is a tenth of
+    an equal share of the column, 26 pixels for four windows stacked on 1080
+    and 15 once three more open, which can be under a window's minimum
+    height, so such windows can overlap, as with BSP's tenth.
 13. Wheel input with "Scroll inactive windows when I hover over them" off: the
     bar may get none. 35.1 checks it, and documents the dependency if so.
 
@@ -388,7 +416,8 @@ website/src/guide/
 Every step runs fmt, clippy, the safe test suites and `cargo xtask metrics`,
 records its metrics and scenarios with `cargo xtask metrics --bless`, and brings
 its docs, templates and config hints, so it can merge on its own. 35.1 and 35.2
-need nothing from phase 34; 35.3 needs `MoveStarted` (34.2); 35.4 needs 35.3.
+need nothing from phase 34; 35.3 needs `MoveStarted` (34.2); 35.4 needs 35.3,
+and 35.5 needs 35.4.
 
 ### 35.1 Bar clicks and scrolling
 
@@ -445,6 +474,33 @@ need nothing from phase 34; 35.3 needs `MoveStarted` (34.2); 35.4 needs 35.3.
       clamping, and the operations above; a metrics scenario for a resize
 - [x] Rewrite phase 25 against the model
 
+### 35.5 Stack heights
+
+Added while testing 35.4 on the desktop, as a pull request of its own.
+
+- [x] Heights for the windows of the vertical stack and of each side column
+      of the three columns, shared equally where nobody resized them and
+      laid out to the pixel as before then, with a floor of a tenth of an
+      equal share
+- [x] What windows coming, going and swapping, cycling layouts, monocle,
+      reloads, reconnects, drops from another monitor and retile do to them,
+      with the rule of the three columns for windows that change column
+- [x] The top and bottom edges of a window of a stack or a column trade
+      height between it and the window beside them alone; corners combine
+      them with the master's
+- [x] The `resize_splits` comments in the template and the hint
+- [x] Tests for every edge and corner in every layout of two to five windows,
+      and down stacks of up to seven with every gap, from resized heights
+      too, that every other window keeps its slot and the edge stops at the
+      floor, the layouts nobody resized against the code they had before,
+      the heights as windows come, go and come back, random states that keep
+      them sound, windows opening after a resize, edges that never go against
+      the drag, and resizes down a stack in the tiler, by a window that
+      reports no grab too
+- [x] Up and down for the windows of a stack in phase 25's plan
+- [ ] Manual test: resize the windows of a stack in the vertical stack and in
+      both columns of the three columns
+
 ### Verification
 
 - [x] Manual test: click and scroll the bar on every monitor, in both workspace
@@ -453,4 +509,4 @@ need nothing from phase 34; 35.3 needs `MoveStarted` (34.2); 35.4 needs 35.3.
       top edge with Snap on, and with window contents hidden while dragging
 - [x] Manual test: resize splits from every resizable edge in every layout
 - [x] Integration test for a bar click
-- [x] Update `.plans/plan.md`
+- [ ] Update `.plans/plan.md`

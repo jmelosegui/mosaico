@@ -4,8 +4,8 @@ use crate::event::Edges;
 use crate::id::wid;
 use crate::{LayoutKind, Rect, WindowId};
 
-use super::SplitRatios;
-use super::split_edges::Side;
+use super::split_edges::{Border, Side, border};
+use super::{SplitRatios, Tiles, resized_splits};
 
 /// The area every layout of these tests fills.
 pub(super) const AREA: Rect = Rect {
@@ -45,14 +45,72 @@ pub(super) fn slots(kind: LayoutKind, count: usize, ratios: &SplitRatios) -> Vec
     windows.iter().filter_map(slot).collect()
 }
 
-/// Where `count` windows of `kind` are once the splits `moved` are where
-/// they say, in window order.
-pub(super) fn after(kind: LayoutKind, count: usize, moved: &[(usize, f64)]) -> Vec<Rect> {
-    let mut ratios = unmoved(count);
-    for &(split, ratio) in moved {
-        ratios.set(kind, split, ratio);
+/// Where `count` windows of `kind` are with the splits `moved`, or with
+/// the splits nobody moved when it is `None`, in window order.
+pub(super) fn after(kind: LayoutKind, count: usize, moved: &Option<SplitRatios>) -> Vec<Rect> {
+    let fresh = unmoved(count);
+    slots(kind, count, moved.as_ref().unwrap_or(&fresh))
+}
+
+/// The splits of `kind` that `moved` has a ratio for, among those of
+/// `count` windows, as nobody moved any before.
+pub(super) fn moved_splits(
+    kind: LayoutKind,
+    count: usize,
+    moved: &Option<SplitRatios>,
+) -> Vec<usize> {
+    let has = |k: &usize| moved.as_ref().is_some_and(|m| m.ratio(kind, *k).is_some());
+    (0..count).filter(has).collect()
+}
+
+/// What the user dropping the `edges` of window `index` of `slots`, laid
+/// out with `kind` and splits nobody moved, at `rect` does to the splits,
+/// once grabbed at `start`.
+pub(super) fn dropped(
+    kind: LayoutKind,
+    slots: &[Rect],
+    index: usize,
+    edges: Edges,
+    start: Rect,
+    rect: Rect,
+) -> Option<SplitRatios> {
+    let ratios = unmoved(slots.len());
+    resized_splits(
+        Tiles::new(kind, GAP, slots, &ratios),
+        index,
+        edges,
+        start,
+        rect,
+    )
+}
+
+/// The two windows beside the edge that the `side` edge of window `index`
+/// of `count` in `kind` is on, when that edge is one down a stack.
+pub(super) fn beside(
+    kind: LayoutKind,
+    count: usize,
+    index: usize,
+    side: Side,
+) -> Option<[usize; 2]> {
+    match border(kind, count, index, side)? {
+        (split, Border::Above | Border::Below) => {
+            let step = if kind == LayoutKind::ThreeColumn {
+                2
+            } else {
+                1
+            };
+            Some([split, split + step])
+        }
+        _ => None,
     }
-    slots(kind, count, &ratios)
+}
+
+/// The windows that `after` puts somewhere else than `before` has them.
+pub(super) fn changed(before: &[Rect], after: &[Rect]) -> Vec<usize> {
+    let count = before.len().max(after.len());
+    (0..count)
+        .filter(|&w| before.get(w) != after.get(w))
+        .collect()
 }
 
 /// The edges of a window held by its `side` edge alone.

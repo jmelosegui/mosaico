@@ -201,27 +201,37 @@ other side follow. Drag a corner where two splits meet to move both.
 | Layout | Edges that resize |
 |--------|-------------------|
 | BSP | every edge between two tiles |
-| VerticalStack | the edge between the master and the stack |
-| ThreeColumn | both edges of the master, and the inner edge of the side columns; the master stays centered, so both its edges move together |
+| VerticalStack | the edge between the master and the stack, and those between the windows of the stack |
+| ThreeColumn | both edges of the master, the inner edge of the side columns, and the edges between the windows of a column; the master stays centered, so both its edges move together |
 
-The other edges, along the edges of the screen and between two windows of
-a stack or of a side column, go back to where they were when you let go,
-and a split stops a tenth of the way from either end. Press `Esc` while
+Dragging the edge between two windows of a stack, or of a side column,
+trades height between those two only: every other window keeps its size.
+The edges along the edges of the screen go back to where they were when
+you let go, and a split stops a tenth of the way from either end; down a
+stack, an edge stops where either of the two windows would have less than
+a tenth of an equal share of the stack, which can be less than an app's
+smallest height, so such a window can overlap the next. Press `Esc` while
 resizing to leave everything as it was. A resize of 4 pixels or less on
 every edge changes nothing either, as a click on the edge, and an edge you
-hold but hardly move leaves its split where it was. While you hold a window
-by its edge, nothing else moves it, as when you drag it by its title bar.
-Pressing a hotkey, or using a status bar, while resizing ends the resize
-without moving a split, and the window goes back to its slot when you let
-go; pausing the hotkeys, from their key or the **PAUSED** mark, leaves the
-resize as it is.
+hold but hardly move leaves its split where it was. While you hold a
+window by its edge, nothing else moves it, as when you drag it by its
+title bar. Pressing a hotkey, or using a status bar, while resizing ends
+the resize without moving a split, and the window goes back to its slot
+when you let go; pausing the hotkeys, from their key or the **PAUSED**
+mark, leaves the resize as it is.
 
-Each workspace keeps where you put its splits, for each layout: cycling
-layouts brings them back, monocle leaves them alone, and a monitor that
-disconnects and comes back brings them back with its windows. When two
-windows swap, each takes the other's tile at its size. A window that opens
-gets a split of its own at the configured `ratio`, and a window that closes
-takes its split with it. To put them all back at `ratio`, retile.
+Each workspace keeps where you put its splits, and the heights you gave
+its stacks, for each layout: cycling layouts brings them back, monocle
+leaves them alone, and a monitor that disconnects and comes back brings
+them back with its windows. When two windows swap, each takes the other's
+tile at its size. A window that opens gets a split of its own at the
+configured `ratio`, and in a stack you resized an equal share of it, which
+the other windows there give up in proportion; a window that closes takes
+its split with it and gives its height back to the others in proportion.
+In three columns, a window that opens or closes before the last of the side
+windows moves those after it to the other side column, and both columns go
+back to equal heights. To put them all back at `ratio`, with equal heights
+in the stacks, retile.
 
 Set `resize_splits = false` under `[mouse]` in `config.toml` to have a
 window you resize go back to its slot, as before.
@@ -236,8 +246,9 @@ time:
 - Or run `mosaico action retile`
 
 Retiling this way also puts every split you moved on the workspaces on
-screen back at the configured `ratio`, in all their layouts. Workspaces out
-of view keep theirs, and the retiles Mosaico does on its own keep them all.
+screen back at the configured `ratio`, and the stacks you resized back to
+equal heights, in all their layouts. Workspaces out of view keep theirs,
+and the retiles Mosaico does on its own keep them all.
 
 ## Window Management
 
