@@ -82,7 +82,7 @@ them, in either direction:
   better).
 
 When a count gets worse, fix the code. When a change is intended (a scenario added, a count improved, tests
-added), record it with `cargo xtask metrics --bless` and commit the baseline with the change, so the review shows
+added, a cohesive module allowed past the 150 line guideline), record it with `cargo xtask metrics --bless` and commit the baseline with the change, so the review shows
 it. An improvement fails until it is recorded, so it cannot slip back unnoticed. Add a scenario for any new kind of
 work the tiler does.
 
