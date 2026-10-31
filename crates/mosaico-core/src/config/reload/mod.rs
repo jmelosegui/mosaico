@@ -22,6 +22,14 @@ pub enum ConfigReload {
     Rules(Vec<WindowRule>),
     /// Bar configuration changed.
     Bar(Box<BarConfig>),
+    /// `file` changed but does not load, for `reason`, so what is in use
+    /// stays. Reported so the user hears of it, not only the log.
+    Invalid {
+        /// The file's name, such as `config.toml`.
+        file: &'static str,
+        /// Why it does not load, without the file's path.
+        reason: String,
+    },
 }
 
 /// Decides which config files to reload while the daemon runs, and loads
@@ -30,8 +38,12 @@ pub enum ConfigReload {
 /// What a change to each file does:
 ///
 /// - `config.toml` and `bar.toml` are loaded again and reloaded only when
-///   they load. A file that does not is logged and skipped, so the config
-///   in use stays until the file is fixed.
+///   they load. A file that does not is reported as
+///   [`ConfigReload::Invalid`] and skipped, so the config in use stays
+///   until the file is fixed. One that was deleted or cannot be read is
+///   skipped without a report, since some editors delete a file before
+///   they write it again or hold it while they write it, and the write
+///   that ends it is a change of its own.
 /// - `user-rules.toml` reloads the whole rule set, user rules first. A
 ///   file that does not load counts as no user rules, as at startup.
 /// - `rules.toml` is not watched. It holds the community rules, which the
@@ -72,6 +84,14 @@ impl Watched {
             Self::Bar => store.bar_path(),
         }
     }
+
+    fn name(self) -> &'static str {
+        match self {
+            Self::Config => "config.toml",
+            Self::UserRules => "user-rules.toml",
+            Self::Bar => "bar.toml",
+        }
+    }
 }
 
 impl ConfigReloader {
@@ -93,6 +113,19 @@ impl ConfigReloader {
         (0..self.files.len()).filter_map(move |index| self.reload_if_changed(index))
     }
 
+    /// Loads every watched file now, changed or not, in the order
+    /// `config.toml`, `user-rules.toml`, `bar.toml`, as when the user asks
+    /// for the config to be reloaded. Each counts as seen as it is now.
+    pub fn load_all(&mut self) -> Vec<ConfigReload> {
+        for (file, seen) in &mut self.files {
+            *seen = modified(&file.path(&self.store));
+        }
+        Watched::ALL
+            .into_iter()
+            .filter_map(|file| self.load(file))
+            .collect()
+    }
+
     /// Loads the file at `index` in `files` if it changed.
     fn reload_if_changed(&mut self, index: usize) -> Option<ConfigReload> {
         let (file, seen) = &mut self.files[index];
@@ -102,32 +135,62 @@ impl ConfigReloader {
             return None;
         }
         *seen = modified;
+        crate::log_info!("{} changed", file.name());
+        self.load(file)
+    }
 
-        match file {
-            Watched::Config => match self.store.try_load_config() {
-                Ok(config) => {
-                    crate::log_info!("config.toml changed, reloading");
-                    Some(ConfigReload::Config(Box::new(config)))
-                }
-                Err(e) => {
-                    crate::log_info!("config.toml invalid, skipping: {e}");
-                    None
-                }
-            },
-            Watched::UserRules => {
-                crate::log_info!("user-rules.toml changed, reloading merged rules");
-                Some(ConfigReload::Rules(self.store.load_merged_rules()))
+    /// Loads `file`, or reports why it does not load. A file that cannot
+    /// be read, before or after it fails to load, is skipped instead, but
+    /// for the user rules, whose absence still reloads the rules.
+    fn load(&self, file: Watched) -> Option<ConfigReload> {
+        let path = file.path(&self.store);
+        if !matches!(file, Watched::UserRules) && !readable(file, &path) {
+            return None;
+        }
+        let loaded = match file {
+            Watched::Config => self
+                .store
+                .try_load_config()
+                .map(|config| ConfigReload::Config(Box::new(config))),
+            Watched::UserRules => Ok(ConfigReload::Rules(self.store.load_merged_rules())),
+            Watched::Bar => self
+                .store
+                .try_load_bar()
+                .map(|bar| ConfigReload::Bar(Box::new(bar))),
+        };
+        match loaded {
+            Ok(reload) => {
+                crate::log_info!("Reloading {}", file.name());
+                Some(reload)
             }
-            Watched::Bar => match self.store.try_load_bar() {
-                Ok(bar) => {
-                    crate::log_info!("bar.toml changed, reloading");
-                    Some(ConfigReload::Bar(Box::new(bar)))
-                }
-                Err(e) => {
-                    crate::log_info!("bar.toml invalid, skipping: {e}");
-                    None
-                }
-            },
+            Err(_) if !readable(file, &path) => None,
+            Err(e) => {
+                crate::log_warn!("{} does not load, keeping what is in use: {e}", file.name());
+                let reason = match e {
+                    crate::Error::Config { message, .. } => message,
+                    other => other.to_string(),
+                };
+                Some(ConfigReload::Invalid {
+                    file: file.name(),
+                    reason,
+                })
+            }
+        }
+    }
+}
+
+/// Whether `file`, at `path`, can be read. One that cannot is logged,
+/// unless it does not exist.
+fn readable(file: Watched, path: &Path) -> bool {
+    match std::fs::read(path) {
+        Ok(_) => true,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => false,
+        Err(e) => {
+            crate::log_warn!(
+                "{} could not be read, keeping what is in use: {e}",
+                file.name()
+            );
+            false
         }
     }
 }

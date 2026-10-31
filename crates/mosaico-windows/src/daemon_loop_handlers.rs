@@ -1,5 +1,6 @@
 use mosaico_core::bar::BarManager;
 use mosaico_core::tiler::Enumerator;
+use mosaico_core::tray::TrayNotice;
 
 use crate::enumerate::WindowsEnumerator;
 use crate::tiling::TilingManager;
@@ -77,6 +78,7 @@ pub(super) fn handle_reload(
             *current_theme = cfg.theme.resolve();
             manager.reload_config(&cfg);
             inputs.set_focus_follows_mouse(cfg.mouse.focus_follows_mouse);
+            inputs.set_tray_enabled(cfg.tray.enabled);
             // Theme may have changed — re-resolve bar colors.
             bar_mgr.resolve_colors(*current_theme);
             bar_mgr.update(&manager.bar_states(&get_update(), hotkeys_paused));
@@ -92,6 +94,9 @@ pub(super) fn handle_reload(
                 mosaico_core::log_warn!("Bar reloaded, but {e}");
             }
             bar_mgr.update(&manager.bar_states(&get_update(), hotkeys_paused));
+        }
+        mosaico_core::config::ConfigReload::Invalid { file, reason } => {
+            inputs.notify(&TrayNotice::invalid_config(file, &reason));
         }
     }
 }

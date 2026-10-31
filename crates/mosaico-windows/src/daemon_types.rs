@@ -5,6 +5,7 @@ use mosaico_core::bar::{BarId, PointerEvent};
 use mosaico_core::config::ConfigReload;
 use mosaico_core::daemon::FrameToken;
 use mosaico_core::ipc::{Command, Response};
+use mosaico_core::tray::TrayCommand;
 
 /// Internal message type for the main daemon thread.
 pub(super) enum DaemonMsg {
@@ -20,6 +21,8 @@ pub(super) enum DaemonMsg {
     BarPointer(BarId, PointerEvent),
     /// A CLI command with a callback to send the response.
     Command(Command, ResponseSender),
+    /// What the user picked on the tray icon.
+    Tray(TrayCommand),
     /// A validated config reload from the file watcher.
     Reload(Box<ConfigReload>),
     /// 1-second tick for refreshing bar system widgets.

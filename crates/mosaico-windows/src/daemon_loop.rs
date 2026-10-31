@@ -4,16 +4,19 @@ use std::sync::mpsc;
 use mosaico_core::bar::BarManager;
 use mosaico_core::config::ConfigStore;
 use mosaico_core::tiler::{Enumerator, HiddenFile};
+use mosaico_core::tray::TrayPaths;
+use mosaico_core::update::Installer;
 use mosaico_core::{Instance, Result};
 
 use crate::bar::Win32BarRenderer;
 use crate::enumerate::WindowsEnumerator;
 use crate::http::WinHttpClient;
+use crate::install::RenameInstaller;
 use crate::system_info::Win32SystemInfo;
 use crate::tiling::{TilingManager, Win32Platform};
 
 use super::daemon_frames;
-use super::daemon_inputs::Inputs;
+use super::daemon_inputs::{Inputs, Senders};
 use super::daemon_loop_bar::ChannelSink;
 use super::daemon_loop_run;
 use super::daemon_threads;
@@ -81,16 +84,24 @@ pub(super) fn daemon_loop(pipe_name: &str, store: &ConfigStore) -> Result<()> {
     bar_mgr.update(&manager.bar_states(&get_update(), false));
     mosaico_core::log_info!("Managing {} windows", manager.window_count());
 
-    // Start the window events, hotkeys and focus-follows-mouse.
+    // Start the window events, hotkeys, focus-follows-mouse and the tray
+    // icon.
     let event_tx = tx.clone();
     let action_tx = tx.clone();
     let (event_channel_tx, event_channel_rx) = mpsc::channel();
     let (action_channel_tx, action_channel_rx) = mpsc::channel();
+    let (tray_channel_tx, tray_channel_rx) = mpsc::channel();
+    let senders = Senders {
+        events: event_channel_tx,
+        actions: action_channel_tx,
+        tray: tray_channel_tx,
+    };
     let mut inputs = Inputs::start(
-        event_channel_tx,
-        action_channel_tx,
+        senders,
         keybindings,
-        config.mouse.focus_follows_mouse,
+        &config,
+        store.clone(),
+        tray_paths(store),
     )?;
     if let Some(e) = inputs.sink_error() {
         mosaico_core::log_error!("Display and work area changes will not be noticed: {e}");
@@ -101,6 +112,9 @@ pub(super) fn daemon_loop(pipe_name: &str, store: &ConfigStore) -> Result<()> {
 
     // Bridge: forward hotkey actions into the unified channel.
     let action_bridge = daemon_threads::spawn_action_bridge(action_channel_rx, action_tx);
+
+    // Bridge: forward what the user picks on the tray icon.
+    let tray_bridge = daemon_threads::spawn_tray_bridge(tray_channel_rx, tx.clone());
 
     // Start the IPC listener on its own thread.
     let ipc_thread = daemon_threads::spawn_ipc_listener(tx.clone(), pipe_name);
@@ -134,10 +148,24 @@ pub(super) fn daemon_loop(pipe_name: &str, store: &ConfigStore) -> Result<()> {
     drop(tx);
     let _ = event_bridge.join();
     let _ = action_bridge.join();
+    let _ = tray_bridge.join();
     let _ = watcher_thread.join();
     let _ = reload_bridge.join();
     let _ = tick_thread.join();
     let _ = ipc_thread.join();
 
     Ok(())
+}
+
+/// What the tray icon opens: the settings app beside the running
+/// executable, the config folder of `store` and the instance's log.
+fn tray_paths(store: &ConfigStore) -> TrayPaths {
+    let exe = std::env::current_exe().unwrap_or_default();
+    TrayPaths {
+        settings: exe.with_file_name(RenameInstaller.settings_name()),
+        config_dir: store.dir().to_path_buf(),
+        log: Instance::current()
+            .map(Instance::log_path)
+            .unwrap_or_default(),
+    }
 }

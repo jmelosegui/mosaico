@@ -7,6 +7,7 @@ use std::thread;
 use mosaico_core::Action;
 use mosaico_core::config::{ConfigReload, ConfigStore, ConfigWatch};
 use mosaico_core::http::HttpClient;
+use mosaico_core::tray::TrayCommand;
 use mosaico_core::{community_rules, update};
 
 use crate::directory_watcher::WindowsDirectoryWatcher;
@@ -72,6 +73,21 @@ pub(super) fn spawn_action_bridge(
     thread::spawn(move || {
         for action in action_rx {
             if tx.send(DaemonMsg::Action(action)).is_err() {
+                break;
+            }
+        }
+    })
+}
+
+/// Bridges what the user picks on the tray icon into the daemon message
+/// channel.
+pub(super) fn spawn_tray_bridge(
+    tray_rx: mpsc::Receiver<TrayCommand>,
+    tx: mpsc::Sender<DaemonMsg>,
+) -> thread::JoinHandle<()> {
+    thread::spawn(move || {
+        for command in tray_rx {
+            if tx.send(DaemonMsg::Tray(command)).is_err() {
                 break;
             }
         }
