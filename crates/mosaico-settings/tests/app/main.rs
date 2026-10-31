@@ -6,4 +6,5 @@ mod apply;
 mod close;
 mod general;
 mod layout;
+mod mouse;
 mod shell;

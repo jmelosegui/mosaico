@@ -3,6 +3,7 @@
 mod file_page;
 mod general;
 mod layout;
+mod mouse;
 mod setting;
 
 pub use file_page::{FilePage, FilePages};
@@ -95,6 +96,7 @@ impl Page {
         match self {
             Self::General => Some(general::SECTIONS),
             Self::Layout => Some(layout::SECTIONS),
+            Self::Mouse => Some(mouse::SECTIONS),
             _ => None,
         }
     }
