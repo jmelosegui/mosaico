@@ -35,6 +35,7 @@ irm https://raw.githubusercontent.com/jmelosegui/mosaico/main/docs/install.ps1 |
 
 ```sh
 cargo install --path crates/mosaico
+cargo install --path crates/mosaico-settings
 ```
 
 ## Usage
@@ -45,6 +46,7 @@ mosaico stop               # Stop the window manager
 mosaico status             # Show current status
 mosaico doctor             # Check your setup for common issues
 mosaico init               # Create default configuration files
+mosaico settings           # Open the settings window
 mosaico autostart enable   # Start automatically on Windows boot
 mosaico autostart disable  # Remove automatic startup
 mosaico autostart status   # Check if autostart is enabled

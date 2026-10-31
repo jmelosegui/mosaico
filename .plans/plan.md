@@ -52,7 +52,7 @@ Mosaico is structured as a Cargo workspace with multiple crates:
 | [33](phase-33.md) | Theme Accent Override | Pending |
 | [34](phase-34.md) | Window Transitions | Complete |
 | [35](phase-35.md) | Mouse Interaction | In Progress |
-| [37](phase-37.md) | Tray Icon & Settings App | Pending |
+| [37](phase-37.md) | Tray Icon & Settings App | In progress |
 
 ## Design Principles
 

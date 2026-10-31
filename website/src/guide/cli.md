@@ -96,10 +96,25 @@ Startup apps, keeps the entry but stops it from running at logon.
 
 On first run, `mosaico init` also prompts to enable autostart.
 
+## `mosaico settings`
+
+Opens the [settings window](settings.md). It starts `mosaico-settings.exe`,
+which is installed beside `mosaico.exe`, and returns at once. The daemon does
+not need to be running.
+
+```sh
+mosaico settings
+```
+
+If the settings app is missing, for example after an update from a release
+that did not ship it, run `mosaico update --force` to install it.
+
 ## `mosaico update`
 
-Checks GitHub for a newer release and installs it automatically. If the
-daemon is running, it is stopped before the update and restarted afterward.
+Checks GitHub for a newer release and installs it automatically, together with
+the settings app. If the daemon is running, it is stopped before the update and
+restarted afterward. An open settings window keeps running the old version
+until you close it.
 
 ```sh
 mosaico update          # Update to the latest release
