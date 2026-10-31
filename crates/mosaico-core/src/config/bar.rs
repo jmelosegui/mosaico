@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+use super::limits;
 use super::theme::Theme;
 
 #[path = "bar_mouse.rs"]
@@ -425,15 +426,16 @@ impl Default for BarColors {
 impl BarConfig {
     /// Clamps bar values to safe ranges.
     pub fn validate(&mut self) {
-        self.height = self.height.clamp(16, 96);
-        self.font_size = self.font_size.clamp(8, 48);
-        self.padding = self.padding.clamp(0, 64);
-        self.pill_padding = self.pill_padding.clamp(0, 32);
-        self.pill_radius = self.pill_radius.clamp(0, 32);
-        self.pill_border_width = self.pill_border_width.clamp(0, 8);
-        self.item_gap = self.item_gap.clamp(0, 32);
-        self.workspace_gap = self.workspace_gap.clamp(0, 16);
-        self.background_opacity = self.background_opacity.clamp(0, 100);
+        let clamp = |value: i32, (min, max): (i32, i32)| value.clamp(min, max);
+        self.height = clamp(self.height, limits::BAR_HEIGHT);
+        self.font_size = clamp(self.font_size, limits::BAR_FONT_SIZE);
+        self.padding = clamp(self.padding, limits::BAR_PADDING);
+        self.pill_padding = clamp(self.pill_padding, limits::BAR_PILL_PADDING);
+        self.pill_radius = clamp(self.pill_radius, limits::BAR_PILL_RADIUS);
+        self.pill_border_width = clamp(self.pill_border_width, limits::BAR_PILL_BORDER);
+        self.item_gap = clamp(self.item_gap, limits::BAR_ITEM_GAP);
+        self.workspace_gap = clamp(self.workspace_gap, limits::BAR_WORKSPACE_GAP);
+        self.background_opacity = clamp(self.background_opacity, limits::BAR_OPACITY);
     }
 
     /// Fills empty color fields from the given theme, and resolves

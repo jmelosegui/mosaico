@@ -270,7 +270,7 @@ and brings its docs, so it can merge on its own.
 
 - [x] `SettingDescriptor` and `SettingKind` in core, with descriptors for
       every field of `config.toml`
-- [ ] Descriptors for every field of `bar.toml`
+- [x] Descriptors for every field of `bar.toml`
 - [x] Ranges as constants shared by validation and descriptors
 - [x] Tests: every config field has a descriptor and the reverse; every
       default validates unchanged; every out-of-range value is clamped to the

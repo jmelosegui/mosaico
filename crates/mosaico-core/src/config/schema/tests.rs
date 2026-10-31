@@ -112,3 +112,74 @@ fn a_workspace_has_no_layout_of_its_own_by_default() {
     );
     assert_eq!(config_default("workspaces.layouts.9"), None);
 }
+
+mod bar {
+    use super::*;
+    use crate::config::BarConfig;
+
+    /// Lists, which the settings window edits on their own.
+    const LISTS: [&str; 4] = ["monitors", "mouse.click", "left", "right"];
+
+    #[test]
+    fn every_setting_of_the_default_bar_is_described_once() {
+        // Arrange
+        let defaults = toml::Table::try_from(BarConfig::default()).unwrap();
+        let mut keys = Vec::new();
+        leaf_keys("", &defaults, &mut keys);
+        keys.retain(|k| !LISTS.contains(&k.as_str()));
+        keys.sort();
+
+        // Act
+        let mut described: Vec<String> = BAR_SETTINGS.iter().map(|s| s.key.into()).collect();
+        described.sort();
+
+        // Assert
+        assert_eq!(described, keys);
+    }
+
+    #[test]
+    fn every_default_is_a_value_its_setting_takes() {
+        for setting in BAR_SETTINGS {
+            let default = bar_default(setting.key).expect(setting.key);
+            assert_eq!(setting.check(&default), Ok(()), "{}", setting.key);
+        }
+    }
+
+    #[test]
+    fn a_number_out_of_range_is_brought_into_it_as_loading_does() {
+        let numbers = BAR_SETTINGS
+            .iter()
+            .filter(|s| matches!(s.kind, SettingKind::Int { .. }));
+        for setting in numbers {
+            for raw in [-100_000, 100_000] {
+                // Arrange
+                let (tables, name) = setting.path();
+                let header = if tables.is_empty() {
+                    String::new()
+                } else {
+                    format!("[{}]\n", tables.join("."))
+                };
+                let text = format!("{header}{name} = {raw}\n");
+                let mut config: BarConfig = toml::from_str(&text).expect(&text);
+                config.validate();
+                let mut value = toml::Value::try_from(config).unwrap();
+                for part in setting.key.split('.') {
+                    value = value.as_table().unwrap()[part].clone();
+                }
+
+                // Act
+                let normalized = setting.normalize(SettingValue::Int(raw));
+
+                // Assert
+                let expected = SettingValue::from_toml(&value).unwrap();
+                assert_eq!(normalized, Some(expected), "{} = {raw}", setting.key);
+            }
+        }
+    }
+
+    #[test]
+    fn the_settings_are_found_by_their_keys() {
+        assert!(find_bar("colors.pill_border").is_some());
+        assert!(find_bar("layout.gap").is_none());
+    }
+}

@@ -5,8 +5,10 @@
 //! an edit against them before it is written, so a value is described
 //! once, here, and not again by every program that edits it.
 
+mod bar_settings;
 mod config_settings;
 
+pub use bar_settings::{BAR_SETTINGS, bar_default, find_bar};
 pub use config_settings::{CONFIG_SETTINGS, config_default};
 
 use std::fmt;
@@ -171,6 +173,15 @@ impl SettingDescriptor {
 /// The setting of `config.toml` at `key`.
 pub fn find(key: &str) -> Option<&'static SettingDescriptor> {
     CONFIG_SETTINGS.iter().find(|s| s.key == key)
+}
+
+/// The single value `defaults`, a config with its defaults, has at `key`.
+fn default_at(defaults: &impl serde::Serialize, key: &str) -> Option<SettingValue> {
+    let mut value = toml::Value::try_from(defaults).ok()?;
+    for part in key.split('.') {
+        value = value.as_table_mut()?.remove(part)?;
+    }
+    SettingValue::from_toml(&value)
 }
 
 #[cfg(test)]
