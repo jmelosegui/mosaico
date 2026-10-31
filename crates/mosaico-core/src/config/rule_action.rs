@@ -16,6 +16,20 @@ pub enum RuleAction {
     Ignore,
 }
 
+impl RuleAction {
+    /// Every action, in the order to offer them.
+    pub const ALL: [RuleAction; 3] = [Self::Tile, Self::Float, Self::Ignore];
+
+    /// The action as a rules file writes it.
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Tile => "tile",
+            Self::Float => "float",
+            Self::Ignore => "ignore",
+        }
+    }
+}
+
 /// A rule as written in a rules file: `action`, or the older `manage`.
 #[derive(Deserialize)]
 pub(super) struct RawRule {

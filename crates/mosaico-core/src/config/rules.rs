@@ -18,7 +18,7 @@ use super::rule_action::{RawRule, RuleAction};
 /// A rules file writes what the rule does as `action = "tile"`,
 /// `"float"` or `"ignore"`, or as the older `manage = true` or `false`,
 /// which mean `"tile"` and `"ignore"`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(try_from = "RawRule")]
 pub struct WindowRule {
     /// Match windows with this exact class name (case-insensitive).
