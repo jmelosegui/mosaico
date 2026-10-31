@@ -1,0 +1,22 @@
+[package]
+name = "mosaico-settings"
+version = "0.11.0"
+edition = "2024"
+description = "The settings window of the mosaico tiling window manager"
+license = "MIT"
+
+[dependencies]
+eframe = { version = "0.37", default-features = false, features = ["accesskit", "glow", "wayland", "x11"] }
+mosaico-core = { path = "../mosaico-core" }
+
+[target.'cfg(windows)'.dependencies]
+mosaico-windows = { path = "../mosaico-windows" }
+
+[build-dependencies]
+embed-resource = "3"
+
+[dev-dependencies]
+egui_kittest = "0.37"
+
+[lints]
+workspace = true
