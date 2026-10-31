@@ -14,6 +14,9 @@ use crate::Result;
 ///   running executable was built for.
 /// - `binary_name` is the file name of the mosaico executable inside
 ///   that archive.
+/// - `settings_name` is the file name of the settings app's executable
+///   inside that archive. It is installed in the same folder as the
+///   mosaico executable, under the same name.
 /// - `replace` puts an executable whose content is `binary` at `exe`.
 ///   The executable at `exe` may be running, since the caller usually
 ///   runs from it. After `Ok`, starting `exe` runs the new executable.
@@ -21,9 +24,10 @@ use crate::Result;
 ///   starts as before. If it cannot be put back there, the error says
 ///   where it is and how to restore it.
 /// - `replace` may leave files beside `exe` that cannot be deleted while
-///   the old executable runs. `remove_leftovers` deletes them, and
-///   succeeds when there is nothing to delete. The daemon calls it when
-///   it starts.
+///   the old executable runs. `remove_leftovers` deletes those left
+///   beside the mosaico executable at `exe` and beside the settings app
+///   in the same folder, and succeeds when there is nothing to delete.
+///   The daemon calls it when it starts.
 /// - A file that cannot be renamed, written or deleted is an
 ///   [`Error::Platform`](crate::Error::Platform) saying which.
 /// - A platform that cannot update itself returns
@@ -37,10 +41,14 @@ pub trait Installer {
     /// The file name of the mosaico executable in the archive.
     fn binary_name(&self) -> &str;
 
+    /// The file name of the settings app's executable, in the archive and
+    /// beside the mosaico executable.
+    fn settings_name(&self) -> &str;
+
     /// Makes the executable at `exe` the one whose content is `binary`.
     fn replace(&self, exe: &Path, binary: &[u8]) -> Result<()>;
 
-    /// Deletes what an earlier [`replace`](Self::replace) left beside
-    /// `exe`.
+    /// Deletes what earlier [`replace`](Self::replace)s left beside the
+    /// mosaico executable at `exe` and the settings app next to it.
     fn remove_leftovers(&self, exe: &Path) -> Result<()>;
 }

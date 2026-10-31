@@ -59,6 +59,10 @@ impl Installer for FakeInstaller {
         "mosaico"
     }
 
+    fn settings_name(&self) -> &str {
+        "mosaico-settings"
+    }
+
     fn replace(&self, _exe: &Path, _binary: &[u8]) -> Result<()> {
         Ok(())
     }

@@ -32,6 +32,10 @@ impl Installer for RenameInstaller {
         "mosaico.exe"
     }
 
+    fn settings_name(&self) -> &str {
+        SETTINGS_EXE
+    }
+
     /// Renames `exe` to `.exe.old`, writes `binary` at `exe`, then tries
     /// to delete the old file. If the write fails, the old file is
     /// renamed back.
@@ -39,12 +43,24 @@ impl Installer for RenameInstaller {
         replace(&Disk, exe, binary)
     }
 
-    /// Deletes the `.exe.old` beside `exe`, if there is one.
+    /// Deletes the `.exe.old` beside `exe` and the one beside the
+    /// settings app, if there are any.
     fn remove_leftovers(&self, exe: &Path) -> Result<()> {
-        match fs::remove_file(backup_of(exe)) {
-            Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(()),
-            removed => removed.or_platform("delete the old executable"),
-        }
+        let settings = exe.with_file_name(SETTINGS_EXE);
+        let mosaico = remove_backup(exe);
+        let settings = remove_backup(&settings);
+        mosaico.and(settings)
+    }
+}
+
+/// The file name of the settings app, beside `mosaico.exe`.
+const SETTINGS_EXE: &str = "mosaico-settings.exe";
+
+/// Deletes the `.exe.old` of `exe`, if there is one.
+fn remove_backup(exe: &Path) -> Result<()> {
+    match fs::remove_file(backup_of(exe)) {
+        Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(()),
+        removed => removed.or_platform("delete the old executable"),
     }
 }
 

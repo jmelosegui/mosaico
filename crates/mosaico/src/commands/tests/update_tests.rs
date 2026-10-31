@@ -5,7 +5,7 @@ use mosaico_core::ipc::Command;
 use zip::write::SimpleFileOptions;
 
 use super::*;
-use crate::commands::test_support::{ASSET, BINARY, EXE, Harness};
+use crate::commands::test_support::{ASSET, BINARY, EXE, Harness, SETTINGS};
 
 /// The version the tests run as.
 const LOCAL: &str = env!("CARGO_PKG_VERSION");
@@ -21,11 +21,16 @@ fn zip_of(files: &[(&str, &[u8])]) -> Vec<u8> {
 }
 
 /// A harness for `test` in which the latest release is `tag`, with this
-/// platform's archive holding the binary `new binary`.
+/// platform's archive holding the binary `new binary` and the settings
+/// app `new settings`.
 fn released(test: &str, tag: &str) -> Harness {
     let h = Harness::new(test);
     h.world.releases.publish(tag);
-    let archive = zip_of(&[("README.md", b"read me"), (BINARY, b"new binary")]);
+    let archive = zip_of(&[
+        ("README.md", b"read me"),
+        (BINARY, b"new binary"),
+        (SETTINGS, b"new settings"),
+    ]);
     h.world.releases.attach(ASSET, archive);
     h
 }
@@ -45,7 +50,7 @@ fn says_so_when_already_on_the_latest_version() {
         format!("Checking for updates...\nYou are already on the latest version (v{LOCAL}).\n")
     );
     assert_eq!(h.err(), "");
-    assert_eq!(*h.world.installer.replaced.borrow(), None);
+    assert_eq!(*h.world.installer.replaced.borrow(), []);
 }
 
 #[test]
@@ -73,7 +78,7 @@ fn installs_a_newer_release_over_the_running_executable() {
     // Act
     let exit = h.run(|cx| execute(cx, false));
 
-    // Assert
+    // Assert -- the settings app first, so a failure keeps the old mosaico.
     assert_eq!(exit, Exit::Success);
     assert_eq!(
         h.out(),
@@ -85,10 +90,53 @@ fn installs_a_newer_release_over_the_running_executable() {
         )
     );
     assert_eq!(h.err(), "");
+    let settings = PathBuf::from(EXE).with_file_name(SETTINGS);
     assert_eq!(
         *h.world.installer.replaced.borrow(),
-        Some((PathBuf::from(EXE), b"new binary".to_vec()))
+        [
+            (settings, b"new settings".to_vec()),
+            (PathBuf::from(EXE), b"new binary".to_vec()),
+        ]
     );
+}
+
+#[test]
+fn a_failed_settings_install_leaves_the_executable_alone() {
+    // Arrange
+    let mut h = released("update-settings-fails", "v99.0.0");
+    *h.world.installer.error.borrow_mut() = Some(("in use".into(), Some(SETTINGS)));
+
+    // Act
+    let exit = h.run(|cx| execute(cx, false));
+
+    // Assert
+    assert_eq!(exit, Exit::Failure);
+    assert_eq!(
+        h.err(),
+        "Error: could not write the new executable: in use\n"
+    );
+    assert_eq!(*h.world.installer.replaced.borrow(), []);
+}
+
+#[test]
+fn an_archive_without_the_settings_app_leaves_the_executable_alone() {
+    // Arrange -- as archives were before the settings app shipped.
+    let mut h = Harness::new("update-no-settings");
+    h.world.releases.publish("v99.0.0");
+    h.world
+        .releases
+        .attach(ASSET, zip_of(&[(BINARY, b"new binary")]));
+
+    // Act
+    let exit = h.run(|cx| execute(cx, false));
+
+    // Assert
+    assert_eq!(exit, Exit::Failure);
+    assert_eq!(
+        h.err(),
+        format!("Error: {SETTINGS} not found in zip archive\n")
+    );
+    assert_eq!(*h.world.installer.replaced.borrow(), []);
 }
 
 #[test]
@@ -107,7 +155,7 @@ fn reinstalls_the_running_version_when_forced() {
         "{out}"
     );
     assert!(out.ends_with(&format!("Reinstalled v{LOCAL}.\n")), "{out}");
-    assert!(h.world.installer.replaced.borrow().is_some());
+    assert_eq!(h.world.installer.replaced.borrow().len(), 2);
 }
 
 #[test]
@@ -152,7 +200,7 @@ fn a_release_without_this_platforms_archive_leaves_the_executable_alone() {
              Run 'mosaico start' to restart with the current version.\n"
         )
     );
-    assert_eq!(*h.world.installer.replaced.borrow(), None);
+    assert_eq!(*h.world.installer.replaced.borrow(), []);
     assert!(!h.world.daemon_running.get(), "not started again");
 }
 
@@ -174,7 +222,7 @@ fn an_archive_without_the_binary_leaves_the_executable_alone() {
         h.err(),
         format!("Error: {BINARY} not found in zip archive\n")
     );
-    assert_eq!(*h.world.installer.replaced.borrow(), None);
+    assert_eq!(*h.world.installer.replaced.borrow(), []);
 }
 
 #[test]
@@ -194,7 +242,7 @@ fn a_download_that_is_not_an_archive_leaves_the_executable_alone() {
         "{}",
         h.err()
     );
-    assert_eq!(*h.world.installer.replaced.borrow(), None);
+    assert_eq!(*h.world.installer.replaced.borrow(), []);
 }
 
 #[test]
@@ -202,7 +250,7 @@ fn a_failed_install_is_reported_with_how_to_get_the_daemon_back() {
     // Arrange
     let mut h = released("update-install-fails", "v99.0.0");
     h.world.daemon_up(10);
-    *h.world.installer.error.borrow_mut() = Some("access denied".into());
+    *h.world.installer.error.borrow_mut() = Some(("access denied".into(), None));
 
     // Act
     let exit = h.run(|cx| execute(cx, false));

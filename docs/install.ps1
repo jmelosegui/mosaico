@@ -37,14 +37,17 @@ Invoke-WebRequest -Uri $Url -OutFile $ZipPath
 Write-Info "Extracting..."
 Expand-Archive -Path $ZipPath -DestinationPath $TempDir -Force
 
-# Stop running daemon before replacing the binary
-Stop-Process -Name mosaico -Force -ErrorAction SilentlyContinue
+# Stop the daemon and the settings app before replacing their binaries
+Stop-Process -Name mosaico, mosaico-settings -Force -ErrorAction SilentlyContinue
 
 # Install
 Write-Info "Installing to $InstallDir..."
 New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
-Copy-Item -Path (Join-Path $TempDir "mosaico.exe") -Destination (Join-Path $InstallDir "mosaico.exe") -Force
-Unblock-File -Path (Join-Path $InstallDir "mosaico.exe")
+foreach ($Exe in Get-ChildItem -Path $TempDir -Filter *.exe) {
+    $Target = Join-Path $InstallDir $Exe.Name
+    Copy-Item -Path $Exe.FullName -Destination $Target -Force
+    Unblock-File -Path $Target
+}
 
 # Cleanup
 Remove-Item -Recurse -Force $TempDir

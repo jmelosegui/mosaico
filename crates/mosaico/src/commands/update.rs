@@ -2,8 +2,8 @@
 //!
 //! Checks GitHub for a newer version, stops the daemon if running,
 //! downloads this platform's release archive, has the platform replace
-//! the running binary with the one in it, and restarts the daemon if it
-//! was running before the update.
+//! the settings app and the running binary with the ones in it, and
+//! restarts the daemon if it was running before the update.
 
 use std::fmt::Display;
 
@@ -51,14 +51,15 @@ pub fn execute(cx: &mut Context, force: bool) -> Exit {
         super::stop::execute(cx);
     }
 
-    // 4. Download this platform's release and take the binary out of it.
+    // 4. Download this platform's release and take the binaries out of it.
     say!(cx, "Downloading {tag}...");
-    let exe_bytes = match update::download_binary(cx.http, cx.installer, &tag) {
-        Ok(bytes) => bytes,
+    let binaries = match update::download_binaries(cx.http, cx.installer, &tag) {
+        Ok(binaries) => binaries,
         Err(e) => return fail(cx, e, daemon_was_running),
     };
 
-    // 5. Replace the running binary.
+    // 5. Replace the settings app, then the running binary, so a failure
+    // leaves the old mosaico in place.
     let current_exe = match (cx.current_exe)() {
         Ok(p) => p,
         Err(e) => {
@@ -66,9 +67,14 @@ pub fn execute(cx: &mut Context, force: bool) -> Exit {
             return fail(cx, reason, daemon_was_running);
         }
     };
+    let settings_exe = current_exe.with_file_name(cx.installer.settings_name());
 
     say!(cx, "Installing to {}...", current_exe.display());
-    if let Err(e) = cx.installer.replace(&current_exe, &exe_bytes) {
+    let installed = cx
+        .installer
+        .replace(&settings_exe, &binaries.settings)
+        .and_then(|()| cx.installer.replace(&current_exe, &binaries.mosaico));
+    if let Err(e) = installed {
         return fail(cx, e, daemon_was_running);
     }
 

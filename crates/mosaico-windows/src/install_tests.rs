@@ -98,6 +98,7 @@ fn this_build_asks_for_the_archive_of_its_own_cpu_with_mosaico_exe() {
         archive_for(std::env::consts::ARCH).unwrap()
     );
     assert_eq!(RenameInstaller.binary_name(), "mosaico.exe");
+    assert_eq!(RenameInstaller.settings_name(), "mosaico-settings.exe");
 }
 
 #[test]
@@ -162,6 +163,20 @@ fn the_backup_of_an_earlier_update_is_removed_as_a_leftover() {
     // Assert
     assert!(!exe.with_extension("exe.old").exists());
     assert_eq!(fs::read(&exe).unwrap(), b"old", "the executable stays");
+}
+
+#[test]
+fn the_backup_of_the_settings_app_is_removed_as_a_leftover() {
+    // Arrange
+    let exe = installed("settings-leftovers");
+    let backup = exe.with_file_name("mosaico-settings.exe.old");
+    fs::write(&backup, "older").unwrap();
+
+    // Act
+    RenameInstaller.remove_leftovers(&exe).unwrap();
+
+    // Assert
+    assert!(!backup.exists());
 }
 
 #[test]

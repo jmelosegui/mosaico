@@ -29,7 +29,7 @@ use super::context::{Clock, Daemon};
 
 pub use autostart_fake::{EXE, MOVED_AWAY};
 pub use harness::Harness;
-pub use release::{ASSET, BINARY, FakeInstaller, Releases};
+pub use release::{ASSET, BINARY, FakeInstaller, Releases, SETTINGS};
 pub use windows::Frames;
 
 /// How long a fake process stays alive.
