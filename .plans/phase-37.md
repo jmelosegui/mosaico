@@ -23,8 +23,9 @@ This phase adds two things:
 2. **A settings app**, `mosaico-settings`, a separate executable. It is
    built on egui/eframe, the UI stack of the ArtCraft apps
    ([storytold/craft-libs](https://github.com/storytold/craft-libs)), with
-   their look and feel: design tokens, the Inter font, and Light, Dark and
-   System themes. One window, one code base, on every OS mosaico supports.
+   their look and feel: design tokens, the Inter font, spacing and widgets.
+   Its colors come from the active mosaico theme. One window, one code base,
+   on every OS mosaico supports.
 
 The settings app never decides what is valid. Core describes every setting:
 its type, range, choices, default and help text. Validation and clamping use
@@ -76,8 +77,8 @@ and formatting the user wrote survive. The daemon's existing hot-reload
 enabled = true
 ```
 
-The settings app keeps its own preferences, the theme (`system`, `light`,
-`dark`) and window size and position, in `settings-app.toml` in the config
+The settings app keeps its own preferences, such as window size and
+position, in `settings-app.toml` in the config
 directory. The daemon never reads that file and hot-reload ignores it.
 
 ## The Tray Icon
@@ -93,7 +94,8 @@ directory. The daemon never reads that file and hot-reload ignores it.
 
 - The tooltip shows `mosaico <version>`, plus `(paused)` while paused.
 - The icon has a running and a paused variant, and light and dark variants
-  for the taskbar theme.
+  for the taskbar theme. The paused variant is dimmed with a red pause badge,
+  matching the bar's paused widget, which is red by default.
 - If the shell restarts (Explorer crashes), the icon comes back.
 - `[tray] enabled = false` removes the icon on reload, and `true` adds it.
 - A config reload that fails shows a balloon notification. Its text comes
@@ -121,6 +123,11 @@ One window with a navigation list on the left and a page on the right:
   differs from the default.
 - Help text under each field comes from the same descriptions as the
   template comments.
+- Labels describe what the user sees, never how an OS does it: "Keep in
+  taskbar", not "Cloak". Choices that depend on the platform come from the
+  platform's capabilities (as hiding does through `HidingSupport`), and
+  choices it lacks are not shown. There are no OS-specific pages. The value
+  written to the file stays the config name (`cloak`).
 - A status line shows whether the daemon is running and paused (the existing
   `status` IPC request). After Apply, it shows whether the daemon accepted
   the reload. The app works the same with no daemon running; the next start
@@ -130,17 +137,25 @@ One window with a navigation list on the left and a page on the right:
 
 ### Look and feel
 
-The app follows the ArtCraft apps rather than egui's defaults:
+Colors come from mosaico's theme. Everything else follows the ArtCraft apps
+rather than egui's defaults:
 
-- `Tokens` with `light()` and `dark()` palettes, applied to egui `Visuals`
-  as in `deckcraft-ui-egui::theme`. Widget states use
-  `craft_ui::theme::WidgetPalette` from craft-libs, so the shared styling
-  stays shared.
+- Colors and backgrounds come from the active theme flavor (for example
+  Catppuccin Mocha or Latte), so the app matches the borders and the bar.
+  Light or dark follows the flavor, and the app updates live when the theme
+  changes in `config.toml`. There is no separate Light/Dark/System choice.
+- Core gives each flavor the UI roles the app needs beyond `BarColors`:
+  darker panels (title bar, sidebar), dim text, hover and pressed. Dark
+  flavors put cards above the page. Light flavors make cards the lightest
+  surface, as ArtCraft's light theme does.
+- Tokens are applied to egui `Visuals` as in `deckcraft-ui-egui::theme`, and
+  widget states use `craft_ui::theme::WidgetPalette` from craft-libs, so the
+  shared styling stays shared.
 - The Inter UI font, 13 pt body and buttons, 11 pt small text, 18 pt
   headings, and the same spacing and corner radii.
-- A **System** theme that follows the OS light/dark setting and updates live
-  when it changes, as PdfCraft does.
-- The accent is mosaico's own. See Open Decisions.
+- A title bar, a sidebar with search and page navigation, and settings
+  grouped in bordered cards. Sketches are in
+  [`design/settings`](../design/settings).
 
 ## Architecture
 
@@ -186,7 +201,7 @@ The app follows the ArtCraft apps rather than egui's defaults:
   attribute in `main.rs` only.
 - Dependencies: `mosaico-core`, `eframe`/`egui` (0.36, as ArtCraft),
   `craft-ui` (git rev pinned), and dev-dependency `egui_kittest`.
-- `app/` (state, Apply/Revert), `theme/` (tokens, fonts, system theme),
+- `app/` (state, Apply/Revert), `theme/` (tokens from the active flavor, fonts),
   `pages/` (one module per page), `widgets/` (setting row, color picker, key
   capture, list editor).
 - `platform.rs` is the composition root that picks the platform crate per
@@ -231,12 +246,14 @@ The app follows the ArtCraft apps rather than egui's defaults:
 - `crates/mosaico-core/src/config/mod.rs`, `config/types.rs` (`TrayConfig`,
   ranges as constants), templates and hints
 - `crates/mosaico-windows/src/tray/*`, `launcher.rs`, icon resources
+- `crates/mosaico-core/src/config/palette/*` (per-flavor UI roles)
 - `crates/mosaico-settings/` (new)
 - `crates/mosaico/src/commands/settings.rs`, `doctor*.rs`, the daemon's
   event loop
 - `xtask`: `size` and `metrics` learn about the second executable
 - Release workflow, `mosaico update`, the installer (phase 30)
 - `docs/settings-app.md`, `docs/configuration.md`, website guide
+- `design/settings/` (sketches)
 
 ## Tasks
 
@@ -273,12 +290,13 @@ and brings its docs, so it can merge on its own.
 
 ### 37.4 Settings app shell
 
-- [ ] `mosaico-settings` crate, ArtCraft theme tokens, Inter font,
-      Light/Dark/System with live system changes, `settings-app.toml`
+- [ ] Per-flavor UI roles in core's theme palettes
+- [ ] `mosaico-settings` crate, ArtCraft tokens with colors from the
+      active flavor, Inter font, live theme changes, `settings-app.toml`
 - [ ] Navigation, setting rows from descriptors, Apply/Revert, unsaved-edit
       prompt, daemon status line, single instance
 - [ ] `mosaico settings` and the tray's Settings… item start it
-- [ ] `egui_kittest` tests for the shell and both themes
+- [ ] `egui_kittest` tests for the shell in a dark and a light flavor
 - [ ] CI builds the crate for Linux and macOS targets
 
 ### 37.5 Pages for config.toml and bar.toml
@@ -300,7 +318,8 @@ and brings its docs, so it can merge on its own.
 - [ ] Release artifacts and `mosaico update` include `mosaico-settings`
 - [ ] `cargo xtask size` keeps checking `mosaico.exe` and reports the
       settings app's size separately
-- [ ] Docs, website guide with screenshots in both themes, cheatsheet
+- [ ] Docs, website guide with screenshots in a dark and a light flavor,
+      cheatsheet
 
 ### Verification
 
@@ -309,7 +328,7 @@ and brings its docs, so it can merge on its own.
 - [ ] A setting changed in the app is applied by the running daemon without
       a restart
 - [ ] A hand-commented config file keeps its comments after Apply
-- [ ] The app follows the system theme switch live on Windows
+- [ ] The app follows a theme or flavor change in `config.toml` live
 
 ## Open Decisions
 
@@ -317,7 +336,6 @@ and brings its docs, so it can merge on its own.
 | --- | --- |
 | Separate executable or a feature flag on `mosaico.exe` | Separate `mosaico-settings` executable: keeps the size budget and keeps a UI crash away from the daemon |
 | Depend on `craft-ui` by git or copy the tokens | Depend on `craft-ui` (pinned rev) for shared widget styling and copy the per-app tokens, as each ArtCraft app does |
-| Accent color | mosaico's active theme flavor's accent, so the app matches the borders and bar |
 | Renderer | The renderer the ArtCraft apps ship with (`glow` or `wgpu`), whichever keeps the executable smaller |
 | Where app preferences live | `settings-app.toml` in the config directory, or `craft-settings` storage for consistency with ArtCraft |
 | Scope of the first release | 37.1–37.5 first; keybindings and rules (37.6) can follow |
