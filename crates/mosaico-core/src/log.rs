@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 #[path = "log_backlog.rs"]
 mod backlog;
 #[path = "log_file.rs"]
-mod file;
+pub(crate) mod file;
 
 use backlog::Backlog;
 use file::Logger;

@@ -42,6 +42,7 @@ pub use color::Color;
 pub use hiding_behaviour::HidingBehaviour;
 pub use keybinding::{Keybinding, Modifier};
 pub use mouse::MouseConfig;
+pub use palette::UiColors;
 pub use reload::{ConfigReload, ConfigReloader, ConfigWatch};
 pub use rule_action::{RuleAction, decide};
 pub use rules::{WindowRule, default_rules, matching_rule, validate_rules};
