@@ -87,6 +87,16 @@ Picking a theme or flavor previews it in the settings window right away.
 | Tiling | Default layout, gap, split ratio | `layout.default`, `layout.gap`, `layout.ratio` |
 | Other workspaces | Hide windows by | `layout.hiding` |
 
+## Workspaces
+
+| Section | Setting | Key in `config.toml` |
+|---------|---------|----------------------|
+| Switching | Whether a switch changes the focused monitor or every monitor, and wrapping around | `workspaces.mode`, `workspaces.wrap` |
+| Layouts | The layout of each of the eight workspaces | `[workspaces.layouts]`, as `1 = "vertical-stack"` |
+
+A workspace set to **Default layout** has no entry in the file, so it follows
+`layout.default`.
+
 ## Mouse
 
 | Section | Setting | Key in `config.toml` |

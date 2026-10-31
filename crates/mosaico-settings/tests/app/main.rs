@@ -9,3 +9,4 @@ mod general;
 mod layout;
 mod mouse;
 mod shell;
+mod workspaces;

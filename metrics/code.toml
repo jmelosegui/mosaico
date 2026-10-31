@@ -8,9 +8,9 @@ unsafe_keywords = 68
 
 [mosaico-core]
 files_over_line_limit = 76
-lines_over_line_limit = 5568
+lines_over_line_limit = 5652
 os_names = 0
-tests = 2158
+tests = 2161
 unsafe_keywords = 0
 unwraps_outside_tests = 0
 
@@ -22,8 +22,8 @@ unsafe_keywords = 0
 
 [mosaico-settings]
 files_over_line_limit = 5
-lines_over_line_limit = 328
-tests = 37
+lines_over_line_limit = 330
+tests = 40
 unsafe_keywords = 0
 
 [mosaico-windows]
