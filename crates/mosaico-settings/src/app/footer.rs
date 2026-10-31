@@ -13,9 +13,6 @@ pub struct State<'a> {
     pub changes: usize,
     /// What became of the last Apply.
     pub applied: Option<&'a Applied>,
-    /// Whether the settings cannot be saved, because the file has a
-    /// problem.
-    pub blocked: bool,
 }
 
 /// What the user clicked.
@@ -56,13 +53,7 @@ pub fn show(ui: &mut Ui, c: &Colors, state: &State) -> Option<Action> {
         let (text, color) = status(c, state);
         ui.label(RichText::new(text).font(theme::regular(12.0)).color(color));
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-            let can_apply = state.changes > 0 && !state.blocked;
-            let apply = widgets::button(ui, c, "Apply", true, can_apply);
-            let apply = if state.blocked {
-                apply.on_disabled_hover_text("Fix the file to save here.")
-            } else {
-                apply
-            };
+            let apply = widgets::button(ui, c, "Apply", true, state.changes > 0);
             if apply.clicked() {
                 action = Some(Action::Apply);
             }

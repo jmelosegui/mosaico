@@ -59,10 +59,13 @@ pub fn dropdown<T: PartialEq + Clone>(
 }
 
 /// A number in `range` followed by its `unit`, which can be typed or
-/// dragged, `speed` per point dragged.
+/// dragged, `speed` per point dragged. `label` names it for assistive
+/// technology.
+#[allow(clippy::too_many_arguments)]
 pub fn number<N: Numeric>(
     ui: &mut Ui,
     c: &Colors,
+    label: &str,
     value: &mut N,
     range: std::ops::RangeInclusive<N>,
     speed: f64,
@@ -93,6 +96,7 @@ pub fn number<N: Numeric>(
                         DragValue::new(value).range(range).speed(speed),
                     )
                     .on_hover_text("Drag, or click to type");
+                field.widget_info(|| WidgetInfo::labeled(Role::SpinButton, true, label));
                 let unit = eframe::egui::RichText::new(unit).font(theme::regular(12.0));
                 ui.label(unit.color(c.faint_text));
                 ui.add_space(4.0);

@@ -3,14 +3,11 @@
 use eframe::egui::Ui;
 use mosaico_core::config::Theme;
 
-use super::{Entry, PageContext, Row, Section, sections, setting};
+use super::{Entry, PageContext, Row, Section, setting};
 use crate::model::Settings;
 use crate::widgets::{self, RowState};
 
-/// The file the page edits.
-pub const FILE: &str = "config.toml";
-
-const SECTIONS: &[Section] = &[
+pub const SECTIONS: &[Section] = &[
     (
         "Appearance",
         &[
@@ -35,11 +32,6 @@ const SECTIONS: &[Section] = &[
         ],
     ),
 ];
-
-/// Shows the rows matching `query`, in their sections.
-pub fn show(ui: &mut Ui, cx: &PageContext, query: &str, edit: &mut Settings) {
-    sections(ui, cx, query, SECTIONS, edit);
-}
 
 fn theme(ui: &mut Ui, cx: &PageContext, row: &Row, edit: &mut Settings) {
     let (now, saved, default) = (edit.theme(), cx.saved.theme(), cx.defaults.theme());
