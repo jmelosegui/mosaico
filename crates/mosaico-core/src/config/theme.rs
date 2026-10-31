@@ -11,6 +11,8 @@ mod theme_colors;
 mod theme_config;
 #[path = "theme_list.rs"]
 mod theme_list;
+#[path = "theme_swatch.rs"]
+mod theme_swatch;
 
 pub use theme_config::{ThemeCheck, ThemeConfig};
 

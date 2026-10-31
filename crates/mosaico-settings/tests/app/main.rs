@@ -4,6 +4,7 @@ mod support;
 
 mod animations;
 mod apply;
+mod borders;
 mod close;
 mod general;
 mod layout;

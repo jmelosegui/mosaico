@@ -112,6 +112,12 @@ impl SettingDescriptor {
         (parts, name)
     }
 
+    /// Whether the setting is a color that can also be `"none"`, which
+    /// draws nothing.
+    pub fn allows_none(&self) -> bool {
+        self.kind == SettingKind::Color && self.key == "borders.colors.unfocused"
+    }
+
     /// Whether `value` is one this setting takes.
     ///
     /// # Errors
