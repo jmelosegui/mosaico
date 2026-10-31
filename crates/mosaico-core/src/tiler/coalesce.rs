@@ -11,6 +11,8 @@ use crate::{Rect, WindowId};
 
 use super::{Effect, Timing, Transition};
 
+#[path = "coalesce_hold.rs"]
+mod hold;
 #[path = "coalesce_release.rs"]
 mod release;
 
@@ -26,6 +28,8 @@ pub struct Coalescer {
     after: Vec<Effect>,
     /// The latest focus change.
     focus: Option<Effect>,
+    /// Restacks of the window taking focus, which must land after it.
+    behind: Vec<Effect>,
     /// When the effects held now started being held. Stale while
     /// nothing is held.
     since: Option<Instant>,
@@ -74,6 +78,10 @@ impl Coalescer {
                 self.focus = Some(effect);
                 None
             }
+            Effect::PutBehind { window, .. } if self.focuses(window) => {
+                self.behind.push(effect);
+                None
+            }
             _ => match waits_for(&effect) {
                 Some(window) if self.places.iter().any(|&(w, ..)| w == window) => {
                     self.hold_until_placed(effect);
@@ -84,46 +92,9 @@ impl Coalescer {
         }
     }
 
-    /// Holds an effect until its window's placement is applied.
-    ///
-    /// A border takes the place of the one already held for its window,
-    /// so only the latest style is drawn. Its rect may still be the slot
-    /// the window is leaving, when a step that did not move the window
-    /// decided it, so [`take`](Self::take) sets it from the placement.
-    fn hold_until_placed(&mut self, effect: Effect) {
-        if let Effect::Border { window, .. } = effect
-            && let Some(held) = self
-                .after
-                .iter_mut()
-                .find(|e| matches!(e, Effect::Border { window: w, .. } if *w == window))
-        {
-            *held = effect;
-            return;
-        }
-        self.after.push(effect);
-    }
-
-    /// Drops everything held for `window`: its placement, what waits for
-    /// it, and a focus change to it. The window is gone, or leaving the
-    /// screen or the layout; the tiling manager calls this when it is
-    /// destroyed.
-    pub fn forget(&mut self, window: WindowId) {
-        self.forget_placement(window);
-        if matches!(self.focus, Some(Effect::Focus { window: w, .. }) if w == window) {
-            self.focus = None;
-        }
-    }
-
-    /// Drops the held placement of `window` and everything waiting for
-    /// it.
-    fn forget_placement(&mut self, window: WindowId) {
-        self.places.retain(|&(w, ..)| w != window);
-        self.after.retain(|e| waits_for(e) != Some(window));
-    }
-
     /// Whether anything is held.
     pub fn is_empty(&self) -> bool {
-        self.focus.is_none() && self.places.is_empty()
+        self.focus.is_none() && self.places.is_empty() && self.behind.is_empty()
     }
 
     /// Whether a focus change is held.
@@ -147,7 +118,7 @@ impl Coalescer {
 }
 
 /// The window whose held placement this effect has to wait for.
-fn waits_for(effect: &Effect) -> Option<WindowId> {
+pub(super) fn waits_for(effect: &Effect) -> Option<WindowId> {
     match *effect {
         Effect::Border { window, .. } | Effect::CenterCursor { window } => Some(window),
         _ => None,
