@@ -2,7 +2,7 @@
 //! ones that hide or close: windows that leave without saying so, and
 //! windows it manages without having decorated them.
 
-use crate::config::WindowRule;
+use crate::config::{RuleAction, WindowRule};
 
 use super::*;
 
@@ -84,7 +84,7 @@ fn a_rule_reload_leaves_the_corners_of_a_window_never_decorated_alone() {
         match_class: Some("Dragged".into()),
         match_title: None,
         match_path: None,
-        manage: false,
+        action: RuleAction::Ignore,
     };
 
     // Act

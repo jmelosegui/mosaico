@@ -1,11 +1,11 @@
-use mosaico_core::config::{WindowRule, matching_rule, should_manage};
+use mosaico_core::config::{RuleAction, WindowRule, decide};
 use mosaico_core::tiler::{Display, WindowDetails};
 use mosaico_core::{MonitorId, Rect};
 
 use crate::commands::context::{Context, Exit, complain, say};
 
 /// Lists the windows and monitors on the desktop, and whether the
-/// window rules would tile each window.
+/// window rules would tile, float or ignore each window.
 pub fn execute(cx: &mut Context) -> Exit {
     let rules = cx.config.load_merged_rules();
     list(cx, &rules)
@@ -25,12 +25,17 @@ fn list(cx: &mut Context, rules: &[WindowRule]) -> Exit {
     for &id in &windows {
         let window = cx.desktop.details(id);
         let facts = &window.facts;
-        let managed = if facts.has_caption {
-            should_manage(&facts.class, &facts.title, &facts.path, rules)
-        } else {
-            matching_rule(&facts.class, &facts.title, &facts.path, rules) == Some(true)
+        let managed = match decide(
+            &facts.class,
+            &facts.title,
+            &facts.path,
+            facts.has_caption,
+            rules,
+        ) {
+            RuleAction::Tile => "tiled",
+            RuleAction::Float => "floating",
+            RuleAction::Ignore => "no",
         };
-        let managed = if managed { "yes" } else { "no" };
         let display_title = if facts.title.is_empty() {
             "<untitled>"
         } else {
@@ -105,3 +110,7 @@ fn state(window: &WindowDetails) -> &'static str {
 #[cfg(test)]
 #[path = "tests/list_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "tests/list_float_tests.rs"]
+mod float_tests;

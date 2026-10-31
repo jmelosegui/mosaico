@@ -1,3 +1,4 @@
+mod floating;
 mod monocle;
 mod splits;
 
@@ -10,9 +11,13 @@ use monocle::Visits;
 ///
 /// It maintains the window ordering (which determines layout positions)
 /// and delegates positioning to a `Layout` implementation.
+#[derive(Default)]
 pub struct Workspace {
     /// Ordered list of managed window windows.
     windows: Vec<WindowId>,
+    /// Managed windows the layout leaves alone, back to front (see
+    /// `workspace/floating.rs`).
+    floating: Vec<WindowId>,
     /// Whether monocle (single-window fullscreen) mode is active.
     monocle: bool,
     /// The window shown fullscreen in monocle mode.
@@ -33,18 +38,9 @@ pub struct Workspace {
 }
 
 impl Workspace {
-    /// Creates an empty workspace.
     /// Creates an empty workspace with the default layout.
     pub fn new() -> Self {
-        Self {
-            windows: Vec::new(),
-            monocle: false,
-            monocle_window: None,
-            visits: Visits::default(),
-            last_focused: None,
-            layout_kind: LayoutKind::default(),
-            splits: SplitRatios::default(),
-        }
+        Self::default()
     }
 
     /// Creates an empty workspace with the given layout.
@@ -85,9 +81,10 @@ impl Workspace {
     /// Inserts a window at a specific position in the workspace.
     ///
     /// The index is clamped to the current length.
-    /// Returns `false` if the window is already managed.
+    /// Returns `false` if the window is already managed, tiled or
+    /// floating.
     pub fn insert(&mut self, index: usize, window: WindowId) -> bool {
-        if self.windows.contains(&window) {
+        if self.holds(window) {
             return false;
         }
         let pos = index.min(self.windows.len());
@@ -143,12 +140,6 @@ impl Workspace {
     /// Returns the index of the given window handle, if managed.
     pub fn index_of(&self, window: WindowId) -> Option<usize> {
         self.windows.iter().position(|&h| h == window)
-    }
-}
-
-impl Default for Workspace {
-    fn default() -> Self {
-        Self::new()
     }
 }
 

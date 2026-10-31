@@ -16,6 +16,8 @@ mod palette;
 mod reload;
 /// Telling the user about their config while it loads.
 mod report;
+/// What a window rule does with the windows it matches.
+mod rule_action;
 /// Window management rules.
 pub mod rules;
 /// The config files of an instance: where they are, and loading,
@@ -41,7 +43,8 @@ pub use hiding_behaviour::HidingBehaviour;
 pub use keybinding::{Keybinding, Modifier};
 pub use mouse::MouseConfig;
 pub use reload::{ConfigReload, ConfigReloader, ConfigWatch};
-pub use rules::{WindowRule, default_rules, matching_rule, should_manage, validate_rules};
+pub use rule_action::{RuleAction, decide};
+pub use rules::{WindowRule, default_rules, matching_rule, validate_rules};
 pub use store::ConfigStore;
 pub use theme::{
     CatppuccinFlavor, RosePineFlavor, Theme, ThemeCheck, ThemeConfig, TokyoNightFlavor,

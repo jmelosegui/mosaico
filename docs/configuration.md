@@ -295,12 +295,14 @@ action, or one that does not exist, is left out, logged and listed by
 
 ### `rules.toml`
 
-Controls which windows are managed by the tiler:
+Decides which windows the tiler tiles, floats or ignores (`action = "tile"`,
+`"float"` or `"ignore"`; the older `manage = true` and `false` still mean
+`"tile"` and `"ignore"`):
 
 ```toml
 [[rule]]
 match_class = "ApplicationFrameWindow"
-manage = false
+action = "ignore"
 ```
 
 ## Config Directory

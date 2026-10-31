@@ -2,7 +2,7 @@
 //! quiet (#135).
 
 use crate::Direction;
-use crate::config::{Config, WindowRule};
+use crate::config::{Config, RuleAction, WindowRule};
 
 use super::fake_platform::{Call, FakePlatform};
 use super::manager_support::{start, still};
@@ -96,7 +96,7 @@ fn a_window_the_rules_let_go_while_its_move_is_held_is_left_alone() {
         match_class: Some("Excluded".into()),
         match_title: None,
         match_path: None,
-        manage: false,
+        action: RuleAction::Ignore,
     }]);
     let calls = flush(&platform, &mut manager);
 

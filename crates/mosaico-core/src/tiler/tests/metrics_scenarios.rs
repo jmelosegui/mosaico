@@ -23,6 +23,8 @@ mod bar;
 mod display;
 #[path = "metrics_drag_scenarios.rs"]
 mod drag;
+#[path = "metrics_floating.rs"]
+mod floating;
 #[path = "metrics_glide_scenarios.rs"]
 mod glide;
 
@@ -82,6 +84,10 @@ pub(super) const SCENARIOS: &[Scenario] = &[
     }),
     ("monitor_disconnect", display::disconnect),
     ("monitor_reconnect", display::reconnect),
+    ("float_on_and_off", floating::on_and_off),
+    ("float_nudge_burst_of_9", floating::nudge_burst),
+    ("float_grow_width", floating::grow),
+    ("open_floating_by_rule", floating::open_by_rule),
 ];
 
 /// Starting on four open windows, counted from the start.

@@ -163,6 +163,27 @@ area. Other windows remain in the workspace but are not repositioned.
   there, and the window joins its tiles (see
   [Dragging Windows](#dragging-windows))
 
+## Floating Windows
+
+A floating window stays managed on its workspace, but the layout leaves it
+where you put it, above the tiles.
+
+- `Alt + F` (`mosaico action toggle-float`) floats the focused window, or
+  tiles it again. The first time, it is centered at two-thirds of the work
+  area; after that it goes back where it last floated.
+- A [window rule](window-rules.md) with `action = "float"` floats a window
+  as soon as it opens, centered at its own size.
+- `Alt + Shift + F` (`cycle-float`) focuses the next floating window.
+- The focus keys leave a floating window for the nearest tile. The move keys
+  (`Alt + Shift + H/J/K/L`) nudge it, and at the left or right edge of the
+  monitor send it to the next one.
+- `Alt + .` and `Alt + ,` widen and narrow it, and `Alt + Shift + .` and
+  `Alt + Shift + ,` heighten and shorten it, around its center.
+- Floating windows hide and show with their workspace, follow
+  `send-to-workspace`, and are hidden while the workspace is in monocle.
+- When a monitor goes away, its floating windows float on the one that
+  takes its windows, and go back when it returns.
+
 ## Dragging Windows
 
 Drag a tiled window by its title bar and drop it on another tile to swap

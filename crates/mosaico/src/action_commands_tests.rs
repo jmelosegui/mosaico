@@ -52,3 +52,12 @@ fn the_other_actions_keep_their_names() {
     assert_eq!(parse(&["move", "down"]), Action::Move(Direction::Down));
     assert_eq!(parse(&["cycle-layout"]), Action::CycleLayout);
 }
+
+#[test]
+fn floating_actions_go_by_the_names_key_bindings_use() {
+    // Act / Assert
+    assert_eq!(parse(&["toggle-float"]), Action::ToggleFloat);
+    assert_eq!(parse(&["cycle-float"]), Action::CycleFloat);
+    assert_eq!(parse(&["grow-width"]), Action::GrowWidth);
+    assert_eq!(parse(&["shrink-height"]), Action::ShrinkHeight);
+}

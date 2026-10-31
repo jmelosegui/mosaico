@@ -62,9 +62,15 @@ impl Action {
             | Self::Move(_)
             | Self::SendToWorkspace(_)
             | Self::CloseFocused
-            | Self::MinimizeFocused => Scope::FocusedWindow,
+            | Self::MinimizeFocused
+            | Self::ToggleFloat
+            | Self::GrowWidth
+            | Self::ShrinkWidth
+            | Self::GrowHeight
+            | Self::ShrinkHeight => Scope::FocusedWindow,
             Self::CycleLayout
             | Self::ToggleMonocle
+            | Self::CycleFloat
             | Self::GoToWorkspace(_)
             | Self::GoToWorkspaceNext
             | Self::GoToWorkspacePrev => Scope::Monitor,

@@ -1,13 +1,11 @@
 //! The tiling state machine.
 //!
-//! [`Tiler`] owns every tiling decision: which windows are managed,
-//! where they go, which workspace is on screen and what has focus. It
-//! never touches the OS. Each [`Tiler::step`] reads the desktop through
-//! [`Desktop`], updates the tiler's state and returns the [`Effect`]s
-//! that bring the desktop in line with it. [`TilingManager`] runs a
-//! tiler on a [`Platform`]: it applies the effects, and records them in
-//! an [`Expectations`] so that the events they cause are recognized as
-//! ours.
+//! [`Tiler`] owns every tiling decision: which windows are managed, where they go, which
+//! workspace is on screen and what has focus. It never touches the OS. Each [`Tiler::step`]
+//! reads the desktop through [`Desktop`], updates the tiler's state and returns the
+//! [`Effect`]s that bring the desktop in line with it. [`TilingManager`] runs a tiler on a
+//! [`Platform`]: it applies the effects, and records them in an [`Expectations`] so that the
+//! events they cause are recognized as ours.
 
 mod actions;
 mod adopt;
@@ -33,6 +31,7 @@ mod empty_focus_park;
 mod enumerator;
 mod events;
 mod events_focus;
+mod floating;
 mod focus;
 mod hidden;
 mod hidden_file;
@@ -144,6 +143,7 @@ pub struct Tiler {
     /// Cleared when the rules change; removed when the window is destroyed.
     adopt_rejected: HashSet<WindowId>,
     min_sizes: min_sizes::MinSizes,
+    floats: floating::Floats,
 }
 
 #[cfg(test)]

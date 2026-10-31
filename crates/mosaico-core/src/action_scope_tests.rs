@@ -11,6 +11,9 @@ fn the_actions_about_the_focused_window_act_on_it() {
         Action::SendToWorkspace(2),
         Action::CloseFocused,
         Action::MinimizeFocused,
+        Action::ToggleFloat,
+        Action::GrowWidth,
+        Action::ShrinkHeight,
     ];
 
     // Act / Assert
@@ -28,6 +31,7 @@ fn the_layout_monocle_and_workspace_switches_act_on_a_monitor() {
         Action::GoToWorkspace(3),
         Action::GoToWorkspaceNext,
         Action::GoToWorkspacePrev,
+        Action::CycleFloat,
     ];
 
     // Act / Assert

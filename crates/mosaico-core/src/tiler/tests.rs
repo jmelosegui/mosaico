@@ -8,7 +8,7 @@ use crate::{Action, MonitorId, MonitorKey, Rect, WindowEvent, WindowId, Workspac
 
 use super::*;
 
-use fake_desktop::{FakeDesktop, FakeWindow};
+pub(super) use fake_desktop::{FakeDesktop, FakeWindow};
 pub(super) use harness::Harness;
 
 #[path = "tests/adopt_order_kept_tests.rs"]

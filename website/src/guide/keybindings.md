@@ -59,6 +59,10 @@ modifiers = ["alt", "shift"]
 | `move-down` | Move window down |
 | `retile` | Re-apply the tiling layout, with the splits you moved back at the configured ratio, or an equal share in a stack |
 | `toggle-monocle` | Toggle monocle (full-screen) mode |
+| `toggle-float` | Float the focused window above the tiles, or tile it again |
+| `cycle-float` | Focus the next floating window of the workspace on screen |
+| `grow-width` / `shrink-width` | Widen or narrow the focused floating window by one step |
+| `grow-height` / `shrink-height` | Heighten or shorten the focused floating window by one step |
 | `cycle-layout` | Cycle to the next tiling layout (BSP -> VStack -> 3Col) |
 | `close-focused` | Close the focused window |
 | `minimize-focused` | Minimize the focused window |

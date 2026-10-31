@@ -2,8 +2,6 @@
 
 use crate::config::WorkspaceMode;
 
-use crate::WindowId;
-
 use super::focus::focus_target;
 use super::{Plan, Tiler};
 
@@ -55,12 +53,12 @@ impl Tiler {
         let last_focused = if refocus { self.focused_window } else { None };
         let mon = &mut self.monitors[mon_idx];
         mon.active_ws_mut().set_last_focused(last_focused);
-        let leaving: Vec<WindowId> = mon.active_ws().windows().to_vec();
+        let leaving = mon.active_ws().shown();
         let prev_ws = mon.active_workspace;
         mon.active_workspace = idx;
 
         let how = self.layout.hiding;
-        for &window in self.monitors[mon_idx].active_ws().windows() {
+        for window in self.monitors[mon_idx].active_ws().shown() {
             self.hidden_how.show(plan, window, how);
         }
 
@@ -109,7 +107,7 @@ impl Tiler {
         };
         if mon.active_workspace == target_ws
             || target_ws >= mon.workspaces.len()
-            || !mon.active_ws().contains(window)
+            || !mon.active_ws().holds(window)
         {
             return;
         }
@@ -117,13 +115,17 @@ impl Tiler {
         let how = self.layout.hiding;
 
         let mon = &mut self.monitors[mon_idx];
-        mon.active_ws_mut().remove(window);
-        mon.workspaces[target_ws].add(window);
-        for &other in mon.active_ws().windows() {
+        if mon.active_ws_mut().remove_floating(window) {
+            mon.workspaces[target_ws].add_floating(window);
+        } else {
+            mon.active_ws_mut().remove(window);
+            mon.workspaces[target_ws].add(window);
+        }
+        for other in mon.active_ws().shown() {
             self.hidden_how.hide(plan, other, how);
         }
         mon.active_workspace = target_ws;
-        for &shown in self.monitors[mon_idx].active_ws().windows() {
+        for shown in self.monitors[mon_idx].active_ws().shown() {
             self.hidden_how.show(plan, shown, how);
         }
 

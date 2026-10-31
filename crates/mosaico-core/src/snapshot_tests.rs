@@ -22,7 +22,7 @@ fn window(raw: u64, title: &str) -> WindowSnapshot {
 }
 
 /// Two monitors: the first on its second workspace with three windows
-/// over two workspaces, the second with none.
+/// over two workspaces and one floating window, the second with none.
 fn snapshot() -> DesktopSnapshot {
     let hidden = WindowSnapshot {
         cloaked: true,
@@ -40,9 +40,11 @@ fn snapshot() -> DesktopSnapshot {
                     WorkspaceSnapshot::default(),
                     WorkspaceSnapshot {
                         windows: vec![window(0x4014E, "a.txt - Notepad"), hidden],
+                        ..Default::default()
                     },
                     WorkspaceSnapshot {
                         windows: vec![window(0x6030C, "c")],
+                        floating: vec![window(0x7040E, "d")],
                     },
                 ],
             },
@@ -73,8 +75,9 @@ fn the_snapshot_prints_as_the_debug_state_text() {
   Workspace 2 (2 windows):
     0x4014E  visible=true  minimized=false  cloaked=false  elevated=false  rect=960x1040+0+40  class="Notepad"  title="a.txt - Notepad"
     0x5020A  visible=true  minimized=false  cloaked=true  elevated=false  rect=N/A  class="Notepad"  title="b \"quoted\""
-  Workspace 3 (1 window):
+  Workspace 3 (1 window, 1 floating):
     0x6030C  visible=true  minimized=false  cloaked=false  elevated=false  rect=960x1040+0+40  class="Notepad"  title="c"
+    0x7040E  visible=true  minimized=false  cloaked=false  elevated=false  rect=960x1040+0+40  class="Notepad"  title="d"  floating
 Monitor 1 (id=0x20003, key=unknown, work_area=1920x1080+1920+0, active_ws=1):
 Disconnected monitors: [DISPLAY2]; [DISPLAY3], displaced windows: 2
 Self elevated: false

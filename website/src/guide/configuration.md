@@ -154,7 +154,8 @@ type = "cpu"
 
 ## `rules.toml` and `user-rules.toml`
 
-Window rules control which applications are tiled. Community rules are
+Window rules decide which windows are tiled, which float above the tiles
+and which are left alone. Community rules are
 downloaded automatically to `rules.toml` on daemon startup. Add personal
 overrides in `user-rules.toml` (user rules take priority).
 
@@ -164,7 +165,7 @@ See [Window Rules](window-rules.md) for details.
 # user-rules.toml — your personal overrides
 [[rule]]
 match_title = "My Private Tool"
-manage = false
+action = "ignore"
 ```
 
 ## Partial Files

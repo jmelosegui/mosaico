@@ -1,6 +1,6 @@
 //! What ends a motion, effect by effect.
 
-use crate::config::WindowRule;
+use crate::config::{RuleAction, WindowRule};
 use crate::id::wid;
 use crate::tiler::tests::manager_support::tiled;
 use crate::{Action, WindowEvent};
@@ -110,7 +110,7 @@ fn a_moving_window_the_rules_let_go_of_ends_in_its_slot() {
         match_class: None,
         match_title: Some("let go".into()),
         match_path: None,
-        manage: false,
+        action: RuleAction::Ignore,
     };
 
     // Act

@@ -185,7 +185,7 @@ fn rule_reload_lets_go_of_windows_no_longer_managed() {
         match_class: Some("Excluded".into()),
         match_title: None,
         match_path: None,
-        manage: false,
+        action: crate::config::RuleAction::Ignore,
     };
 
     // Act

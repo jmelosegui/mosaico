@@ -11,7 +11,7 @@ impl Tiler {
     /// by [`Expectations`](super::Expectations), so this is either the
     /// user picking a window or the OS handing focus on by itself.
     pub(super) fn on_focused(&mut self, plan: &mut Plan, window: WindowId) {
-        if let Some((mon_idx, ws_idx)) = self.find_window(window) {
+        if let Some((mon_idx, ws_idx)) = self.find_managed(window) {
             if ws_idx != self.monitors[mon_idx].active_workspace {
                 // The window is on a workspace that is not on screen,
                 // which happens when the user picks it from the taskbar.
@@ -53,8 +53,11 @@ impl Tiler {
             } else {
                 self.update_border(plan);
             }
+            // The system brought the window to the front: a tile goes back
+            // behind the floating windows of its workspace.
+            self.keep_floats_in_front(plan, window);
         } else if let Some(owner) = plan.owner(window)
-            && let Some(idx) = self.owning_monitor(owner)
+            && let Some((idx, _)) = self.find_managed(owner)
         {
             // A dialog or property sheet of a managed window got focus.
             // Put the border on its owner so the user can see which

@@ -23,7 +23,7 @@ fn tile_app() -> WindowRule {
         match_class: Some("App".into()),
         match_title: None,
         match_path: None,
-        manage: true,
+        action: RuleAction::Tile,
     }
 }
 
@@ -44,7 +44,7 @@ fn prints_each_window_and_monitor() {
         "  0x4014E  app\n\
          \x20      Class: App\n\
          \x20      Path: C:\\apps\\app.exe\n\
-         \x20      Managed: yes  Monitor: 2  State: normal\n\
+         \x20      Managed: tiled  Monitor: 2  State: normal\n\
          \x20      Rect: 640x480 at (100, 100)  Border: L:7 T:0 R:7 B:7\n\
          \n\
          1 windows found\n\
@@ -71,8 +71,8 @@ fn numbers_monitors_from_the_left_whatever_order_the_platform_finds_them_in() {
     assert_eq!(
         status_lines(&out),
         [
-            "Managed: yes  Monitor: 1  State: normal",
-            "Managed: yes  Monitor: 2  State: normal",
+            "Managed: tiled  Monitor: 1  State: normal",
+            "Managed: tiled  Monitor: 2  State: normal",
         ]
     );
     let left = out.find("Monitor 1 (primary): 1920x1040 at (0, 0)");
@@ -93,7 +93,7 @@ fn a_window_on_a_monitor_that_is_not_listed_has_no_monitor_number() {
     // Assert
     assert_eq!(
         status_lines(&h.out()),
-        ["Managed: yes  Monitor: ?  State: normal"]
+        ["Managed: tiled  Monitor: ?  State: normal"]
     );
 }
 
@@ -120,7 +120,7 @@ fn a_window_without_a_title_bar_is_managed_only_when_a_rule_asks_for_it() {
     );
     assert_eq!(
         status_lines(&with_rule.out()),
-        ["Managed: yes  Monitor: 1  State: normal"]
+        ["Managed: tiled  Monitor: 1  State: normal"]
     );
 }
 
@@ -177,8 +177,8 @@ fn lists_the_windows_without_monitor_numbers_when_the_monitors_cannot_be_listed(
     assert_eq!(
         status_lines(&out),
         [
-            "Managed: yes  Monitor: ?  State: normal",
-            "Managed: yes  Monitor: ?  State: normal",
+            "Managed: tiled  Monitor: ?  State: normal",
+            "Managed: tiled  Monitor: ?  State: normal",
         ]
     );
     assert!(out.ends_with("2 windows found\n\n"), "{out}");

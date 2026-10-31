@@ -12,9 +12,7 @@
 use std::collections::HashMap;
 
 use crate::layout::OwnSplits;
-use crate::{MonitorKey, Workspace};
-
-use crate::WindowId;
+use crate::{MonitorKey, WindowId, Workspace};
 
 use super::MonitorState;
 
@@ -44,6 +42,7 @@ struct Displaced {
     splits: OwnSplits,
     host: MonitorKey,
     host_workspace: usize,
+    floating: bool,
 }
 
 impl ReconnectMemory {
@@ -60,13 +59,14 @@ impl ReconnectMemory {
             // Each window takes its own splits with it as it leaves.
             let owned = |k| ws.split_ratios().owned_by(k);
             let splits: Vec<OwnSplits> = (0..ws.len()).map(owned).collect();
+            let target = host.workspaces.len().saturating_sub(1).min(wi);
             for (slot, window) in ws.windows().to_vec().into_iter().enumerate() {
                 ws.remove(window);
-                let target = host.workspaces.len().saturating_sub(1).min(wi);
                 host.workspaces[target].add(window);
                 moved.push(window);
                 self.record(window, &gone.key, (wi, slot, splits[slot]), &host.key);
             }
+            moved.extend(self.park_floats(ws, (wi, target), &gone.key, host));
             ws.set_last_focused(last_focused);
         }
         if !gone.key.is_unknown() {
@@ -105,6 +105,7 @@ impl ReconnectMemory {
             splits,
             host: host.clone(),
             host_workspace: ws,
+            floating: false,
         });
         entry.host = host.clone();
         entry.host_workspace = ws;
