@@ -4,6 +4,7 @@ use crate::Result;
 
 use super::merge_animations::append_missing_animations_hint;
 use super::merge_mouse::append_missing_mouse_hints;
+use super::merge_tray::append_missing_tray_hint;
 use super::merge_unfocused::append_missing_unfocused_border_hint;
 use super::merge_wrap::add_missing_wrap_key;
 use super::{ConfigStore, append_to_file, file_error, read_file};
@@ -46,6 +47,9 @@ impl ConfigStore {
     /// - Resizing tiles by the edge between them. A comment block about
     ///   `resize_splits` is appended, unless the file mentions it anywhere.
     /// - Window transitions. A comment block about the `[animations]`
+    ///   section is appended, unless the file has the section, active or
+    ///   commented out.
+    /// - The notification area icon. A comment block about the `[tray]`
     ///   section is appended, unless the file has the section, active or
     ///   commented out.
     ///
@@ -101,6 +105,15 @@ impl ConfigStore {
             ),
             Ok(false) => {}
             Err(e) => crate::log_warn!("Could not add the [animations] hint: {e}"),
+        }
+
+        match append_missing_tray_hint(&path) {
+            Ok(true) => crate::log_info!(
+                "Appended [tray] hint to {} (new in this version)",
+                path.display()
+            ),
+            Ok(false) => {}
+            Err(e) => crate::log_warn!("Could not add the [tray] hint: {e}"),
         }
     }
 }

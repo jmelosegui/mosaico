@@ -5,6 +5,8 @@ mod merge_bar_mouse;
 mod merge_config;
 mod merge_keybindings;
 mod merge_mouse;
+mod merge_section_hint;
+mod merge_tray;
 mod merge_unfocused;
 mod merge_wrap;
 mod migrate;

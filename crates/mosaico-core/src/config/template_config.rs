@@ -94,6 +94,12 @@ easing = "ease-out-cubic"
 # settings ("Animation effects" on Windows), and in a remote session.
 follow_system = true
 
+[tray]
+# Show the mosaico icon in the notification area while the daemon runs.
+# Click it to open the settings; its menu also pauses the hotkeys, reloads
+# the config and quits mosaico.
+enabled = true
+
 [logging]
 # Enable file logging to ~/.config/mosaico/logs/mosaico.log.
 enabled = false

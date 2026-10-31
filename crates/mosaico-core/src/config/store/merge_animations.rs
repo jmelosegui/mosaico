@@ -2,7 +2,7 @@ use std::path::Path;
 
 use crate::Result;
 
-use super::{append_to_file, file_error, read_file};
+use super::merge_section_hint::append_section_hint;
 
 /// Comment block appended to `config.toml` when the file has no
 /// `[animations]` section, so existing users discover window transitions
@@ -38,32 +38,8 @@ pub(super) const ANIMATIONS_HINT_SNIPPET: &str = r##"
 /// Returns `Ok(true)` when it appended the block. A second run finds the
 /// block and does nothing.
 pub(super) fn append_missing_animations_hint(path: &Path) -> Result<bool> {
-    let content = read_file(path)?;
-
-    let doc: toml_edit::DocumentMut = content.parse().map_err(|e| file_error(path, e))?;
-    if doc.contains_key("animations") || content.lines().any(is_animations_header) {
-        return Ok(false);
-    }
-
-    let mut to_append = String::new();
-    if !content.ends_with('\n') {
-        to_append.push('\n');
-    }
-    to_append.push_str(ANIMATIONS_HINT_SNIPPET);
-
-    append_to_file(path, &to_append)?;
-    Ok(true)
+    append_section_hint(path, "animations", ANIMATIONS_HINT_SNIPPET)
 }
-
-/// Whether `line` is the `[animations]` header, commented out or not,
-/// with spaces allowed inside the brackets. A line that only mentions
-/// the section is not.
-fn is_animations_header(line: &str) -> bool {
-    let line = line.trim_start().trim_start_matches('#').trim_start();
-    let key = line.strip_prefix('[').and_then(|rest| rest.split_once(']'));
-    key.is_some_and(|(key, _)| key.trim() == "animations")
-}
-
 #[cfg(test)]
 #[path = "tests/merge_animations_tests.rs"]
 mod tests;

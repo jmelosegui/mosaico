@@ -35,6 +35,9 @@ fn config_template_matches_default_values() {
     assert_eq!(config.layout.ratio, defaults.layout.ratio);
     assert_eq!(config.borders.width, defaults.borders.width);
     assert_eq!(config.mouse, defaults.mouse);
+    assert_eq!(config.tray, defaults.tray);
+    let file: toml::Table = toml::from_str(&toml_str).unwrap();
+    assert_eq!(file["tray"]["enabled"].as_bool(), Some(true));
     // Border colors should resolve from the default Mocha theme.
     assert_eq!(
         config.borders.colors.focused,

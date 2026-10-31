@@ -27,6 +27,8 @@ mod store;
 pub mod template;
 /// Theme resolution and color schemes.
 pub mod theme;
+/// The icon in the notification area.
+mod tray;
 /// Shared configuration types.
 pub mod types;
 /// The kinds of bar widget, by name.
@@ -50,6 +52,7 @@ pub use store::ConfigStore;
 pub use theme::{
     CatppuccinFlavor, RosePineFlavor, Theme, ThemeCheck, ThemeConfig, TokyoNightFlavor,
 };
+pub use tray::TrayConfig;
 pub use types::*;
 pub use widget_kind::WidgetKind;
 pub use workspaces::{WorkspaceMode, WorkspacesConfig};
@@ -73,6 +76,8 @@ pub struct Config {
     pub mouse: MouseConfig,
     /// Window transitions.
     pub animations: AnimationConfig,
+    /// The icon in the notification area.
+    pub tray: TrayConfig,
     /// Logging settings.
     pub logging: crate::log::LogConfig,
 }
