@@ -35,25 +35,28 @@ search and navigation, and settings grouped in bordered cards.
 
 Start FigCraft in control mode from the repo root, so it can read `assets/` and write here:
 
-```powershell
-& 'C:\Program Files\FigCraft\figcraft.exe' --control 7879 `
-    --automation-read-root $PWD --automation-write-root "$PWD\design"
+```sh
+figcraft --control 7879 --automation-read-root "$PWD" --automation-write-root "$PWD/design"
 ```
+
+On Windows the installer does not add FigCraft to the `PATH`, so run `& "$env:ProgramFiles\FigCraft\figcraft.exe"`
+with the same arguments.
 
 Open `design/settings/settings.figcraft`, then rebuild every window, save and export:
 
-```powershell
+```sh
 node design/settings/all.js
 ```
 
 To work on one window, rebuild it at its place in the grid (Mocha at x 0, Latte at x 1060, one row of 780 per
 page in the order of `all.js`) and render only the windows whose names match:
 
-```powershell
+```sh
 node design/settings/build.js Bar mocha 0 4680
 node design/settings/export.js "Bar / Mocha"
 ```
 
 Sketches are drawn in Catppuccin Mocha and Latte only. The app itself supports every theme.
 
-`FG_PORT` overrides the control port and `FIGCRAFT_CLI` the path to `figcraft-cli.exe`.
+The scripts look for `figcraft-cli` on the `PATH`, and on Windows also in `%ProgramFiles%\FigCraft`. Set
+`FIGCRAFT_CLI` to its full path if it is somewhere else, and `FG_PORT` to use another control port.

@@ -1,8 +1,21 @@
 // One MCP session attached to the running FigCraft app, with await-able calls.
 const { spawn } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+
+// FIGCRAFT_CLI wins, then figcraft-cli on the PATH, then the folder the Windows installer uses.
+function findCli() {
+    if (process.env.FIGCRAFT_CLI) return process.env.FIGCRAFT_CLI;
+    const name = process.platform === 'win32' ? 'figcraft-cli.exe' : 'figcraft-cli';
+    const dirs = (process.env.PATH || '').split(path.delimiter).filter(Boolean);
+    if (process.platform === 'win32' && process.env.ProgramFiles) dirs.push(path.join(process.env.ProgramFiles, 'FigCraft'));
+    const found = dirs.map((d) => path.join(d, name)).find((p) => fs.existsSync(p));
+    if (!found) throw new Error(`${name} not found. Add FigCraft to the PATH or set FIGCRAFT_CLI to its path.`);
+    return found;
+}
 
 function connect(port = process.env.FG_PORT || '7879') {
-    const child = spawn(process.env.FIGCRAFT_CLI || 'C:/Program Files/FigCraft/figcraft-cli.exe', ['mcp', '--attach', port, '--timeout', '120']);
+    const child = spawn(findCli(), ['mcp', '--attach', port, '--timeout', '120']);
     const pending = new Map();
     let next = 1;
     let buffer = '';
