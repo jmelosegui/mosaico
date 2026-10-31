@@ -72,7 +72,7 @@ impl ConfigStore {
 }
 
 /// Formats a single keybinding as a `[[keybinding]]` TOML entry.
-fn keybinding_toml_entry(kb: &Keybinding) -> String {
+pub(super) fn keybinding_toml_entry(kb: &Keybinding) -> String {
     let modifiers: Vec<String> = kb
         .modifiers
         .iter()
