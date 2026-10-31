@@ -2,6 +2,7 @@
 //! for the CLI, and whether mosaico itself runs elevated, for the desktop.
 
 use std::os::windows::process::CommandExt;
+use std::path::Path;
 use std::process::{Command, Stdio};
 
 use mosaico_core::Result;
@@ -119,6 +120,18 @@ impl ProcessControl for WindowsProcesses {
             .creation_flags(DETACH_FLAGS)
             .spawn()
             .or_platform("start the daemon")?;
+        Ok(child.id())
+    }
+
+    /// Runs `program` detached, with its standard streams closed.
+    fn launch(&self, program: &Path) -> Result<u32> {
+        let child = Command::new(program)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .creation_flags(DETACH_FLAGS)
+            .spawn()
+            .or_platform("start the program")?;
         Ok(child.id())
     }
 

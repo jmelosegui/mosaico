@@ -10,6 +10,8 @@ mod interrupt;
 mod setup;
 mod single_instance;
 
+use std::path::Path;
+
 use crate::Result;
 
 pub use autostart::{Autostart, LaunchCommand};
@@ -33,6 +35,12 @@ pub use single_instance::{InstanceLock, SingleInstance};
 ///   cannot be started.
 /// - `is_alive` answers for any process id, not only daemons; an id that
 ///   was never used, or whose process has exited, is not alive.
+/// - `launch` starts the program at `program` in the background and
+///   returns its process id without waiting for it, detached from the
+///   caller's console as the daemon is. It inherits the caller's
+///   environment, so a program of the mosaico family belongs to the same
+///   instance. It fails with [`Error::Platform`](crate::Error::Platform)
+///   when the program cannot be started.
 /// - `kill` ends the process without giving it a chance to clean up. It
 ///   fails with [`Error::Platform`](crate::Error::Platform) when the
 ///   process could not be ended, for example because the caller is not
@@ -42,6 +50,10 @@ pub use single_instance::{InstanceLock, SingleInstance};
 pub trait ProcessControl {
     /// Starts a daemon in the background and returns its process id.
     fn launch_daemon(&self) -> Result<u32>;
+
+    /// Starts the program at `program` in the background and returns its
+    /// process id.
+    fn launch(&self, program: &Path) -> Result<u32>;
 
     /// Whether a process with this id is running.
     fn is_alive(&self, pid: u32) -> bool;

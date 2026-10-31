@@ -58,6 +58,8 @@ enum Commands {
     Pause,
     /// Resume all mosaico hotkeys
     Unpause,
+    /// Open the settings window
+    Settings,
     /// Update mosaico to the latest release
     Update {
         /// Reinstall even if already on the latest version
@@ -141,6 +143,7 @@ fn run(cx: &mut Context, command: Commands) -> Exit {
         Commands::Pause => commands::pause::pause(cx),
         Commands::Unpause => commands::pause::unpause(cx),
         Commands::Banner => commands::banner::execute(cx),
+        Commands::Settings => commands::settings::execute(cx),
         Commands::Update { force } => commands::update::execute(cx, force),
         Commands::Action { action } => commands::action::execute(cx, action.action()),
         Commands::Debug {
