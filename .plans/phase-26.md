@@ -1,6 +1,6 @@
 # Phase 26: Floating Windows
 
-**Status:** In progress
+**Status:** Complete
 
 **Goal:** Let a managed window leave the layout and float above the tiles of
 its workspace, from a key or from a window rule, without becoming unmanaged.
@@ -201,4 +201,4 @@ other floats.
 - [x] 26.11 `debug state` lists floating windows
 - [x] 26.12 Metric scenarios for toggling and switching with floating windows
 - [x] 26.13 Docs: window rules, keybindings, configuration, website guide
-- [ ] 26.14 Manual verification on the live desktop
+- [x] 26.14 Manual verification on the live desktop
