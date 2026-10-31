@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use crate::config::WindowRule;
+use crate::config::{RuleAction, WindowRule};
 use crate::id::wid;
 use crate::tiler::Platform;
 use crate::tiler::tests::fake_platform::Call;
@@ -66,7 +66,7 @@ fn a_moving_window_the_rules_let_go_of_has_no_border_drawn_for_it() {
         match_class: None,
         match_title: Some("let go".into()),
         match_path: None,
-        manage: false,
+        action: RuleAction::Ignore,
     };
 
     // Act

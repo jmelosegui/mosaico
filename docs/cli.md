@@ -246,6 +246,10 @@ mosaico action move up
 mosaico action move down
 mosaico action retile
 mosaico action toggle-monocle
+mosaico action toggle-float
+mosaico action cycle-float
+mosaico action grow-width
+mosaico action shrink-height
 mosaico action close-focused
 mosaico action cycle-layout
 mosaico action go-to-workspace 3

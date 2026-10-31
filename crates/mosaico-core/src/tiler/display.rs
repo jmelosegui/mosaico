@@ -121,9 +121,8 @@ impl Tiler {
         // they appear in their final place. One whose slot cannot be set
         // while it is out of view is shown before it instead, as a
         // workspace switch does (see `HiddenHow::shown_first`).
-        let (shown, hidden): (Vec<WindowId>, Vec<WindowId>) = moved
-            .into_iter()
-            .partition(|&w| self.is_on_active_workspace(w));
+        let (shown, hidden): (Vec<WindowId>, Vec<WindowId>) =
+            moved.into_iter().partition(|&w| self.is_in_view(w));
         self.settle_focus(plan, &hidden, &waiting);
         let how = self.layout.hiding;
         for &window in &hidden {
@@ -143,7 +142,7 @@ impl Tiler {
         }
         self.put_shown_behind(plan, &waiting, &shown);
         self.repaint_visible(plan);
-        self.update_border(plan);
+        self.settle_floats(plan);
     }
 }
 

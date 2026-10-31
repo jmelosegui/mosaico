@@ -1,7 +1,7 @@
 //! The tiling manager on a fake platform: what it takes from the config
 //! and the window rules.
 
-use crate::config::{Config, CornerStyle, WindowRule};
+use crate::config::{Config, CornerStyle, RuleAction, WindowRule};
 use crate::{Direction, LayoutKind};
 
 use super::fake_platform::{Call, FakePlatform};
@@ -109,7 +109,7 @@ fn floating() -> WindowRule {
         match_class: Some("Floating".into()),
         match_title: None,
         match_path: None,
-        manage: false,
+        action: RuleAction::Ignore,
     }
 }
 

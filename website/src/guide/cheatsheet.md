@@ -17,6 +17,10 @@ Alt + 1 .. Alt + 8       switch to workspace N
 Alt + Shift + 1 .. 8     send focused window to workspace N
 Alt + N                  cycle layout (BSP -> VStack -> 3Col)
 Alt + T                  toggle monocle (full-screen one window)
+Alt + F                  float the focused window, or tile it again
+Alt + Shift + F          focus the next floating window
+Alt + . / Alt + ,        widen / narrow the focused floating window
+Alt + Shift + . / ,      heighten / shorten the focused floating window
 Alt + M                  minimize focused window
 Alt + Q                  close focused window
 Alt + Shift + R          retile (re-apply current layout, splits back)

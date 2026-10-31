@@ -121,7 +121,7 @@ impl ConfigStore {
     /// Loads and merges both rule sets: user rules first, then community rules.
     ///
     /// User rules are prepended so they take priority (first match wins
-    /// in [`should_manage`](crate::config::should_manage)). Falls back
+    /// in [`matching_rule`](crate::config::matching_rule)). Falls back
     /// gracefully if either file is missing or invalid.
     pub fn load_merged_rules(&self) -> Vec<WindowRule> {
         let mut rules = self.load_user_rules();

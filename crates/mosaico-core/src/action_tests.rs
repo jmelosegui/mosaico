@@ -21,6 +21,12 @@ fn roundtrip_all_actions() {
         Action::SendToWorkspace(8),
         Action::CycleLayout,
         Action::TogglePause,
+        Action::ToggleFloat,
+        Action::CycleFloat,
+        Action::GrowWidth,
+        Action::ShrinkWidth,
+        Action::GrowHeight,
+        Action::ShrinkHeight,
     ];
     for action in &actions {
         let s = action.to_string();

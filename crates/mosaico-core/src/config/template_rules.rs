@@ -43,20 +43,25 @@ pub fn generate_user_rules() -> String {
 # Only add rules here for personal preferences that don't apply to all
 # users (e.g., tiling a specific app that most people would exclude).
 
-# Example: force-tile a window that community rules exclude
+# Example: tile a window that community rules ignore
 # [[rule]]
 # match_class = "MySpecialApp"
-# manage = true
+# action = "tile"
 
-# Example: exclude a personal app
+# Example: float a window above the tiles instead of tiling it
+# [[rule]]
+# match_title = "Picture-in-Picture"
+# action = "float"
+
+# Example: leave a personal app alone
 # [[rule]]
 # match_title = "My Private Tool"
-# manage = false
+# action = "ignore"
 
 # Example: match by executable (file name, partial path, or full path)
 # [[rule]]
 # match_path = "mytool.exe"
-# manage = true
+# action = "tile"
 "#
     .to_string()
 }

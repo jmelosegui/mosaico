@@ -93,6 +93,7 @@ impl Tiler {
         self.forget_live(plan, monitor_idx);
         self.prune_stale_handles(plan, monitor_idx);
         self.learn_min_sizes(plan, monitor_idx);
+        self.floats_follow_monocle(plan, monitor_idx);
 
         let Some(state) = self.monitors.get(monitor_idx) else {
             return;

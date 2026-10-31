@@ -1,7 +1,7 @@
 //! What a rules reload leaves behind when it lets go of a hidden window
 //! (#111).
 
-use crate::config::WindowRule;
+use crate::config::{RuleAction, WindowRule};
 
 use super::*;
 
@@ -14,7 +14,7 @@ fn rejecting(h: &mut Harness, window: u64) -> Vec<WindowRule> {
         match_class: Some("Excluded".into()),
         match_title: None,
         match_path: None,
-        manage: false,
+        action: RuleAction::Ignore,
     }]
 }
 

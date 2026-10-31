@@ -1,19 +1,25 @@
 /// Window rule types and evaluation logic.
 ///
-/// Rules determine which windows Mosaico should manage (tile) and
-/// which should be left floating. They are evaluated in order — the
-/// first matching rule wins.
+/// Rules decide which windows Mosaico tiles, which it floats and which
+/// it leaves alone. They are evaluated in order: the first matching rule
+/// wins.
 use serde::{Deserialize, Serialize};
 
 use crate::{Error, Result};
 
 use super::keybinding::{self, Keybinding};
+use super::rule_action::{RawRule, RuleAction};
 
-/// A rule that determines whether a window should be managed (tiled).
+/// A rule that decides what happens to the windows it matches.
 ///
-/// Rules are evaluated in order. The first matching rule wins.
-/// If no rule matches, the window is managed by default.
+/// Rules are evaluated in order. The first matching rule wins. See
+/// [`decide`](super::decide) for windows no rule matches.
+///
+/// A rules file writes what the rule does as `action = "tile"`,
+/// `"float"` or `"ignore"`, or as the older `manage = true` or `false`,
+/// which mean `"tile"` and `"ignore"`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "RawRule")]
 pub struct WindowRule {
     /// Match windows with this exact class name (case-insensitive).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -27,8 +33,8 @@ pub struct WindowRule {
     /// `"Vendor\\app.exe"`, or a full path.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub match_path: Option<String>,
-    /// Whether matching windows should be managed (tiled).
-    pub manage: bool,
+    /// What happens to matching windows.
+    pub action: RuleAction,
 }
 
 /// Returns the default window rules (empty).
@@ -39,27 +45,16 @@ pub fn default_rules() -> Vec<WindowRule> {
     Vec::new()
 }
 
-/// Evaluates window rules to decide if a window should be managed.
-///
-/// Returns `true` if the window should be tiled. When no rule matches,
-/// defaults to `true`.
-///
-/// `path` is the full path of the window's executable, or empty if it
-/// could not be determined.
-pub fn should_manage(class: &str, title: &str, path: &str, rules: &[WindowRule]) -> bool {
-    matching_rule(class, title, path, rules).unwrap_or(true)
-}
-
-/// Returns the `manage` value of the first rule matching the window,
-/// or `None` when no rule matches.
-///
-/// Used for windows that only get tiled when a rule explicitly opts
-/// them in, such as app windows that draw their own title bar.
-pub fn matching_rule(class: &str, title: &str, path: &str, rules: &[WindowRule]) -> Option<bool> {
+/// The first rule matching the window, or `None` when no rule matches.
+pub fn matching_rule<'a>(
+    class: &str,
+    title: &str,
+    path: &str,
+    rules: &'a [WindowRule],
+) -> Option<&'a WindowRule> {
     rules
         .iter()
         .find(|rule| matches_rule(class, title, path, rule))
-        .map(|rule| rule.manage)
 }
 
 fn matches_rule(class: &str, title: &str, path: &str, rule: &WindowRule) -> bool {

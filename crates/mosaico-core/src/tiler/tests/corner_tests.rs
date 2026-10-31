@@ -1,6 +1,6 @@
 //! The corners the tiler gives the windows it manages, and gives back.
 
-use crate::config::WindowRule;
+use crate::config::{RuleAction, WindowRule};
 
 use super::*;
 
@@ -33,7 +33,7 @@ fn a_window_the_rules_leave_alone_keeps_its_own_corners() {
         match_class: Some("Floating".into()),
         match_title: None,
         match_path: None,
-        manage: false,
+        action: RuleAction::Ignore,
     };
     let settings = Settings {
         rules: vec![rule],

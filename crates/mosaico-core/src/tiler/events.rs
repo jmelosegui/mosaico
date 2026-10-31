@@ -21,7 +21,7 @@ impl Tiler {
                 }
                 // The window may already be back, for example when a
                 // focus event beat this one during Alt+Tab.
-                if self.find_window(window).is_some() {
+                if self.find_managed(window).is_some() {
                     self.focus_window(plan, window, false);
                     return;
                 }
@@ -32,6 +32,7 @@ impl Tiler {
                 self.filling.forget(window);
                 self.reconnect.forget(window);
                 self.hidden_how.forget(window);
+                self.floats.forget(window);
                 self.undecorate(plan, window);
                 self.remove_from_tiling(plan, window, "del", false);
             }
@@ -75,7 +76,7 @@ impl Tiler {
             WindowEvent::TitleChanged { window } => {
                 // Some applications only become recognizable once their
                 // title is set, and never report being created or shown.
-                if self.find_window(window).is_none() {
+                if self.find_managed(window).is_none() {
                     self.try_adopt(plan, window);
                 }
             }
@@ -111,6 +112,13 @@ impl Tiler {
             return;
         }
         let maximized = plan.is_maximized(window);
+        // A floating window is the user's to move, so its border follows
+        // it on every frame.
+        if self.find_floating(window).is_some() {
+            self.focused_maximized = maximized;
+            self.update_border(plan);
+            return;
+        }
         if maximized == self.focused_maximized {
             return;
         }

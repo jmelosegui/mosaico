@@ -137,6 +137,29 @@ repaint = 2
 show_border = 10
 show_preview = 1
 
+[float_grow_width]
+border_renders = 1
+calls = 6
+place = 1
+repaint = 1
+show_border = 4
+
+[float_nudge_burst_of_9]
+border_renders = 0
+calls = 54
+place = 9
+repaint = 9
+show_border = 36
+
+[float_on_and_off]
+border_renders = 6
+calls = 22
+focus = 1
+move_cursor = 1
+place = 6
+repaint = 6
+show_border = 8
+
 [focus_burst_of_9]
 border_renders = 0
 calls = 38
@@ -218,6 +241,16 @@ place = 2
 place_frames = 11
 repaint = 2
 show_border = 4
+
+[open_floating_by_rule]
+border_renders = 1
+calls = 10
+focus = 1
+move_cursor = 1
+place = 1
+repaint = 1
+set_corners = 1
+show_border = 5
 
 [open_next_to_1]
 border_renders = 2

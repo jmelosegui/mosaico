@@ -178,6 +178,10 @@ Actions use custom `FromStr`/`Display` implementations for serde:
 - `Move(Right)` -> `"move-right"`
 - `Retile` -> `"retile"`
 - `ToggleMonocle` -> `"toggle-monocle"`
+- `ToggleFloat` -> `"toggle-float"`
+- `CycleFloat` -> `"cycle-float"`
+- `GrowWidth` / `ShrinkWidth` -> `"grow-width"` / `"shrink-width"`
+- `GrowHeight` / `ShrinkHeight` -> `"grow-height"` / `"shrink-height"`
 - `CycleLayout` -> `"cycle-layout"`
 - `CloseFocused` -> `"close-focused"`
 - `GoToWorkspace(3)` -> `"goto-workspace-3"`

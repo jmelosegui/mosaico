@@ -14,7 +14,7 @@ use super::{Effect, Plan, Tiler};
 /// out, rules that stop managing it, and the layout finding it gone or
 /// minimized. Moving it to another workspace or monitor does not.
 pub(super) fn untile(plan: &mut Plan, ws: &mut Workspace, window: WindowId) {
-    if ws.remove(window) {
+    if ws.remove(window) || ws.remove_floating(window) {
         plan.emit(Effect::Untile { window });
     }
 }
@@ -32,7 +32,7 @@ impl Tiler {
         reason: &str,
         active_only: bool,
     ) {
-        let Some((mon_idx, ws_idx)) = self.find_window(window) else {
+        let Some((mon_idx, ws_idx)) = self.find_managed(window) else {
             return;
         };
         let on_active = ws_idx == self.monitors[mon_idx].active_workspace;
@@ -44,6 +44,10 @@ impl Tiler {
         // and its id may go to a new window.
         self.hidden_how.forget(window);
         let ws = &mut self.monitors[mon_idx].workspaces[ws_idx];
+        if ws.is_floating(window) && reason != "del" {
+            let rect = plan.rect(window).filter(|_| !plan.is_minimized(window));
+            self.floats.went_away(window, rect);
+        }
         untile(plan, ws, window);
         crate::log_info!(
             "-{} {} from mon {} ws {} (now {})",
@@ -65,7 +69,7 @@ impl Tiler {
                 let ws = &self.monitors[mon_idx].workspaces[ws_idx];
                 let replacement = ws
                     .last_focused()
-                    .filter(|&w| ws.contains(w))
+                    .filter(|&w| ws.holds(w))
                     .or_else(|| ws.windows().first().copied());
                 if let Some(next) = replacement {
                     self.focus_window(plan, next, false);
@@ -95,19 +99,30 @@ impl Tiler {
     /// the display change that brings it into view, by moving it or by
     /// switching its monitor's workspace, shows it after this retile
     /// (#119, #124).
+    /// A floating window the tiler hid, as monocle does, is kept the same
+    /// way while it is still out of view the way the tiler left it.
     pub(super) fn prune_stale_handles(&mut self, plan: &mut Plan, monitor_idx: usize) {
         let Some(state) = self.monitors.get_mut(monitor_idx) else {
             return;
         };
-        let stale: Vec<WindowId> = state
-            .active_ws()
+        let ws = state.active_ws();
+        let floating = ws
+            .floating()
+            .iter()
+            .filter(|&&w| self.hidden_how.still_hidden(plan, w).is_none());
+        let stale: Vec<WindowId> = ws
             .windows()
             .iter()
+            .filter(|&&w| self.hidden_how.still_hidden(plan, w) != Some(HidingBehaviour::Hide))
+            .chain(floating)
             .copied()
-            .filter(|&w| self.hidden_how.still_hidden(plan, w) != Some(HidingBehaviour::Hide))
             .filter(|&w| !plan.is_visible(w) || plan.is_minimized(w))
             .collect();
         for window in stale {
+            if state.active_ws().is_floating(window) {
+                let rect = plan.rect(window).filter(|_| !plan.is_minimized(window));
+                self.floats.went_away(window, rect);
+            }
             untile(plan, state.active_ws_mut(), window);
             if !plan.is_visible(window) {
                 self.decorated.remove(&window);

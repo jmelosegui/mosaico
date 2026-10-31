@@ -56,6 +56,18 @@ pub(crate) enum ActionCommands {
         /// Workspace number (1-8)
         n: u8,
     },
+    /// Float the focused window above the tiles, or tile it again
+    ToggleFloat,
+    /// Focus the next floating window on the focused monitor
+    CycleFloat,
+    /// Widen the focused floating window
+    GrowWidth,
+    /// Narrow the focused floating window
+    ShrinkWidth,
+    /// Heighten the focused floating window
+    GrowHeight,
+    /// Shorten the focused floating window
+    ShrinkHeight,
 }
 
 impl ActionCommands {
@@ -72,6 +84,12 @@ impl ActionCommands {
             Self::GoToWorkspaceNext => Action::GoToWorkspaceNext,
             Self::GoToWorkspacePrev => Action::GoToWorkspacePrev,
             Self::SendToWorkspace { n } => Action::SendToWorkspace(n),
+            Self::ToggleFloat => Action::ToggleFloat,
+            Self::CycleFloat => Action::CycleFloat,
+            Self::GrowWidth => Action::GrowWidth,
+            Self::ShrinkWidth => Action::ShrinkWidth,
+            Self::GrowHeight => Action::GrowHeight,
+            Self::ShrinkHeight => Action::ShrinkHeight,
         }
     }
 }

@@ -753,6 +753,31 @@ and directly positions the monocle window to fill the monitor's work area with
 gap padding. The monocle window is remembered per workspace via the
 `monocle_window` field so it persists across workspace switches.
 
+## Floating Windows
+
+A `Workspace` keeps its floating windows in `floating`, back to front, apart
+from the tiled `windows` the layout positions. `holds()` covers both, and
+`shown()` is what a workspace switch hides and shows: the tiles, plus the
+floating windows outside monocle.
+
+- `toggle-float` (`tiler/floating_toggle.rs`) moves the focused window
+  between the two lists. Where each window last floated is remembered in
+  `Floats` (`tiler/floating.rs`) for the session.
+- A rule with `RuleAction::Float` adopts a window floating
+  (`tiler/floating_adopt.rs`). A rules reload moves only the windows whose
+  rule decision changed (`tiler/floating_rules.rs`), so a window the user
+  floated stays floating.
+- `keep_floats_in_front()` puts the tiles of the focused workspace behind
+  its floating windows whenever a tile takes focus.
+- `floats_follow_monocle()` hides a workspace's floating windows while it is
+  in monocle, and shows them once it is not, however monocle ended.
+- After a display change, `settle_floats()` (`tiler/floating_display.rs`)
+  moves each floating window in view into the work area of its monitor
+  (`place::settle`). `ReconnectMemory` parks the floating windows of a
+  monitor that goes away as floating on the host, and brings them back.
+- The arithmetic (centering, clamping, nudging, resizing) is in
+  `tiler/floating_place.rs` and has no state.
+
 The monocle window stays in front because it is the window that gets focus.
 It has focus when monocle is turned on, and a focus report for another window
 of the workspace, as clicking it gives, ends monocle (`on_focused`). Focus the

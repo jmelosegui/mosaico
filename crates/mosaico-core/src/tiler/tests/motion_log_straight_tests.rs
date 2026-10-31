@@ -1,7 +1,7 @@
 //! What the log is told of a motion the tiler ends: as it hides the window,
 //! lets go of it, places it at once or reveals it.
 
-use crate::config::WindowRule;
+use crate::config::{RuleAction, WindowRule};
 use crate::id::wid;
 use crate::tiler::applier::Applier;
 use crate::tiler::tests::fake_platform::FakePlatform;
@@ -39,7 +39,7 @@ fn a_moving_window_the_rules_let_go_of_is_logged_as_let_go() {
         match_class: None,
         match_title: Some("let go".into()),
         match_path: None,
-        manage: false,
+        action: RuleAction::Ignore,
     };
 
     // Act

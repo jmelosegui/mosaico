@@ -1,6 +1,6 @@
 //! Deciding which windows are managed, and taking them in.
 
-use crate::config;
+use crate::config::{self, RuleAction};
 
 use crate::WindowId;
 
@@ -18,15 +18,21 @@ impl Tiler {
             .is_some_and(|facts| self.rules_manage(&facts))
     }
 
-    /// Whether the rules manage a window with these facts.
+    /// Whether the rules manage a window with these facts, tiled or
+    /// floating.
     pub(super) fn rules_manage(&self, facts: &WindowFacts) -> bool {
-        if facts.has_caption {
-            config::should_manage(&facts.class, &facts.title, &facts.path, &self.rules)
-        } else {
-            // No title bar: only tile when a rule explicitly asks for it.
-            config::matching_rule(&facts.class, &facts.title, &facts.path, &self.rules)
-                == Some(true)
-        }
+        self.rules_decide(facts) != RuleAction::Ignore
+    }
+
+    /// What the rules do with a window with these facts.
+    pub(super) fn rules_decide(&self, facts: &WindowFacts) -> RuleAction {
+        config::decide(
+            &facts.class,
+            &facts.title,
+            &facts.path,
+            facts.has_caption,
+            &self.rules,
+        )
     }
 
     /// Moves a window to the workspace of the monitor it is now on,
@@ -34,6 +40,10 @@ impl Tiler {
     /// of view, as one whose workspace the user switched away from while
     /// they dragged it, stays where it is.
     pub(super) fn reassign_monitor(&mut self, plan: &mut Plan, window: WindowId) {
+        if self.find_floating(window).is_some() {
+            self.float_moved(plan, window);
+            return;
+        }
         let old = self.owning_monitor(window);
         if old.is_some() && !self.is_on_active_workspace(window) {
             return;
@@ -50,6 +60,10 @@ impl Tiler {
             // Same monitor: retile to snap it back.
             (Some(idx), Some(_)) => self.apply_layout_on(plan, idx),
             (None, Some(to)) if self.is_tileable(plan, window) => {
+                if self.floats_on_return(plan, window) {
+                    self.adopt_floating(plan, window, to, false);
+                    return;
+                }
                 self.monitors[to].active_ws_mut().add(window);
                 plan.take_in(window);
                 self.move_before_layout(plan, to, window);
@@ -71,6 +85,10 @@ impl Tiler {
         let Some(idx) = self.monitor_index_for(plan, window) else {
             return;
         };
+        if self.floats_on_return(plan, window) {
+            self.adopt_floating(plan, window, idx, false);
+            return;
+        }
         if !self.monitors[idx].active_ws_mut().add(window) {
             return;
         }
@@ -85,6 +103,10 @@ impl Tiler {
     /// windows appear where the user is working, and focuses it.
     pub(super) fn add_and_focus(&mut self, plan: &mut Plan, window: WindowId) {
         let idx = self.focused_monitor;
+        if self.monitors.get(idx).is_some() && self.floats_on_return(plan, window) {
+            self.adopt_floating(plan, window, idx, true);
+            return;
+        }
         if self.monitors.get(idx).is_none() || !self.monitors[idx].active_ws_mut().add(window) {
             return;
         }
