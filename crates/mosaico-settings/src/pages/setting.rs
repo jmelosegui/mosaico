@@ -14,6 +14,15 @@ use crate::widgets::{self, RowState};
 /// segmented control.
 const MAX_SEGMENTS: usize = 3;
 
+/// Numbers with a small range that read best on a track.
+const SLIDERS: [&str; 5] = [
+    "layout.gap",
+    "layout.ratio",
+    "borders.width",
+    "animations.duration",
+    "background_opacity",
+];
+
 /// Draws the row of the setting at `key`, with `help` under its label.
 pub fn draw(ui: &mut Ui, cx: &PageContext, key: &str, help: Option<&str>, edit: &mut Settings) {
     let setting = schema::find(key).unwrap_or_else(|| panic!("no setting {key}"));
@@ -82,10 +91,20 @@ fn control(
             widgets::toggle(ui, c, label, on);
         }
         (SettingKind::Int { min, max, unit }, SettingValue::Int(n)) => {
-            widgets::number(ui, c, label, n, min..=max, 0.2, unit, changed);
+            let draw = if SLIDERS.contains(&setting.key) {
+                widgets::slider
+            } else {
+                widgets::number
+            };
+            draw(ui, c, label, n, min..=max, 0.2, unit, changed);
         }
         (SettingKind::Float { min, max, step }, SettingValue::Float(x)) => {
-            widgets::number(ui, c, label, x, min..=max, step / 5.0, "", changed);
+            let draw = if SLIDERS.contains(&setting.key) {
+                widgets::slider
+            } else {
+                widgets::number
+            };
+            draw(ui, c, label, x, min..=max, step / 5.0, "", changed);
         }
         (SettingKind::Choice(options), SettingValue::Text(s)) => {
             let options: Vec<_> = options
