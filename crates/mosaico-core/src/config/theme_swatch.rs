@@ -22,6 +22,30 @@ impl Theme {
         }
     }
 
+    /// The color the setting at `key` has when it is empty: a border of
+    /// `config.toml`, such as `"borders.colors.focused"`, or a color of
+    /// `bar.toml`, such as `"colors.background"`. `None` for any other
+    /// key.
+    pub fn default_color(self, key: &str) -> Option<String> {
+        if let Some(color) = self.border_default(key) {
+            return Some(color.into());
+        }
+        let bar = self.bar_colors();
+        let color = match key.strip_prefix("colors.")? {
+            "background" => bar.background,
+            "foreground" => bar.foreground,
+            "active_workspace" => bar.active_workspace,
+            "active_workspace_text" => bar.active_workspace_text,
+            "inactive_workspace" => bar.inactive_workspace,
+            "separator" => bar.separator,
+            "accent" => bar.accent,
+            "widget_background" => bar.widget_background,
+            "pill_border" => bar.pill_border,
+            _ => return None,
+        };
+        Some(color)
+    }
+
     /// The color a setting holding `value` is drawn with: `fallback` when
     /// it is empty, the palette's color for a name, or the hex itself.
     /// `None` for `"none"` and for text that is no color.
@@ -90,5 +114,19 @@ mod tests {
         assert_eq!(MOCHA.swatch("none", "#89b4fa"), None);
         assert_eq!(MOCHA.swatch("chartreuse", "#89b4fa"), None);
         assert_eq!(MOCHA.swatch("#12", "#89b4fa"), None);
+    }
+
+    #[test]
+    fn default_color_covers_the_borders_and_the_bar() {
+        assert_eq!(
+            MOCHA.default_color("borders.colors.focused").as_deref(),
+            Some(MOCHA.border_focused())
+        );
+        assert_eq!(
+            MOCHA.default_color("colors.active_workspace_text"),
+            Some(MOCHA.bar_colors().active_workspace_text)
+        );
+        assert_eq!(MOCHA.default_color("colors.nothing"), None);
+        assert_eq!(MOCHA.default_color("layout.gap"), None);
     }
 }

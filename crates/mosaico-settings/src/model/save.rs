@@ -67,7 +67,7 @@ pub fn save(store: &ConfigStore, saved: &Settings, edit: &Settings) -> Result<()
 }
 
 /// What is wrong, without the file's path, which the window shows apart.
-fn reason(error: Error) -> String {
+pub(crate) fn reason(error: Error) -> String {
     match error {
         Error::Config { message, .. } => message,
         other => other.to_string(),

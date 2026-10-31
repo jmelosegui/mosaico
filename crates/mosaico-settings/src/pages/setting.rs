@@ -7,6 +7,7 @@ use mosaico_core::config::schema::{self, SettingDescriptor, SettingKind, Setting
 
 use super::PageContext;
 use crate::model::Settings;
+use crate::theme::Colors;
 use crate::widgets::{self, RowState};
 
 /// Choices with more options than this get a drop-down rather than a
@@ -18,14 +19,38 @@ pub fn draw(ui: &mut Ui, cx: &PageContext, key: &str, help: Option<&str>, edit: 
     let setting = schema::find(key).unwrap_or_else(|| panic!("no setting {key}"));
     let default = cx.defaults.get(key);
     let mut value = edit.get(key).clone();
-    let st = RowState {
-        unsaved: &value != cx.saved.get(key),
-        default: (&value != default).then(|| shown(setting, default)),
-    };
-    let reset = widgets::row(ui, cx.c, setting.label, help, &st, |ui| {
-        control(ui, cx, setting, edit.theme(), &mut value, st.unsaved);
-    });
+    let reset = draw_value(
+        ui,
+        cx.c,
+        edit.theme(),
+        setting,
+        help,
+        (cx.saved.get(key), default),
+        &mut value,
+    );
     edit.set(key, if reset { default.clone() } else { value });
+}
+
+/// Draws the row of `setting`, editing `value`, which is `saved` in the
+/// file and `default` when the file leaves it out. Colors offer the
+/// palette of `theme`. Returns whether the reset button was clicked,
+/// which leaves `value` for the caller to set to the default.
+pub fn draw_value(
+    ui: &mut Ui,
+    c: &Colors,
+    theme: Theme,
+    setting: &SettingDescriptor,
+    help: Option<&str>,
+    (saved, default): (&SettingValue, &SettingValue),
+    value: &mut SettingValue,
+) -> bool {
+    let st = RowState {
+        unsaved: value != saved,
+        default: (value != default).then(|| shown(setting, default)),
+    };
+    widgets::row(ui, c, setting.label, help, &st, |ui| {
+        control(ui, c, setting, theme, value, st.unsaved);
+    })
 }
 
 /// `value` as a row shows it in its default.
@@ -45,13 +70,13 @@ pub fn shown(setting: &SettingDescriptor, value: &SettingValue) -> String {
 
 fn control(
     ui: &mut Ui,
-    cx: &PageContext,
+    c: &Colors,
     setting: &SettingDescriptor,
     theme: Theme,
     value: &mut SettingValue,
     changed: bool,
 ) {
-    let (c, label) = (cx.c, setting.label);
+    let label = setting.label;
     match (setting.kind, value) {
         (SettingKind::Bool, SettingValue::Bool(on)) => {
             widgets::toggle(ui, c, label, on);
@@ -79,10 +104,11 @@ fn control(
             *s = chosen.to_owned();
         }
         (SettingKind::Color, SettingValue::Text(s)) => {
+            let fallback = theme.default_color(setting.key).unwrap_or_default();
             let picker = widgets::ColorPicker {
                 label,
                 theme,
-                fallback: theme.border_default(setting.key).unwrap_or_default(),
+                fallback: &fallback,
                 allow_none: setting.allows_none(),
                 changed,
             };

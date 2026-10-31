@@ -1,6 +1,7 @@
 //! The pages of the settings window, and what they share.
 
 mod animations;
+mod bar;
 mod borders;
 mod file_page;
 mod general;
@@ -112,12 +113,13 @@ impl Page {
 
 /// The pages that edit a file of their own; `file_pages` makes one of
 /// each.
-const FILE_PAGES: &[Page] = &[Page::Keybindings, Page::Rules];
+const FILE_PAGES: &[Page] = &[Page::Bar, Page::Keybindings, Page::Rules];
 
 /// The pages that edit a file of their own, reading their files from
 /// `store`.
 pub fn file_pages(store: &ConfigStore) -> FilePages {
     FilePages::new(vec![
+        Box::new(bar::BarPage::new(store)),
         Box::new(keybindings::KeybindingsPage::new(store.clone())),
         Box::new(rules::RulesPage::new(store)),
     ])
