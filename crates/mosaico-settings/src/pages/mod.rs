@@ -7,6 +7,7 @@ mod general;
 mod keybindings;
 mod layout;
 mod mouse;
+mod rules;
 mod setting;
 mod workspaces;
 
@@ -111,14 +112,15 @@ impl Page {
 
 /// The pages that edit a file of their own; `file_pages` makes one of
 /// each.
-const FILE_PAGES: &[Page] = &[Page::Keybindings];
+const FILE_PAGES: &[Page] = &[Page::Keybindings, Page::Rules];
 
 /// The pages that edit a file of their own, reading their files from
 /// `store`.
 pub fn file_pages(store: &ConfigStore) -> FilePages {
-    FilePages::new(vec![Box::new(keybindings::KeybindingsPage::new(
-        store.clone(),
-    ))])
+    FilePages::new(vec![
+        Box::new(keybindings::KeybindingsPage::new(store.clone())),
+        Box::new(rules::RulesPage::new(store)),
+    ])
 }
 
 /// Shows the rows of `page` matching `query`, in their sections.

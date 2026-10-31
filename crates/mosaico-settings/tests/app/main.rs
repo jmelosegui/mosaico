@@ -10,5 +10,6 @@ mod general;
 mod keybindings;
 mod layout;
 mod mouse;
+mod rules;
 mod shell;
 mod workspaces;

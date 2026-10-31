@@ -148,6 +148,21 @@ Applying changes only the keys you edited: comments, blank lines, the order
 and the line endings of `keybindings.toml` are kept. The daemon picks the new
 keys up as it does when you edit the file by hand.
 
+## Rules
+
+The **Rules** page edits `user-rules.toml`. Each of your rules is a card with
+the window class, a part of the title and the program path to match (leave a
+field empty to match anything), and what to do with the window: tile it,
+float it or ignore it. **Up** and **Down** move a rule, because the first
+rule that matches a window decides, and **Delete** removes it. **Add rule**
+adds one at the end; a rule needs at least a class, a title or a path before
+it can be saved.
+
+Apply keeps the comments and blank lines of the file, and a rule that moves
+takes its comment along. Your rules match before the community rules in
+`rules.toml`, which are listed under **Community rules** and cannot be edited
+here. Searching filters both lists by pattern or action.
+
 ## Current Limits
 
 Pages that are not ready yet are grayed out in the sidebar. Edit the
