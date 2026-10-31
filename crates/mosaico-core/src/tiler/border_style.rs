@@ -1,7 +1,7 @@
 //! How a focus border and the drop preview are drawn.
 
-use crate::Rect;
 use crate::config::Color;
+use crate::{Rect, WindowId};
 
 /// How a focus border is drawn. Where the stroke goes is part of the
 /// [`Decorations`](crate::Decorations) contract.
@@ -17,6 +17,12 @@ pub struct BorderStyle {
     pub width: i32,
     /// Radius of the border's outer corners, in pixels.
     pub radius: i32,
+    /// The window the border goes directly behind instead of its own:
+    /// the backmost floating window, for a focused tile that the floating
+    /// windows of its workspace are kept in front of. The border then
+    /// stays behind them however the tile and the border land in the
+    /// stacking order.
+    pub behind: Option<WindowId>,
 }
 
 /// How the drop preview is drawn: an outline over a fill that lets what

@@ -51,8 +51,8 @@ impl MonitorState {
             return Vec::new();
         }
         let left = std::mem::replace(&mut self.active_workspace, idx);
-        let mut windows = self.workspaces[left].windows().to_vec();
-        windows.extend_from_slice(self.workspaces[idx].windows());
+        let mut windows = self.workspaces[left].shown();
+        windows.extend(self.workspaces[idx].shown());
         windows
     }
 

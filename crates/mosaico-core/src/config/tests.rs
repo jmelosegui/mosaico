@@ -1,6 +1,11 @@
 use super::*;
 use crate::layout::LayoutKind;
 
+/// Whether the rules tile a window with a title bar.
+fn tiles(class: &str, title: &str, path: &str, rules: &[WindowRule]) -> bool {
+    decide(class, title, path, true, rules) == RuleAction::Tile
+}
+
 #[test]
 fn default_config_has_expected_values() {
     let mut config = Config::default();
@@ -268,12 +273,12 @@ fn rule_excludes_by_class() {
         match_class: Some("TaskManager".into()),
         match_title: None,
         match_path: None,
-        manage: false,
+        action: RuleAction::Ignore,
     }];
 
     // Act / Assert
-    assert!(!should_manage("TaskManager", "Task Manager", "", &rules));
-    assert!(should_manage("Notepad", "Untitled", "", &rules));
+    assert!(!tiles("TaskManager", "Task Manager", "", &rules));
+    assert!(tiles("Notepad", "Untitled", "", &rules));
 }
 
 #[test]
@@ -283,12 +288,12 @@ fn rule_excludes_by_title_substring() {
         match_class: None,
         match_title: Some("settings".into()),
         match_path: None,
-        manage: false,
+        action: RuleAction::Ignore,
     }];
 
     // Act / Assert
-    assert!(!should_manage("App", "Windows Settings", "", &rules));
-    assert!(should_manage("App", "My Document", "", &rules));
+    assert!(!tiles("App", "Windows Settings", "", &rules));
+    assert!(tiles("App", "My Document", "", &rules));
 }
 
 #[test]
@@ -299,24 +304,24 @@ fn first_matching_rule_wins() {
             match_class: Some("Chrome".into()),
             match_title: None,
             match_path: None,
-            manage: false,
+            action: RuleAction::Ignore,
         },
         WindowRule {
             match_class: Some("Chrome".into()),
             match_title: None,
             match_path: None,
-            manage: true,
+            action: RuleAction::Tile,
         },
     ];
 
     // Act / Assert
-    assert!(!should_manage("Chrome", "Google", "", &rules));
+    assert!(!tiles("Chrome", "Google", "", &rules));
 }
 
 #[test]
-fn no_rules_defaults_to_manage() {
+fn no_rules_defaults_to_tile() {
     // Act / Assert
-    assert!(should_manage("Any", "Window", "", &[]));
+    assert!(tiles("Any", "Window", "", &[]));
 }
 
 #[test]
@@ -327,24 +332,25 @@ fn matching_rule_reports_only_explicit_matches() {
             match_class: None,
             match_title: None,
             match_path: Some("photocraft.exe".into()),
-            manage: true,
+            action: RuleAction::Tile,
         },
         WindowRule {
             match_class: Some("Popup".into()),
             match_title: None,
             match_path: None,
-            manage: false,
+            action: RuleAction::Ignore,
         },
     ];
 
     // Act / Assert
     let path = r"C:\Program Files\PhotoCraft\photocraft.exe";
+    let action = |class, title, path| matching_rule(class, title, path, &rules).map(|r| r.action);
     assert_eq!(
-        matching_rule("Window Class", "*Untitled-1 - PhotoCraft", path, &rules),
-        Some(true)
+        action("Window Class", "*Untitled-1 - PhotoCraft", path),
+        Some(RuleAction::Tile)
     );
-    assert_eq!(matching_rule("Popup", "Menu", "", &rules), Some(false));
-    assert_eq!(matching_rule("Window Class", "Other", "", &rules), None);
+    assert_eq!(action("Popup", "Menu", ""), Some(RuleAction::Ignore));
+    assert_eq!(action("Window Class", "Other", ""), None);
 }
 
 #[test]
@@ -355,23 +361,18 @@ fn match_path_matches_on_component_boundary() {
             match_class: None,
             match_title: None,
             match_path: Some(path.into()),
-            manage: false,
+            action: RuleAction::Ignore,
         }]
     };
     let exe = r"C:\Program Files\PhotoCraft\photocraft.exe";
 
     // Act / Assert
-    assert!(!should_manage("C", "T", exe, &rule("PHOTOCRAFT.EXE")));
-    assert!(!should_manage(
-        "C",
-        "T",
-        exe,
-        &rule("photocraft/photocraft.exe")
-    ));
-    assert!(!should_manage("C", "T", exe, &rule(exe)));
-    assert!(should_manage("C", "T", exe, &rule("craft.exe")));
-    assert!(should_manage("C", "T", exe, &rule("photocraft")));
-    assert!(should_manage("C", "T", "", &rule("photocraft.exe")));
+    assert!(!tiles("C", "T", exe, &rule("PHOTOCRAFT.EXE")));
+    assert!(!tiles("C", "T", exe, &rule("photocraft/photocraft.exe")));
+    assert!(!tiles("C", "T", exe, &rule(exe)));
+    assert!(tiles("C", "T", exe, &rule("craft.exe")));
+    assert!(tiles("C", "T", exe, &rule("photocraft")));
+    assert!(tiles("C", "T", "", &rule("photocraft.exe")));
 }
 
 #[test]
@@ -381,14 +382,14 @@ fn match_path_combines_with_other_fields() {
         match_class: Some("Window Class".into()),
         match_title: None,
         match_path: Some("photocraft.exe".into()),
-        manage: false,
+        action: RuleAction::Ignore,
     }];
     let exe = r"C:\Program Files\PhotoCraft\photocraft.exe";
 
     // Act / Assert
-    assert!(!should_manage("Window Class", "T", exe, &rules));
-    assert!(should_manage("Other", "T", exe, &rules));
-    assert!(should_manage("Window Class", "T", r"C:\other.exe", &rules));
+    assert!(!tiles("Window Class", "T", exe, &rules));
+    assert!(tiles("Other", "T", exe, &rules));
+    assert!(tiles("Window Class", "T", r"C:\other.exe", &rules));
 }
 
 #[test]
@@ -455,17 +456,12 @@ fn empty_match_title_only_matches_empty_title() {
         match_class: Some("ApplicationFrameWindow".into()),
         match_title: Some(String::new()),
         match_path: None,
-        manage: false,
+        action: RuleAction::Ignore,
     }];
 
     // Act / Assert
-    assert!(!should_manage("ApplicationFrameWindow", "", "", &rules));
-    assert!(should_manage(
-        "ApplicationFrameWindow",
-        "Settings",
-        "",
-        &rules
-    ));
+    assert!(!tiles("ApplicationFrameWindow", "", "", &rules));
+    assert!(tiles("ApplicationFrameWindow", "Settings", "", &rules));
 }
 
 #[test]

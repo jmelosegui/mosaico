@@ -124,15 +124,21 @@ impl Tiler {
             color: Color::from_hex(color).unwrap_or(BorderColors::FALLBACK),
             width: self.border_config.width,
             radius: self.border_config.corner_style.border_radius(),
+            behind: self.border_behind(window, mon_idx),
         })
     }
 
     /// `(window, monitor, rect)` for every window laid out on its
-    /// monitor's active workspace.
+    /// monitor's active workspace, and the focused window when it floats
+    /// there.
     fn collect_visible_tiles(&self, plan: &Plan) -> Vec<(WindowId, usize, Rect)> {
         let mut out = Vec::new();
         for (mi, mon) in self.monitors.iter().enumerate() {
-            for &window in mon.active_ws().windows() {
+            let ws = mon.active_ws();
+            let float = self
+                .focused_window
+                .filter(|&w| ws.is_floating(w) && !ws.monocle());
+            for &window in ws.windows().iter().chain(&float) {
                 if let Some(rect) = plan.rect(window) {
                     out.push((window, mi, rect));
                 }

@@ -3,6 +3,7 @@
 use crate::config::HidingBehaviour;
 use crate::{WindowId, Workspace};
 
+use super::focus::focus_target;
 use super::{Effect, Plan, Tiler};
 
 /// Takes `window` out of `ws` for good, and has what is still held back
@@ -14,7 +15,7 @@ use super::{Effect, Plan, Tiler};
 /// out, rules that stop managing it, and the layout finding it gone or
 /// minimized. Moving it to another workspace or monitor does not.
 pub(super) fn untile(plan: &mut Plan, ws: &mut Workspace, window: WindowId) {
-    if ws.remove(window) {
+    if ws.remove(window) || ws.remove_floating(window) {
         plan.emit(Effect::Untile { window });
     }
 }
@@ -32,7 +33,7 @@ impl Tiler {
         reason: &str,
         active_only: bool,
     ) {
-        let Some((mon_idx, ws_idx)) = self.find_window(window) else {
+        let Some((mon_idx, ws_idx)) = self.find_managed(window) else {
             return;
         };
         let on_active = ws_idx == self.monitors[mon_idx].active_workspace;
@@ -43,6 +44,9 @@ impl Tiler {
         // Out of the layout, it is no longer the tiler's to show again,
         // and its id may go to a new window.
         self.hidden_how.forget(window);
+        if self.monitors[mon_idx].workspaces[ws_idx].is_floating(window) {
+            self.float_went_away(plan, window);
+        }
         let ws = &mut self.monitors[mon_idx].workspaces[ws_idx];
         untile(plan, ws, window);
         crate::log_info!(
@@ -53,23 +57,17 @@ impl Tiler {
             ws_idx + 1,
             ws.len()
         );
-        if ws.monocle() && ws.monocle_window() == Some(window) {
-            ws.set_monocle(false);
-            ws.set_monocle_window(None);
-        }
+        ws.end_monocle_of(window);
 
         if self.focused_window == Some(window) {
             self.focused_window = None;
-            // Promote a sibling so the border stays visible.
-            if on_active {
-                let ws = &self.monitors[mon_idx].workspaces[ws_idx];
-                let replacement = ws
-                    .last_focused()
-                    .filter(|&w| ws.contains(w))
-                    .or_else(|| ws.windows().first().copied());
-                if let Some(next) = replacement {
-                    self.focus_window(plan, next, false);
-                }
+            // Promote a sibling so the border stays visible: the next
+            // floating window, as the tiles are out of reach while one
+            // floats, or a tile.
+            if on_active
+                && let Some(next) = focus_target(&self.monitors[mon_idx].workspaces[ws_idx])
+            {
+                self.focus_window(plan, next, false);
             }
         }
 
@@ -95,24 +93,42 @@ impl Tiler {
     /// the display change that brings it into view, by moving it or by
     /// switching its monitor's workspace, shows it after this retile
     /// (#119, #124).
+    /// A floating window the tiler hid, as monocle does, is kept the same
+    /// way while it is still out of view the way the tiler left it.
     pub(super) fn prune_stale_handles(&mut self, plan: &mut Plan, monitor_idx: usize) {
         let Some(state) = self.monitors.get_mut(monitor_idx) else {
             return;
         };
-        let stale: Vec<WindowId> = state
-            .active_ws()
+        let ws = state.active_ws();
+        let floating = ws
+            .floating()
+            .iter()
+            .filter(|&&w| self.hidden_how.still_hidden(plan, w).is_none());
+        let stale: Vec<WindowId> = ws
             .windows()
             .iter()
+            .filter(|&&w| self.hidden_how.still_hidden(plan, w) != Some(HidingBehaviour::Hide))
+            .chain(floating)
             .copied()
-            .filter(|&w| self.hidden_how.still_hidden(plan, w) != Some(HidingBehaviour::Hide))
             .filter(|&w| !plan.is_visible(w) || plan.is_minimized(w))
             .collect();
         for window in stale {
-            untile(plan, state.active_ws_mut(), window);
+            if self.monitors[monitor_idx].active_ws().is_floating(window) {
+                self.float_went_away(plan, window);
+            }
+            untile(plan, self.monitors[monitor_idx].active_ws_mut(), window);
             if !plan.is_visible(window) {
                 self.decorated.remove(&window);
             }
             crate::log_info!("-prune {} (stale or minimized)", window);
         }
+    }
+
+    /// Notes that floating `window` leaves its workspace while it still
+    /// exists, where it is unless minimized, so it floats there again
+    /// when it comes back.
+    fn float_went_away(&mut self, plan: &Plan, window: WindowId) {
+        let rect = plan.rect(window).filter(|_| !plan.is_minimized(window));
+        self.floats.went_away(window, rect);
     }
 }

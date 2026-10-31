@@ -4,7 +4,7 @@
 //! tiler put it there, so only the rules may let go of it, and a window
 //! they let go of must not stay hidden.
 
-use crate::config::{HidingBehaviour, WindowRule, WorkspaceMode};
+use crate::config::{HidingBehaviour, RuleAction, WindowRule, WorkspaceMode};
 
 use super::*;
 
@@ -28,7 +28,7 @@ fn rejecting_window_2(h: &mut Harness) -> Vec<WindowRule> {
         match_class: Some("Excluded".into()),
         match_title: None,
         match_path: None,
-        manage: false,
+        action: RuleAction::Ignore,
     }]
 }
 

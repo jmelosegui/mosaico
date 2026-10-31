@@ -5,14 +5,19 @@ use crate::{WindowId, Workspace};
 use super::{Effect, Plan, Tiler};
 
 /// The window to focus when a workspace comes into view, or takes focus
-/// back: its monocle window, then the one it remembers, then its first.
+/// back: its monocle window, then its frontmost floating window, as the
+/// tiles are out of reach while one floats, then the one it remembers,
+/// then its first tile.
 pub(super) fn focus_target(ws: &Workspace) -> Option<WindowId> {
     let present = |w: &WindowId| ws.contains(*w);
-    let remembered = ws.last_focused().filter(present);
     if ws.monocle() {
+        let remembered = ws.last_focused().filter(present);
         ws.monocle_window().filter(present).or(remembered)
     } else {
-        remembered
+        ws.floating()
+            .last()
+            .copied()
+            .or_else(|| ws.last_focused().filter(present))
     }
     .or_else(|| ws.windows().first().copied())
 }
@@ -39,6 +44,7 @@ impl Tiler {
             window,
             move_cursor: self.mouse.follows_focus && !from_mouse && !plan.from_pointer,
         });
+        self.keep_floats_in_front(plan, window);
     }
 
     /// Puts the pointer back on the focused window after it moved, when
@@ -65,7 +71,7 @@ impl Tiler {
             .monitors
             .get_mut(self.focused_monitor)
             .map(|m| m.active_ws_mut())
-            && focused.is_some_and(|w| ws.contains(w))
+            && focused.is_some_and(|w| ws.holds(w))
         {
             ws.set_last_focused(focused);
         }
@@ -113,8 +119,8 @@ impl Tiler {
     ) {
         if let Some((mi, _)) = self
             .focused_window
-            .filter(|&w| self.is_on_active_workspace(w))
-            .and_then(|w| self.find_window(w))
+            .filter(|&w| self.is_in_view(w))
+            .and_then(|w| self.find_managed(w))
         {
             self.focused_monitor = mi;
             let ws = self.monitors[mi].active_ws();

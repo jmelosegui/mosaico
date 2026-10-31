@@ -13,6 +13,9 @@ impl Tiler {
         self.apply_layout_on(plan, idx);
     }
 
+    /// Toggles monocle on the workspace on screen of the focused monitor,
+    /// hiding its floating windows while it lasts. A floating window that
+    /// has focus has nothing to fill the screen with, so it does nothing.
     pub(super) fn toggle_monocle(&mut self, plan: &mut Plan) {
         let idx = self.focused_monitor;
         let focused = self.focused_window;
@@ -20,14 +23,17 @@ impl Tiler {
             return;
         };
         let ws = mon.active_ws_mut();
+        if focused.is_some_and(|w| ws.is_floating(w)) {
+            return;
+        }
         let enabling = !ws.monocle();
         ws.set_monocle(enabling);
         ws.set_monocle_window(if enabling { focused } else { None });
         self.apply_layout_on(plan, idx);
     }
 
-    /// Exits monocle mode on the active workspace of `mon_idx` and lays
-    /// the workspace out again.
+    /// Exits monocle mode on the active workspace of `mon_idx` and lays the
+    /// workspace out again, which shows its floating windows again.
     pub(super) fn exit_monocle(&mut self, plan: &mut Plan, mon_idx: usize) {
         let ws = self.monitors[mon_idx].active_ws_mut();
         ws.set_monocle(false);
@@ -51,11 +57,13 @@ impl Tiler {
     /// The user's retile: the workspace on screen of every monitor forgets
     /// where the user moved its splits, in all its layouts, so each split
     /// follows `[layout] ratio`, or an equal share down a stack, again, and
-    /// every monitor is laid out again.
+    /// every monitor is laid out again. Its floating windows are tiled
+    /// again, but those the rules float.
     /// The workspaces out of view keep theirs. The windows' minimum sizes
     /// are read again too, in case an application changed its own.
     pub(super) fn retile_from_ratio(&mut self, plan: &mut Plan) {
         self.min_sizes.clear();
+        self.tile_floats(plan);
         for mon in &mut self.monitors {
             mon.active_ws_mut().forget_split_ratios();
         }

@@ -7,7 +7,7 @@
 //! did not get it back leaves monocle, and one whose monocle window went
 //! home hands monocle to the window in front of those that wait there.
 
-use crate::config::WindowRule;
+use crate::config::{RuleAction, WindowRule};
 
 use super::*;
 
@@ -105,7 +105,7 @@ fn a_window_the_rules_let_go_while_it_waits_leaves_nothing_waiting_for_its_id() 
         match_class: Some("Excluded".into()),
         match_title: None,
         match_path: None,
-        manage: false,
+        action: RuleAction::Ignore,
     }]));
     h.desktop.windows.remove(&wid(2));
     h.event(WindowEvent::Destroyed { window: wid(2) });

@@ -5,7 +5,7 @@
 //! however it leaves: otherwise a new window that gets its id is hidden
 //! the way the old one was.
 
-use crate::config::{Config, HidingBehaviour, WindowRule};
+use crate::config::{Config, HidingBehaviour, RuleAction, WindowRule};
 
 use super::*;
 
@@ -85,7 +85,7 @@ fn a_window_let_go_by_the_rules_while_hidden_is_hidden_the_configured_way_once_t
         match_class: Some("Excluded".into()),
         match_title: None,
         match_path: None,
-        manage: false,
+        action: RuleAction::Ignore,
     }]));
     h.step(Input::Rules(Vec::new()));
     reload_with_minimize(&mut h);

@@ -60,6 +60,13 @@ impl ReconnectMemory {
             let Some(host) = monitors.iter().position(|m| m.key == d.host) else {
                 continue;
             };
+            if d.floating {
+                if monitors[host].workspaces[d.host_workspace].remove_floating(window) {
+                    monitors[home_idx].workspaces[d.workspace].add_floating(window);
+                    moved.push(window);
+                }
+                continue;
+            }
             if !monitors[host].workspaces[d.host_workspace].remove(window) {
                 continue;
             }
@@ -78,6 +85,28 @@ impl ReconnectMemory {
             }
         }
         moved
+    }
+
+    /// Moves the floating windows of `ws`, workspace `wi` of the monitor
+    /// `home` that went away, to workspace `target` of `host`, where they
+    /// float too. Returns them.
+    pub(super) fn park_floats(
+        &mut self,
+        ws: &mut Workspace,
+        (wi, target): (usize, usize),
+        home: &MonitorKey,
+        host: &mut MonitorState,
+    ) -> Vec<WindowId> {
+        let floating = ws.floating().to_vec();
+        for &window in &floating {
+            ws.remove_floating(window);
+            host.workspaces[target].add_floating(window);
+            self.record(window, home, (wi, 0, OwnSplits::default()), &host.key);
+            if let Some(d) = self.displaced.get_mut(&window) {
+                d.floating = true;
+            }
+        }
+        floating
     }
 }
 

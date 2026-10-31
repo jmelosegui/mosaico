@@ -4,6 +4,7 @@
 use crate::Action;
 use crate::action::{Origin, Scope, workspace_after};
 
+use super::floating::Axis;
 use super::{Effect, Plan, Tiler};
 
 impl Tiler {
@@ -24,7 +25,11 @@ impl Tiler {
         }
         match action {
             Action::Focus(dir) => self.focus_direction(plan, *dir),
-            Action::Move(dir) => self.move_direction(plan, *dir),
+            Action::Move(dir) => {
+                if !self.nudge_float(plan, *dir) {
+                    self.move_direction(plan, *dir);
+                }
+            }
             Action::Retile => {
                 // The user's repair for a stale desktop, which includes a
                 // border that lost what the platform drew of it, and the
@@ -53,6 +58,12 @@ impl Tiler {
             Action::SendToWorkspace(n) => self.send_to_workspace(plan, *n),
             // Pausing is handled by the daemon before reaching here.
             Action::TogglePause => {}
+            Action::ToggleFloat => self.toggle_float(plan),
+            Action::CycleFloat => self.cycle_float(plan),
+            Action::GrowWidth => self.resize_float(plan, Axis::Width, true),
+            Action::ShrinkWidth => self.resize_float(plan, Axis::Width, false),
+            Action::GrowHeight => self.resize_float(plan, Axis::Height, true),
+            Action::ShrinkHeight => self.resize_float(plan, Axis::Height, false),
         }
     }
 

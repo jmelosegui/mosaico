@@ -57,6 +57,8 @@ pub enum Modifier {
 /// Move/Swap: Alt + Shift + H/J/K/L
 /// Workspaces: Alt + 1..8 (switch), Alt + Shift + 1..8 (send)
 /// Monocle: Alt + T
+/// Floating: Alt + F (toggle), Alt + Shift + F (cycle),
+/// Alt + Period/Comma (width), Alt + Shift + Period/Comma (height)
 /// Retile: Alt + Shift + R
 /// Pause hotkeys: Alt + Shift + P
 pub fn defaults() -> Vec<Keybinding> {
@@ -76,6 +78,13 @@ pub fn defaults() -> Vec<Keybinding> {
         // Layout
         bind(Action::Retile, "R", &[Alt, Shift]),
         bind(Action::ToggleMonocle, "T", &[Alt]),
+        // Floating windows
+        bind(Action::ToggleFloat, "F", &[Alt]),
+        bind(Action::CycleFloat, "F", &[Alt, Shift]),
+        bind(Action::GrowWidth, "Period", &[Alt]),
+        bind(Action::ShrinkWidth, "Comma", &[Alt]),
+        bind(Action::GrowHeight, "Period", &[Alt, Shift]),
+        bind(Action::ShrinkHeight, "Comma", &[Alt, Shift]),
         // Close window
         bind(Action::CloseFocused, "Q", &[Alt]),
         // Minimize window

@@ -11,7 +11,9 @@ pub(super) fn header() -> &'static str {
 #   goto-workspace-next, goto-workspace-prev (with [workspaces] wrap in
 #   config.toml, past the last workspace they go round to the first),
 #   send-to-workspace-1 .. send-to-workspace-8,
-#   retile, toggle-monocle, close-focused, minimize-focused
+#   retile, toggle-monocle, close-focused, minimize-focused,
+#   toggle-float, cycle-float, grow-width, shrink-width, grow-height,
+#   shrink-height
 #
 # Available modifiers: alt, shift, ctrl, win
 #

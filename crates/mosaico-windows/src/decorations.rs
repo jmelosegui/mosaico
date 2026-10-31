@@ -67,7 +67,7 @@ impl Decorations for Win32Decorations {
             }),
         };
         *width = style.width;
-        let target = Window::from_id(window).hwnd();
+        let target = Window::from_id(style.behind.unwrap_or(window)).hwnd();
         if drawn.needs_render(style) {
             let rendered = border.show(&style.rect, style.color, style.width, style.radius, target);
             drawn.rendered(style, rendered.is_ok());

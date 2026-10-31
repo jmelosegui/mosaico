@@ -84,7 +84,7 @@ impl Tiler {
     /// maximized by now.
     pub(super) fn start_drag(&mut self, plan: &mut Plan, window: WindowId, start: &DragStart) {
         self.end_drag(plan);
-        let Some((monitor, ws)) = self.find_window(window) else {
+        let Some((monitor, ws)) = self.find_tiled(window) else {
             return;
         };
         if ws != self.monitors[monitor].active_workspace {

@@ -5,7 +5,8 @@ use super::Coalescer;
 
 impl Coalescer {
     /// Releases everything held, in the order to apply it: placements,
-    /// then what waited for them, then the focus change.
+    /// then what waited for them, then the focus change and the restacks
+    /// that wait for it.
     ///
     /// Each placement keeps whether it may animate, as the step that
     /// decided it marked it. A border is drawn around its window's held
@@ -34,6 +35,7 @@ impl Coalescer {
             out.push(effect);
         }
         out.extend(self.focus.take());
+        out.append(&mut self.behind);
         out
     }
 }

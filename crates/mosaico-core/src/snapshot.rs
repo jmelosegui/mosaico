@@ -3,8 +3,6 @@
 //! The tiler builds it and the `Inspect` command carries it, so
 //! [`crate::ipc`] re-exports these types as its payload.
 
-use std::fmt;
-
 use serde::{Deserialize, Serialize};
 
 use crate::{MonitorId, MonitorKey, Rect, WindowId};
@@ -49,6 +47,9 @@ pub struct MonitorSnapshot {
 pub struct WorkspaceSnapshot {
     /// The managed windows on the workspace, in layout order.
     pub windows: Vec<WindowSnapshot>,
+    /// The floating windows on the workspace, frontmost last.
+    #[serde(default)]
+    pub floating: Vec<WindowSnapshot>,
 }
 
 /// One managed window, as the platform sees it.
@@ -73,73 +74,8 @@ pub struct WindowSnapshot {
     pub title: String,
 }
 
-/// The `debug state` text: each monitor with its workspaces that have
-/// windows, then the disconnected monitors and what has focus.
-impl fmt::Display for DesktopSnapshot {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for (mi, mon) in self.monitors.iter().enumerate() {
-            writeln!(
-                f,
-                "Monitor {mi} (id={}, key={}, work_area={}, active_ws={}):",
-                mon.id,
-                mon.key,
-                geometry(&mon.work_area),
-                mon.active_workspace + 1,
-            )?;
-            for (wi, ws) in mon.workspaces.iter().enumerate() {
-                if ws.windows.is_empty() {
-                    continue;
-                }
-                let count = ws.windows.len();
-                let plural = if count == 1 { "" } else { "s" };
-                writeln!(f, "  Workspace {} ({count} window{plural}):", wi + 1)?;
-                for window in &ws.windows {
-                    writeln!(f, "    {window}")?;
-                }
-            }
-        }
-
-        let disconnected = if self.disconnected.is_empty() {
-            "none".to_string()
-        } else {
-            let keys: Vec<String> = self.disconnected.iter().map(ToString::to_string).collect();
-            keys.join("; ")
-        };
-        writeln!(
-            f,
-            "Disconnected monitors: {disconnected}, displaced windows: {}",
-            self.displaced_windows
-        )?;
-        writeln!(f, "Self elevated: {}", self.daemon_elevated)?;
-        writeln!(f, "Focused monitor: {}", self.focused_monitor)?;
-        match self.focused_window {
-            Some(window) => writeln!(f, "Focused window: {window}"),
-            None => writeln!(f, "Focused window: None"),
-        }
-    }
-}
-
-impl fmt::Display for WindowSnapshot {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let rect = self.rect.as_ref().map_or_else(|| "N/A".into(), geometry);
-        write!(
-            f,
-            "{}  visible={}  minimized={}  cloaked={}  elevated={}  rect={rect}  class={:?}  title={:?}",
-            self.id,
-            self.visible,
-            self.minimized,
-            self.cloaked,
-            self.elevated,
-            self.class,
-            self.title,
-        )
-    }
-}
-
-/// An area as `debug state` prints it: `WIDTHxHEIGHT+X+Y`.
-fn geometry(area: &Rect) -> String {
-    format!("{}x{}+{}+{}", area.width, area.height, area.x, area.y)
-}
+#[path = "snapshot_text.rs"]
+mod text;
 
 #[cfg(test)]
 #[path = "snapshot_tests.rs"]

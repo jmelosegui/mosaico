@@ -77,11 +77,11 @@ impl Harness {
         self.step(Input::Action(action, origin))
     }
 
-    /// Reports a window event. A window reported focused is in front,
-    /// whoever focused it.
+    /// Reports a window event. A window reported focused has focus, in front.
     pub(in crate::tiler) fn event(&mut self, event: WindowEvent) -> &[Effect] {
         if let WindowEvent::Focused { window } = event {
             self.desktop.raise(window);
+            self.desktop.focused = Some(window);
         }
         self.step(Input::Event(event))
     }

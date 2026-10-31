@@ -77,15 +77,18 @@ impl Tiler {
 
     /// Replaces the window rules and lets go of windows the new rules
     /// no longer manage, see [`untile`]. One hidden by a workspace switch
-    /// is shown again as it is let go, so it is not left out of view.
+    /// is shown again as it is let go, so it is not left out of view. A
+    /// window the rules now float, or no longer float, moves at once, as
+    /// toggling does, while one the user toggled stays as it is.
     pub(super) fn reload_rules(&mut self, plan: &mut Plan, rules: Vec<WindowRule>) {
+        let floated_before = self.rule_floats(plan);
         self.rules = rules;
         self.adopt_rejected.clear();
 
         let mut removals = Vec::new();
         for (mi, mon) in self.monitors.iter().enumerate() {
             for (wi, ws) in mon.workspaces.iter().enumerate() {
-                for &window in ws.windows() {
+                for window in ws.windows().iter().chain(ws.floating()).copied() {
                     if !self.still_managed(plan, window) {
                         removals.push((mi, wi, window));
                     }
@@ -111,6 +114,11 @@ impl Tiler {
                 affected.push(mi);
             }
         }
+        for mi in self.follow_rule_floats(plan, &floated_before) {
+            if !affected.contains(&mi) {
+                affected.push(mi);
+            }
+        }
         for idx in affected {
             self.apply_layout_on(plan, idx);
         }
@@ -129,12 +137,13 @@ impl Tiler {
             .is_some_and(|facts| self.rules_manage(&facts))
     }
 
-    /// Every managed window, on every workspace of every monitor.
+    /// Every managed window, tiled or floating, on every workspace of
+    /// every monitor.
     fn all_windows(&self) -> Vec<WindowId> {
         self.monitors
             .iter()
             .flat_map(|m| &m.workspaces)
-            .flat_map(|ws| ws.windows().iter().copied())
+            .flat_map(|ws| ws.windows().iter().chain(ws.floating()).copied())
             .collect()
     }
 }

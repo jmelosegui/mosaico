@@ -134,3 +134,6 @@ fn a_switch_is_timed_by_the_platforms_clock() {
     assert!(dropped, "the report right after the switch was followed");
     assert_eq!(manager.tiler().monitors()[0].active_workspace(), 0);
 }
+
+#[path = "manager_float_focus_tests.rs"]
+mod float_tests;

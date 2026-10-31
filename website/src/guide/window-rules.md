@@ -1,7 +1,7 @@
 # Window Rules
 
-Window rules control which applications Mosaico manages. Rules are split
-into two files:
+Window rules decide which windows Mosaico tiles, which it floats above the
+tiles, and which it leaves alone. Rules are split into two files:
 
 | File | Purpose |
 |------|---------|
@@ -27,20 +27,20 @@ Each rule is a `[[rule]]` entry:
 ```toml
 [[rule]]
 match_class = "ApplicationFrameWindow"
-manage = false
+action = "ignore"
 
 [[rule]]
 match_title = "Calculator"
-manage = false
+action = "float"
 
 [[rule]]
 match_class = "Chrome_WidgetWin_1"
 match_title = "Picture-in-Picture"
-manage = false
+action = "float"
 
 [[rule]]
 match_path = "photocraft.exe"
-manage = true
+action = "tile"
 ```
 
 ## Rule Fields
@@ -50,7 +50,18 @@ manage = true
 | `match_class` | string | Match by window class name (case-insensitive, exact) |
 | `match_title` | string | Match by window title (case-insensitive, substring) |
 | `match_path` | string | Match by the program's executable path (case-insensitive, ends with) |
-| `manage` | bool | Whether to tile the window (`true` or `false`) |
+| `action` | string | What to do with the window: `"tile"`, `"float"` or `"ignore"` |
+
+Every rule needs an `action`. Rules written before `action` existed use
+`manage = true`, which means `action = "tile"`, or `manage = false`, which
+means `action = "ignore"`. Both still work, but a rule cannot have both
+`action` and `manage`.
+
+| Action | What happens |
+|--------|--------------|
+| `tile` | The window is tiled into the layout |
+| `float` | The window is managed but not tiled: it keeps its own size and stays above the tiles of its workspace, and moves with the workspace. `toggle-float` and `retile` leave it floating |
+| `ignore` | Mosaico leaves the window alone |
 
 ## Matching Behavior
 
@@ -75,14 +86,14 @@ other programs, or when its title changes with the open document.
 
 Some apps hide the standard Windows title bar and draw their own. To
 Windows these look the same as splash screens and borderless popups, so
-Mosaico does not tile them unless a rule opts them in with
-`manage = true`:
+Mosaico does not manage them unless a rule opts them in with
+`action = "tile"` or `action = "float"`:
 
 ```toml
 # user-rules.toml
 [[rule]]
 match_path = "photocraft.exe"
-manage = true
+action = "tile"
 ```
 
 Owned windows, tool windows, and dialogs are never tiled, even when a
@@ -93,17 +104,17 @@ dialogs.
 
 Rules are evaluated in order. User rules (`user-rules.toml`) come first,
 followed by community rules (`rules.toml`). The **first matching rule
-wins**. If no rule matches a window, it is managed by default.
+wins**. If no rule matches a window, it is tiled.
 
 This means you can override any community rule by adding a rule in
-`user-rules.toml`. For example, to force-tile a window that community
-rules exclude:
+`user-rules.toml`. For example, to tile a window that community rules
+ignore:
 
 ```toml
 # user-rules.toml
 [[rule]]
 match_class = "Chrome_WidgetWin_1"
-manage = true
+action = "tile"
 ```
 
 ## Community Rules

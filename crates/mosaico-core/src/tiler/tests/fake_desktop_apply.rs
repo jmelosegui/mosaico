@@ -70,8 +70,12 @@ impl FakeDesktop {
             }
             Effect::Minimize { window } => self.change(window, Queued::Minimize, now),
             Effect::Focus { window, .. } => {
+                // As on the platform, the window that has focus already is
+                // not reordered by being focused again.
+                if self.focused != Some(window) {
+                    self.raise(window);
+                }
                 self.focused = Some(window);
-                self.raise(window);
             }
             Effect::PutBehind { window, other } => {
                 self.change(window, Queued::PutBehind(other), now);

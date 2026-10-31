@@ -52,6 +52,40 @@ action = "toggle-monocle"
 key = "T"
 modifiers = ["alt"]
 
+# Float the focused window above the tiles, or tile it again: Alt + F
+[[keybinding]]
+action = "toggle-float"
+key = "F"
+modifiers = ["alt"]
+
+# Focus the next floating window: Alt + Shift + F
+[[keybinding]]
+action = "cycle-float"
+key = "F"
+modifiers = ["alt", "shift"]
+
+# Resize the focused floating window: Alt + Period/Comma for its width,
+# Alt + Shift + Period/Comma for its height
+[[keybinding]]
+action = "grow-width"
+key = "Period"
+modifiers = ["alt"]
+
+[[keybinding]]
+action = "shrink-width"
+key = "Comma"
+modifiers = ["alt"]
+
+[[keybinding]]
+action = "grow-height"
+key = "Period"
+modifiers = ["alt", "shift"]
+
+[[keybinding]]
+action = "shrink-height"
+key = "Comma"
+modifiers = ["alt", "shift"]
+
 # Close focused window: Alt + Q
 [[keybinding]]
 action = "close-focused"

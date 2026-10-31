@@ -98,6 +98,7 @@ impl Tiler {
             empty_focus_claim: None,
             adopt_rejected: HashSet::new(),
             min_sizes: super::min_sizes::MinSizes::default(),
+            floats: super::floating::Floats::default(),
         };
 
         let mut plan = Plan::new(desktop, now);

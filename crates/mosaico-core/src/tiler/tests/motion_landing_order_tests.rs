@@ -6,7 +6,7 @@
 
 use std::time::Duration;
 
-use crate::config::WindowRule;
+use crate::config::{RuleAction, WindowRule};
 use crate::id::wid;
 use crate::tiler::tests::fake_platform::Call;
 use crate::{Action, Direction, WindowEvent};
@@ -95,7 +95,7 @@ fn a_window_let_go_of_while_its_placement_is_on_its_way_gets_no_border_as_it_lan
         match_class: None,
         match_title: Some("let go".into()),
         match_path: None,
-        manage: false,
+        action: RuleAction::Ignore,
     }]);
     platform.take_calls();
 

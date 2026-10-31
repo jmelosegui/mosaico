@@ -22,9 +22,11 @@ impl Tiler {
             // system put it. It is not adopted: applications create many
             // hidden helper windows that are never shown, and those must
             // not reflow the layout. Adoption happens on the show event.
+            // A window the rules float is centered once it is shown, where
+            // its size is known, and is not moved toward a slot.
             if should_pre_place(
-                self.find_window(window).is_some(),
-                self.passes_tiling_rules(plan, window),
+                self.find_managed(window).is_some(),
+                self.passes_tiling_rules(plan, window) && !self.rules_float(plan, window),
             ) {
                 self.pre_place(plan, window);
             }
@@ -43,7 +45,7 @@ impl Tiler {
         // Applications built on some UI frameworks report a show for
         // child elements under the parent window. Without this the
         // window would be added to every workspace active at the time.
-        if self.find_window(window).is_some() {
+        if self.find_managed(window).is_some() {
             return;
         }
         self.add_and_focus(plan, window);

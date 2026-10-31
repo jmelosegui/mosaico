@@ -67,7 +67,10 @@ The contract, in the trait's docs, spells out what the tiler relies on:
   `WindowControl` places windows at, with its stroke outside them.
 - A border never takes focus or input, never shows in the taskbar or the
   window switcher, and never causes a window event.
-- Each time it is drawn, a border goes directly behind its window.
+- Each time it is drawn, a border goes directly behind its window, or
+  behind `BorderStyle::behind` when that is set. The tiler sets it for the
+  focused tile of a workspace with floating windows, to the backmost of
+  them, so the border never draws over a floating window.
 - Hiding or dropping the border of a window that has none does nothing.
 - Drawing a border fails only when the border cannot be created. A window
   that closed in the meantime is not an error.
@@ -145,7 +148,8 @@ a stale bitmap from the previous size would briefly appear at the new position.
   behind `target`; it fails when the bitmap does not reach the overlay,
   which keeps the one it had and is still put in place
 - `Border::restack(rect, width, target)` -- puts the overlay in its
-  window's topmost band, then just behind its window at `rect`, and only
+  window's topmost band, then just behind `target` (its window, or
+  `BorderStyle::behind`) at `rect`, and only
   then shows it, with the bitmap it already has, so a hidden border never
   shows where it was hidden
 - `Border::move_to(rect, width)` -- only moves the overlay around `rect`,

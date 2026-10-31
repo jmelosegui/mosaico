@@ -24,6 +24,7 @@ impl Tiler {
                 .iter()
                 .map(|ws| WorkspaceSnapshot {
                     windows: ws.windows().iter().map(|&w| window(w)).collect(),
+                    floating: ws.floating().iter().map(|&w| window(w)).collect(),
                 })
                 .collect();
             monitors.push(MonitorSnapshot {

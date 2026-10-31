@@ -1,7 +1,7 @@
 //! Keeping one border per window in a step.
 
 use crate::Rect;
-use crate::config::Color;
+use crate::config::BorderColors;
 use crate::id::wid;
 use crate::tiler::{BorderStyle, Timing};
 
@@ -17,13 +17,10 @@ fn draw(window: u64, x: i32) -> Effect {
         window: wid(window),
         style: Some(BorderStyle {
             rect: Rect::new(x, 0, 100, 100),
-            color: Color {
-                r: 0x11,
-                g: 0x22,
-                b: 0x33,
-            },
+            color: BorderColors::FALLBACK,
             width: 4,
             radius: 8,
+            behind: None,
         }),
     }
 }

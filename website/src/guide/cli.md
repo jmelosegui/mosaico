@@ -117,6 +117,9 @@ mosaico action focus left|right|up|down
 mosaico action move left|right|up|down
 mosaico action retile
 mosaico action toggle-monocle
+mosaico action toggle-float
+mosaico action cycle-float
+mosaico action grow-width|shrink-width|grow-height|shrink-height
 mosaico action close-focused
 mosaico action cycle-layout
 mosaico action go-to-workspace <1-8>

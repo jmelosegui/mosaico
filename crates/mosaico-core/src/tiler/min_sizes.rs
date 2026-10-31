@@ -37,7 +37,7 @@ impl Tiler {
         let managed = |window: &WindowId| {
             monitors
                 .iter()
-                .any(|m| m.workspaces.iter().any(|ws| ws.contains(*window)))
+                .any(|m| m.workspaces.iter().any(|ws| ws.holds(*window)))
         };
         self.min_sizes.0.retain(|window, _| managed(window));
     }

@@ -64,6 +64,7 @@ mosaico action move up            # Move window up
 mosaico action move down          # Move window down
 mosaico action retile             # Re-apply the current layout
 mosaico action toggle-monocle     # Toggle monocle mode
+mosaico action toggle-float       # Float the focused window, or tile it again
 mosaico action cycle-layout       # Cycle BSP / VerticalStack / ThreeColumn
 mosaico action close-focused      # Close the focused window
 mosaico action go-to-workspace 3  # Switch to workspace 3 (1-8)

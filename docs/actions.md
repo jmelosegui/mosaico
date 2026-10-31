@@ -67,7 +67,7 @@ Directions parse from and serialize to lowercase strings: `"left"`, `"right"`,
 | `Move(Right)` | Swap/move window right (crosses monitors) | Alt+Shift+L |
 | `Move(Up)` | Swap window up (same monitor only) | Alt+Shift+K |
 | `Move(Down)` | Swap window down (same monitor only) | Alt+Shift+J |
-| `Retile` | Re-apply layout on all monitors, with every split of the workspaces on screen back at `[layout] ratio`, or an equal share down a stack | Alt+Shift+R |
+| `Retile` | Re-apply layout on all monitors, with every split of the workspaces on screen back at `[layout] ratio`, or an equal share down a stack, and their floating windows tiled again, but those the rules float | Alt+Shift+R |
 | `ToggleMonocle` | Toggle monocle mode on focused monitor | Alt+T |
 | `CycleLayout` | Cycle to the next layout on the focused monitor | Alt+N |
 | `CloseFocused` | Close the focused window via `WM_CLOSE` | Alt+Q |
@@ -89,6 +89,12 @@ either end does nothing. They have no default hotkey; bind them in
   the current monitor, overflows to the physically adjacent monitor.
 - **Up/Down**: spatial vertical neighbor lookup. Stops at the monitor boundary
   (no cross-monitor overflow).
+- **Monocle and floating windows**: while the focused workspace is in
+  monocle or has floating windows (`tiles_out_of_reach()`), the tiles are
+  out of reach: `Focus(Left/Right)` goes straight to the adjacent monitor,
+  `Focus(Up/Down)` and `Move` on a tile do nothing, and `Move` on a
+  floating window nudges it within its monitor. `SendToWorkspace` leaves a
+  floating window where it is.
 
 ## Trigger Paths
 
@@ -178,6 +184,10 @@ Actions use custom `FromStr`/`Display` implementations for serde:
 - `Move(Right)` -> `"move-right"`
 - `Retile` -> `"retile"`
 - `ToggleMonocle` -> `"toggle-monocle"`
+- `ToggleFloat` -> `"toggle-float"`
+- `CycleFloat` -> `"cycle-float"`
+- `GrowWidth` / `ShrinkWidth` -> `"grow-width"` / `"shrink-width"`
+- `GrowHeight` / `ShrinkHeight` -> `"grow-height"` / `"shrink-height"`
 - `CycleLayout` -> `"cycle-layout"`
 - `CloseFocused` -> `"close-focused"`
 - `GoToWorkspace(3)` -> `"goto-workspace-3"`

@@ -42,6 +42,7 @@ fn border_at(window: u64, x: i32) -> Effect {
             },
             width: 4,
             radius: 8,
+            behind: None,
         }),
     }
 }
