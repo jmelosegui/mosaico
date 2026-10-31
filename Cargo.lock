@@ -272,7 +272,7 @@ dependencies = [
 
 [[package]]
 name = "mosaico"
-version = "0.10.0"
+version = "0.11.0"
 dependencies = [
  "clap",
  "embed-resource",
@@ -283,7 +283,7 @@ dependencies = [
 
 [[package]]
 name = "mosaico-core"
-version = "0.10.0"
+version = "0.11.0"
 dependencies = [
  "mosaico-metrics",
  "serde",
@@ -295,14 +295,14 @@ dependencies = [
 
 [[package]]
 name = "mosaico-metrics"
-version = "0.10.0"
+version = "0.11.0"
 dependencies = [
  "toml 0.8.23",
 ]
 
 [[package]]
 name = "mosaico-windows"
-version = "0.10.0"
+version = "0.11.0"
 dependencies = [
  "mosaico-core",
  "serde_json",
@@ -723,7 +723,7 @@ dependencies = [
 
 [[package]]
 name = "xtask"
-version = "0.10.0"
+version = "0.11.0"
 dependencies = [
  "mosaico-metrics",
 ]
