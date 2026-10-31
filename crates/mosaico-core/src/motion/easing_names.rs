@@ -7,6 +7,30 @@ use crate::{Error, Result};
 
 use super::{CubicBezier, Easing};
 
+impl Easing {
+    /// The presets, in the order a list of easings shows them.
+    pub const PRESETS: [Easing; 5] = [
+        Self::EaseOutCubic,
+        Self::EaseOutQuad,
+        Self::EaseOutExpo,
+        Self::EaseInOutCubic,
+        Self::Linear,
+    ];
+
+    /// The easing's name for people, such as `Ease out (cubic)`. Every
+    /// cubic Bezier is a `Custom curve`.
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Linear => "Linear",
+            Self::EaseOutQuad => "Ease out (quad)",
+            Self::EaseOutCubic => "Ease out (cubic)",
+            Self::EaseInOutCubic => "Ease in and out (cubic)",
+            Self::EaseOutExpo => "Ease out (expo)",
+            Self::CubicBezier(_) => "Custom curve",
+        }
+    }
+}
+
 impl FromStr for Easing {
     type Err = Error;
 

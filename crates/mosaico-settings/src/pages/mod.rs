@@ -1,5 +1,6 @@
 //! The pages of the settings window, and what they share.
 
+mod animations;
 mod file_page;
 mod general;
 mod layout;
@@ -97,6 +98,7 @@ impl Page {
             Self::General => Some(general::SECTIONS),
             Self::Layout => Some(layout::SECTIONS),
             Self::Mouse => Some(mouse::SECTIONS),
+            Self::Animations => Some(animations::SECTIONS),
             _ => None,
         }
     }

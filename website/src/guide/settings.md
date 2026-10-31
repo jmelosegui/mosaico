@@ -94,6 +94,17 @@ Picking a theme or flavor previews it in the settings window right away.
 | Focus | Pointer follows focus, focus follows pointer | `mouse.follows_focus`, `mouse.focus_follows_mouse` |
 | Dragging | Drag to swap, resize splits | `mouse.drag_to_swap`, `mouse.resize_splits` |
 
+## Animations
+
+| Section | Setting | Key in `config.toml` |
+|---------|---------|----------------------|
+| Motion | Animate windows, duration, easing | `animations.enabled`, `animations.duration`, `animations.easing` |
+| System | Follow the system | `animations.follow_system` |
+
+Easing lists the presets and **Custom curve**, which shows a field for a
+`cubic-bezier(x1, y1, x2, y2)` curve. A curve that is not valid says why under
+the setting's name, and Apply refuses it until it is fixed.
+
 ## Current Limits
 
 Pages that are not ready yet are grayed out in the sidebar. Edit the

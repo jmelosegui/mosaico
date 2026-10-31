@@ -2,6 +2,7 @@
 
 mod support;
 
+mod animations;
 mod apply;
 mod close;
 mod general;
