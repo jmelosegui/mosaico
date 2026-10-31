@@ -7,6 +7,7 @@ mod apply;
 mod borders;
 mod close;
 mod general;
+mod keybindings;
 mod layout;
 mod mouse;
 mod shell;
