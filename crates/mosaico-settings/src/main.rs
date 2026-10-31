@@ -6,10 +6,19 @@
 mod platform;
 
 use eframe::egui::{ViewportBuilder, vec2};
-use mosaico_settings::SettingsApp;
+use mosaico_settings::{Forward, SettingsApp};
 
 #[cfg(target_os = "windows")]
 fn main() -> eframe::Result {
+    // A second launch brings the open window forward and leaves. When the
+    // lock cannot be taken at all, the window opens without it.
+    let forward = Forward::default();
+    let summoned = forward.clone();
+    let _lock = match platform::lock_window(Box::new(move || summoned.bring())) {
+        Ok(lock) => Some(lock),
+        Err(mosaico_core::Error::AlreadyRunning) => return Ok(()),
+        Err(_) => None,
+    };
     let services = platform::services();
     let viewport = ViewportBuilder::default()
         .with_title("mosaico settings")
@@ -26,7 +35,10 @@ fn main() -> eframe::Result {
     eframe::run_native(
         "mosaico settings",
         options,
-        Box::new(|_| Ok(Box::new(SettingsApp::new(services)))),
+        Box::new(move |cc| {
+            forward.attach(&cc.egui_ctx);
+            Ok(Box::new(SettingsApp::new(services)))
+        }),
     )
 }
 

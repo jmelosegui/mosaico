@@ -2,6 +2,7 @@
 //! bar that applies or reverts the edits.
 
 mod chrome;
+mod close;
 mod footer;
 mod sidebar;
 
@@ -46,6 +47,7 @@ pub struct SettingsApp {
     daemon_state: DaemonState,
     polled_at: Option<f64>,
     styled: Option<Theme>,
+    close: close::CloseGuard,
 }
 
 impl SettingsApp {
@@ -61,6 +63,7 @@ impl SettingsApp {
             daemon_state: DaemonState::Stopped,
             polled_at: None,
             styled: None,
+            close: close::CloseGuard::default(),
         }
     }
 
@@ -74,11 +77,14 @@ impl SettingsApp {
         let c = self.style(ui.ctx());
         self.poll(ui.ctx());
 
-        Panel::top("title bar")
+        let close_clicked = Panel::top("title bar")
             .exact_size(36.0)
             .resizable(false)
             .frame(Frame::new().fill(c.title_bar))
-            .show(ui, |ui| chrome::title_bar(ui, &c));
+            .show(ui, |ui| chrome::title_bar(ui, &c))
+            .inner;
+        self.close
+            .handle(ui.ctx(), close_clicked, self.draft.changes());
         Panel::left("navigation")
             .exact_size(224.0)
             .resizable(false)
@@ -104,6 +110,7 @@ impl SettingsApp {
             .frame(Frame::new().fill(c.page))
             .show(ui, |ui| self.page(ui, &c));
 
+        self.close.show(ui.ctx(), &c, self.draft.changes());
         chrome::resize_edges(ui.ctx());
     }
 

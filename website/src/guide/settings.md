@@ -9,7 +9,8 @@ separate program, `mosaico-settings.exe`, installed beside `mosaico.exe`.
 - Double-click `mosaico-settings.exe` in the install folder.
 
 The daemon does not need to be running, and starting the daemon does not open
-the window.
+the window. Only one settings window opens at a time: opening it again brings
+the one already open to the front.
 
 The window tiles like any other window. To float it instead, add a rule to
 `user-rules.toml`:
@@ -28,7 +29,9 @@ the daemon is running and which version it is.
 
 Each setting shows its default value, and a reset button appears next to any
 setting you have changed. The footer counts your unsaved changes, and
-**Revert** drops them all.
+**Revert** drops them all. Closing the window with unsaved changes, by its
+close button, Alt+F4 or the taskbar, asks first: **Keep editing** goes back
+to the window and **Discard and close** closes it.
 
 ## General
 

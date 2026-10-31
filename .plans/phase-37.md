@@ -297,8 +297,8 @@ and brings its docs, so it can merge on its own.
       active flavor, Inter font, flavor preview while editing
 - [ ] Follows theme changes made in `config.toml` live; `settings-app.toml`
 - [x] Navigation, Revert, unsaved-change count, daemon status line
-- [ ] Setting rows from descriptors, Apply, unsaved-edit prompt, single
-      instance
+- [x] Unsaved-edit prompt, single instance
+- [ ] Setting rows from descriptors, Apply
 - [x] `mosaico settings` starts it
 - [ ] The tray's Settings… item starts it
 - [x] Releases, `install.ps1` and `mosaico update` ship and install

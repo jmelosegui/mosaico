@@ -50,7 +50,7 @@ fn mutex_name(instance: &Instance) -> String {
 ///
 /// When dropped (on clean exit or panic unwind), the mutex is released
 /// so the next daemon can start.
-struct InstanceGuard {
+pub(crate) struct InstanceGuard {
     handle: HANDLE,
 }
 
@@ -58,8 +58,9 @@ impl InstanceGuard {
     /// Creates the mutex `name`, or fails with [`Error::AlreadyRunning`]
     /// when it exists already.
     ///
-    /// It takes any name so unit tests can use isolated mutex names.
-    fn acquire_named(name: &str) -> Result<Self> {
+    /// It takes any name, so unit tests can use isolated mutex names and
+    /// the settings window a lock of its own.
+    pub(crate) fn acquire_named(name: &str) -> Result<Self> {
         let name = HSTRING::from(name);
 
         // SAFETY: CreateMutexW creates or opens a named mutex.

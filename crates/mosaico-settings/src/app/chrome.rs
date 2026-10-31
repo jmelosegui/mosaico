@@ -14,7 +14,9 @@ const EDGE: f32 = 5.0;
 
 /// The logo, the title and the minimize, maximize and close buttons.
 /// Dragging the bar moves the window; double-clicking it maximizes it.
-pub fn title_bar(ui: &mut Ui, c: &Colors) {
+/// Returns whether the close button was clicked, which the caller
+/// decides on.
+pub fn title_bar(ui: &mut Ui, c: &Colors) -> bool {
     let bar = ui.max_rect();
     let drag = ui.interact(
         bar,
@@ -29,6 +31,7 @@ pub fn title_bar(ui: &mut Ui, c: &Colors) {
         ui.send_viewport_cmd(ViewportCommand::Maximized(!maximized));
     }
 
+    let mut close = false;
     ui.allocate_ui_with_layout(bar.size(), Layout::left_to_right(Align::Center), |ui| {
         ui.add_space(12.0);
         let (logo, _) = ui.allocate_exact_size(vec2(16.0, 16.0), Sense::hover());
@@ -42,9 +45,7 @@ pub fn title_bar(ui: &mut Ui, c: &Colors) {
 
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
             ui.spacing_mut().item_spacing.x = 0.0;
-            if caption(ui, c, Icon::Close, "Close", true).clicked() {
-                ui.send_viewport_cmd(ViewportCommand::Close);
-            }
+            close = caption(ui, c, Icon::Close, "Close", true).clicked();
             let (icon, tip) = if maximized {
                 (Icon::Restore, "Restore")
             } else {
@@ -58,6 +59,7 @@ pub fn title_bar(ui: &mut Ui, c: &Colors) {
             }
         });
     });
+    close
 }
 
 fn caption(

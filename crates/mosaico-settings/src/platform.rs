@@ -5,16 +5,30 @@ use std::time::Duration;
 
 use mosaico_core::config::ConfigStore;
 use mosaico_core::ipc::{DaemonStatus, IpcClient};
-use mosaico_core::system::AutostartStatus;
+use mosaico_core::system::{AutostartStatus, InstanceLock, SingleWindow, Summoned};
 use mosaico_core::{Command, Error, Instance};
 use mosaico_settings::{DaemonState, General, Services};
 use mosaico_windows::autostart::RegistryAutostart;
 use mosaico_windows::files::WindowsFiles;
 use mosaico_windows::ipc::{PipeClient, pipe_name};
+use mosaico_windows::single_window::NamedWindowLock;
 use mosaico_windows::user_dirs::WindowsUserDirs;
 
 /// How long the window waits for the daemon to answer.
 const DAEMON_TIMEOUT: Duration = Duration::from_millis(300);
+
+/// What the settings window's lock is called, beside the instance.
+const APP: &str = "settings";
+
+/// Takes the lock of this instance's settings window, with `summoned`
+/// called when a later launch asks it to come forward. Fails with
+/// [`Error::AlreadyRunning`] when another window holds it, which was
+/// asked to come forward.
+pub fn lock_window(summoned: Summoned) -> mosaico_core::Result<InstanceLock> {
+    let instance = Instance::init(&WindowsUserDirs::current())
+        .map_err(|e| Error::platform("find the instance", e))?;
+    NamedWindowLock.acquire(instance, APP, summoned)
+}
 
 /// The settings of this process's instance, falling back to the defaults
 /// when the instance cannot be told.

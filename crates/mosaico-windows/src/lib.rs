@@ -97,6 +97,9 @@ pub mod process;
 /// What every mosaico process sets up first.
 pub mod setup;
 
+/// Keeping one settings window per instance.
+pub mod single_window;
+
 /// Machine readings for the bar's system widgets.
 pub mod system_info;
 
