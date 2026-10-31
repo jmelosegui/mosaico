@@ -6,9 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::motion::{Easing, MotionSpec};
 
-/// The longest a transition may last, in milliseconds.
-/// [`Config::validate`](super::Config::validate) clamps longer ones to it.
-pub(super) const MAX_DURATION_MS: i32 = 1000;
+use super::limits::DURATION_MAX_MS;
 
 /// Window transitions: the `[animations]` section of `config.toml`.
 ///
@@ -58,7 +56,7 @@ impl AnimationConfig {
     /// duration is within 0 to 1000 ms even in a config that was not
     /// validated.
     pub fn spec(&self) -> MotionSpec {
-        let millis = self.duration.clamp(0, MAX_DURATION_MS).unsigned_abs();
+        let millis = self.duration.clamp(0, DURATION_MAX_MS).unsigned_abs();
         MotionSpec {
             duration: Duration::from_millis(millis.into()),
             easing: self.easing,

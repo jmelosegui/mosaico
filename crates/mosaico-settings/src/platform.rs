@@ -5,9 +5,11 @@ use std::time::Duration;
 
 use mosaico_core::config::ConfigStore;
 use mosaico_core::ipc::{DaemonStatus, IpcClient};
-use mosaico_core::system::{AutostartStatus, InstanceLock, SingleWindow, Summoned};
+use mosaico_core::system::{
+    Autostart, AutostartStatus, InstanceLock, LaunchCommand, SingleWindow, Summoned,
+};
 use mosaico_core::{Command, Error, Instance};
-use mosaico_settings::{DaemonState, General, Services};
+use mosaico_settings::{DaemonState, Services};
 use mosaico_windows::autostart::RegistryAutostart;
 use mosaico_windows::files::WindowsFiles;
 use mosaico_windows::ipc::{PipeClient, pipe_name};
@@ -30,26 +32,36 @@ pub fn lock_window(summoned: Summoned) -> mosaico_core::Result<InstanceLock> {
     NamedWindowLock.acquire(instance, APP, summoned)
 }
 
-/// The settings of this process's instance, falling back to the defaults
-/// when the instance cannot be told.
+/// The settings of this process's instance. When the instance cannot be
+/// told, the window shows the defaults and cannot save.
 pub fn services() -> Services {
     let Ok(instance) = Instance::init(&WindowsUserDirs::current()) else {
         return Services {
-            general: General::defaults(),
+            store: Err("The mosaico config folder could not be found.".into()),
+            start_at_sign_in: false,
+            sign_in: Box::new(|_| Err("The mosaico executable could not be found.".into())),
             log_file: String::new(),
             daemon: Box::new(|| DaemonState::Stopped),
         };
     };
-    let config = ConfigStore::for_instance(instance).load_config();
     let autostart = AutostartStatus::read(&RegistryAutostart, &WindowsFiles, mosaico_exe);
     let client = PipeClient::new(&pipe_name(instance));
     Services {
-        general: General::from_config(
-            &config,
-            autostart.is_ok_and(|s| s == AutostartStatus::Enabled),
-        ),
+        store: Ok(ConfigStore::for_instance(instance)),
+        start_at_sign_in: autostart.is_ok_and(|s| s == AutostartStatus::Enabled),
+        sign_in: Box::new(|on| set_sign_in(on).map_err(|e| e.to_string())),
         log_file: instance.log_path().display().to_string(),
         daemon: Box::new(move || daemon_state(&client)),
+    }
+}
+
+/// Registers mosaico to start at sign-in, or removes it, as `mosaico
+/// autostart enable` and `disable` do.
+fn set_sign_in(on: bool) -> mosaico_core::Result<()> {
+    if on {
+        RegistryAutostart.enable(&LaunchCommand::autostart(mosaico_exe()?))
+    } else {
+        RegistryAutostart.disable()
     }
 }
 

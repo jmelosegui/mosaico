@@ -268,19 +268,20 @@ and brings its docs, so it can merge on its own.
 
 ### 37.1 Setting descriptions
 
-- [ ] `SettingDescriptor` and `SettingKind` in core, with descriptors for
-      every field of `config.toml` and `bar.toml`
-- [ ] Ranges as constants shared by validation and descriptors
-- [ ] Tests: every config field has a descriptor and the reverse; every
+- [x] `SettingDescriptor` and `SettingKind` in core, with descriptors for
+      every field of `config.toml`
+- [ ] Descriptors for every field of `bar.toml`
+- [x] Ranges as constants shared by validation and descriptors
+- [x] Tests: every config field has a descriptor and the reverse; every
       default validates unchanged; every out-of-range value is clamped to the
       descriptor's bounds
 - [ ] `mosaico doctor` messages come from the descriptors
 
 ### 37.2 Editing config files
 
-- [ ] `SettingsDocument`: get, set, reset, dirty tracking, change-on-disk
+- [x] `SettingsDocument`: get, set, reset, dirty tracking, change-on-disk
       detection, save through `ConfigStore`
-- [ ] Tests on a temporary store: comments, order, CRLF and BOM survive;
+- [x] Tests on a temporary store: comments, order, CRLF and BOM survive;
       defaults aren't added; unknown keys are kept; invalid sets are refused;
       a file changed on disk is detected
 
@@ -299,10 +300,11 @@ and brings its docs, so it can merge on its own.
 - [x] Per-flavor UI roles in core's theme palettes
 - [x] `mosaico-settings` crate, ArtCraft tokens with colors from the
       active flavor, Inter font, flavor preview while editing
-- [ ] Follows theme changes made in `config.toml` live; `settings-app.toml`
+- [x] Follows theme changes made in `config.toml` live
+- [ ] `settings-app.toml`
 - [x] Navigation, Revert, unsaved-change count, daemon status line
 - [x] Unsaved-edit prompt, single instance
-- [ ] Setting rows from descriptors, Apply
+- [x] Setting rows from descriptors, Apply
 - [x] `mosaico settings` starts it
 - [x] The tray's Settings… item starts it
 - [x] Releases, `install.ps1` and `mosaico update` ship and install
@@ -312,7 +314,7 @@ and brings its docs, so it can merge on its own.
 
 ### 37.5 Pages for config.toml and bar.toml
 
-- [x] General (read-only until Apply lands)
+- [x] General
 - [ ] Layout, Workspaces, Borders, Mouse, Animations, Bar
 - [ ] Color picker with palette names, widget order editor
 - [ ] `egui_kittest` tests: each page edits, saves and reloads through a
@@ -335,12 +337,12 @@ and brings its docs, so it can merge on its own.
 
 ### Verification
 
-- [ ] `mosaico.exe` is under 2,000,000 bytes, and no egui crate appears in
+- [x] `mosaico.exe` is under 2,000,000 bytes, and no egui crate appears in
       its dependency tree
-- [ ] A setting changed in the app is applied by the running daemon without
+- [x] A setting changed in the app is applied by the running daemon without
       a restart
-- [ ] A hand-commented config file keeps its comments after Apply
-- [ ] The app follows a theme or flavor change in `config.toml` live
+- [x] A hand-commented config file keeps its comments after Apply
+- [x] The app follows a theme or flavor change in `config.toml` live
 
 ## Open Decisions
 

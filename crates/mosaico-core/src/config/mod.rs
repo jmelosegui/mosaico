@@ -9,6 +9,7 @@ mod hiding_behaviour;
 /// Keybinding definitions and defaults.
 pub mod keybinding;
 /// What the mouse does: the pointer and focus, and dragging windows.
+pub mod limits;
 mod mouse;
 /// Color palette definitions for themes.
 mod palette;
@@ -22,6 +23,7 @@ mod rule_action;
 pub mod rules;
 /// The config files of an instance: where they are, and loading,
 /// merging and migrating them.
+pub mod schema;
 mod store;
 /// Default configuration file templates.
 pub mod template;
@@ -48,7 +50,7 @@ pub use palette::UiColors;
 pub use reload::{ConfigReload, ConfigReloader, ConfigWatch};
 pub use rule_action::{RuleAction, decide};
 pub use rules::{WindowRule, default_rules, matching_rule, validate_rules};
-pub use store::ConfigStore;
+pub use store::{ConfigStore, SettingsDocument};
 pub use theme::{
     CatppuccinFlavor, RosePineFlavor, Theme, ThemeCheck, ThemeConfig, TokyoNightFlavor,
 };
@@ -87,11 +89,12 @@ impl Config {
     /// resolves theme colors for any unset border color fields.
     pub fn validate(&mut self) {
         self.resolve_borders();
-        self.layout.gap = self.layout.gap.clamp(0, 200);
-        self.layout.ratio = self.layout.ratio.clamp(0.1, 0.9);
-        self.borders.width = self.borders.width.clamp(0, 32);
+        self.layout.gap = self.layout.gap.clamp(0, limits::GAP_MAX);
+        let ratio = self.layout.ratio;
+        self.layout.ratio = ratio.clamp(limits::RATIO_MIN, limits::RATIO_MAX);
+        self.borders.width = self.borders.width.clamp(0, limits::BORDER_WIDTH_MAX);
         let duration = self.animations.duration;
-        self.animations.duration = duration.clamp(0, animations::MAX_DURATION_MS);
+        self.animations.duration = duration.clamp(0, limits::DURATION_MAX_MS);
     }
 
     /// Resolves border colors: empty -> theme default, named -> theme hex.
