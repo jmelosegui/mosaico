@@ -1,22 +1,11 @@
-//! Floating windows when the displays change: which are in view, and
-//! where they settle.
+//! Floating windows when the displays change: where they settle.
 
-use crate::{Rect, WindowId};
+use crate::Rect;
 
 use super::super::{Plan, Tiler, Timing};
 use super::place;
 
 impl Tiler {
-    /// Whether a window is on screen once laid out: tiled on the active
-    /// workspace of its monitor, or floating there outside monocle.
-    pub(in crate::tiler) fn is_in_view(&self, window: WindowId) -> bool {
-        self.find_managed(window).is_some_and(|(mi, wi)| {
-            let mon = &self.monitors[mi];
-            mon.active_workspace == wi
-                && (mon.workspaces[wi].contains(window) || !mon.active_ws().monocle())
-        })
-    }
-
     /// Settles the floating windows in view after the displays changed,
     /// each inside the work area of its monitor (see [`place::settle`]),
     /// then updates the border.

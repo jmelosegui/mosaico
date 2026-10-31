@@ -35,17 +35,27 @@ impl Tiler {
     }
 
     pub(super) fn owning_monitor(&self, window: WindowId) -> Option<usize> {
-        self.find_window(window).map(|(mi, _)| mi)
+        self.find_tiled(window).map(|(mi, _)| mi)
     }
 
     /// Finds the `(monitor, workspace)` indices where a window is tiled.
-    pub(super) fn find_window(&self, window: WindowId) -> Option<(usize, usize)> {
+    pub(super) fn find_tiled(&self, window: WindowId) -> Option<(usize, usize)> {
         self.find_where(|ws| ws.contains(window))
     }
 
     /// Whether the window is on the active workspace of its monitor.
     pub(super) fn is_on_active_workspace(&self, window: WindowId) -> bool {
-        self.find_window(window)
+        self.find_tiled(window)
             .is_some_and(|(mi, wi)| self.monitors[mi].active_workspace == wi)
+    }
+
+    /// Whether a window is on screen once laid out: tiled on the active
+    /// workspace of its monitor, or floating there outside monocle.
+    pub(super) fn is_in_view(&self, window: WindowId) -> bool {
+        self.find_managed(window).is_some_and(|(mi, wi)| {
+            let mon = &self.monitors[mi];
+            mon.active_workspace == wi
+                && (mon.workspaces[wi].contains(window) || !mon.active_ws().monocle())
+        })
     }
 }

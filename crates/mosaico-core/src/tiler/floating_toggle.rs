@@ -5,7 +5,6 @@ use crate::WindowId;
 
 use super::super::removal::untile;
 use super::super::{Plan, Tiler};
-use super::place;
 
 impl Tiler {
     /// Floats the focused window when it is tiled, and tiles it again when
@@ -32,19 +31,13 @@ impl Tiler {
     }
 
     /// Takes a tile out of the layout, which closes the gap, and floats it
-    /// where it last floated, or centered at two-thirds of the work area.
+    /// where [`Floats::landing`](super::Floats::landing) says.
     fn float_tile(&mut self, plan: &mut Plan, mi: usize, window: WindowId) {
-        if self.monitors[mi].active_ws().monocle() {
-            self.exit_monocle(plan, mi);
-        }
-        let area = self.monitors[mi].work_area;
-        let ws = self.monitors[mi].active_ws_mut();
-        untile(plan, ws, window);
-        ws.add_floating(window);
+        untile(plan, self.monitors[mi].active_ws_mut(), window);
+        self.float_on(plan, mi, window);
         let rect = self
             .floats
-            .remembered(window)
-            .map_or_else(|| place::first(area), |rect| place::clamp_into(rect, area));
+            .landing(window, self.monitors[mi].work_area, None);
         crate::log_info!("float {} on mon {}", window, mi);
         self.apply_layout_on(plan, mi);
         self.place_float(plan, window, mi, rect);

@@ -75,7 +75,7 @@ impl Tiler {
     /// Whether `window` is on screen as far as the tiler is concerned:
     /// one it does not manage, or one of a workspace on screen.
     fn shows(&self, window: WindowId) -> bool {
-        self.find_window(window)
+        self.find_tiled(window)
             .is_none_or(|(mon, ws)| self.monitors[mon].active_workspace == ws)
     }
 }

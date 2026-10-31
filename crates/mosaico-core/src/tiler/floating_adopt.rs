@@ -5,7 +5,6 @@ use crate::WindowId;
 use crate::config::RuleAction;
 
 use super::super::{Plan, Tiler};
-use super::place;
 
 impl Tiler {
     /// Whether the rules float `window`, judged on what the platform says
@@ -15,9 +14,9 @@ impl Tiler {
             .is_some_and(|facts| self.rules_decide(&facts) == RuleAction::Float)
     }
 
-    /// Takes in a window the rules float, onto the workspace on screen of
-    /// monitor `mi`, where it last floated, or else centered in its work
-    /// area at the size its application chose, shrunk to fit, and focuses
+    /// Takes in a window that floats as it comes in, by the rules or as
+    /// it did when it left, onto the workspace on screen of monitor `mi`,
+    /// where [`Floats::landing`](super::Floats::landing) says, and focuses
     /// it when `focus`. Returns `false`, doing nothing, when a workspace
     /// already holds it.
     pub(in crate::tiler) fn adopt_floating(
@@ -30,17 +29,11 @@ impl Tiler {
         if self.monitors.get(mi).is_none() || self.find_managed(window).is_some() {
             return false;
         }
-        if self.monitors[mi].active_ws().monocle() {
-            self.exit_monocle(plan, mi);
-        }
-        self.monitors[mi].active_ws_mut().add_floating(window);
+        self.floats.came_back(window);
+        self.float_on(plan, mi, window);
         self.learn_min_size(plan, window);
         let area = self.monitors[mi].work_area;
-        let rect = match (self.floats.remembered(window), plan.rect(window)) {
-            (Some(rect), _) => place::clamp_into(rect, area),
-            (None, Some(rect)) => place::centered(area, rect.width, rect.height),
-            (None, None) => place::first(area),
-        };
+        let rect = self.floats.landing(window, area, plan.rect(window));
         crate::log_info!("+float {} on mon {}", window, mi);
         self.decorate(plan, window);
         self.place_float(plan, window, mi, rect);
@@ -49,6 +42,15 @@ impl Tiler {
             self.focus_window(plan, window, false);
         }
         true
+    }
+
+    /// Floats `window` on the workspace on screen of monitor `mi`, in
+    /// front of the others there, ending monocle there to show it.
+    pub(in crate::tiler) fn float_on(&mut self, plan: &mut Plan, mi: usize, window: WindowId) {
+        if self.monitors[mi].active_ws().monocle() {
+            self.exit_monocle(plan, mi);
+        }
+        self.monitors[mi].active_ws_mut().add_floating(window);
     }
 
     /// Follows a floating window the user moved, as by dragging it: one
@@ -63,10 +65,7 @@ impl Tiler {
             && wi == self.monitors[from].active_workspace
         {
             self.monitors[from].workspaces[wi].remove_floating(window);
-            if self.monitors[to].active_ws().monocle() {
-                self.exit_monocle(plan, to);
-            }
-            self.monitors[to].active_ws_mut().add_floating(window);
+            self.float_on(plan, to, window);
             if self.focused_window == Some(window) {
                 self.focused_monitor = to;
             }

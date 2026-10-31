@@ -44,11 +44,10 @@ impl Tiler {
         // Out of the layout, it is no longer the tiler's to show again,
         // and its id may go to a new window.
         self.hidden_how.forget(window);
-        let ws = &mut self.monitors[mon_idx].workspaces[ws_idx];
-        if ws.is_floating(window) && reason != "del" {
-            let rect = plan.rect(window).filter(|_| !plan.is_minimized(window));
-            self.floats.went_away(window, rect);
+        if self.monitors[mon_idx].workspaces[ws_idx].is_floating(window) {
+            self.float_went_away(plan, window);
         }
+        let ws = &mut self.monitors[mon_idx].workspaces[ws_idx];
         untile(plan, ws, window);
         crate::log_info!(
             "-{} {} from mon {} ws {} (now {})",
@@ -58,10 +57,7 @@ impl Tiler {
             ws_idx + 1,
             ws.len()
         );
-        if ws.monocle() && ws.monocle_window() == Some(window) {
-            ws.set_monocle(false);
-            ws.set_monocle_window(None);
-        }
+        ws.end_monocle_of(window);
 
         if self.focused_window == Some(window) {
             self.focused_window = None;
@@ -117,15 +113,22 @@ impl Tiler {
             .filter(|&w| !plan.is_visible(w) || plan.is_minimized(w))
             .collect();
         for window in stale {
-            if state.active_ws().is_floating(window) {
-                let rect = plan.rect(window).filter(|_| !plan.is_minimized(window));
-                self.floats.went_away(window, rect);
+            if self.monitors[monitor_idx].active_ws().is_floating(window) {
+                self.float_went_away(plan, window);
             }
-            untile(plan, state.active_ws_mut(), window);
+            untile(plan, self.monitors[monitor_idx].active_ws_mut(), window);
             if !plan.is_visible(window) {
                 self.decorated.remove(&window);
             }
             crate::log_info!("-prune {} (stale or minimized)", window);
         }
+    }
+
+    /// Notes that floating `window` leaves its workspace while it still
+    /// exists, where it is unless minimized, so it floats there again
+    /// when it comes back.
+    fn float_went_away(&mut self, plan: &Plan, window: WindowId) {
+        let rect = plan.rect(window).filter(|_| !plan.is_minimized(window));
+        self.floats.went_away(window, rect);
     }
 }

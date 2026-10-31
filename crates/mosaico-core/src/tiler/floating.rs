@@ -45,6 +45,17 @@ impl Floats {
         self.rects.get(&window).copied()
     }
 
+    /// Where a window lands as it starts floating in `area`: where it last
+    /// floated, moved into `area`, or else centered at its `natural` size,
+    /// shrunk to fit, or else centered at two-thirds of `area`.
+    pub(super) fn landing(&self, window: WindowId, area: Rect, natural: Option<Rect>) -> Rect {
+        match (self.remembered(window), natural) {
+            (Some(rect), _) => place::clamp_into(rect, area),
+            (None, Some(rect)) => place::centered(area, rect.width, rect.height),
+            (None, None) => place::first(area),
+        }
+    }
+
     /// Notes that a floating window left its workspace while it still
     /// exists, at `rect`, so it floats there again when it comes back.
     pub(super) fn went_away(&mut self, window: WindowId, rect: Option<Rect>) {
@@ -54,10 +65,14 @@ impl Floats {
         self.away.insert(window);
     }
 
-    /// Whether a window coming back floated when it left, which it then
-    /// no longer counts as.
-    fn came_back(&mut self, window: WindowId) -> bool {
-        self.away.remove(&window)
+    /// Whether a window floated when it left its workspace.
+    fn is_away(&self, window: WindowId) -> bool {
+        self.away.contains(&window)
+    }
+
+    /// Notes that a window that floated when it left is back.
+    fn came_back(&mut self, window: WindowId) {
+        self.away.remove(&window);
     }
 
     /// Forgets a window that is gone, so a new window given its id does
@@ -71,9 +86,10 @@ impl Floats {
 impl Tiler {
     /// Whether a window being taken in floats: one the rules float, or one
     /// that floated when it left its workspace.
-    pub(super) fn floats_on_return(&mut self, plan: &Plan, window: WindowId) -> bool {
-        self.floats.came_back(window) || self.rules_float(plan, window)
+    pub(super) fn floats_on_return(&self, plan: &Plan, window: WindowId) -> bool {
+        self.floats.is_away(window) || self.rules_float(plan, window)
     }
+
     /// Hides the floating windows of the workspace on screen of monitor
     /// `mi` while it is in monocle, and shows them again once it is not.
     /// Every layout pass calls it, so whatever ends monocle shows them.

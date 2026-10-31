@@ -64,7 +64,7 @@ impl Tiler {
     ) {
         let put_back = |w: &&WindowId| shown.contains(w) && !self.is_dragged(**w);
         for &window in waiting.iter().filter(put_back) {
-            let Some((mi, wi)) = self.find_window(window) else {
+            let Some((mi, wi)) = self.find_tiled(window) else {
                 continue;
             };
             let ws = &self.monitors[mi].workspaces[wi];

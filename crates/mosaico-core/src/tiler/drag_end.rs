@@ -68,7 +68,7 @@ impl Tiler {
             return;
         };
         let tiled = self
-            .find_window(drag.window)
+            .find_tiled(drag.window)
             .is_some_and(|(mon, ws)| self.monitors[mon].active_workspace == ws);
         if !tiled {
             self.end_drag(plan);

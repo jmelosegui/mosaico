@@ -32,9 +32,11 @@ impl Tiler {
                 self.filling.forget(window);
                 self.reconnect.forget(window);
                 self.hidden_how.forget(window);
-                self.floats.forget(window);
                 self.undecorate(plan, window);
                 self.remove_from_tiling(plan, window, "del", false);
+                // After the removal, which notes a floating window as gone
+                // away, so a new window given its id does not float.
+                self.floats.forget(window);
             }
             WindowEvent::Hidden { window } => {
                 // Some applications report a hide while repainting a

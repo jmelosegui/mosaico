@@ -51,6 +51,14 @@ impl Workspace {
         self.monocle_window = value;
     }
 
+    /// Ends monocle when `window`, leaving the tiles, is the monocle window.
+    pub fn end_monocle_of(&mut self, window: WindowId) {
+        if self.monocle && self.monocle_window == Some(window) {
+            self.set_monocle(false);
+            self.monocle_window = None;
+        }
+    }
+
     /// Has a window of the workspace, which a display change brought from
     /// another monitor, wait behind the monocle window: the next time the
     /// workspace is laid out in monocle, it is put behind it, then in its

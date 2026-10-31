@@ -6,7 +6,6 @@ use crate::config::RuleAction;
 
 use super::super::removal::untile;
 use super::super::{Plan, Tiler};
-use super::place;
 
 impl Tiler {
     /// Every managed window the rules float, judged on what the platform
@@ -73,17 +72,12 @@ impl Tiler {
         }
         if float {
             untile(plan, ws, window);
-            if ws.monocle() && ws.monocle_window() == Some(window) {
-                ws.set_monocle(false);
-                ws.set_monocle_window(None);
-            }
+            ws.end_monocle_of(window);
             ws.add_floating(window);
-            if wi == self.monitors[mi].active_workspace {
-                let area = self.monitors[mi].work_area;
+            if on_screen {
                 let rect = self
                     .floats
-                    .remembered(window)
-                    .map_or_else(|| place::first(area), |rect| place::clamp_into(rect, area));
+                    .landing(window, self.monitors[mi].work_area, None);
                 self.place_float(plan, window, mi, rect);
                 self.float_to_front(plan, window, true);
             }
