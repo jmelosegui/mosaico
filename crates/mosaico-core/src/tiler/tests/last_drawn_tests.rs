@@ -15,6 +15,7 @@ fn style() -> BorderStyle {
         },
         width: 4,
         radius: 8,
+        behind: None,
     }
 }
 

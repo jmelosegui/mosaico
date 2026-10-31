@@ -57,11 +57,13 @@ impl Tiler {
     /// The user's retile: the workspace on screen of every monitor forgets
     /// where the user moved its splits, in all its layouts, so each split
     /// follows `[layout] ratio`, or an equal share down a stack, again, and
-    /// every monitor is laid out again.
+    /// every monitor is laid out again. Its floating windows are tiled
+    /// again, but those the rules float.
     /// The workspaces out of view keep theirs. The windows' minimum sizes
     /// are read again too, in case an application changed its own.
     pub(super) fn retile_from_ratio(&mut self, plan: &mut Plan) {
         self.min_sizes.clear();
+        self.tile_floats(plan);
         for mon in &mut self.monitors {
             mon.active_ws_mut().forget_split_ratios();
         }

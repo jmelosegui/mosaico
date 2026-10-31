@@ -60,7 +60,7 @@ means `action = "ignore"`. Both still work, but a rule cannot have both
 | Action | What happens |
 |--------|--------------|
 | `tile` | The window is tiled into the layout |
-| `float` | The window is managed but not tiled: it keeps its own size and stays above the tiles of its workspace, and moves with the workspace |
+| `float` | The window is managed but not tiled: it keeps its own size and stays above the tiles of its workspace, and moves with the workspace. `toggle-float` and `retile` leave it floating |
 | `ignore` | Mosaico leaves the window alone |
 
 ## Matching Behavior

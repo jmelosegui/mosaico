@@ -124,6 +124,7 @@ impl Tiler {
             color: Color::from_hex(color).unwrap_or(BorderColors::FALLBACK),
             width: self.border_config.width,
             radius: self.border_config.corner_style.border_radius(),
+            behind: self.border_behind(window, mon_idx),
         })
     }
 

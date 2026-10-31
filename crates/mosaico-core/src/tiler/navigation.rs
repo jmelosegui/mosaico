@@ -3,9 +3,8 @@
 //! Handles same-monitor neighbor lookup, cross-monitor overflow, and
 //! choosing where to enter a monitor when jumping between monitors.
 
-use crate::action::Direction;
-
 use crate::WindowId;
+use crate::action::Direction;
 
 use super::{Plan, SpatialTarget, Tiler, Timing};
 
@@ -13,16 +12,17 @@ impl Tiler {
     /// Focuses a window in the given direction.
     ///
     /// Left and right go to the horizontal neighbor and overflow to the
-    /// adjacent monitor. Up and down stop at the monitor's edge.
+    /// adjacent monitor. Up and down stop at the monitor's edge. With the
+    /// tiles out of reach only left and right do, to the adjacent monitor.
     pub(super) fn focus_direction(&mut self, plan: &mut Plan, dir: Direction) {
         let Some(mon) = self.monitors.get(self.focused_monitor) else {
             return;
         };
-        let monocle = mon.active_ws().monocle();
+        let out_of_reach = mon.active_ws().tiles_out_of_reach();
         match dir {
             Direction::Left | Direction::Right => {
-                if monocle {
-                    // Only one window is showing, so go straight to the
+                if out_of_reach {
+                    // No other tile is in reach, so go straight to the
                     // adjacent monitor.
                     self.focus_adjacent_monitor(plan, dir);
                     return;
@@ -39,7 +39,7 @@ impl Tiler {
                 }
             }
             Direction::Up | Direction::Down => {
-                if monocle {
+                if out_of_reach {
                     return;
                 }
                 if let Some(neighbor) = self.find_same_monitor_neighbor(dir) {
@@ -56,8 +56,8 @@ impl Tiler {
     }
 
     /// Focuses the window to enter monitor `idx` through, coming from
-    /// direction `dir`. On a monocle workspace that is the monocle
-    /// window, which is laid out again to fill the screen.
+    /// direction `dir`: the monocle window, laid out again to fill the
+    /// screen, else the frontmost floating window, else a tile.
     fn focus_adjacent_monitor_idx(&mut self, plan: &mut Plan, idx: usize, dir: Direction) {
         self.focused_monitor = idx;
         let ws = self.monitors[idx].active_ws();
@@ -66,7 +66,8 @@ impl Tiler {
             ws.monocle_window()
                 .or_else(|| ws.windows().first().copied())
         } else {
-            self.find_entry_window(idx, dir)
+            let front = ws.floating().last().copied();
+            front.or_else(|| self.find_entry_window(idx, dir))
         };
         if let Some(window) = entry {
             self.focus_window(plan, window, false);
@@ -83,15 +84,14 @@ impl Tiler {
     /// Swaps the focused window with its neighbor in the given direction.
     ///
     /// Left and right overflow to the adjacent monitor. Up and down stop
-    /// at the monitor's edge. Monocle windows stay put.
+    /// at the monitor's edge. Nothing moves while the tiles are out of
+    /// reach, in monocle or behind floating windows.
     pub(super) fn move_direction(&mut self, plan: &mut Plan, dir: Direction) {
+        let mon = self.monitors.get(self.focused_monitor);
         let Some(window) = self.focused_window else {
             return;
         };
-        let Some(mon) = self.monitors.get(self.focused_monitor) else {
-            return;
-        };
-        if mon.active_ws().monocle() {
+        if mon.is_none_or(|mon| mon.active_ws().tiles_out_of_reach()) {
             return;
         }
         let target = match dir {

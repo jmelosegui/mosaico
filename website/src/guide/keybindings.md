@@ -57,7 +57,7 @@ modifiers = ["alt", "shift"]
 | `move-right` | Move window right |
 | `move-up` | Move window up (swap on same monitor) |
 | `move-down` | Move window down |
-| `retile` | Re-apply the tiling layout, with the splits you moved back at the configured ratio, or an equal share in a stack |
+| `retile` | Re-apply the tiling layout, with the splits you moved back at the configured ratio, or an equal share in a stack, and the windows you floated tiled again |
 | `toggle-monocle` | Toggle monocle (full-screen) mode |
 | `toggle-float` | Float the focused window above the tiles, or tile it again |
 | `cycle-float` | Focus the next floating window of the workspace on screen |

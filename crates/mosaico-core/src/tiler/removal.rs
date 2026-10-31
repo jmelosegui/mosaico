@@ -3,6 +3,7 @@
 use crate::config::HidingBehaviour;
 use crate::{WindowId, Workspace};
 
+use super::focus::focus_target;
 use super::{Effect, Plan, Tiler};
 
 /// Takes `window` out of `ws` for good, and has what is still held back
@@ -64,16 +65,13 @@ impl Tiler {
 
         if self.focused_window == Some(window) {
             self.focused_window = None;
-            // Promote a sibling so the border stays visible.
-            if on_active {
-                let ws = &self.monitors[mon_idx].workspaces[ws_idx];
-                let replacement = ws
-                    .last_focused()
-                    .filter(|&w| ws.holds(w))
-                    .or_else(|| ws.windows().first().copied());
-                if let Some(next) = replacement {
-                    self.focus_window(plan, next, false);
-                }
+            // Promote a sibling so the border stays visible: the next
+            // floating window, as the tiles are out of reach while one
+            // floats, or a tile.
+            if on_active
+                && let Some(next) = focus_target(&self.monitors[mon_idx].workspaces[ws_idx])
+            {
+                self.focus_window(plan, next, false);
             }
         }
 

@@ -16,11 +16,15 @@ impl Tiler {
             .iter()
             .flat_map(|m| &m.workspaces)
             .flat_map(|ws| ws.windows().iter().chain(ws.floating()).copied())
-            .filter(|&w| {
-                plan.facts(w)
-                    .is_some_and(|facts| self.rules_decide(&facts) == RuleAction::Float)
-            })
+            .filter(|&w| self.rule_holds_floating(plan, w))
             .collect()
+    }
+
+    /// Whether the rules float managed `window`, which then floats
+    /// whatever the user does: neither the toggle nor a retile tiles it.
+    pub(in crate::tiler) fn rule_holds_floating(&self, plan: &Plan, window: WindowId) -> bool {
+        plan.facts(window)
+            .is_some_and(|facts| self.rules_decide(&facts) == RuleAction::Float)
     }
 
     /// After the rules changed, floats each managed window they now float
@@ -62,6 +66,7 @@ impl Tiler {
         float: bool,
     ) -> Option<usize> {
         let (mi, wi) = self.find_managed(window)?;
+        let on_screen = wi == self.monitors[mi].active_workspace;
         let ws = &mut self.monitors[mi].workspaces[wi];
         if ws.is_floating(window) == float {
             return None;
@@ -80,7 +85,10 @@ impl Tiler {
                     .remembered(window)
                     .map_or_else(|| place::first(area), |rect| place::clamp_into(rect, area));
                 self.place_float(plan, window, mi, rect);
+                self.float_to_front(plan, window, true);
             }
+        } else if on_screen {
+            self.unfloat(plan, mi, window);
         } else {
             ws.remove_floating(window);
             ws.add(window);

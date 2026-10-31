@@ -6,7 +6,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::{Rect, WindowId};
 
-use super::{Effect, Plan, Tiler};
+use super::{Plan, Tiler};
 
 #[path = "floating_adopt.rs"]
 mod adopt;
@@ -18,6 +18,8 @@ mod keys;
 pub(super) mod place;
 #[path = "floating_rules.rs"]
 mod rules;
+#[path = "floating_stack.rs"]
+mod stack;
 #[path = "floating_toggle.rs"]
 mod toggle;
 
@@ -89,23 +91,6 @@ impl Tiler {
             }
         }
     }
-
-    /// Keeps the floating windows of the workspace holding `window` above
-    /// its tiles as `window` comes to the front: a floating window moves in
-    /// front of the others, and a tile goes behind the backmost of them.
-    pub(super) fn keep_floats_in_front(&mut self, plan: &mut Plan, window: WindowId) {
-        let Some((mi, wi)) = self.find_managed(window) else {
-            return;
-        };
-        let ws = &mut self.monitors[mi].workspaces[wi];
-        if ws.is_floating(window) {
-            ws.raise_floating(window);
-        } else if let Some(&other) = ws.floating().first()
-            && !ws.monocle()
-        {
-            plan.emit(Effect::PutBehind { window, other });
-        }
-    }
 }
 
 #[cfg(test)]
@@ -117,9 +102,21 @@ mod toggle_tests;
 mod keys_tests;
 
 #[cfg(test)]
+#[path = "tests/floating_mode_tests.rs"]
+mod mode_tests;
+
+#[cfg(test)]
 #[path = "tests/floating_life_tests.rs"]
 mod life_tests;
 
 #[cfg(test)]
+#[path = "tests/floating_retile_tests.rs"]
+mod retile_tests;
+
+#[cfg(test)]
 #[path = "tests/floating_rules_tests.rs"]
 mod rules_tests;
+
+#[cfg(test)]
+#[path = "tests/floating_stack_tests.rs"]
+mod stack_tests;

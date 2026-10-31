@@ -112,26 +112,36 @@ backmost floating window. A floating window that gets focus moves to the front
 of that order. This one rule, applied where focus changes, replaces raising
 windows at scattered call sites.
 
+A window that becomes floating, toggled or by a rules reload, comes in front
+of the other floating windows at once, even though it already had focus. The
+border of the focused tile goes behind the backmost floating window rather
+than behind its tile, so it never draws over a floating window.
+
+The user's retile tiles again every floating window on the workspaces on
+screen, except those the rules float. `toggle-float` does not tile those
+either: the rule wins until the user changes it.
+
 ### Focus and navigation
 
-There is no floating "mode" that changes what keys do.
+While a workspace has floating windows, outside monocle, its tiles are out of
+reach of the keys, as in monocle. This keeps the tiler from focusing a tile,
+which would bring it in front of the floating windows before it can be put
+behind them again.
 
-- `focus-left/right/up/down` from a tile moves between tiles as before.
-  From a floating window, it goes to the nearest tile in that direction, and
-  left and right overflow to the next monitor, as from a tile.
+- `focus-left/right` go to the adjacent monitor, from a floating window or a
+  tile the user clicked. `focus-up/down` do nothing.
 - `cycle-float` focuses the next floating window of the workspace on screen,
   backmost first, so repeating it visits every one. From a tile it focuses the
   frontmost floating window.
 - `move-left/right/up/down` on a floating window nudges it by a step of
   one-twentieth of the work area's width or height, stopping at the edge of
-  the work area. `move-left/right` on a window already at that edge sends it
-  to the adjacent monitor.
+  the work area. On a tile they do nothing.
 - `grow-width`/`grow-height` move both edges of that axis of the focused
   floating window outward by half a step each, so it stays centered, stopping
   at the work area; `shrink-*` moves them inward, never below the window's
   minimum size. On a tile they do nothing.
-- Coming back to a workspace focuses the window that had focus there,
-  floating or not.
+- Coming back to a workspace or monitor focuses its frontmost floating window.
+- A floating window stays on its workspace: `send-to-workspace` ignores it.
 
 ### Monocle
 
@@ -141,8 +151,8 @@ taskbar, leaves monocle.
 
 ### Monitors
 
-A floating window moves to another monitor in three ways: the user drags it
-there, `move-left/right` at the edge, or its monitor disconnects. All three go through one
+A floating window moves to another monitor in two ways: the user drags it
+there, or its monitor disconnects. Both go through one
 path, which keeps its position relative to the work area: a window at the
 left third of one monitor lands at the left third of the other, shrunk to fit.
 A window displaced by a disconnect goes back when its monitor returns, if it
@@ -152,8 +162,10 @@ longer fits its monitor's work area is moved into it.
 ### Removal
 
 A floating window leaves its workspace when it closes, hides or is minimized,
-like a tile. Focus goes to the window the workspace remembers, or its first
-tile.
+like a tile. Focus goes to the next floating window, or when none is left to
+the window the workspace remembers, or its first tile. Tiling a floating
+window again hands focus on the same way, keeping it on the window when no
+other floats.
 
 ## Architecture
 

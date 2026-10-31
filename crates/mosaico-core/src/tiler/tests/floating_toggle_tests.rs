@@ -47,18 +47,34 @@ fn toggling_again_tiles_it_and_the_next_float_goes_back_where_it_was() {
 }
 
 #[test]
-fn a_tile_that_gets_focus_stays_behind_the_floating_windows() {
+fn a_tile_the_user_clicks_stays_behind_the_floating_windows() {
     // Arrange -- tiles 1 and 3 side by side, window 2 floating.
     let mut h = Harness::new(1, &[(1, 0), (2, 0), (3, 0)]);
     h.event(WindowEvent::Focused { window: wid(2) });
     h.action(Action::ToggleFloat);
 
     // Act
-    h.action(Action::Focus(Direction::Right));
+    h.event(WindowEvent::Focused { window: wid(3) });
 
     // Assert
-    assert_eq!(h.focus_request(), Some(3));
     assert!(h.desktop.in_front(wid(2), wid(3)));
+}
+
+#[test]
+fn tiling_a_float_again_hands_focus_to_the_next_one() {
+    // Arrange -- windows 2 and 3 float, 3 in front with focus.
+    let mut h = Harness::new(1, &[(1, 0), (2, 0), (3, 0)]);
+    for id in [2, 3] {
+        h.event(WindowEvent::Focused { window: wid(id) });
+        h.action(Action::ToggleFloat);
+    }
+
+    // Act
+    h.action(Action::ToggleFloat);
+
+    // Assert
+    assert_eq!(h.active(0), vec![1, 3]);
+    assert_eq!(h.focus_request(), Some(2));
 }
 
 #[test]

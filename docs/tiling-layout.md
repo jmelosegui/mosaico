@@ -134,7 +134,9 @@ monitor forgets every split the user moved and the heights of every stack,
 in all its layouts (`SplitRatios::forget`, which keeps a split for each
 window but the last), so each split follows `ratio` and each stack is
 shared equally again, and every monitor is laid out (`retile_from_ratio` in
-`layout_actions.rs`). A workspace out of view keeps its own. The other
+`layout_actions.rs`). Its floating windows are tiled again at the end of
+the layout, but those the rules float (`tile_floats` in
+`floating_toggle.rs`). A workspace out of view keeps its own. The other
 passes that lay every monitor out, as a work area or the bar read again, a
 display change or a reload, keep them.
 
@@ -418,7 +420,8 @@ moves no pointer (see [actions.md](actions.md#origins)):
   monitor.
 - `Retile` -> `retile_from_ratio()` (in `layout_actions.rs`) -- re-applies
   layout on all monitors, every split of the workspaces on screen back at
-  `ratio` (see [Split Ratios](#split-ratios))
+  `ratio` (see [Split Ratios](#split-ratios)) and their floating windows
+  tiled again, but those the rules float
 - `ToggleMonocle` -> `toggle_monocle()` (in `layout_actions.rs`) -- toggles
   monocle mode
 - `CycleLayout` -> `cycle_layout()` (in `layout_actions.rs`) -- advances the
@@ -761,20 +764,38 @@ from the tiled `windows` the layout positions. `holds()` covers both, and
 floating windows outside monocle.
 
 - `toggle-float` (`tiler/floating_toggle.rs`) moves the focused window
-  between the two lists. Where each window last floated is remembered in
+  between the two lists, but never tiles a window the rules float
+  (`rule_holds_floating()`), as a retile does not. Where each window last floated is remembered in
   `Floats` (`tiler/floating.rs`) for the session.
 - A rule with `RuleAction::Float` adopts a window floating
   (`tiler/floating_adopt.rs`). A rules reload moves only the windows whose
   rule decision changed (`tiler/floating_rules.rs`), so a window the user
   floated stays floating.
-- `keep_floats_in_front()` puts the tiles of the focused workspace behind
-  its floating windows whenever a tile takes focus.
+- `keep_floats_in_front()` (`tiler/floating_stack.rs`) puts a tile of the
+  focused workspace behind its floating windows whenever it takes focus,
+  as a click gives it. `border_behind()` keeps that tile's border behind
+  them too.
+- A window that starts floating, by the toggle or a rules reload, comes in
+  front of everything else on its workspace (`float_to_front` in
+  `tiler/floating_stack.rs`): the other floating windows, and for one
+  without focus the tiles too, are put behind it with `PutBehind`. Focus
+  alone does not reorder a window that already has it.
 - `floats_follow_monocle()` hides a workspace's floating windows while it is
   in monocle, and shows them once it is not, however monocle ended.
 - After a display change, `settle_floats()` (`tiler/floating_display.rs`)
   moves each floating window in view into the work area of its monitor
   (`place::settle`). `ReconnectMemory` parks the floating windows of a
   monitor that goes away as floating on the host, and brings them back.
+- While a workspace has floating windows, outside monocle, its tiles are
+  out of reach of the keys, as in monocle (`tiles_out_of_reach()`):
+  focus left and right go to the adjacent monitor, up and down and the
+  move keys on a tile do nothing. `focus_target()` prefers the frontmost
+  floating window, so entering a workspace or monitor, or closing or
+  tiling again a floating window, focuses the next one. A floating window
+  is not sent to another workspace.
+- The move keys nudge the focused floating window within the work area of
+  its monitor (`nudge_float` in `tiler/floating_keys.rs`). Only a drag or
+  a display change puts it on another monitor.
 - The arithmetic (centering, clamping, nudging, resizing) is in
   `tiler/floating_place.rs` and has no state.
 

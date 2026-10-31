@@ -29,7 +29,8 @@ use crate::{Rect, Result, WindowId};
 ///   goes to whatever is under it, never shows as a window of its own
 ///   in the taskbar or the window switcher, and drawing, moving or
 ///   hiding it never causes a [`WindowEvent`](crate::WindowEvent).
-/// - Each time it is drawn, a border goes directly behind its window,
+/// - Each time it is drawn, a border goes directly behind its window, or
+///   behind [`BorderStyle::behind`] when the style names another window,
 ///   so it never covers that window or the windows in front of it.
 /// - A window has at most one border. Drawing it again moves, resizes
 ///   and recolors the one it has.

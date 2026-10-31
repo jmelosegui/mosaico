@@ -1,7 +1,7 @@
 //! Border and corner effects carried out against a platform that
 //! records what it is asked to draw.
 
-use crate::config::{Color, CornerStyle};
+use crate::config::{BorderColors, CornerStyle};
 use crate::log::Level;
 use crate::tiler::decoration_effects::border_failure_level;
 use crate::{Decorations, Error};
@@ -69,13 +69,10 @@ const AT: Rect = Rect {
 fn style() -> BorderStyle {
     BorderStyle {
         rect: AT,
-        color: Color {
-            r: 0x11,
-            g: 0x22,
-            b: 0x33,
-        },
+        color: BorderColors::FALLBACK,
         width: 4,
         radius: 8,
+        behind: None,
     }
 }
 

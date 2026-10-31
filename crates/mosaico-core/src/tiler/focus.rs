@@ -5,15 +5,19 @@ use crate::{WindowId, Workspace};
 use super::{Effect, Plan, Tiler};
 
 /// The window to focus when a workspace comes into view, or takes focus
-/// back: its monocle window, then the one it remembers, floating or not
-/// outside monocle, then its first tile.
+/// back: its monocle window, then its frontmost floating window, as the
+/// tiles are out of reach while one floats, then the one it remembers,
+/// then its first tile.
 pub(super) fn focus_target(ws: &Workspace) -> Option<WindowId> {
     let present = |w: &WindowId| ws.contains(*w);
     if ws.monocle() {
         let remembered = ws.last_focused().filter(present);
         ws.monocle_window().filter(present).or(remembered)
     } else {
-        ws.last_focused().filter(|&w| ws.holds(w))
+        ws.floating()
+            .last()
+            .copied()
+            .or_else(|| ws.last_focused().filter(present))
     }
     .or_else(|| ws.windows().first().copied())
 }

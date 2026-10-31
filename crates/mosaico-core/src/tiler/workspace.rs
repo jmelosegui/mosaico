@@ -105,9 +105,10 @@ impl Tiler {
         let Some(mon) = self.monitors.get(mon_idx) else {
             return;
         };
+        // A floating window stays on its workspace.
         if mon.active_workspace == target_ws
             || target_ws >= mon.workspaces.len()
-            || !mon.active_ws().holds(window)
+            || !mon.active_ws().contains(window)
         {
             return;
         }
@@ -115,12 +116,8 @@ impl Tiler {
         let how = self.layout.hiding;
 
         let mon = &mut self.monitors[mon_idx];
-        if mon.active_ws_mut().remove_floating(window) {
-            mon.workspaces[target_ws].add_floating(window);
-        } else {
-            mon.active_ws_mut().remove(window);
-            mon.workspaces[target_ws].add(window);
-        }
+        mon.active_ws_mut().remove(window);
+        mon.workspaces[target_ws].add(window);
         for other in mon.active_ws().shown() {
             self.hidden_how.hide(plan, other, how);
         }

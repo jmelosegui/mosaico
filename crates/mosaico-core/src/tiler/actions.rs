@@ -24,11 +24,7 @@ impl Tiler {
             }
         }
         match action {
-            Action::Focus(dir) => {
-                if !self.focus_from_float(plan, *dir) {
-                    self.focus_direction(plan, *dir);
-                }
-            }
+            Action::Focus(dir) => self.focus_direction(plan, *dir),
             Action::Move(dir) => {
                 if !self.nudge_float(plan, *dir) {
                     self.move_direction(plan, *dir);

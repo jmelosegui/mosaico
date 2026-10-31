@@ -20,6 +20,13 @@ impl Workspace {
         self.contains(window) || self.is_floating(window)
     }
 
+    /// Whether the focus and move keys keep away from the tiles: in
+    /// monocle, which shows one window, and while windows float up in
+    /// front of them.
+    pub fn tiles_out_of_reach(&self) -> bool {
+        self.monocle || !self.floating.is_empty()
+    }
+
     /// Adds a floating window in front of the others. Returns `false`,
     /// and changes nothing, when the workspace already holds it.
     pub fn add_floating(&mut self, window: WindowId) -> bool {

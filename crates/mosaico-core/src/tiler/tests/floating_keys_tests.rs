@@ -1,6 +1,5 @@
-//! The keys on the focused floating window: focus leaves it for a tile,
-//! move nudges it and sends it to the next monitor at the edge, and the
-//! resize keys grow and shrink it around its center.
+//! The keys on the focused floating window: move nudges it within its
+//! monitor, and the resize keys grow and shrink it around its center.
 
 use crate::id::wid;
 use crate::tiler::tests::Harness;
@@ -36,23 +35,33 @@ fn moving_a_floating_window_nudges_it_and_leaves_the_tiles() {
     assert_eq!(h.active(0), vec![1]);
 }
 
-#[test]
-fn moving_a_floating_window_past_the_edge_sends_it_to_the_next_monitor() {
-    // Arrange -- nudged right until it reaches the edge.
-    let mut h = floated(2);
-    for _ in 0..20 {
-        h.action(Action::Move(Direction::Right));
+/// Nudges the focused floating window 2 `dir` until it touches the left or
+/// right edge of monitor `mon`.
+fn nudge_to_edge(h: &mut Harness, mon: usize, dir: Direction) {
+    let area = h.tiler.monitors()[mon].work_area();
+    let at_edge = |r: Rect| match dir {
+        Direction::Left => r.x == area.x,
+        _ => r.x + r.width == area.x + area.width,
+    };
+    while !at_edge(h.rect_of(2)) {
+        h.action(Action::Move(dir));
     }
+}
+
+#[test]
+fn moving_a_floating_window_stops_at_the_edge_of_its_monitor() {
+    // Arrange
+    let mut h = floated(2);
+    nudge_to_edge(&mut h, 0, Direction::Right);
+    let at_edge = h.rect_of(2);
 
     // Act
     h.action(Action::Move(Direction::Right));
 
     // Assert
-    let area = h.tiler.monitors()[1].work_area();
-    assert_eq!(h.workspace(1, 0).floating(), &[wid(2)]);
-    assert!(h.workspace(0, 0).floating().is_empty());
-    assert_eq!(h.rect_of(2).x + h.rect_of(2).width, area.x + area.width);
-    assert_eq!(h.desktop.focused, Some(wid(2)));
+    assert_eq!(h.workspace(0, 0).floating(), &[wid(2)]);
+    assert!(h.workspace(1, 0).floating().is_empty());
+    assert_eq!(h.rect_of(2), at_edge);
 }
 
 #[test]
@@ -83,18 +92,4 @@ fn the_resize_keys_do_nothing_on_a_tile() {
 
     // Assert
     assert!(h.placements().is_empty());
-}
-
-#[test]
-fn focus_from_a_floating_window_goes_to_the_nearest_tile() {
-    // Arrange -- tiles 1 and 3 side by side, window 2 floating.
-    let mut h = Harness::new(1, &[(1, 0), (2, 0), (3, 0)]);
-    h.event(WindowEvent::Focused { window: wid(2) });
-    h.action(Action::ToggleFloat);
-
-    // Act
-    h.action(Action::Focus(Direction::Right));
-
-    // Assert
-    assert_eq!(h.focus_request(), Some(3));
 }

@@ -169,20 +169,32 @@ A floating window stays managed on its workspace, but the layout leaves it
 where you put it, above the tiles.
 
 - `Alt + F` (`mosaico action toggle-float`) floats the focused window, or
-  tiles it again. The first time, it is centered at two-thirds of the work
-  area; after that it goes back where it last floated.
+  tiles it again, unless a window rule floats it. The first time, it is centered at two-thirds of the work
+  area; after that it goes back where it last floated. A window you float
+  comes in front of every other window on its workspace.
 - A [window rule](window-rules.md) with `action = "float"` floats a window
   as soon as it opens, centered at its own size.
 - `Alt + Shift + F` (`cycle-float`) focuses the next floating window.
-- The focus keys leave a floating window for the nearest tile. The move keys
-  (`Alt + Shift + H/J/K/L`) nudge it, and at the left or right edge of the
-  monitor send it to the next one.
+- While a window floats, the tiles of its workspace are out of reach of
+  the keys, as in monocle: `Alt + H` and `Alt + L` go to the monitor on
+  that side, `Alt + J` and `Alt + K` do nothing, and the move keys leave
+  the tiles where they are. You can still click a tile, and its floating
+  windows stay in front of it, and its border too.
+- The move keys (`Alt + Shift + H/J/K/L`) nudge the focused floating
+  window, stopping at the edge of its monitor. Drag it to put it on
+  another monitor.
 - `Alt + .` and `Alt + ,` widen and narrow it, and `Alt + Shift + .` and
   `Alt + Shift + ,` heighten and shorten it, around its center.
-- Floating windows hide and show with their workspace, follow
-  `send-to-workspace`, and are hidden while the workspace is in monocle.
+- Floating windows stay on their workspace: `send-to-workspace` leaves
+  them where they are. They hide and show with their workspace, and are
+  hidden while it is in monocle.
+- Coming back to a workspace or monitor focuses its frontmost floating
+  window. Closing a floating window or tiling it again focuses the next
+  one, or a tile when none is left.
 - When a monitor goes away, its floating windows float on the one that
   takes its windows, and go back when it returns.
+- Retiling (`Alt + Shift + R`) tiles again the windows you floated on the
+  workspaces on screen. Those a window rule floats stay floating.
 
 ## Dragging Windows
 
@@ -320,8 +332,9 @@ time:
 
 Retiling this way also puts every split you moved on the workspaces on
 screen back at the configured `ratio`, and the stacks you resized back to
-equal heights, in all their layouts. Workspaces out of view keep theirs,
-and the retiles Mosaico does on its own keep them all.
+equal heights, in all their layouts. The windows you floated there are
+tiled again; those a window rule floats stay floating. Workspaces out of
+view keep theirs, and the retiles Mosaico does on its own keep them all.
 
 ## Window Management
 
