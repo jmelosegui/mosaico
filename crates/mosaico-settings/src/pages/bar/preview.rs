@@ -52,6 +52,12 @@ fn sample(widget: &BarWidget, look: &Look) -> Vec<Pill> {
     }
 }
 
+/// How wide the bar is drawn, given how wide its `left` and `right`
+/// widgets are and the `room` the page has for it.
+fn bar_width(_left: f32, _right: f32, _look: &Look, room: f32) -> f32 {
+    room
+}
+
 /// Draws the bar with the widgets of `edit` that are on.
 pub fn show(ui: &mut Ui, c: &Colors, edit: &BarState, theme: Theme) {
     let look = Look::of(edit, theme);
@@ -61,30 +67,29 @@ pub fn show(ui: &mut Ui, c: &Colors, edit: &BarState, theme: Theme) {
         .corner_radius(8)
         .inner_margin(Margin::same(10))
         .show(ui, |ui| {
-            let (rect, _) =
-                ui.allocate_exact_size(vec2(ui.available_width(), look.height), Sense::hover());
+            let side = |zone| -> Vec<Vec<Pill>> {
+                let widgets = edit.widgets.zone(zone).iter().filter(|w| w.enabled);
+                widgets.map(|widget| sample(widget, &look)).collect()
+            };
+            let (left, right) = (side(BarZone::Left), side(BarZone::Right));
+            let span = |groups: &[Vec<Pill>]| {
+                let total: f32 = groups.iter().map(|g| width(ui.painter(), &look, g)).sum();
+                total + look.gap * groups.len().saturating_sub(1) as f32
+            };
+            let room = ui.available_width();
+            let bar = bar_width(span(&left), span(&right), &look, room);
+            let (rect, _) = ui.allocate_exact_size(vec2(bar, look.height), Sense::hover());
             let painter = ui.painter();
             painter.rect_filled(rect, 0.0, look.background);
-            let mut left = rect.left() + look.edge;
-            for widget in edit
-                .widgets
-                .zone(BarZone::Left)
-                .iter()
-                .filter(|w| w.enabled)
-            {
-                left += draw(painter, rect, &look, &sample(widget, &look), left) + look.gap;
+            let mut x = rect.left() + look.edge;
+            for pills in &left {
+                x += draw(painter, rect, &look, pills, x) + look.gap;
             }
-            let mut right = rect.right() - look.edge;
-            for widget in edit
-                .widgets
-                .zone(BarZone::Right)
-                .iter()
-                .filter(|w| w.enabled)
-            {
-                let pills = sample(widget, &look);
-                right -= width(painter, &look, &pills);
-                draw(painter, rect, &look, &pills, right);
-                right -= look.gap;
+            let mut x = rect.right() - look.edge;
+            for pills in &right {
+                x -= width(painter, &look, pills);
+                draw(painter, rect, &look, pills, x);
+                x -= look.gap;
             }
         })
         .response
