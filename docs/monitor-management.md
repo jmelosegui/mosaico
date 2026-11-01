@@ -340,11 +340,16 @@ There is no wrapping -- navigation stops at the leftmost/rightmost monitor.
 
 ### Cross-Monitor Insertion
 
-When moving a window to an adjacent monitor:
-- Moving **right**: inserts at position 0 (leftmost BSP slot)
-- Moving **left**: appends to end (rightmost BSP slot)
-
-This places the window at the entry side of the target monitor.
+When moving a window to an adjacent monitor, it enters on the side it came
+from: moving **right** puts it against the left edge of the target monitor,
+and moving **left** against the right edge.
+`LayoutKind::index_at_side` picks the index:
+- BSP and vertical stack: position 0 for the left edge, the end for the
+  right.
+- Three columns: the left column or the right one, at the end when that is
+  where the end goes, else just before the last window, which alone moves
+  to the other column. Into one window, the moved one becomes the master on
+  the left, or the window on the right.
 
 ## Monitor Reassignment
 

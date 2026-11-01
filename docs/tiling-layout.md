@@ -1209,9 +1209,11 @@ The `Workspace` type maintains window ordering:
   seams for tests
 
 New windows are always placed on the **focused** monitor's **active
-workspace**, not the OS-determined monitor. When moving a window to an
-adjacent monitor, `insert(0, window)` is used when entering from the right
-(leftmost BSP slot) and `add(window)` when entering from the left.
+workspace**, not the OS-determined monitor. A window moved to an adjacent
+monitor is inserted where `LayoutKind::index_at_side` says the layout puts
+it against the edge it entered through: the left one when it moved right,
+the right one when it moved left (see
+[Cross-Monitor Insertion](monitor-management.md#cross-monitor-insertion)).
 
 ### Where a new window first appears
 

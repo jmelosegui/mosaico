@@ -53,9 +53,11 @@ Up/Down navigation (`Alt + J/K`) stays within the current monitor.
 
 Move actions with `Alt + Shift + H/L` transfer windows between monitors:
 
-- **Moving right** -- the window is placed at the leftmost position in the
-  target monitor's BSP layout.
-- **Moving left** -- the window is placed at the rightmost position.
+- **Moving right** -- the window lands on the left side of the target
+  monitor: the first slot in BSP and vertical stack, and the left column
+  in three columns.
+- **Moving left** -- the window lands on the right side: the last slot,
+  or the right column in three columns.
 
 Both the source and target monitors are retiled after the move.
 

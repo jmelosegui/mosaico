@@ -1,10 +1,10 @@
 use crate::{LayoutKind, Rect, WindowId};
 
-use super::Layout;
 use super::column::column_slots;
 use super::min_column::fit_column;
 use super::min_limits::{fit, limits};
 use super::min_size::MinSize;
+use super::{Layout, Side};
 
 /// Three-column layout with a master pane in the center and stacks on
 /// both sides. Extra windows alternate between the left and right stacks.
@@ -133,6 +133,27 @@ impl ThreeColumnLayout {
         results.extend(right.into_iter().zip(right_slots));
 
         results
+    }
+}
+
+/// Where to insert a window among `count` others so it lands against
+/// `side`. One window alone fills the work area, and of two the master is
+/// on the left. From three on, the windows after the master alternate
+/// between the left column, at odd indices, and the right one, at even
+/// ones, so the window goes at the end when that is its column, or else
+/// just before the last window, which alone moves to the other column.
+pub(super) fn index_at_side(count: usize, side: Side) -> usize {
+    match (count, side) {
+        (0, _) | (1, Side::Left) => 0,
+        (1, Side::Right) => 1,
+        _ => {
+            let end_is_left = count % 2 == 1;
+            if end_is_left == (side == Side::Left) {
+                count
+            } else {
+                count - 1
+            }
+        }
     }
 }
 

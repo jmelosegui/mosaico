@@ -5,6 +5,7 @@
 
 use crate::WindowId;
 use crate::action::Direction;
+use crate::layout::Side;
 
 use super::{Plan, SpatialTarget, Tiler, Timing};
 
@@ -125,11 +126,14 @@ impl Tiler {
     ) {
         let source = self.focused_monitor;
         self.monitors[source].active_ws_mut().remove(window);
-        if dir == Direction::Right {
-            self.monitors[target].active_ws_mut().insert(0, window);
+        let side = if dir == Direction::Right {
+            Side::Left
         } else {
-            self.monitors[target].active_ws_mut().add(window);
-        }
+            Side::Right
+        };
+        let ws = self.monitors[target].active_ws_mut();
+        let at = ws.layout_kind().index_at_side(ws.len(), side);
+        ws.insert(at, window);
         if self.monitors[target].active_ws().monocle() {
             let ws = self.monitors[target].active_ws_mut();
             ws.set_monocle(false);

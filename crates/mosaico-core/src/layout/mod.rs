@@ -61,6 +61,26 @@ impl LayoutKind {
             Self::ThreeColumn => "3Col",
         }
     }
+
+    /// Where to insert a window among `count` others so this layout puts
+    /// it against `side` of the work area, moving as few of the others to
+    /// another column as it can.
+    pub fn index_at_side(self, count: usize, side: Side) -> usize {
+        match (self, side) {
+            (Self::ThreeColumn, _) => three_column::index_at_side(count, side),
+            (_, Side::Left) => 0,
+            (_, Side::Right) => count,
+        }
+    }
+}
+
+/// A vertical edge of the work area.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Side {
+    /// The left edge.
+    Left,
+    /// The right edge.
+    Right,
 }
 
 /// A layout algorithm that computes window positions within a work area.
