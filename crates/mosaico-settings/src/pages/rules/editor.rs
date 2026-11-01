@@ -92,17 +92,18 @@ fn field(
     });
 }
 
-/// Tile, or not. Not tiling keeps the rule's float or ignore, and
-/// ignores a rule that was tiling.
+/// Whether the matching windows are tiled, float or are left alone.
 fn decision(ui: &mut Ui, c: &Colors, rule: &mut WindowRule, was: Option<&WindowRule>) {
-    let mut tile = rule.action == RuleAction::Tile;
     let changed = was.is_none_or(|w| w.action != rule.action);
-    let options = [(true, "Tile"), (false, "Don't tile")];
-    if widgets::segmented(ui, c, &options, &mut tile, changed).changed() {
-        rule.action = match (tile, was) {
-            (true, _) => RuleAction::Tile,
-            (false, Some(w)) if w.action != RuleAction::Tile => w.action,
-            (false, _) => RuleAction::Ignore,
-        };
+    let options = RuleAction::ALL.map(|action| (action, action_label(action)));
+    widgets::segmented(ui, c, &options, &mut rule.action, changed);
+}
+
+/// What the window calls `action`.
+pub(super) fn action_label(action: RuleAction) -> &'static str {
+    match action {
+        RuleAction::Tile => "Tile",
+        RuleAction::Float => "Float",
+        RuleAction::Ignore => "Don't tile",
     }
 }

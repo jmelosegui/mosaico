@@ -128,11 +128,12 @@ pub fn chips(ui: &mut Ui, c: &Colors, rule: &WindowRule) {
 }
 
 fn decision(ui: &mut Ui, c: &Colors, action: RuleAction) {
-    if action == RuleAction::Tile {
-        widgets::badge(ui, "Tile", c.good);
-    } else {
-        widgets::badge(ui, "Don't tile", c.dim_text);
-    }
+    let color = match action {
+        RuleAction::Tile => c.good,
+        RuleAction::Float => c.accent,
+        RuleAction::Ignore => c.dim_text,
+    };
+    widgets::badge(ui, super::editor::action_label(action), color);
 }
 
 fn handle(ui: &mut Ui, c: &Colors, n: usize) -> Response {
