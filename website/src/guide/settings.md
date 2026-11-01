@@ -192,18 +192,22 @@ keys up as it does when you edit the file by hand.
 
 ## Rules
 
-The **Rules** page edits `user-rules.toml`. Each of your rules is a card with
-the window class, a part of the title and the program path to match (leave a
-field empty to match anything), and what to do with the window: tile it,
-float it or ignore it. **Up** and **Down** move a rule, because the first
-rule that matches a window decides, and **Delete** removes it. **Add rule**
-adds one at the end; a rule needs at least a class, a title or a path before
-it can be saved.
+The **Rules** page edits `user-rules.toml` and lists the community rules of
+`rules.toml`. **Add rule** in the header adds a rule at the end of your list.
+Each of your rules is a row of chips naming what it matches (the window
+class, a part of the title, the program path), a **Tile** or **Don't tile**
+badge, and a pencil and a trash button. The pencil opens an editor under the
+row with a field for each match (leave a field empty to match anything) and a
+**Tile** / **Don't tile** choice; **Done** closes it. Drag the grip at the
+start of a row to move the rule, because the first rule that matches a window
+decides. A rule needs at least a class, a title or a path before it can be
+saved.
 
 Apply keeps the comments and blank lines of the file, and a rule that moves
-takes its comment along. Your rules match before the community rules in
-`rules.toml`, which are listed under **Community rules** and cannot be edited
-here. Searching filters both lists by pattern or action.
+takes its comment along. Your rules match before the community rules, which
+are listed under **Community rules** with a lock and cannot be edited here.
+**Override** copies a community rule into your rules, where you can edit it.
+Searching filters both lists by pattern or action.
 
 ## Current Limits
 

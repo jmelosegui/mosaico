@@ -1,17 +1,18 @@
 //! The Rules page: the user's window rules, from `user-rules.toml`, over
 //! the community rules, from `rules.toml`, which are shown and not edited.
 
-mod card;
 mod community;
+mod editor;
+mod row;
 mod state;
 
-use eframe::egui::{RichText, Ui};
+use eframe::egui::{Align, Layout, Rect, RichText, Sense, Ui, vec2};
 use mosaico_core::config::{ConfigStore, WindowRule};
 
 use super::{FilePage, Page};
+use crate::icons::{self, Icon};
 use crate::theme::{self, Colors};
 use crate::widgets;
-use card::{Ask, Place};
 use state::Draft;
 
 pub struct RulesPage {
@@ -20,6 +21,8 @@ pub struct RulesPage {
     community: Vec<WindowRule>,
     community_problem: Option<String>,
     problem: Option<String>,
+    /// The rule whose editor is open.
+    editing: Option<usize>,
 }
 
 impl RulesPage {
@@ -30,56 +33,118 @@ impl RulesPage {
             community: Vec::new(),
             community_problem: None,
             problem: None,
+            editing: None,
         };
         page.reload();
         page
     }
 
+    fn intro(&mut self, ui: &mut Ui, c: &Colors) {
+        // The sketch puts the intro 12 points under the file name, closer
+        // than the header leaves before a section, in a row as tall as
+        // the button.
+        ui.add_space(-6.0);
+        ui.scope(|ui| {
+            ui.spacing_mut().interact_size.y = 21.0;
+            ui.horizontal(|ui| {
+                let text = "Rules are checked from the top and the first match wins. A window no rule matches is tiled.";
+                let text = RichText::new(text)
+                    .font(theme::regular(12.0))
+                    .color(c.dim_text);
+                ui.label(text);
+                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    if row::add_button(ui, c, "Add rule").clicked() {
+                        self.editing = Some(self.draft.add());
+                        ui.ctx().request_repaint();
+                    }
+                });
+            });
+        });
+        ui.add_space(14.0);
+    }
+
     fn your_rules(&mut self, ui: &mut Ui, c: &Colors, query: &str) {
-        ui.label(
-            RichText::new("Your rules")
-                .font(theme::bold(13.0))
-                .color(c.dim_text),
-        );
-        ui.label(
-            RichText::new("The first rule that matches a window decides what happens to it.")
-                .font(theme::regular(11.0))
-                .color(c.faint_text),
-        );
-        ui.add_space(8.0);
-        let last = self.draft.entries.len().saturating_sub(1);
+        heading(ui, c, None, "Your rules", "user-rules.toml");
         let mut ask = None;
-        for i in 0..self.draft.entries.len() {
-            if !self.shown(i, query) {
-                continue;
+        let mut rects = Vec::new();
+        let mut dragged = None;
+        let mut closed = false;
+        let shown: Vec<_> = (0..self.draft.entries.len())
+            .filter(|&i| self.shown(i, query))
+            .collect();
+        widgets::card(ui, c, |ui| {
+            for (place, &i) in shown.iter().enumerate() {
+                let editing = self.editing == Some(i);
+                let n = i + 1;
+                let rule = self.draft.entries[i].rule.clone();
+                let row = row::user(ui, c, n, &rule, editing);
+                rects.push((i, row.rect));
+                if let Some(what) = row.ask {
+                    ask = Some((i, what));
+                }
+                if row.grip.is_some_and(|grip| grip.drag_stopped()) {
+                    dragged = Some(i);
+                }
+                if editing {
+                    let was = self.draft.was(i).cloned();
+                    let rule = &mut self.draft.entries[i].rule;
+                    closed = editor::show(ui, c, n, rule, was.as_ref());
+                }
+                if place + 1 < shown.len() {
+                    widgets::divider(ui, c);
+                }
             }
-            let place = Place {
-                number: i + 1,
-                first: i == 0,
-                last: i == last,
-                was: self.draft.was(i).cloned(),
-                changed: self.draft.is_changed(i),
-            };
-            let rule = &mut self.draft.entries[i].rule;
-            if let Some(what) = card::show(ui, c, &place, rule) {
-                ask = Some((i, what));
+            if shown.is_empty() {
+                ui.add_space(12.0);
+                ui.horizontal(|ui| {
+                    ui.add_space(16.0);
+                    let text = "No rules of your own yet.";
+                    ui.label(RichText::new(text).color(c.dim_text));
+                });
+                ui.add_space(12.0);
             }
+        });
+        if closed {
+            self.editing = None;
+            ui.ctx().request_repaint();
+        }
+        if let Some(from) = dragged {
+            self.drop(ui, from, &rects);
+        }
+        if ask.is_some() || dragged.is_some() {
+            ui.ctx().request_repaint();
         }
         match ask {
-            Some((i, Ask::Up)) => self.draft.move_up(i),
-            Some((i, Ask::Down)) => self.draft.move_down(i),
-            Some((i, Ask::Delete)) => self.draft.remove(i),
-            None => {}
+            Some((i, row::Ask::Edit)) if self.editing == Some(i) => self.editing = None,
+            Some((i, row::Ask::Edit)) => self.editing = Some(i),
+            Some((i, row::Ask::Delete)) => self.delete(i),
+            _ => {}
         }
-        if self.draft.entries.is_empty() {
-            let text = "No rules of your own yet.";
-            ui.label(RichText::new(text).color(c.dim_text));
-            ui.add_space(8.0);
+        ui.add_space(14.0);
+    }
+
+    /// Moves the rule dragged from `from` to the row under the pointer.
+    fn drop(&mut self, ui: &Ui, from: usize, rects: &[(usize, Rect)]) {
+        let Some(pointer) = ui.ctx().pointer_interact_pos() else {
+            return;
+        };
+        let under = rects.iter().find(|(_, r)| r.y_range().contains(pointer.y));
+        let Some(&(to, _)) = under else {
+            return;
+        };
+        self.draft.move_to(from, to);
+        if self.editing == Some(from) {
+            self.editing = Some(to);
         }
-        if widgets::button(ui, c, "Add rule", false, true).clicked() {
-            self.draft.add();
-        }
-        ui.add_space(24.0);
+    }
+
+    fn delete(&mut self, index: usize) {
+        self.draft.remove(index);
+        self.editing = match self.editing {
+            Some(at) if at == index => None,
+            Some(at) if at > index => Some(at - 1),
+            other => other,
+        };
     }
 
     /// Whether the rule at `index` matches `query`. A rule with nothing to
@@ -106,9 +171,13 @@ impl FilePage for RulesPage {
     }
 
     fn show(&mut self, ui: &mut Ui, c: &Colors, query: &str) {
+        self.intro(ui, c);
         self.your_rules(ui, c, query);
         let problem = self.community_problem.as_deref();
-        community::show(ui, c, &self.community, query, problem);
+        if let Some(rule) = community::show(ui, c, &self.community, query, problem) {
+            self.editing = Some(self.draft.push(rule));
+            ui.ctx().request_repaint();
+        }
     }
 
     fn apply(&mut self) -> Result<(), String> {
@@ -126,10 +195,12 @@ impl FilePage for RulesPage {
         doc.arrange(&slots).map_err(|e| e.to_string())?;
         doc.save().map_err(|e| e.to_string())?;
         self.draft.reset(doc.rules());
+        self.editing = None;
         Ok(())
     }
 
     fn revert(&mut self) {
+        self.editing = None;
         let saved = self.draft.saved().to_vec();
         self.draft.reset(saved);
     }
@@ -145,6 +216,8 @@ impl FilePage for RulesPage {
                 self.problem = Some(e.to_string());
             }
         }
+        let len = self.draft.entries.len();
+        self.editing = self.editing.filter(|&at| at < len);
         self.community_problem = None;
         self.community = Vec::new();
         if self.store.rules_path().exists() {
@@ -154,4 +227,29 @@ impl FilePage for RulesPage {
             }
         }
     }
+}
+
+/// A section's title, over its card, with a dim `note` after it.
+fn heading(ui: &mut Ui, c: &Colors, icon: Option<Icon>, title: &str, note: &str) {
+    ui.scope(|ui| {
+        ui.spacing_mut().interact_size.y = 20.0;
+        ui.horizontal(|ui| heading_row(ui, c, icon, title, note));
+    });
+    ui.add_space(2.0);
+}
+
+fn heading_row(ui: &mut Ui, c: &Colors, icon: Option<Icon>, title: &str, note: &str) {
+    ui.spacing_mut().item_spacing.x = 8.0;
+    if let Some(icon) = icon {
+        let (rect, _) = ui.allocate_exact_size(vec2(14.0, 14.0), Sense::hover());
+        icons::paint(ui.painter(), rect, icon, c.dim_text, 1.5);
+    }
+    let title = RichText::new(title)
+        .font(theme::bold(13.0))
+        .color(c.dim_text);
+    ui.label(title);
+    let note = RichText::new(note)
+        .font(theme::regular(11.0))
+        .color(c.faint_text);
+    ui.label(note);
 }
