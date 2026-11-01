@@ -32,7 +32,7 @@ fn a_corner_dragged_along_one_edge_leaves_the_other_split_to_the_config() {
     resize_to(&mut h, 3, held(true, true, false, false), wider);
 
     // Act -- a config with another ratio.
-    let mut config = Config::default();
+    let mut config = Config::with_gap(8);
     config.layout.ratio = 0.25;
     h.step(Input::Config(Box::new(config)));
 

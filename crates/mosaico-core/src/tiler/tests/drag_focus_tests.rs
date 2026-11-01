@@ -14,7 +14,7 @@ use crate::{Action, WindowEvent};
 /// Settings with the focused, unfocused and monocle borders in colors of
 /// their own.
 fn colored() -> Settings {
-    let mut settings = Settings::default();
+    let mut settings = Settings::with_gap(8);
     let colors = &mut settings.borders.colors;
     colors.focused = "#ff0000".into();
     colors.unfocused = "#00ff00".into();

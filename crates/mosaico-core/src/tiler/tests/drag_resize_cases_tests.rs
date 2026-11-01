@@ -29,7 +29,7 @@ fn widened(h: &Harness) -> Rect {
 #[test]
 fn with_resize_splits_off_a_resized_window_goes_back() {
     // Arrange -- the near miss: the same resize, the option off.
-    let mut h = pair(Settings::default());
+    let mut h = pair(Settings::with_gap(8));
     let (left, right) = (h.rect_of(1), h.rect_of(2));
 
     // Act
@@ -125,7 +125,7 @@ fn a_config_read_again_with_resize_splits_off_has_the_next_resize_go_back() {
     // Arrange -- on at the start, off in the config read again.
     let mut h = pair(resizing());
     let left = h.rect_of(1);
-    let mut config = Config::default();
+    let mut config = Config::with_gap(8);
     config.mouse.resize_splits = false;
     h.step(Input::Config(Box::new(config)));
 

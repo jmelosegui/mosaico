@@ -72,7 +72,7 @@ fn the_defaults_are_those_of_a_new_install() {
     let defaults = Settings::defaults();
     assert_eq!(defaults.theme(), Theme::Catppuccin(CatppuccinFlavor::Mocha));
     assert_eq!(defaults.get("logging.enabled"), &on(false));
-    assert_eq!(defaults.get("layout.gap"), &SettingValue::Int(8));
+    assert_eq!(defaults.get("layout.gap"), &SettingValue::Int(20));
     assert!(!defaults.start_at_sign_in);
 }
 

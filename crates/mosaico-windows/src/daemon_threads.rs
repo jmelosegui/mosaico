@@ -135,7 +135,7 @@ fn watch_config(store: ConfigStore, reloads: mpsc::Sender<ConfigReload>, stop: &
     let watch = match ConfigWatch::open(store, WindowsDirectoryWatcher::new) {
         Ok(watch) => watch,
         Err(e) => {
-            mosaico_core::log_info!("FindFirstChangeNotificationW failed, watcher exiting: {e}");
+            mosaico_core::log_warn!("config watcher could not start: {e}");
             return;
         }
     };

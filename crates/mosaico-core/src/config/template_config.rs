@@ -17,7 +17,7 @@ flavor = "mocha"
 
 [layout]
 # Gap in pixels between windows and screen edges.
-gap = 8
+gap = 20
 # Ratio of space given to the first window in each split (0.0 to 1.0).
 ratio = 0.5
 # How windows are hidden during workspace switches.

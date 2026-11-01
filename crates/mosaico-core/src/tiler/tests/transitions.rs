@@ -70,7 +70,7 @@ const REFRESH: Duration = Duration::from_millis(16);
 
 /// A config with transitions on.
 fn animated() -> Config {
-    let mut config = Config::default();
+    let mut config = Config::with_gap(8);
     config.animations.enabled = true;
     config
 }

@@ -58,7 +58,7 @@ pub use reload::{ConfigReload, ConfigReloader, ConfigWatch};
 pub use rule_action::{RuleAction, decide};
 pub use rules::{WindowRule, default_rules, matching_rule, validate_rules};
 pub use settings_app::{SETTINGS_WINDOW_MIN, SETTINGS_WINDOW_SIZE, SettingsAppConfig};
-pub use store::{ConfigStore, KeybindingsDocument, RulesDocument, SettingsDocument};
+pub use store::{ConfigStore, DefaultFile, KeybindingsDocument, RulesDocument, SettingsDocument};
 pub use theme::{
     CatppuccinFlavor, RosePineFlavor, Theme, ThemeCheck, ThemeConfig, TokyoNightFlavor,
 };
@@ -124,6 +124,15 @@ impl Config {
                 .resolve_color(&self.borders.colors.unfocused, theme.border_unfocused())
                 .to_string();
         }
+    }
+
+    /// The defaults with a gap of `gap` pixels, for tests whose windows
+    /// were laid out with that gap rather than with the default's.
+    #[cfg(test)]
+    pub(crate) fn with_gap(gap: i32) -> Self {
+        let mut config = Self::default();
+        config.layout.gap = gap;
+        config
     }
 }
 

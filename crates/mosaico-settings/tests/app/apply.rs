@@ -24,6 +24,25 @@ fn apply_writes_the_edits_to_config_toml_and_keeps_its_comments() {
 }
 
 #[test]
+fn apply_writes_config_toml_into_a_config_folder_that_does_not_exist_yet() {
+    // Arrange -- a fresh install, where neither `mosaico init` nor the
+    // daemon has run.
+    let store = folder("apply-no-folder");
+    std::fs::remove_dir_all(store.dir()).unwrap();
+    let path = store.config_path();
+    let mut h = window(store, DaemonState::Stopped, &SignIn::default());
+    click(&mut h, Role::Switch, "Write a log file");
+
+    // Act
+    click(&mut h, Role::Button, "Apply");
+
+    // Assert
+    assert_eq!(h.state().applied(), Some(&Applied::Saved));
+    let written = std::fs::read_to_string(path).unwrap();
+    assert_eq!(written, "[logging]\nenabled = true\n");
+}
+
+#[test]
 fn apply_turns_start_at_sign_in_on_through_the_system() {
     let sign_in = SignIn::default();
     let mut h = window(folder("apply-sign-in"), DaemonState::Stopped, &sign_in);

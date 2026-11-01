@@ -160,8 +160,9 @@ border on windows without focus.
 
 Easing lists the presets and **Custom**. A picture of the curve sits under the
 row, with its four points as `cubic-bezier(x1, y1, x2, y2)`: a preset shows
-the points closest to it, and a custom curve lets you type them, each from 0 to
-1. **Play** runs a dot along the curve to show how it moves.
+the points closest to it, and a custom curve lets you type them, each from 0
+to 1. **Play** runs a dot along the curve to show how it moves, taking as long
+as the **Duration** set above, even before you apply it.
 
 ## Bar
 

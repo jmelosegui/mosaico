@@ -26,7 +26,7 @@ pub(in crate::tiler) fn start(
 /// placement is made at once, as the tests of the tiling pipeline
 /// itself expect.
 pub(in crate::tiler) fn still() -> Config {
-    let mut config = Config::default();
+    let mut config = Config::with_gap(8);
     config.animations.enabled = false;
     config
 }
@@ -34,7 +34,7 @@ pub(in crate::tiler) fn still() -> Config {
 /// The default config with transitions on, so that the placements of a
 /// step that may animate do.
 pub(in crate::tiler) fn animated() -> Config {
-    let mut config = Config::default();
+    let mut config = Config::with_gap(8);
     config.animations.enabled = true;
     config
 }

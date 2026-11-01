@@ -37,6 +37,17 @@ pub struct Settings {
     pub hiding_support: HidingSupport,
 }
 
+impl Settings {
+    /// The defaults with a gap of `gap` pixels, for tests whose windows
+    /// were laid out with that gap rather than with the default's.
+    #[cfg(test)]
+    pub(crate) fn with_gap(gap: i32) -> Self {
+        let mut settings = Self::default();
+        settings.layout.gap = gap;
+        settings
+    }
+}
+
 impl Tiler {
     /// Starts tiling `windows` across `displays`.
     ///

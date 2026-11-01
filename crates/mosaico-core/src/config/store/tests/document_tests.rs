@@ -194,7 +194,7 @@ fn a_value_put_at_its_default_is_left_out_of_the_file() {
     let mut doc = store.open_settings().unwrap();
 
     // Act
-    doc.put("layout.gap", &int(8)).unwrap();
+    doc.put("layout.gap", &int(20)).unwrap();
     doc.put("borders.width", &int(6)).unwrap();
     doc.save().unwrap();
 

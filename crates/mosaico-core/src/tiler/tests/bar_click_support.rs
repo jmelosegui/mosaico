@@ -12,7 +12,7 @@ use super::super::{BarReservation, Effect, Input, Settings};
 pub(super) fn following(mode: WorkspaceMode) -> Settings {
     let mut settings = Settings {
         mouse_follows_focus: true,
-        ..Settings::default()
+        ..Settings::with_gap(8)
     };
     settings.workspaces.mode = mode;
     settings
@@ -21,7 +21,7 @@ pub(super) fn following(mode: WorkspaceMode) -> Settings {
 /// Settings with workspaces switched in `mode`, and wrapping round with
 /// `wrap`.
 pub(super) fn stepping(mode: WorkspaceMode, wrap: bool) -> Settings {
-    let mut settings = Settings::default();
+    let mut settings = Settings::with_gap(8);
     settings.workspaces.mode = mode;
     settings.workspaces.wrap = wrap;
     settings

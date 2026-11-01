@@ -124,7 +124,7 @@ fn a_window_a_retile_prunes_while_its_move_is_held_is_left_alone() {
 /// pointer following focus.
 fn one_window_per_monitor() -> (FakePlatform, TilingManager<FakePlatform>) {
     let platform = FakePlatform::new(2, &[(1, 0), (2, 1)]);
-    let manager = start(&platform, None, &Config::default());
+    let manager = start(&platform, None, &Config::with_gap(8));
     (platform, manager)
 }
 

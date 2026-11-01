@@ -28,7 +28,7 @@ impl Harness {
     /// Starts a tiler on `monitors` monitors with the given windows,
     /// each `(id, monitor)`, already open.
     pub(in crate::tiler) fn new(monitors: usize, windows: &[(u64, usize)]) -> Self {
-        Self::with_settings(Settings::default(), monitors, windows)
+        Self::with_settings(Settings::with_gap(8), monitors, windows)
     }
 
     pub(in crate::tiler) fn with_settings(

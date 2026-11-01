@@ -16,7 +16,7 @@ use super::*;
 fn a_drag_that_starts_applies_nothing() {
     // Arrange
     let platform = FakePlatform::new(1, &[(1, 0), (2, 0)]);
-    let mut manager = start(&platform, None, &Config::default());
+    let mut manager = start(&platform, None, &Config::with_gap(8));
     platform.take_calls();
     let held = manager.held_since();
 
@@ -37,7 +37,7 @@ fn a_click_on_a_title_bar_leaves_the_border_of_the_window_drawn() {
     // Arrange -- the platform reports the press and the release on the
     // title bar of window 1, which has focus, as a drag that moves nothing.
     let platform = FakePlatform::new(1, &[(1, 0), (2, 0)]);
-    let mut manager = start(&platform, None, &Config::default());
+    let mut manager = start(&platform, None, &Config::with_gap(8));
     manager.flush_pending();
     let rect = platform.window(1).rect;
     let pointer = Some((rect.center_x(), rect.y + 10));
@@ -64,7 +64,7 @@ fn a_click_on_a_title_bar_leaves_the_border_of_the_window_drawn() {
 fn the_bar_keeps_its_room_on_every_monitor_through_a_display_change() {
     // Arrange
     let platform = FakePlatform::new(1, &[(1, 0)]);
-    let mut manager = start(&platform, None, &Config::default());
+    let mut manager = start(&platform, None, &Config::with_gap(8));
 
     // Act -- a bar 30 high goes on every monitor, then a second monitor
     // is connected.
@@ -91,7 +91,7 @@ fn the_bar_keeps_its_room_on_every_monitor_through_a_display_change() {
 fn what_is_held_back_is_timed_by_the_platforms_clock() {
     // Arrange -- the platform's clock is well ahead of the system's.
     let platform = FakePlatform::new(1, &[(1, 0), (2, 0)]);
-    let mut manager = start(&platform, None, &Config::default());
+    let mut manager = start(&platform, None, &Config::with_gap(8));
     manager.flush_pending();
     platform.advance(Duration::from_secs(60));
 
@@ -106,7 +106,7 @@ fn what_is_held_back_is_timed_by_the_platforms_clock() {
 fn every_bar_shows_the_update_notice_and_whether_hotkeys_are_paused() {
     // Arrange
     let platform = FakePlatform::new(2, &[(1, 0)]);
-    let manager = start(&platform, None, &Config::default());
+    let manager = start(&platform, None, &Config::with_gap(8));
 
     // Act
     let states = manager.bar_states("v0.10.0 available", true);

@@ -106,6 +106,32 @@ fn play_runs_the_dot_along_the_curve_and_stops() {
     );
 }
 
+/// How many frames, a quarter of a second apart, the window draws after
+/// Play is clicked with `duration` typed into Duration and not applied:
+/// as many as the dot runs along the curve. `u64::MAX` when it still
+/// runs after a second.
+fn frames_played(test: &str, duration: &str) -> u64 {
+    let mut h = window(folder(test), DaemonState::Stopped, &SignIn::default());
+    open(&mut h, "Animations");
+    click(&mut h, Role::SpinButton, "Duration");
+    h.get_by_role_and_label(Role::SpinButton, "Duration")
+        .type_text(duration);
+    h.key_press(eframe::egui::Key::Enter);
+    h.run();
+    h.get_by_role_and_label(Role::Button, "Play").click();
+    h.try_run().unwrap_or(u64::MAX)
+}
+
+#[test]
+fn play_runs_the_dot_for_the_duration_being_edited() {
+    // Act
+    let short = frames_played("animations-play-short", "100");
+    let long = frames_played("animations-play-long", "1000");
+
+    // Assert
+    assert!(short < long, "100 ms played {short} frames, 1000 ms {long}");
+}
+
 #[test]
 fn a_preset_shows_its_points_without_letting_them_be_edited() {
     // Arrange

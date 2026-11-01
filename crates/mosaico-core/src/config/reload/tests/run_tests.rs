@@ -76,6 +76,36 @@ fn a_watcher_that_cannot_be_opened_is_the_error() {
 }
 
 #[test]
+fn a_config_written_after_starting_without_a_config_directory_is_reloaded() {
+    // Arrange -- the daemon started before `mosaico init` made the config
+    // directory, and the settings app saved config.toml into it later.
+    let store = temp_store("run-no-dir");
+    std::fs::remove_dir_all(store.dir()).unwrap();
+    let config = store.config_path();
+    let stop = AtomicBool::new(false);
+    let mut watcher =
+        FakeWatcher::new(&stop).then(|| write_at(&config, GAP_7, 1), Ok(DirectoryWake::Changed));
+    let lent = &mut watcher;
+    let (tx, rx) = mpsc::channel();
+
+    // Act -- like every platform watcher, this one cannot watch a
+    // directory that does not exist.
+    let watch = ConfigWatch::open(store.clone(), |dir| {
+        if dir.is_dir() {
+            Ok(lent)
+        } else {
+            Err(Error::platform("watch the directory", "it does not exist"))
+        }
+    });
+    let result = watch.and_then(|watch| watch.run(tx, &stop));
+
+    // Assert
+    assert!(result.is_ok(), "{result:?}");
+    let reloads: Vec<_> = rx.try_iter().collect();
+    assert_eq!(kinds(&reloads), ["config"]);
+}
+
+#[test]
 fn a_wait_that_times_out_loads_nothing_even_when_a_file_changed() {
     // Arrange
     let store = temp_store("run-timed-out");

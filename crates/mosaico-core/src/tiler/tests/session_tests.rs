@@ -7,7 +7,7 @@ use super::manager_support::{TempRecord, start, tiled};
 use super::*;
 
 fn hiding(how: HidingBehaviour) -> Config {
-    let mut config = Config::default();
+    let mut config = Config::with_gap(8);
     config.layout.hiding = how;
     config.workspaces.mode = WorkspaceMode::PerMonitor;
     config
@@ -101,7 +101,7 @@ fn a_clean_shutdown_leaves_nothing_to_restore() {
     // Arrange
     let record = TempRecord::new("clean-shutdown");
     let platform = FakePlatform::new(1, &[(1, 0)]);
-    let mut manager = start(&platform, Some(record.file()), &Config::default());
+    let mut manager = start(&platform, Some(record.file()), &Config::with_gap(8));
     manager.handle_action(&Action::GoToWorkspace(2));
 
     // Act
@@ -116,7 +116,7 @@ fn a_reused_handle_is_left_alone() {
     // Arrange -- the hidden window closed and another process got its
     // handle, cloaked by something else.
     let record = TempRecord::new("reused-handle");
-    let config = Config::default();
+    let config = Config::with_gap(8);
     let platform = FakePlatform::new(1, &[(1, 0)]);
     let mut manager = start(&platform, Some(record.file()), &config);
     manager.handle_action(&Action::GoToWorkspace(2));

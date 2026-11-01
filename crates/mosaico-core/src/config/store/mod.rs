@@ -16,6 +16,7 @@ mod migrate_borders;
 mod migrate_workspaces;
 mod rules_document;
 mod write_back;
+mod write_defaults;
 
 #[cfg(test)]
 #[path = "tests/support.rs"]
@@ -33,6 +34,7 @@ use super::report;
 pub use document::SettingsDocument;
 pub use keybindings_document::KeybindingsDocument;
 pub use rules_document::RulesDocument;
+pub use write_defaults::DefaultFile;
 
 /// The config files of one instance, all kept in one directory.
 ///

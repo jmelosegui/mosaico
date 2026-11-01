@@ -14,7 +14,7 @@ use super::*;
 
 /// A configuration that hides windows `how`, one monitor at a time.
 fn hiding(how: HidingBehaviour) -> Config {
-    let mut config = Config::default();
+    let mut config = Config::with_gap(8);
     config.layout.hiding = how;
     config.workspaces.mode = WorkspaceMode::PerMonitor;
     config

@@ -26,7 +26,7 @@ fn pointer_moved_on_focus(config: &Config) -> bool {
 #[test]
 fn the_pointer_follows_keyboard_focus_by_default() {
     // Arrange
-    let config = Config::default();
+    let config = Config::with_gap(8);
 
     // Act
     let moved = pointer_moved_on_focus(&config);
@@ -38,7 +38,7 @@ fn the_pointer_follows_keyboard_focus_by_default() {
 #[test]
 fn the_pointer_stays_when_it_does_not_follow_focus() {
     // Arrange -- focus following the mouse is a different setting.
-    let mut config = Config::default();
+    let mut config = Config::with_gap(8);
     config.mouse.follows_focus = false;
     config.mouse.focus_follows_mouse = true;
 
@@ -52,7 +52,7 @@ fn the_pointer_stays_when_it_does_not_follow_focus() {
 #[test]
 fn borders_and_corners_are_drawn_the_way_the_config_says() {
     // Arrange
-    let mut config = Config::default();
+    let mut config = Config::with_gap(8);
     config.borders.width = 7;
     config.borders.corner_style = CornerStyle::Round;
     let platform = FakePlatform::new(1, &[(1, 0)]);
@@ -78,7 +78,7 @@ fn borders_and_corners_are_drawn_the_way_the_config_says() {
 #[test]
 fn workspaces_start_with_the_layouts_the_config_says() {
     // Arrange
-    let mut config = Config::default();
+    let mut config = Config::with_gap(8);
     config.layout.default = LayoutKind::VerticalStack;
     config.workspaces.layouts.insert(2, LayoutKind::ThreeColumn);
     let platform = FakePlatform::new(1, &[(1, 0)]);
@@ -119,8 +119,13 @@ fn the_rules_it_starts_with_leave_windows_alone() {
     let platform = with_a_floating_window();
 
     // Act
-    let manager = TilingManager::new(platform.clone(), None, &Config::default(), vec![floating()])
-        .expect("the manager starts");
+    let manager = TilingManager::new(
+        platform.clone(),
+        None,
+        &Config::with_gap(8),
+        vec![floating()],
+    )
+    .expect("the manager starts");
 
     // Assert
     assert_eq!(tiled(&manager, 0), vec![1]);
@@ -130,7 +135,7 @@ fn the_rules_it_starts_with_leave_windows_alone() {
 fn reloaded_rules_let_go_of_the_windows_they_leave_alone() {
     // Arrange -- no rules at first, so both windows are tiled.
     let platform = with_a_floating_window();
-    let mut manager = start(&platform, None, &Config::default());
+    let mut manager = start(&platform, None, &Config::with_gap(8));
     let before = tiled(&manager, 0);
 
     // Act

@@ -20,7 +20,7 @@ const UNFOCUSED: Color = Color {
 
 /// A harness on one monitor whose focused and unfocused borders differ.
 fn colored(windows: &[(u64, usize)]) -> Harness {
-    let mut settings = Settings::default();
+    let mut settings = Settings::with_gap(8);
     settings.borders.colors.focused = "#111111".into();
     settings.borders.colors.unfocused = "#222222".into();
     Harness::with_settings(settings, 1, windows)

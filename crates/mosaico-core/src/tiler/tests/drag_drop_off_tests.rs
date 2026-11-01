@@ -12,7 +12,7 @@ use super::super::support::{drag_to, drop_at, places, swapping};
 #[test]
 fn with_drag_to_swap_off_a_window_dropped_on_another_goes_back() {
     // Arrange
-    let mut h = Harness::with_settings(Settings::default(), 1, &[(1, 0), (2, 0)]);
+    let mut h = Harness::with_settings(Settings::with_gap(8), 1, &[(1, 0), (2, 0)]);
     let (left, right) = (h.rect_of(1), h.rect_of(2));
 
     // Act
@@ -27,7 +27,7 @@ fn with_drag_to_swap_off_a_window_dropped_on_another_goes_back() {
 fn with_drag_to_swap_off_a_window_dropped_on_another_monitor_joins_the_end() {
     // Arrange
     let windows = [(1, 0), (2, 0), (3, 1), (4, 1)];
-    let mut h = Harness::with_settings(Settings::default(), 2, &windows);
+    let mut h = Harness::with_settings(Settings::with_gap(8), 2, &windows);
     let left = h.rect_of(3);
 
     // Act -- onto window 3, the first there.

@@ -78,7 +78,7 @@ impl ConfigStore {
 
     /// Writes what the settings window remembers. Does nothing when the
     /// file already says it, so closing an unchanged window writes
-    /// nothing.
+    /// nothing. Creates the config directory when it does not exist.
     ///
     /// # Errors
     ///
@@ -89,6 +89,7 @@ impl ConfigStore {
         }
         let path = self.settings_app_path();
         let text = toml::to_string(app).map_err(|e| super::store::file_error(&path, e))?;
+        std::fs::create_dir_all(self.dir()).map_err(|e| super::store::file_error(&path, e))?;
         std::fs::write(&path, text).map_err(|e| super::store::file_error(&path, e))
     }
 }

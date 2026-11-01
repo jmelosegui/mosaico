@@ -13,7 +13,7 @@ use crate::tiler::{Effect, Settings, Timing};
 #[test]
 fn with_drag_to_swap_off_the_tiles_of_another_monitor_stay() {
     // Arrange
-    let mut h = on_two(Settings::default(), &[3, 4]);
+    let mut h = on_two(Settings::with_gap(8), &[3, 4]);
     let over = center(h.rect_of(3));
     grab(&mut h, 1);
 

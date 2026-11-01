@@ -29,7 +29,7 @@ fn a_report_that_moves_nothing_places_nothing() {
 #[test]
 fn with_resize_splits_off_nothing_follows_the_edge() {
     // Arrange
-    let mut h = pair(Settings::default());
+    let mut h = pair(Settings::with_gap(8));
 
     // Act
     grab_to(&mut h, 1, RIGHT, widened(200));
@@ -111,7 +111,7 @@ fn a_config_read_again_mid_drag_lays_the_tile_out_and_the_next_report_live_again
 
     // Act -- read again, which lays the monitor out as its workspace has
     // it, and the same report.
-    let mut config = Config::default();
+    let mut config = Config::with_gap(8);
     config.mouse.resize_splits = true;
     h.step(Input::Config(Box::new(config)));
     let laid_out = h.rect_of(2);

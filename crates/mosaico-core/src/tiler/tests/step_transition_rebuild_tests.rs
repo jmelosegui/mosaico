@@ -48,7 +48,7 @@ fn a_display_change_snaps_every_window() {
 fn a_reload_lays_the_windows_out_with_the_transitions_it_brings() {
     // Arrange
     let mut h = Harness::new(1, &[(1, 0), (2, 0)]);
-    let mut config = Config::default();
+    let mut config = Config::with_gap(8);
     config.animations.enabled = true;
     config.layout.gap += 20;
 

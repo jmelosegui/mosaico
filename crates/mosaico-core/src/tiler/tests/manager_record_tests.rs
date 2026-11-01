@@ -27,7 +27,7 @@ fn a_window_hidden_by_a_workspace_switch_is_recorded() {
     // Arrange
     let record = TempRecord::new("recorded");
     let platform = FakePlatform::new(1, &[(1, 0)]);
-    let mut manager = start(&platform, Some(record.file()), &Config::default());
+    let mut manager = start(&platform, Some(record.file()), &Config::with_gap(8));
 
     // Act
     manager.handle_action(&Action::GoToWorkspace(2));
@@ -41,7 +41,7 @@ fn a_window_shown_again_leaves_the_record() {
     // Arrange
     let record = TempRecord::new("shown-again");
     let platform = FakePlatform::new(1, &[(1, 0)]);
-    let mut manager = start(&platform, Some(record.file()), &Config::default());
+    let mut manager = start(&platform, Some(record.file()), &Config::with_gap(8));
     manager.handle_action(&Action::GoToWorkspace(2));
 
     // Act
@@ -57,7 +57,7 @@ fn a_hidden_window_that_is_destroyed_leaves_the_record() {
     // Arrange
     let record = TempRecord::new("destroyed");
     let platform = FakePlatform::new(1, &[(1, 0), (2, 0)]);
-    let mut manager = start(&platform, Some(record.file()), &Config::default());
+    let mut manager = start(&platform, Some(record.file()), &Config::with_gap(8));
     manager.handle_action(&Action::GoToWorkspace(2));
 
     // Act

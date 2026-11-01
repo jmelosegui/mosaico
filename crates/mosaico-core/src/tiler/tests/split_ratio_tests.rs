@@ -124,7 +124,7 @@ fn a_new_configured_ratio_moves_only_the_splits_the_user_left_alone() {
     // Arrange -- the first split moved, the second not.
     let mut h = Harness::new(1, &[(1, 0), (2, 0), (3, 0)]);
     move_splits(&mut h, &[0.75]);
-    let mut config = Config::default();
+    let mut config = Config::with_gap(8);
     config.layout.ratio = 0.25;
 
     // Act

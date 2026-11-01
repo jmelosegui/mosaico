@@ -104,7 +104,7 @@ Controls layout, borders, the mouse, window transitions, logging, and theme:
 ```toml
 [layout]
 default = "bsp"  # Default layout algorithm: "bsp", "vertical-stack", "three-column"
-gap = 8          # Pixel gap between windows (0-200)
+gap = 20         # Pixel gap between windows (0-200)
 ratio = 0.5      # BSP split ratio (0.1-0.9)
 hiding = "cloak" # How windows hide on workspace switch: "cloak", "hide", "minimize"
 
@@ -499,7 +499,12 @@ modal dialogs outright. For the rest it reports whether the window has
 ## Template Generation
 
 `mosaico init` generates fully-commented template files using functions in
-`template.rs`:
+`template.rs`, through `ConfigStore::write_missing_defaults`
+(`config/store/write_defaults.rs`). The daemon calls the same function when
+it starts, from `lifecycle::run` before its loop loads and watches the files,
+so an install that starts the daemon without running `mosaico init` first
+still gets every file, and the settings window creates the config directory
+when it saves into one that does not exist:
 
 - `generate_config()` -- produces `config.toml` with all options documented
 - `generate_keybindings()` -- produces `keybindings.toml` with all default

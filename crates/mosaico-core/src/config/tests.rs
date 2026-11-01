@@ -15,7 +15,7 @@ fn default_config_has_expected_values() {
         config.theme.resolve(),
         Theme::Catppuccin(CatppuccinFlavor::Mocha)
     );
-    assert_eq!(config.layout.gap, 8);
+    assert_eq!(config.layout.gap, 20);
     assert_eq!(config.borders.width, 4);
 }
 

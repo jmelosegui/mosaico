@@ -11,7 +11,7 @@ use crate::{Rect, WindowEvent};
 pub(super) fn swapping() -> Settings {
     Settings {
         drag_to_swap: true,
-        ..Settings::default()
+        ..Settings::with_gap(8)
     }
 }
 

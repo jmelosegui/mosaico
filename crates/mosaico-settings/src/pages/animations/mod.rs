@@ -25,6 +25,9 @@ pub const SECTIONS: &[Section] = &[
 
 const KEY: &str = "animations.easing";
 
+/// How long a transition takes, which Play shows the curve over.
+const DURATION: &str = "animations.duration";
+
 /// The curve a custom easing starts from when it is picked.
 const CUSTOM: [f64; 4] = [0.2, 0.0, 0.0, 1.0];
 
@@ -67,7 +70,12 @@ fn easing(ui: &mut Ui, cx: &PageContext, row: &Row, edit: &mut Settings) {
         widgets::dropdown(ui, cx.c, row.label, 190.0, &options, &mut pick, st.unsaved);
     });
     let mut points = shape.map_or(CUSTOM, Easing::control_points);
-    let edited = curve::show(ui, cx.c, shape, &mut points, now == Pick::Custom);
+    let seconds = match edit.get(DURATION) {
+        SettingValue::Int(ms) => *ms as f64 / 1000.0,
+        _ => 0.0,
+    };
+    let custom = now == Pick::Custom;
+    let edited = curve::show(ui, cx.c, shape, &mut points, custom, seconds);
     text = match (reset, pick) {
         (true, _) => default,
         (false, Pick::Preset(preset)) => preset.to_string(),

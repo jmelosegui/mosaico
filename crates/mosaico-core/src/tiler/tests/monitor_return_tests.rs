@@ -27,7 +27,7 @@ const SECOND_SLOT: Rect = Rect {
 };
 
 fn settings(how: HidingBehaviour) -> Settings {
-    let mut settings = Settings::default();
+    let mut settings = Settings::with_gap(8);
     settings.layout.hiding = how;
     settings.workspaces.mode = WorkspaceMode::PerMonitor;
     settings
@@ -43,7 +43,7 @@ fn connect(h: &mut Harness, count: usize) {
 
 /// Reloads a configuration that hides windows `how`.
 fn reload(h: &mut Harness, how: HidingBehaviour) {
-    let mut config = Config::default();
+    let mut config = Config::with_gap(8);
     config.layout.hiding = how;
     h.step(Input::Config(Box::new(config)));
 }

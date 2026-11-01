@@ -37,7 +37,7 @@ fn a_window_the_rules_leave_alone_keeps_its_own_corners() {
     };
     let settings = Settings {
         rules: vec![rule],
-        ..Settings::default()
+        ..Settings::with_gap(8)
     };
     let mut h = Harness::with_settings(settings, 1, &[(1, 0)]);
     let mut floating = FakeWindow::app(0);

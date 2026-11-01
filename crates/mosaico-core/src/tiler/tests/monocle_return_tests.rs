@@ -46,7 +46,7 @@ fn a_window_with_focus_that_comes_home_into_view_waits_behind_and_hands_focus_on
     // windows 2 and 3, in monocle with window 2, while both monitors show
     // workspace 1. The second monitor leaves, and the primary switches to
     // workspace 2, where windows 2 and 3 now are, with focus on window 3.
-    let mut settings = Settings::default();
+    let mut settings = Settings::with_gap(8);
     settings.workspaces.mode = crate::config::WorkspaceMode::Global;
     let mut h = Harness::with_settings(settings, 2, &[(1, 0), (2, 1), (3, 1)]);
     h.event(WindowEvent::Focused { window: wid(2) });

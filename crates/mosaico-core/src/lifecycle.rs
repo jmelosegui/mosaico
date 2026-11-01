@@ -2,12 +2,13 @@
 //!
 //! What a daemon does around its loop is the same on every platform: it
 //! clears what an update left behind, makes sure it is the only daemon
-//! of its instance, records its process id, and undoes that once the
-//! loop ends. The loop itself, which watches the desktop and answers the
+//! of its instance, records its process id, writes the config files the
+//! instance does not have yet, and undoes the rest once the loop ends. The loop itself, which watches the desktop and answers the
 //! CLI, is the platform's.
 
 use std::path::PathBuf;
 
+use crate::config::{ConfigStore, DefaultFile};
 use crate::pid::PidFile;
 use crate::system::SingleInstance;
 use crate::update::Installer;
@@ -56,12 +57,18 @@ pub struct Startup<'a> {
 ///    [`Error::Platform`](crate::Error::Platform) when this process may not
 ///    even open that daemon's lock, leaving that daemon's PID file alone;
 /// 3. records the process id in the instance's PID file;
-/// 4. logs that the daemon started, and runs the loop;
-/// 5. logs the error the loop ended with, if any, removes the PID file,
+/// 4. writes each config file the instance does not have yet with its
+///    default, creating the config directory when it does not exist,
+///    as `mosaico init` does, so the loop reads, and watches, the files
+///    a fresh install would otherwise only get from `mosaico init`. A file
+///    that cannot be written is logged and the daemon starts anyway, on
+///    the defaults;
+/// 5. logs that the daemon started, and runs the loop;
+/// 6. logs the error the loop ended with, if any, removes the PID file,
 ///    and only then releases the lock, so a daemon that starts next never
 ///    has its PID file removed by this one.
 ///
-/// Step 5 also runs, in that order, when a panic in the loop unwinds
+/// Step 6 also runs, in that order, when a panic in the loop unwinds
 /// through here. A build that aborts on a panic leaves the PID file
 /// behind instead, as a crash does, and the CLI takes it for stale.
 ///
@@ -79,6 +86,7 @@ pub fn run(startup: Startup<'_>) -> Result<()> {
     // Declared after the lock, so it is dropped first, also when a panic
     // unwinds.
     let pid_file = PidFileGuard(pid_file);
+    write_missing_config(&ConfigStore::for_instance(startup.instance));
     crate::log_info!("Daemon started (PID: {})", startup.pid);
 
     let result = (startup.serve)(startup.instance);
@@ -89,6 +97,25 @@ pub fn run(startup: Startup<'_>) -> Result<()> {
     drop(pid_file);
     drop(lock);
     result
+}
+
+/// Writes the config files `store` does not have yet, logging what fails
+/// since the daemon starts anyway.
+fn write_missing_config(store: &ConfigStore) {
+    match store.write_missing_defaults() {
+        Ok(files) => {
+            for file in files {
+                match file {
+                    DefaultFile::Created(path) => crate::log_info!("Created {}", path.display()),
+                    DefaultFile::Failed(path, e) => {
+                        crate::log_warn!("could not write {}: {e}", path.display());
+                    }
+                    DefaultFile::Existed(_) => {}
+                }
+            }
+        }
+        Err(e) => crate::log_warn!("could not create {}: {e}", store.dir().display()),
+    }
 }
 
 /// The daemon's PID file, removed when the guard is dropped.

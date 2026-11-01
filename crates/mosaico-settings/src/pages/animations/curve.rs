@@ -14,18 +14,16 @@ const BOX: (f32, f32) = (232.0, 104.0);
 /// Space around the curve in the picture.
 const INSET: f32 = 16.0;
 
-/// How long the dot takes to run along the curve, in seconds. Long
-/// enough to see, unlike a transition.
-const PLAY_SECONDS: f64 = 0.8;
-
 /// The picture of `shape` with the four `points` under the easing row,
-/// editable when `custom`. Returns whether a point was edited.
+/// editable when `custom`. Play runs a dot along the curve in `seconds`,
+/// as long as a transition takes. Returns whether a point was edited.
 pub fn show(
     ui: &mut Ui,
     c: &Colors,
     shape: Option<Easing>,
     points: &mut [f64; 4],
     custom: bool,
+    seconds: f64,
 ) -> bool {
     let mut edited = false;
     Frame::new()
@@ -40,7 +38,7 @@ pub fn show(
             ui.horizontal_top(|ui| {
                 ui.spacing_mut().item_spacing.x = 16.0;
                 let play = ui.make_persistent_id("easing-play");
-                preview(ui, c, shape, play);
+                preview(ui, c, shape, play, seconds);
                 ui.vertical(|ui| {
                     ui.spacing_mut().item_spacing.y = 8.0;
                     ui.label(
@@ -84,9 +82,9 @@ fn fields(ui: &mut Ui, c: &Colors, points: &mut [f64; 4], enabled: bool) -> bool
     edited
 }
 
-/// The curve over its straight line, with a dot running along it after
-/// Play was clicked.
-fn preview(ui: &mut Ui, c: &Colors, shape: Option<Easing>, play: Id) {
+/// The curve over its straight line, with a dot running along it for
+/// `seconds` after Play was clicked.
+fn preview(ui: &mut Ui, c: &Colors, shape: Option<Easing>, play: Id, seconds: f64) {
     let (rect, _) = ui.allocate_exact_size(vec2(BOX.0, BOX.1), Sense::hover());
     let painter = ui.painter();
     painter.rect_filled(rect, 6.0, c.control);
@@ -112,8 +110,8 @@ fn preview(ui: &mut Ui, c: &Colors, shape: Option<Easing>, play: Id) {
     let Some(started) = ui.data(|d| d.get_temp::<f64>(play)) else {
         return;
     };
-    let t = (ui.input(|i| i.time) - started) / PLAY_SECONDS;
-    if t >= 1.0 {
+    let t = (ui.input(|i| i.time) - started) / seconds;
+    if seconds <= 0.0 || t >= 1.0 {
         ui.data_mut(|d| d.remove_temp::<f64>(play));
         return;
     }

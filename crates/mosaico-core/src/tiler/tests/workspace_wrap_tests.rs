@@ -37,7 +37,7 @@ fn with_wrap_prev_on_the_first_workspace_goes_to_the_last() {
 fn a_reload_takes_the_new_wrap() {
     // Arrange
     let mut h = Harness::new(1, &[(1, 0)]);
-    let mut config = Config::default();
+    let mut config = Config::with_gap(8);
     config.workspaces.wrap = true;
     h.step(Input::Config(Box::new(config)));
 

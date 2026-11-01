@@ -21,6 +21,8 @@ This generates the following files:
 | `bar.toml` | Status bar settings |
 
 Existing files are never overwritten, so it is safe to run `init` again.
+The daemon also writes any of these files that are missing when it starts, so
+skipping this step still leaves you with every file.
 
 ## 2. Start the Window Manager
 

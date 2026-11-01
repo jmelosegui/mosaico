@@ -10,9 +10,13 @@ const BOM: char = '\u{feff}';
 /// Writes `edited`, what `toml_edit` made of `original`, the text the
 /// config file at `path` held, back to the file in the line endings of
 /// `original` and with the byte order mark it starts with, if it does.
-/// Returns the text written.
+/// Creates the file's directory when it does not exist, as on an install
+/// that has no config files yet. Returns the text written.
 pub(super) fn write_back(path: &Path, original: &str, edited: &str) -> std::io::Result<String> {
     let text = as_written(original, edited);
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir)?;
+    }
     std::fs::write(path, &text)?;
     Ok(text)
 }

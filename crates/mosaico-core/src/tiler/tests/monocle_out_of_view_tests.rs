@@ -22,7 +22,7 @@ fn connect(h: &mut Harness, count: usize) {
 /// monitor's workspace 2, which is not in view either. Windows out of
 /// view are hidden `how`.
 fn monocle_out_of_view(how: HidingBehaviour) -> Harness {
-    let mut settings = Settings::default();
+    let mut settings = Settings::with_gap(8);
     settings.workspaces.mode = WorkspaceMode::PerMonitor;
     settings.layout.hiding = how;
     let mut h = Harness::with_settings(settings, 2, &[(1, 0), (3, 0), (2, 1)]);

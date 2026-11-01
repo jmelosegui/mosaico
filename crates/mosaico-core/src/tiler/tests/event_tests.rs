@@ -230,7 +230,7 @@ fn hovering_a_window_focuses_it_without_moving_the_cursor() {
     // Arrange
     let settings = Settings {
         mouse_follows_focus: true,
-        ..Settings::default()
+        ..Settings::with_gap(8)
     };
     let mut h = Harness::with_settings(settings, 1, &[(1, 0), (2, 0)]);
 

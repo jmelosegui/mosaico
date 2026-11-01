@@ -23,7 +23,7 @@ Controls layout, borders, the mouse, window transitions, logging, and theme:
 ```toml
 [layout]
 default = "bsp"  # Default layout algorithm: "bsp", "vertical-stack", "three-column"
-gap = 8          # Pixel gap between windows (0-200)
+gap = 20         # Pixel gap between windows (0-200)
 ratio = 0.5      # BSP split ratio (0.1-0.9)
 hiding = "cloak" # How windows hide on workspace switch: "cloak", "hide", "minimize"
 
