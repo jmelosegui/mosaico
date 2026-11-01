@@ -9,7 +9,7 @@ use crate::icons::Icon;
 use crate::theme::{self, Colors};
 use crate::widgets;
 
-mod glyphs;
+pub(super) mod glyphs;
 mod row;
 use row::row;
 

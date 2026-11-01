@@ -18,6 +18,14 @@ const GLYPHS: [(&str, &str, Icon); 10] = [
     ("\u{F0DB}", "Columns", Icon::Layout),
 ];
 
+/// The drawing the window shows for glyph, when it is one it knows.
+pub(in crate::pages::bar) fn drawing(glyph: &str) -> Option<Icon> {
+    GLYPHS
+        .iter()
+        .find(|(known, ..)| *known == glyph)
+        .map(|&(.., icon)| icon)
+}
+
 /// The choices for a widget whose icon is `current`: no icon, each known
 /// glyph, and `current` itself when it is a glyph not listed.
 pub(super) fn choices(current: &str) -> Vec<Choice<'static, String>> {

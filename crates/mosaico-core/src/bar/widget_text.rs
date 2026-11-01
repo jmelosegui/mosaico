@@ -36,7 +36,7 @@ pub(super) fn label(widget: &WidgetConfig, state: &BarState, readings: &SystemRe
 
 /// The text of `widget`, without its icon. The workspaces and active
 /// window widgets draw their own content, so they have none.
-fn text(widget: &WidgetConfig, state: &BarState, readings: &SystemReadings) -> String {
+pub(super) fn text(widget: &WidgetConfig, state: &BarState, readings: &SystemReadings) -> String {
     match widget {
         WidgetConfig::Workspaces { .. } | WidgetConfig::ActiveWindow { .. } => String::new(),
         WidgetConfig::Layout { .. } => layout(state),

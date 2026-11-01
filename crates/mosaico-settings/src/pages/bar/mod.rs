@@ -4,6 +4,7 @@
 mod appearance;
 mod clicks;
 mod columns;
+mod look;
 mod preview;
 mod state;
 

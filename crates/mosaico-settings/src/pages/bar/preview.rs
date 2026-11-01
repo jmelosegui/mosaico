@@ -3,9 +3,11 @@
 use eframe::egui::{
     Color32, Frame, Margin, Painter, Rect, Sense, Stroke, StrokeKind, Ui, pos2, vec2,
 };
-use mosaico_core::config::schema::SettingValue;
+use mosaico_core::bar::sample_text;
 use mosaico_core::config::{BarWidget, BarZone, Theme, WidgetKind};
 
+use super::columns::glyphs::drawing;
+use super::look::{Look, widget_color};
 use super::state::BarState;
 use crate::icons::{self, Icon};
 use crate::theme::{self, Colors};
@@ -18,12 +20,12 @@ struct Pill {
     color: Color32,
 }
 
-/// What the preview draws for the widget, or nothing for the widgets
-/// that only appear on some condition.
+/// What the preview draws for the widget: the drawing of its icon and
+/// what the bar writes for it on a sample bar where every widget shows.
 fn sample(widget: &BarWidget, look: &Look) -> Vec<Pill> {
-    let pill = |icon: Icon, text: &str| Pill {
-        icon: Some(icon),
-        text: text.to_owned(),
+    let pill = |icon: Option<Icon>, text: String| Pill {
+        icon,
+        text,
         fill: look.pill,
         color: widget_color(widget, look),
     };
@@ -43,77 +45,11 @@ fn sample(widget: &BarWidget, look: &Look) -> Vec<Pill> {
                 }
             })
             .collect(),
-        WidgetKind::Layout => vec![pill(Icon::Grid, "BSP")],
-        WidgetKind::ActiveWindow => vec![pill(Icon::Window, "mosaico settings")],
-        WidgetKind::Clock => vec![pill(Icon::Clock, "12:57:03")],
-        WidgetKind::Date => vec![pill(Icon::Calendar, "Saturday 31 October 2026")],
-        WidgetKind::Ram => vec![pill(Icon::Memory, "48%")],
-        WidgetKind::Cpu => vec![pill(Icon::Processor, "12%")],
-        WidgetKind::Update | WidgetKind::Media | WidgetKind::Paused => Vec::new(),
-    }
-}
-
-/// The colors and measures the bar is drawn with.
-struct Look {
-    background: Color32,
-    text: Color32,
-    pill: Color32,
-    border: Color32,
-    active: Color32,
-    active_text: Color32,
-    inactive_text: Color32,
-    theme: Theme,
-    height: f32,
-    font: f32,
-    edge: f32,
-    pad: f32,
-    radius: f32,
-    border_width: f32,
-    gap: f32,
-    workspace_gap: f32,
-}
-
-impl Look {
-    fn of(edit: &BarState, theme: Theme) -> Self {
-        let color = |key: &str| {
-            let Some(SettingValue::Text(value)) = edit.get(key).cloned() else {
-                return Color32::TRANSPARENT;
-            };
-            let fallback = theme.default_color(key).unwrap_or_default();
-            theme
-                .swatch(&value, &fallback)
-                .map_or(Color32::TRANSPARENT, |c| Color32::from_rgb(c.r, c.g, c.b))
-        };
-        let number = |key: &str, scale: f32| match edit.get(key) {
-            Some(SettingValue::Int(n)) => *n as f32 * scale,
-            _ => 0.0,
-        };
-        let opacity = number("background_opacity", 0.01).clamp(0.0, 1.0);
-        Self {
-            background: color("colors.background").gamma_multiply(opacity),
-            text: color("colors.foreground"),
-            pill: color("colors.widget_background"),
-            border: color("colors.pill_border"),
-            active: color("colors.active_workspace"),
-            active_text: color("colors.active_workspace_text"),
-            inactive_text: color("colors.inactive_workspace"),
-            theme,
-            height: number("height", 0.5).clamp(16.0, 48.0),
-            font: number("font_size", 0.5).clamp(8.0, 14.0),
-            edge: number("padding", 0.5),
-            pad: number("pill_padding", 0.5),
-            radius: number("pill_radius", 0.5),
-            border_width: number("pill_border_width", 0.5),
-            gap: number("item_gap", 0.5),
-            workspace_gap: number("workspace_gap", 0.5),
+        WidgetKind::ActiveWindow => {
+            vec![pill(Some(Icon::Window), "mosaico settings".into())]
         }
+        _ => vec![pill(drawing(&widget.icon), sample_text(widget))],
     }
-}
-
-fn widget_color(widget: &BarWidget, look: &Look) -> Color32 {
-    look.theme
-        .swatch(&widget.color, "")
-        .map_or(look.text, |c| Color32::from_rgb(c.r, c.g, c.b))
 }
 
 /// Draws the bar with the widgets of `edit` that are on.
