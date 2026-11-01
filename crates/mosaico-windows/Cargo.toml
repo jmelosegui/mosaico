@@ -24,6 +24,7 @@ features = [
     "Win32_System_SystemInformation",  # GlobalMemoryStatusEx, GetLocalTime
     "Win32_System_Console",            # SetConsoleCtrlHandler (Ctrl+C handling)
     "Win32_System_ProcessStatus",      # K32GetModuleFileNameExW (exe path from PID)
+    "Win32_System_LibraryLoader",      # GetModuleHandleW (the tray icon)
     "Win32_System_Threading",          # GetWindowThreadProcessId, GetCurrentProcess
     "Win32_UI_Shell",                  # SHGetFileInfoW (high-quality app icons)
     "Win32_System_Pipes",              # CreateNamedPipeW, DisconnectNamedPipe

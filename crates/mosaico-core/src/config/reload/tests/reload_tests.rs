@@ -53,7 +53,13 @@ fn an_invalid_config_toml_is_skipped_until_its_modification_time_changes_again()
 
     // Assert -- the config in use stays until the file loads, and only
     // the modification time says whether to look again, never content.
-    assert!(invalid.is_empty(), "{invalid:?}");
+    match invalid.as_slice() {
+        [ConfigReload::Invalid { file, reason }] => {
+            assert_eq!(*file, "config.toml");
+            assert!(!reason.is_empty());
+        }
+        other => panic!("expected config.toml reported invalid, got {other:?}"),
+    }
     assert!(
         fixed_at_the_same_time.is_empty(),
         "{fixed_at_the_same_time:?}"
@@ -120,8 +126,71 @@ fn an_invalid_bar_toml_keeps_the_bar_in_use() {
     // Act
     let reloads: Vec<_> = reloader.reload_changed().collect();
 
+    // Assert -- reported, with no bar to replace the one in use.
+    assert_eq!(kinds(&reloads), ["invalid"]);
+}
+
+#[test]
+fn load_all_loads_every_file_unchanged_or_not() {
+    // Arrange
+    let store = temp_store("reload-all");
+    write_at(&store.config_path(), GAP_7, 1);
+    write_at(&store.bar_path(), INVALID, 1);
+    let mut reloader = ConfigReloader::new(store.clone());
+
+    // Act
+    let loaded = reloader.load_all();
+    let after: Vec<_> = reloader.reload_changed().collect();
+
+    // Assert -- the bar is reported, and nothing is pending afterwards.
+    assert_eq!(kinds(&loaded), ["config", "rules", "invalid"]);
+    assert!(after.is_empty(), "{after:?}");
+}
+
+#[test]
+fn load_all_skips_a_file_that_does_not_exist() {
+    // Arrange
+    let store = temp_store("reload-all-missing");
+    let mut reloader = ConfigReloader::new(store.clone());
+
+    // Act
+    let loaded = reloader.load_all();
+
+    // Assert -- the rules always load, user rules or not.
+    assert_eq!(kinds(&loaded), ["rules"]);
+}
+
+#[test]
+fn a_file_that_cannot_be_read_is_skipped_not_reported() {
+    // Arrange -- a directory stands in for a file another program holds
+    // open while it writes it.
+    let store = temp_store("reload-unreadable");
+    let mut reloader = ConfigReloader::new(store.clone());
+    std::fs::create_dir(store.config_path()).unwrap();
+
+    // Act
+    let reloads: Vec<_> = reloader.reload_changed().collect();
+
     // Assert
-    assert!(reloads.is_empty(), "{reloads:?}");
+    assert_eq!(kinds(&reloads), Vec::<&str>::new());
+}
+
+#[test]
+fn an_invalid_file_is_reported_without_its_path() {
+    // Arrange
+    let store = temp_store("reload-invalid-reason");
+    let mut reloader = ConfigReloader::new(store.clone());
+    write_at(&store.config_path(), "this is = = broken", 1);
+
+    // Act
+    let reloads: Vec<_> = reloader.reload_changed().collect();
+
+    // Assert
+    let [ConfigReload::Invalid { file, reason }] = reloads.as_slice() else {
+        panic!("expected one invalid file, got {reloads:?}");
+    };
+    assert_eq!(*file, "config.toml");
+    assert!(reason.starts_with("TOML parse error"), "{reason}");
 }
 
 #[test]

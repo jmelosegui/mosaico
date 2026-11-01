@@ -43,6 +43,7 @@ pub(super) fn kinds(reloads: &[ConfigReload]) -> Vec<&'static str> {
             ConfigReload::Config(_) => "config",
             ConfigReload::Rules(_) => "rules",
             ConfigReload::Bar(_) => "bar",
+            ConfigReload::Invalid { .. } => "invalid",
         })
         .collect()
 }

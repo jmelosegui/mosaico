@@ -32,7 +32,7 @@ pub(super) fn handle_pointer(
     event: PointerEvent,
     manager: &mut TilingManager,
     bar_mgr: &mut BarManager,
-    inputs: &Inputs,
+    inputs: &mut Inputs,
     hotkeys_paused: &mut bool,
     get_update: &dyn Fn() -> String,
 ) {
@@ -54,7 +54,7 @@ pub(super) fn handle_pointer(
 pub(super) fn apply_wheel(
     manager: &mut TilingManager,
     bar_mgr: &mut BarManager,
-    inputs: &Inputs,
+    inputs: &mut Inputs,
     hotkeys_paused: &mut bool,
     get_update: &dyn Fn() -> String,
 ) {

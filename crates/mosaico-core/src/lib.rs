@@ -51,10 +51,12 @@ pub mod snapshot;
 /// Spatial direction helpers.
 pub mod spatial;
 /// OS services mosaico uses: process setup, processes, the single instance
-/// lock, Ctrl+C and start at login.
+/// locks, Ctrl+C, opening files and start at login.
 pub mod system;
 /// The tiling state machine.
 pub mod tiler;
+/// The icon in the notification area, and the contract for showing it.
+pub mod tray;
 /// Finding newer releases of mosaico and installing them.
 pub mod update;
 /// Where the platform keeps the user's config and data.

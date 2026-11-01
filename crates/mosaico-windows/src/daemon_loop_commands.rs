@@ -20,7 +20,7 @@ pub(super) fn carry_out(
     origin: Origin,
     manager: &mut TilingManager,
     bar_mgr: &mut BarManager,
-    inputs: &Inputs,
+    inputs: &mut Inputs,
     hotkeys_paused: &mut bool,
     get_update: &dyn Fn() -> String,
 ) -> mosaico_core::Result<()> {
@@ -37,7 +37,7 @@ pub(super) fn carry_out(
     done
 }
 
-fn toggle_pause(inputs: &Inputs, hotkeys_paused: &mut bool) {
+fn toggle_pause(inputs: &mut Inputs, hotkeys_paused: &mut bool) {
     if *hotkeys_paused {
         inputs.unpause_hotkeys();
         *hotkeys_paused = false;
@@ -79,7 +79,7 @@ pub(super) fn handle_command(
     command: &Command,
     manager: &mut TilingManager,
     bar_mgr: &mut BarManager,
-    inputs: &Inputs,
+    inputs: &mut Inputs,
     hotkeys_paused: &mut bool,
     get_update: &dyn Fn() -> String,
 ) -> Option<Response> {

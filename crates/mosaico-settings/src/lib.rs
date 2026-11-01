@@ -5,6 +5,7 @@
 //! it headless with made-up settings and daemon.
 
 mod app;
+mod forward;
 mod icons;
 mod model;
 mod pages;
@@ -12,4 +13,5 @@ mod theme;
 mod widgets;
 
 pub use app::{DaemonState, Services, SettingsApp};
+pub use forward::Forward;
 pub use model::General;

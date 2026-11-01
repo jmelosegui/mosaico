@@ -79,6 +79,9 @@ mod message_thread;
 /// Monitor work area queries.
 mod monitor;
 
+/// Opening folders and files with the program the user picked for them.
+pub mod opener;
+
 /// The window under the mouse pointer, for focus-follows-mouse.
 pub mod pointer;
 
@@ -97,6 +100,9 @@ pub mod process;
 /// What every mosaico process sets up first.
 pub mod setup;
 
+/// Keeping one settings window per instance.
+pub mod single_window;
+
 /// Machine readings for the bar's system widgets.
 pub mod system_info;
 
@@ -106,6 +112,9 @@ mod system_settings;
 
 /// The Win32 platform the core tiling manager runs on.
 pub mod tiling;
+
+/// The icon in the notification area.
+pub mod tray;
 
 /// The user's profile and local application data folders.
 pub mod user_dirs;

@@ -86,20 +86,24 @@ directory. The daemon never reads that file and hot-reload ignores it.
 | Item | Action |
 | --- | --- |
 | **Settings…** (default, also on left click) | Starts `mosaico-settings`, or brings its window forward if one is open |
-| Pause tiling / Resume tiling | The `toggle-pause` action (phase 29); the label follows the state |
-| Reload config | Same as a config file change: reload and report problems |
+| Pause hotkeys / Resume hotkeys | The `toggle-pause` action (phase 29); the label follows the state. It pauses the hotkeys only, as the action does, hence the name |
+| Reload config | Loads every watched file, changed or not, and reports problems; a notification confirms when all loaded |
 | Open config folder | Opens the config directory in the file manager |
 | Open log | Opens `mosaico.log` |
 | Quit mosaico | The `stop` command |
 
-- The tooltip shows `mosaico <version>`, plus `(paused)` while paused.
-- The icon has a running and a paused variant, and light and dark variants
-  for the taskbar theme. The paused variant is dimmed with a red pause badge,
-  matching the bar's paused widget, which is red by default.
+- The tooltip shows `mosaico <version>`, plus `(hotkeys paused)` while
+  paused.
+- The icon has a running and a paused variant. The paused variant is grayed
+  with a red pause badge, matching the bar's paused widget, which is red by
+  default. There are no light and dark variants: the logo's colors read on
+  either taskbar.
 - If the shell restarts (Explorer crashes), the icon comes back.
 - `[tray] enabled = false` removes the icon on reload, and `true` adds it.
 - A config reload that fails shows a balloon notification. Its text comes
-  from the same report as the log line.
+  from the same report as the log line, cut to where and what the problem
+  is. A file that cannot be read because another program is writing it is
+  skipped quietly.
 
 ## The Settings App
 
@@ -282,13 +286,13 @@ and brings its docs, so it can merge on its own.
 
 ### 37.3 Tray icon
 
-- [ ] `TrayIcon` and `Launcher` contracts and the `TrayMenu` model in core,
+- [x] `TraySource` and `Opener` contracts and the tray menu model in core,
       with tests for labels per state and the command each item produces
-- [ ] Windows implementation: icon, menu, tooltip, paused variant, taskbar
+- [x] Windows implementation: icon, menu, tooltip, paused variant, taskbar
       restart, balloon on a failed reload
-- [ ] Daemon wiring and `[tray] enabled` with hot-reload; template and
+- [x] Daemon wiring and `[tray] enabled` with hot-reload; template and
       hints
-- [ ] Manual: every menu item, Explorer restart, toggling `enabled`
+- [x] Manual: every menu item, Explorer restart, toggling `enabled`
 
 ### 37.4 Settings app shell
 
@@ -297,10 +301,10 @@ and brings its docs, so it can merge on its own.
       active flavor, Inter font, flavor preview while editing
 - [ ] Follows theme changes made in `config.toml` live; `settings-app.toml`
 - [x] Navigation, Revert, unsaved-change count, daemon status line
-- [ ] Setting rows from descriptors, Apply, unsaved-edit prompt, single
-      instance
+- [x] Unsaved-edit prompt, single instance
+- [ ] Setting rows from descriptors, Apply
 - [x] `mosaico settings` starts it
-- [ ] The tray's Settings… item starts it
+- [x] The tray's Settings… item starts it
 - [x] Releases, `install.ps1` and `mosaico update` ship and install
       `mosaico-settings` beside `mosaico`
 - [x] `egui_kittest` tests for the shell in a dark and a light flavor

@@ -71,11 +71,18 @@ flavor = "mocha"     # catppuccin: mocha | macchiato | frappe | latte
                      # rose-pine:  main | moon | dawn
                      # tokyo-night: night | storm | day
 
+[tray]
+enabled = true     # Show the mosaico icon in the notification area
+
 [logging]
 enabled = false    # Enable file logging
 level = "info"     # Log level: debug, info, warn, error
 max_file_mb = 10   # Max log file size before rotation
 ```
+
+The `[tray]` section shows the mosaico icon in the notification area while
+the daemon runs, on by default. See [Settings Window](settings.md#tray-icon)
+for what it does. Turning it off removes the icon at once.
 
 The `[animations]` section sets up window transitions, which are on by
 default. See [Window Transitions](animations.md) for what moves, the easings
@@ -228,7 +235,9 @@ reloads each of these files whose modification time changed.
 
 Only valid configurations are applied. If a change to `config.toml` or
 `bar.toml` introduces a parse error, it is logged
-(`config.toml invalid, skipping: ...`) and the current configuration is kept
-until the file changes again. A `user-rules.toml` that does not parse counts
+(`config.toml does not load, keeping what is in use: ...`), the tray icon
+shows a notification saying so, and the current configuration is kept until
+the file changes again. A file another program holds open while it writes it
+is skipped quietly; the write that finishes it reloads it. A `user-rules.toml` that does not parse counts
 as no user rules, as it does at startup, so the community rules apply alone
 until it is fixed.

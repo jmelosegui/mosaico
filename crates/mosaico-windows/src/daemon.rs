@@ -21,6 +21,8 @@ mod daemon_loop_pump;
 mod daemon_loop_run;
 #[path = "daemon_loop_task.rs"]
 mod daemon_loop_task;
+#[path = "daemon_loop_tray.rs"]
+mod daemon_loop_tray;
 #[path = "daemon_threads.rs"]
 mod daemon_threads;
 #[path = "daemon_types.rs"]
