@@ -2,6 +2,7 @@
 //! dragged to reorder, switched off and opened for their options.
 
 use eframe::egui::{Frame, Id, Popup, Rect, RichText, Stroke, Ui, pos2};
+use mosaico_core::bar::BarIcon;
 use mosaico_core::config::{BarWidget, BarWidgets, BarZone, Theme, WidgetKind};
 
 use super::BarPage;
@@ -35,16 +36,16 @@ pub fn label(kind: WidgetKind) -> &'static str {
 /// The icon beside a widget's name.
 fn icon(kind: WidgetKind) -> Icon {
     match kind {
-        WidgetKind::Workspaces => Icon::Grid,
+        WidgetKind::Workspaces => Icon::Widget(BarIcon::Grid),
         WidgetKind::Layout => Icon::Layout,
-        WidgetKind::Clock => Icon::Clock,
-        WidgetKind::Date => Icon::Calendar,
-        WidgetKind::Ram => Icon::Memory,
-        WidgetKind::Cpu => Icon::Processor,
-        WidgetKind::Update => Icon::Download,
-        WidgetKind::ActiveWindow => Icon::Window,
-        WidgetKind::Media => Icon::Music,
-        WidgetKind::Paused => Icon::Pause,
+        WidgetKind::Clock => Icon::Widget(BarIcon::Clock),
+        WidgetKind::Date => Icon::Widget(BarIcon::Calendar),
+        WidgetKind::Ram => Icon::Widget(BarIcon::Memory),
+        WidgetKind::Cpu => Icon::Widget(BarIcon::Processor),
+        WidgetKind::Update => Icon::Widget(BarIcon::Download),
+        WidgetKind::ActiveWindow => Icon::Widget(BarIcon::Window),
+        WidgetKind::Media => Icon::Widget(BarIcon::Music),
+        WidgetKind::Paused => Icon::Widget(BarIcon::Pause),
     }
 }
 

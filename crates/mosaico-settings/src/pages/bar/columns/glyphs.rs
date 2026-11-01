@@ -1,41 +1,28 @@
 //! The icons a widget can show, as Nerd Font glyphs, with the name and
 //! drawing the window shows for each.
 
+use mosaico_core::bar::BarIcon;
+
 use crate::icons::Icon;
 use crate::widgets::Choice;
 
-/// The glyphs offered for a widget's icon.
-const GLYPHS: [(&str, &str, Icon); 10] = [
-    ("\u{F009}", "Grid", Icon::Grid),
-    ("\u{F2D0}", "Window", Icon::Window),
-    ("\u{F017}", "Clock", Icon::Clock),
-    ("\u{F073}", "Calendar", Icon::Calendar),
-    ("\u{F2DB}", "Memory", Icon::Memory),
-    ("\u{F085}", "Processor", Icon::Processor),
-    ("\u{F019}", "Download", Icon::Download),
-    ("\u{F04C}", "Pause", Icon::Pause),
-    ("\u{F001}", "Music", Icon::Music),
-    ("\u{F0DB}", "Columns", Icon::Layout),
-];
-
 /// The drawing the window shows for glyph, when it is one it knows.
 pub(in crate::pages::bar) fn drawing(glyph: &str) -> Option<Icon> {
-    GLYPHS
-        .iter()
-        .find(|(known, ..)| *known == glyph)
-        .map(|&(.., icon)| icon)
+    BarIcon::from_glyph(glyph).map(Icon::Widget)
 }
 
 /// The choices for a widget whose icon is `current`: no icon, each known
 /// glyph, and `current` itself when it is a glyph not listed.
 pub(super) fn choices(current: &str) -> Vec<Choice<'static, String>> {
     let mut choices = vec![(String::new(), "None", None)];
-    choices.extend(
-        GLYPHS
-            .iter()
-            .map(|&(glyph, name, icon)| (glyph.to_owned(), name, Some(icon))),
-    );
-    if !current.is_empty() && GLYPHS.iter().all(|(glyph, ..)| *glyph != current) {
+    choices.extend(BarIcon::ALL.map(|icon| {
+        (
+            icon.glyph().to_owned(),
+            icon.name(),
+            Some(Icon::Widget(icon)),
+        )
+    }));
+    if !current.is_empty() && BarIcon::from_glyph(current).is_none() {
         choices.push((current.to_owned(), "Custom", None));
     }
     choices

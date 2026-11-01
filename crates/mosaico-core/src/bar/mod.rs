@@ -24,6 +24,7 @@
 mod clicks;
 mod content;
 mod cpu;
+mod icon;
 mod manager;
 mod pointer;
 mod press;
@@ -40,6 +41,7 @@ mod widget_text;
 pub use clicks::{ClickProblem, RejectedClick, WidgetClicks};
 pub use content::{BarContent, BarItem};
 pub use cpu::CpuTracker;
+pub use icon::{BarIcon, Stroke, mask};
 pub use manager::BarManager;
 pub use pointer::{BarId, Button, PointerEvent, PointerSink};
 pub use press::Press;

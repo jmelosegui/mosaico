@@ -3,6 +3,7 @@
 use std::f32::consts::PI;
 
 use eframe::egui::{Color32, Painter, Pos2, Rect, Shape, Stroke, pos2};
+use mosaico_core::bar::{BarIcon, Stroke as Part};
 
 /// An icon the window draws.
 #[expect(dead_code, reason = "the page redesigns use these")]
@@ -33,24 +34,8 @@ pub enum Icon {
     Check,
     Up,
     Play,
-    Clock,
-    Calendar,
-    Memory,
-    Processor,
-    Grid,
-    Window,
-    Download,
-    Pause,
-    Music,
-}
-
-/// One stroke of an icon, in grid units.
-enum Part {
-    Open(&'static [(f32, f32)]),
-    Closed(&'static [(f32, f32)]),
-    Circle((f32, f32), f32),
-    /// An arc around a center, from one angle to another, in radians.
-    Arc((f32, f32), f32, f32, f32),
+    /// A widget's icon, drawn as every bar draws it.
+    Widget(BarIcon),
 }
 
 use Part::{Arc, Circle, Closed, Open};
@@ -74,11 +59,7 @@ fn parts(icon: Icon) -> &'static [Part] {
             Open(&[(8.0, 10.0), (8.0, 14.0)]),
             Open(&[(16.0, 18.0), (16.0, 22.0)]),
         ],
-        Icon::Layout => &[
-            Closed(&FRAME),
-            Open(&[(12.0, 3.0), (12.0, 21.0)]),
-            Open(&[(12.0, 12.0), (21.0, 12.0)]),
-        ],
+        Icon::Layout => BarIcon::Columns.strokes(),
         Icon::Workspaces => &[
             Closed(&[(12.0, 2.0), (2.0, 7.0), (12.0, 12.0), (22.0, 7.0)]),
             Open(&[(2.0, 12.0), (12.0, 17.0), (22.0, 12.0)]),
@@ -183,60 +164,7 @@ fn parts(icon: Icon) -> &'static [Part] {
         Icon::Check => &[Open(&[(5.0, 12.0), (10.0, 17.0), (19.0, 7.0)])],
         Icon::Up => &[Open(&[(6.0, 15.0), (12.0, 9.0), (18.0, 15.0)])],
         Icon::Play => &[Closed(&[(7.0, 5.0), (19.0, 12.0), (7.0, 19.0)])],
-        Icon::Clock => &[
-            Circle((12.0, 12.0), 9.0),
-            Open(&[(12.0, 7.0), (12.0, 12.0), (15.0, 14.0)]),
-        ],
-        Icon::Calendar => &[
-            Closed(&const { rect(3.0, 5.0, 21.0, 21.0) }),
-            Open(&[(3.0, 10.0), (21.0, 10.0)]),
-            Open(&[(8.0, 3.0), (8.0, 7.0)]),
-            Open(&[(16.0, 3.0), (16.0, 7.0)]),
-        ],
-        Icon::Memory => &[
-            Closed(&const { rect(3.0, 7.0, 21.0, 17.0) }),
-            Open(&[(7.0, 10.0), (7.0, 14.0)]),
-            Open(&[(11.0, 10.0), (11.0, 14.0)]),
-            Open(&[(15.0, 10.0), (15.0, 14.0)]),
-            Open(&[(5.0, 17.0), (5.0, 20.0)]),
-            Open(&[(19.0, 17.0), (19.0, 20.0)]),
-        ],
-        Icon::Processor => &[
-            Closed(&const { rect(6.0, 6.0, 18.0, 18.0) }),
-            Closed(&const { rect(10.0, 10.0, 14.0, 14.0) }),
-            Open(&[(9.0, 2.0), (9.0, 6.0)]),
-            Open(&[(15.0, 2.0), (15.0, 6.0)]),
-            Open(&[(9.0, 18.0), (9.0, 22.0)]),
-            Open(&[(15.0, 18.0), (15.0, 22.0)]),
-            Open(&[(2.0, 9.0), (6.0, 9.0)]),
-            Open(&[(2.0, 15.0), (6.0, 15.0)]),
-            Open(&[(18.0, 9.0), (22.0, 9.0)]),
-            Open(&[(18.0, 15.0), (22.0, 15.0)]),
-        ],
-        Icon::Grid => &[
-            Closed(&const { rect(3.0, 3.0, 10.0, 10.0) }),
-            Closed(&const { rect(14.0, 3.0, 21.0, 10.0) }),
-            Closed(&const { rect(3.0, 14.0, 10.0, 21.0) }),
-            Closed(&const { rect(14.0, 14.0, 21.0, 21.0) }),
-        ],
-        Icon::Download => &[
-            Open(&[(12.0, 3.0), (12.0, 15.0)]),
-            Open(&[(7.0, 10.0), (12.0, 15.0), (17.0, 10.0)]),
-            Open(&[(4.0, 20.0), (20.0, 20.0)]),
-        ],
-        Icon::Pause => &[
-            Open(&[(8.0, 5.0), (8.0, 19.0)]),
-            Open(&[(16.0, 5.0), (16.0, 19.0)]),
-        ],
-        Icon::Music => &[
-            Open(&[(9.0, 18.0), (9.0, 5.0), (20.0, 3.0), (20.0, 16.0)]),
-            Circle((6.0, 18.0), 3.0),
-            Circle((17.0, 16.0), 3.0),
-        ],
-        Icon::Window => &[
-            Closed(&const { rect(3.0, 4.0, 21.0, 20.0) }),
-            Open(&[(3.0, 8.0), (21.0, 8.0)]),
-        ],
+        Icon::Widget(icon) => icon.strokes(),
     }
 }
 

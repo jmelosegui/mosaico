@@ -166,6 +166,7 @@ fn a_widget_color_tints_its_text_and_outline() {
 
     // Assert
     let pill = BarItem::Pill {
+        icon: None,
         label: "a".into(),
         text_color: "#ff0000".into(),
         border_color: "#ff0000".into(),
@@ -187,6 +188,7 @@ fn a_widget_without_a_color_uses_the_bar_colors() {
 
     // Assert
     let pill = BarItem::Pill {
+        icon: None,
         label: "a".into(),
         text_color: "#ffffff".into(),
         border_color: "#000000".into(),

@@ -88,6 +88,7 @@ fn pill(
         (color.to_string(), color.to_string())
     };
     BarItem::Pill {
+        icon: None,
         label: label(widget, state, readings),
         text_color,
         border_color,

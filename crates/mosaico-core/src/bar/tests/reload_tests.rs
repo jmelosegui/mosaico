@@ -47,6 +47,7 @@ fn a_reloaded_bar_keeps_its_height_and_widget_colors_through_a_theme_change() {
         })
         .collect();
     let paused = BarItem::Pill {
+        icon: None,
         label: "PAUSED".into(),
         text_color: LATTE_GREEN.into(),
         border_color: LATTE_GREEN.into(),

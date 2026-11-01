@@ -6,13 +6,16 @@
 //! region of each, which the content says what to make of.
 
 pub mod active_window;
+mod icon;
+mod pill;
 pub mod workspaces;
 
 use mosaico_core::Rect;
 use mosaico_core::bar::{BarContent, BarItem, BarSide, ItemRegion};
 use mosaico_core::config::bar::BarConfig;
 
-use super::text::{DrawCtx, draw_pill, draw_text, measure_text};
+use self::pill::Pill;
+use super::text::{DrawCtx, draw_text, measure_text};
 
 /// Draws every item of `content`, and returns where each went, in the
 /// order they were drawn: the left side, then the right.
@@ -41,12 +44,19 @@ fn draw_left(
             }
             BarItem::WindowIcon(window) => active_window::draw(ctx, x, config, *window),
             BarItem::Pill {
+                icon,
                 label,
                 text_color,
                 border_color,
             } => {
-                let pill_w = pill_width(ctx, config, label);
-                draw_label_pill(ctx, x, pill_w, config, label, text_color, border_color);
+                let pill = Pill {
+                    icon: *icon,
+                    label,
+                    text_color,
+                    border_color,
+                };
+                let pill_w = pill::width(ctx, config, &pill);
+                pill::draw(ctx, x, pill_w, config, &pill);
                 x + pill_w + config.item_gap
             }
             BarItem::Separator(text) => {
@@ -76,13 +86,20 @@ fn draw_right(
     for (index, item) in content.right.iter().enumerate() {
         let (x, next) = match item {
             BarItem::Pill {
+                icon,
                 label,
                 text_color,
                 border_color,
             } => {
-                let pill_w = pill_width(ctx, config, label);
+                let pill = Pill {
+                    icon: *icon,
+                    label,
+                    text_color,
+                    border_color,
+                };
+                let pill_w = pill::width(ctx, config, &pill);
                 let x = rx - pill_w;
-                draw_label_pill(ctx, x, pill_w, config, label, text_color, border_color);
+                pill::draw(ctx, x, pill_w, config, &pill);
                 (x, x - config.item_gap)
             }
             BarItem::Separator(text) => {
@@ -106,41 +123,4 @@ fn draw_right(
 fn taken(start: i32, next: i32, gap: i32, height: i32) -> Rect {
     let width = if next > start { next - start - gap } else { 0 };
     Rect::new(start, 0, width.max(0), height)
-}
-
-/// Width of the pill around `label`.
-fn pill_width(ctx: &DrawCtx, config: &BarConfig, label: &str) -> i32 {
-    measure_text(ctx.dc, label) + config.pill_padding * 2
-}
-
-/// Draws a pill `width` wide at `x`, with `label` inside it.
-fn draw_label_pill(
-    ctx: &mut DrawCtx,
-    x: i32,
-    width: i32,
-    config: &BarConfig,
-    label: &str,
-    text_color: &str,
-    border_color: &str,
-) {
-    let pill_y = pill_top(ctx.h);
-    let pill_h = ctx.h - pill_y * 2;
-
-    draw_pill(
-        ctx,
-        x,
-        pill_y,
-        width,
-        pill_h,
-        &config.colors.widget_background,
-        config.pill_radius,
-        border_color,
-        config.pill_border_width,
-    );
-    draw_text(ctx, x + config.pill_padding, label, text_color);
-}
-
-/// Vertical offset for pill top edge.
-fn pill_top(bar_height: i32) -> i32 {
-    (bar_height / 8).max(1)
 }

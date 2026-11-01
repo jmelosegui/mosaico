@@ -1,3 +1,4 @@
+use mosaico_core::bar::BarIcon;
 use mosaico_core::config::{BarWidget, Theme, WidgetKind};
 
 use super::{Look, bar_width, sample};
@@ -22,7 +23,7 @@ fn a_widget_shows_the_icon_it_is_set_to() {
     let shown = pills(&cpu);
 
     // Assert
-    assert_eq!(shown[0].0, Some(Icon::Memory));
+    assert_eq!(shown[0].0, Some(Icon::Widget(BarIcon::Memory)));
 }
 
 #[test]

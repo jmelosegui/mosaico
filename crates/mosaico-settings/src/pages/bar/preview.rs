@@ -1,7 +1,7 @@
 //! The bar as it is drawn, at half size, from the settings being edited.
 
 use eframe::egui::{Frame, Margin, ScrollArea, Sense, Stroke, Ui, vec2};
-use mosaico_core::bar::sample_text;
+use mosaico_core::bar::{BarIcon, sample_text};
 use mosaico_core::config::{BarWidget, BarZone, Theme, WidgetKind};
 
 use super::columns::glyphs::drawing;
@@ -37,7 +37,10 @@ fn sample(widget: &BarWidget, look: &Look) -> Vec<Pill> {
             })
             .collect(),
         WidgetKind::ActiveWindow => {
-            vec![pill(Some(Icon::Window), "mosaico settings".into())]
+            vec![pill(
+                Some(Icon::Widget(BarIcon::Window)),
+                "mosaico settings".into(),
+            )]
         }
         _ => vec![pill(drawing(&widget.icon), sample_text(widget))],
     }
