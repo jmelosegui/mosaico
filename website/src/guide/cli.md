@@ -13,8 +13,11 @@ Creates default configuration files in `~/.config/mosaico/`:
 - `bar.toml` -- status bar settings
 
 Files that already exist are skipped to preserve your customizations.
+The daemon writes any missing files when it starts too.
 On first run, you are prompted to enable
-[automatic startup](#mosaico-autostart).
+[automatic startup](#mosaico-autostart). That includes running `init` after
+the daemon wrote the files, as long as `config.toml` is unchanged and
+autostart was never set up.
 
 ## `mosaico start`
 

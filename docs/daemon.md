@@ -96,18 +96,23 @@ order, it:
    another user's, leaving the running daemon's PID file alone
 3. Writes the instance's PID file (`%LOCALAPPDATA%\mosaico\mosaico.pid` for
    the default instance)
-4. Logs that it started
-5. Calls `serve()`, which checks that the instance is the one the process
+4. Writes each config file the instance does not have yet with the default
+   `mosaico init` writes, creating the config directory if needed
+   (`ConfigStore::write_missing_defaults()`), so a daemon started before
+   `mosaico init` ever ran still loads, and watches, every file. A file it
+   cannot write is logged, and the daemon starts on the defaults
+5. Logs that it started
+6. Calls `serve()`, which checks that the instance is the one the process
    resolved (`Instance::require_current`), since the loop still finds the
    logs and the record of hidden windows through `Instance::current()`. It
    then builds the instance's `ConfigStore` (`ConfigStore::for_instance`),
    through which the loop reads, watches and updates the config files, and
    runs `daemon_loop()` for the main logic
-6. Logs the error the loop returned, if any, since the daemon has no
+7. Logs the error the loop returned, if any, since the daemon has no
    console. Errors from the steps before it, and an instance that `serve()`
-   refuses in step 5, come before the logger is set up and are only printed
+   refuses in step 6, come before the logger is set up and are only printed
    by the `daemon` subcommand
-7. Removes the PID file, then releases the lock, so a daemon that starts next
+8. Removes the PID file, then releases the lock, so a daemon that starts next
    never has its PID file removed by this one. This also happens when a panic
    in the loop unwinds; release builds abort on a panic and leave the PID file
    behind, as a crash does
