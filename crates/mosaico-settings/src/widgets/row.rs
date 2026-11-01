@@ -71,7 +71,7 @@ pub fn row(
     Frame::new()
         .inner_margin(Margin::symmetric(16, 12))
         .show(ui, |ui| {
-            let size = vec2(ui.available_width(), 34.0);
+            let size = vec2(ui.available_width(), 26.0);
             ui.allocate_ui_with_layout(size, Layout::right_to_left(Align::Center), |ui| {
                 ui.spacing_mut().item_spacing.x = 8.0;
                 control(ui);
@@ -79,15 +79,23 @@ pub fn row(
                     reset = reset_button(ui, c).clicked();
                 }
                 ui.add_space(8.0);
+                let controls = ui.min_rect().height();
+                let help = match (help, &state.default) {
+                    (Some(help), Some(default)) => Some(format!("{help}  Default: {default}.")),
+                    (Some(help), None) => Some(help.to_owned()),
+                    (None, Some(default)) => Some(format!("Default: {default}.")),
+                    (None, None) => None,
+                };
+                let Some(help) = help else {
+                    ui.with_layout(Layout::top_down(Align::Min), |ui| {
+                        ui.add_space(((controls - LABEL_HEIGHT) / 2.0).max(0.0));
+                        title(ui, c, label, state.unsaved);
+                    });
+                    return;
+                };
                 ui.with_layout(Layout::top_down(Align::Min), |ui| {
                     ui.spacing_mut().item_spacing.y = 3.0;
                     title(ui, c, label, state.unsaved);
-                    let help = match (help, &state.default) {
-                        (Some(help), Some(default)) => format!("{help}  Default: {default}."),
-                        (Some(help), None) => help.to_owned(),
-                        (None, Some(default)) => format!("Default: {default}."),
-                        (None, None) => return,
-                    };
                     ui.label(
                         RichText::new(help)
                             .font(theme::regular(11.0))
@@ -98,6 +106,9 @@ pub fn row(
         });
     reset
 }
+
+/// The height of a row's label line.
+const LABEL_HEIGHT: f32 = 16.0;
 
 fn title(ui: &mut Ui, c: &Colors, label: &str, unsaved: bool) {
     ui.spacing_mut().interact_size.y = 0.0;

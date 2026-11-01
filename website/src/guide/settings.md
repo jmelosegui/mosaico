@@ -75,7 +75,7 @@ icon comes back by itself when Explorer restarts. Set `enabled = false` under
 | Section | Setting | File |
 |---------|---------|------|
 | Appearance | Theme and flavor | `config.toml` |
-| Startup | Start at sign-in | Registry |
+| Startup | Tray icon (`config.toml`), start at sign-in (registry) | `config.toml`, registry |
 | Logging | Write a log file, level, maximum file size | `config.toml` |
 
 Picking a theme or flavor previews it in the settings window right away.

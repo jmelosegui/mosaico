@@ -13,15 +13,17 @@ pub const SECTIONS: &[Section] = &[
         &[
             Entry::Drawn("theme.name", theme),
             Entry::Drawn("theme.flavor", flavor),
-            Entry::Setting("tray.enabled"),
         ],
     ),
     (
         "Startup",
-        &[Entry::Custom(
-            Row::new("Start at sign-in", "Start the daemon when you sign in."),
-            sign_in,
-        )],
+        &[
+            Entry::Setting("tray.enabled"),
+            Entry::Custom(
+                Row::new("Start at sign-in", "Start the daemon when you sign in."),
+                sign_in,
+            ),
+        ],
     ),
     (
         "Logging",
@@ -46,7 +48,7 @@ fn theme(ui: &mut Ui, cx: &PageContext, row: &Row, edit: &mut Settings) {
             ui,
             cx.c,
             row.label,
-            150.0,
+            168.0,
             &options,
             &mut family,
             st.unsaved,
