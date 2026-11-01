@@ -26,10 +26,10 @@ const WORKSPACE_LAYOUTS: &[(&str, &str)] = &[
 const WORKSPACE_LAYOUT_PREFIX: &str = "workspaces.layouts.";
 
 const LOG_LEVELS: &[(&str, &str)] = &[
-    ("debug", "Debug"),
-    ("info", "Info"),
-    ("warn", "Warn"),
-    ("error", "Error"),
+    ("debug", "debug"),
+    ("info", "info"),
+    ("warn", "warn"),
+    ("error", "error"),
 ];
 
 pub(super) const fn setting(
@@ -71,7 +71,7 @@ pub const CONFIG_SETTINGS: &[SettingDescriptor] = &[
     setting(
         "theme.name",
         "Theme",
-        "Colors for window borders, the bar and the settings window.",
+        "Colors for window borders, the bar and this window.",
         SettingKind::Text,
     ),
     setting("theme.flavor", "Flavor", "", SettingKind::Text),
@@ -214,8 +214,8 @@ pub const CONFIG_SETTINGS: &[SettingDescriptor] = &[
     ),
     setting(
         "tray.enabled",
-        "Show the tray icon",
-        "Shows mosaico in the notification area.",
+        "Tray icon",
+        "Show the mosaico icon in the notification area while the daemon runs.",
         SettingKind::Bool,
     ),
     setting(

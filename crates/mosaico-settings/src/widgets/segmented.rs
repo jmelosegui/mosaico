@@ -27,7 +27,12 @@ pub fn segmented<T: PartialEq + Copy>(
         ui.spacing_mut().item_spacing.x = 2.0;
         ui.horizontal(|ui| {
             let mut clicked = None;
-            for &(value, label) in options {
+            // A right-to-left parent would otherwise list the options backwards.
+            let mut ordered = options.to_vec();
+            if ui.layout().prefer_right_to_left() {
+                ordered.reverse();
+            }
+            for (value, label) in ordered {
                 if segment(ui, c, label, value == *selected).clicked() {
                     clicked = Some(value);
                 }

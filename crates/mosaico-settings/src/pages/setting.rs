@@ -129,7 +129,7 @@ fn control(
                 widgets::segmented(ui, c, &options, &mut chosen, changed);
             } else {
                 let longest = options.iter().map(|(_, label)| label.len()).max();
-                let width = (longest.unwrap_or(0) as f32 * 7.0 + 40.0).max(140.0);
+                let width = (longest.unwrap_or(0) as f32 * 7.0 + 40.0).max(120.0);
                 widgets::dropdown(ui, c, label, width, &options, &mut chosen, changed);
             }
             *s = chosen.to_owned();

@@ -43,3 +43,32 @@ fn picking_a_flavor_previews_it() {
     assert_eq!(h.state().edit().theme(), latte);
     assert!(!h.ctx.global_style().visuals.dark_mode);
 }
+
+#[test]
+fn flavors_are_listed_dark_to_light() {
+    let h = stopped();
+
+    let left = |label| {
+        h.get_by_role_and_label(Role::RadioButton, label)
+            .rect()
+            .min
+            .x
+    };
+
+    assert!(left("Mocha") < left("Macchiato"));
+    assert!(left("Macchiato") < left("Frappé"));
+    assert!(left("Frappé") < left("Latte"));
+}
+
+#[test]
+fn the_tray_icon_switch_edits_its_setting() {
+    let mut h = stopped();
+
+    h.get_by_role_and_label(Role::Switch, "Tray icon").click();
+    h.run();
+
+    assert_eq!(
+        h.state().edit().get("tray.enabled"),
+        &SettingValue::Bool(false)
+    );
+}
