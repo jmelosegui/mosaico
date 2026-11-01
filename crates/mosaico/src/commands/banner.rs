@@ -108,8 +108,10 @@ fn draw_frame(
 /// 3. Logo letter-by-letter (70ms per letter)
 /// 4. Version slide-in (50ms per step)
 /// 5. Shine sweep across logo (35ms per column)
-pub fn draw_logo(mut out: &mut dyn Write) {
-    let ver = format!("v{}", env!("CARGO_PKG_VERSION"));
+///
+/// `version` is shown under the logo, as in `0.12.1`.
+pub fn draw_logo(mut out: &mut dyn Write, version: &str) {
+    let ver = format!("v{version}");
     let header_full = "Welcome to";
     let total_logo_cols = LOGO.iter().map(|l| l.chars().count()).max().unwrap_or(0);
     let mut frame: usize = 0;
@@ -229,7 +231,7 @@ fn colorize_row(line: &str, shine_col: Option<usize>) -> String {
 
 /// Runs the banner animation as a standalone command.
 pub fn execute(cx: &mut Context) -> Exit {
-    (cx.logo)(&mut *cx.out);
+    (cx.logo)(&mut *cx.out, env!("CARGO_PKG_VERSION"));
     say!(cx, "");
     Exit::Success
 }
