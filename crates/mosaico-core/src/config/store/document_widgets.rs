@@ -10,7 +10,7 @@ use toml_edit::{Array, ArrayOfTables, DocumentMut, Item, Table, Value, value};
 
 use super::SettingsDocument;
 use crate::Result;
-use crate::config::{BarConfig, BarWidgets, BarZone, WidgetConfig, WidgetKind};
+use crate::config::{BarConfig, BarWidget, BarWidgets, BarZone, WidgetConfig, WidgetKind};
 
 /// A widget as its table in the file.
 struct Entry {
@@ -63,6 +63,7 @@ impl SettingsDocument {
                 .map(|w| {
                     let mut table = take(&mut pool, zone, w.kind);
                     set_enabled(&mut table, w.enabled);
+                    set_options(&mut table, w);
                     table
                 })
                 .collect();
@@ -158,6 +159,36 @@ fn set_enabled(table: &mut Table, enabled: bool) {
         *off.decor_mut() = old.decor().clone();
     }
     table.insert("enabled", Item::Value(off));
+}
+
+/// Writes the icon, color and format of `widget` that differ from what
+/// `table` has in effect, keeping the comments on the lines it changes.
+fn set_options(table: &mut Table, widget: &BarWidget) {
+    let mut doc = DocumentMut::new();
+    *doc.as_table_mut() = table.clone();
+    let now = toml::from_str::<WidgetConfig>(&doc.to_string()).map(|c| BarWidget::of(&c));
+    let Ok(now) = now else {
+        return;
+    };
+    if now.icon != widget.icon {
+        set_text(table, "icon", &widget.icon);
+    }
+    if now.color != widget.color {
+        set_text(table, "color", &widget.color);
+    }
+    if now.format != widget.format
+        && let Some(format) = &widget.format
+    {
+        set_text(table, "format", format);
+    }
+}
+
+fn set_text(table: &mut Table, key: &str, text: &str) {
+    let mut new = Value::from(text);
+    if let Some(old) = table.get(key).and_then(Item::as_value) {
+        *new.decor_mut() = old.decor().clone();
+    }
+    table.insert(key, Item::Value(new));
 }
 
 fn tables_of(item: &Item) -> Vec<Table> {

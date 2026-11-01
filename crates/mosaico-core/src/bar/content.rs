@@ -4,7 +4,7 @@
 use crate::WindowId;
 use crate::config::bar::BarConfig;
 
-use super::{BarSide, BarState, SystemReadings, WidgetClicks};
+use super::{BarIcon, BarSide, BarState, SystemReadings, WidgetClicks};
 
 #[path = "content_items.rs"]
 mod items;
@@ -54,7 +54,10 @@ pub enum BarItem {
     WindowIcon(Option<WindowId>),
     /// A widget's text in a pill.
     Pill {
-        /// The widget's icon and text.
+        /// The widget's icon, drawn in lines before the label, when its
+        /// glyph has a drawing.
+        icon: Option<BarIcon>,
+        /// The widget's text, after its glyph when that has no drawing.
         label: String,
         /// Color of the text.
         text_color: String,

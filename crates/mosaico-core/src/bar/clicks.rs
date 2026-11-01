@@ -2,6 +2,7 @@
 //! bindings, over the defaults.
 
 use crate::Action;
+use crate::action::Scope;
 use crate::config::{BarMouseConfig, ClickBinding, WidgetKind};
 
 use super::{BarSide, Button};
@@ -43,6 +44,24 @@ impl WidgetClicks {
     /// whole daemon. An entry that removes a binding is not left out.
     pub fn rejected(mouse: &BarMouseConfig) -> Vec<RejectedClick> {
         resolve(mouse).1
+    }
+
+    /// The actions a click on a widget can run, in the order to offer
+    /// them: those that act on a monitor or on the whole daemon, which a
+    /// bar may run, see [`rejected`](Self::rejected).
+    pub fn actions() -> Vec<Action> {
+        [
+            Action::CycleLayout,
+            Action::ToggleMonocle,
+            Action::Retile,
+            Action::TogglePause,
+            Action::CycleFloat,
+            Action::GoToWorkspacePrev,
+            Action::GoToWorkspaceNext,
+        ]
+        .into_iter()
+        .filter(|a| a.scope() != Scope::FocusedWindow)
+        .collect()
     }
 
     /// How many bindings there are: buttons that run an action on a kind

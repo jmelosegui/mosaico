@@ -77,7 +77,12 @@ fn pill<N: Numeric>(
                 // the number.
                 if !unit.is_empty() {
                     ui.label(RichText::new(unit).font(font));
-                    ui.add_space(4.0);
+                    // A percent sign sits against its number.
+                    ui.add_space(if unit == "%" {
+                        -ui.spacing().item_spacing.x
+                    } else {
+                        4.0
+                    });
                 }
                 let field = ui
                     .add(drag_value(value, range, speed))

@@ -1,11 +1,13 @@
 //! What mosaico asks of the OS besides talking to the daemon: setting up
 //! each process, starting and stopping processes, keeping a second daemon
 //! or settings window from starting, hearing about Ctrl+C, opening
-//! folders and files, and registering for start on login.
+//! folders and files, listing installed fonts, and registering for start on
+//! login.
 
 mod autostart;
 mod autostart_status;
 mod file_probe;
+mod font_catalog;
 mod interrupt;
 mod opener;
 mod setup;
@@ -19,6 +21,7 @@ use crate::Result;
 pub use autostart::{Autostart, LaunchCommand};
 pub use autostart_status::AutostartStatus;
 pub use file_probe::FileProbe;
+pub use font_catalog::{FontCatalog, font_choices};
 pub use interrupt::Interrupts;
 pub use opener::Opener;
 pub use setup::ProcessSetup;

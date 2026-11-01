@@ -38,6 +38,10 @@ pub struct Services {
     pub sign_in: SignIn,
     /// Where the log file is written, as shown to the user.
     pub log_file: String,
+    /// How many monitors are connected, left to right.
+    pub monitors: usize,
+    /// The installed font families, for the pickers of a font.
+    pub fonts: Vec<String>,
     /// Asks the daemon whether it runs. Called every few seconds, so it
     /// must return quickly.
     pub daemon: Box<dyn FnMut() -> DaemonState>,
@@ -85,7 +89,7 @@ impl SettingsApp {
             files: services
                 .store
                 .as_ref()
-                .map(pages::file_pages)
+                .map(|store| pages::file_pages(store, services.monitors, &services.fonts))
                 .unwrap_or_default(),
             defaults: Settings::defaults(),
             store: services.store,

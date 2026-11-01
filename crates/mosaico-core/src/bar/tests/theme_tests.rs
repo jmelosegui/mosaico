@@ -34,6 +34,7 @@ fn pill_colors(events: Vec<BarEvent>, label: &str) -> Vec<[String; 2]> {
                 label: drawn,
                 text_color,
                 border_color,
+                ..
             } if drawn == label => Some([text_color, border_color]),
             _ => None,
         })

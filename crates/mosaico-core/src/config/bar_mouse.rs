@@ -90,6 +90,58 @@ impl ClickBinding {
             Self::new("paused", "left", "toggle-pause"),
         ]
     }
+
+    /// The bindings in effect with `entries` over the defaults: the
+    /// entries in order, each replacing the binding of its widget and
+    /// button, adding one, or with [`NONE`](Self::NONE) removing it. An
+    /// entry that leaves out a key is skipped.
+    pub fn effective(entries: &[Self]) -> Vec<Self> {
+        let mut rows = Self::defaults();
+        for entry in entries {
+            let (Some(widget), Some(button), Some(action)) =
+                (&entry.widget, &entry.button, &entry.action)
+            else {
+                continue;
+            };
+            let at = rows.iter().position(|r| {
+                r.widget.as_ref() == Some(widget) && r.button.as_ref() == Some(button)
+            });
+            match (at, action == Self::NONE) {
+                (Some(at), true) => {
+                    rows.remove(at);
+                }
+                (Some(at), false) => rows[at] = entry.clone(),
+                (None, false) => rows.push(entry.clone()),
+                (None, true) => {}
+            }
+        }
+        rows
+    }
+
+    /// The `[[mouse.click]]` entries that give exactly the bindings in
+    /// `rows`: those that are not a default, and a
+    /// [`NONE`](Self::NONE) entry for each default `rows` has no binding
+    /// of its widget and button to replace. Of two rows for one widget
+    /// and button the later counts. Empty when `rows` are the defaults.
+    pub fn entries_for(rows: &[Self]) -> Vec<Self> {
+        let key = |b: &Self| (b.widget.clone(), b.button.clone());
+        let mut kept: Vec<&Self> = Vec::new();
+        for row in rows {
+            kept.retain(|k| key(k) != key(row));
+            kept.push(row);
+        }
+        let defaults = Self::defaults();
+        let mut entries: Vec<Self> = defaults
+            .iter()
+            .filter(|d| !kept.iter().any(|k| key(k) == key(d)))
+            .map(|d| Self {
+                action: Some(Self::NONE.to_string()),
+                ..d.clone()
+            })
+            .collect();
+        entries.extend(kept.into_iter().filter(|k| !defaults.contains(k)).cloned());
+        entries
+    }
 }
 
 #[cfg(test)]

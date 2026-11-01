@@ -51,6 +51,8 @@ pub fn window(
             }
         }),
         log_file: "logs/mosaico.log".into(),
+        monitors: 2,
+        fonts: vec!["Cascadia Code".into(), "Segoe UI".into()],
         daemon: Box::new(move || daemon.clone()),
     });
     let mut harness = Harness::builder()

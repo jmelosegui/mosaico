@@ -6,12 +6,15 @@ use std::time::Duration;
 use mosaico_core::config::ConfigStore;
 use mosaico_core::ipc::{DaemonStatus, IpcClient};
 use mosaico_core::system::{
-    Autostart, AutostartStatus, InstanceLock, LaunchCommand, SingleWindow, Summoned,
+    Autostart, AutostartStatus, InstanceLock, LaunchCommand, SingleWindow, Summoned, font_choices,
 };
+use mosaico_core::tiler::Enumerator;
 use mosaico_core::{Command, Error, Instance};
 use mosaico_settings::{DaemonState, Services};
 use mosaico_windows::autostart::RegistryAutostart;
+use mosaico_windows::enumerate::WindowsEnumerator;
 use mosaico_windows::files::WindowsFiles;
+use mosaico_windows::fonts::InstalledFonts;
 use mosaico_windows::ipc::{PipeClient, pipe_name};
 use mosaico_windows::single_window::NamedWindowLock;
 use mosaico_windows::user_dirs::WindowsUserDirs;
@@ -41,6 +44,8 @@ pub fn services() -> Services {
             start_at_sign_in: false,
             sign_in: Box::new(|_| Err("The mosaico executable could not be found.".into())),
             log_file: String::new(),
+            monitors: 1,
+            fonts: Vec::new(),
             daemon: Box::new(|| DaemonState::Stopped),
         };
     };
@@ -51,6 +56,8 @@ pub fn services() -> Services {
         start_at_sign_in: autostart.is_ok_and(|s| s == AutostartStatus::Enabled),
         sign_in: Box::new(|on| set_sign_in(on).map_err(|e| e.to_string())),
         log_file: instance.log_path().display().to_string(),
+        monitors: WindowsEnumerator.monitors().map_or(1, |m| m.len().max(1)),
+        fonts: font_choices(&InstalledFonts, ""),
         daemon: Box::new(move || daemon_state(&client)),
     }
 }

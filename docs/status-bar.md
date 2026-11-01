@@ -45,7 +45,7 @@ the pointer does.
 | `crates/mosaico-windows/src/bar/render.rs`, `canvas.rs` | DIB rendering pipeline, on a `Canvas` |
 | `crates/mosaico-windows/src/bar/pixels.rs` | `leave_no_hole()` -- no fully transparent pixel in a clickable item while the bar takes the pointer |
 | `crates/mosaico-windows/src/bar/text.rs` | `DrawCtx`, text and pill rendering helpers |
-| `crates/mosaico-windows/src/bar/widgets/*.rs` | Draws the items: pills, separators, workspaces, window icon, and says where each went |
+| `crates/mosaico-windows/src/bar/widgets/*.rs` | Draws the items: pills with their line icons, separators, workspaces, window icon, and says where each went |
 | `crates/mosaico-windows/src/daemon_loop_bar.rs` | `ChannelSink` -- puts what the bars report on the daemon's queue -- and the actions it asks for |
 | `crates/mosaico-windows/src/system_info.rs` | `Win32SystemInfo` -- CPU, memory and time from Win32 |
 | `crates/mosaico-windows/src/tiling/on_screen.rs` | `Desktop::windows_on_screen()` on Win32 -- the windows the bars look through for a maximized or fullscreen one |
@@ -56,8 +56,8 @@ the pointer does.
   and what each one shows; owns the config, the resolved colors and the
   CPU tracker, and draws through a `BarRenderer`
 - `BarContent` / `BarItem` -- the items one bar draws on each side: the
-  workspace numbers, the window icon, pills with a label and colors, and
-  separators
+  workspace numbers, the window icon, pills with a label, an optional
+  line icon (`BarIcon`) and colors, and separators
 - `BarState` -- what one monitor's bar shows of the tiler and the daemon
 - `SystemReadings` -- CPU, memory, media and time, the same for every bar
 - `SystemInfo` -- trait for the raw machine readings a platform reports
@@ -224,7 +224,13 @@ included in the default bar config and added automatically to existing
   no update, the `media` widget with nothing playing, or the `paused`
   widget while hotkeys work.
 - A pill's label is the widget's icon, a space, and its text; either may
-  be missing.
+  be missing. When the icon is one of the glyphs `BarIcon` has a line
+  drawing for (grid, window, clock, calendar, memory, processor, download,
+  pause, music, columns), the pill carries the drawing instead and the
+  label is the text alone. Every platform paints the drawing with
+  `bar::mask`, in the pill's text color, as tall as the font's em, so the
+  bar looks like the settings preview with or without a Nerd Font. Any
+  other icon stays in the label as text.
 - When `separator` is set, it goes between every two widgets that show,
   with a space on each side.
 - A pill widget's `color` tints its text and outline. Without one, the

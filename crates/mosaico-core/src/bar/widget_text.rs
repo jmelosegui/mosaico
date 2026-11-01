@@ -2,7 +2,7 @@
 
 use crate::config::bar::WidgetConfig;
 
-use super::{BarState, NowPlaying, SystemReadings};
+use super::{BarIcon, BarState, NowPlaying, SystemReadings};
 
 /// Whether `widget` shows at all.
 ///
@@ -21,9 +21,19 @@ pub(super) fn is_shown(widget: &WidgetConfig, state: &BarState, readings: &Syste
     }
 }
 
-/// What the pill of `widget` reads: its icon, then its text.
+/// The drawing of `widget`'s icon, when its glyph has one.
+pub(super) fn icon(widget: &WidgetConfig) -> Option<BarIcon> {
+    BarIcon::from_glyph(widget.icon())
+}
+
+/// What the pill of `widget` reads: its icon, unless that is drawn in
+/// lines (see [`icon`]), then its text.
 pub(super) fn label(widget: &WidgetConfig, state: &BarState, readings: &SystemReadings) -> String {
-    let icon = widget.icon();
+    let icon = if icon(widget).is_some() {
+        ""
+    } else {
+        widget.icon()
+    };
     let text = text(widget, state, readings);
     if icon.is_empty() {
         text
@@ -36,7 +46,7 @@ pub(super) fn label(widget: &WidgetConfig, state: &BarState, readings: &SystemRe
 
 /// The text of `widget`, without its icon. The workspaces and active
 /// window widgets draw their own content, so they have none.
-fn text(widget: &WidgetConfig, state: &BarState, readings: &SystemReadings) -> String {
+pub(super) fn text(widget: &WidgetConfig, state: &BarState, readings: &SystemReadings) -> String {
     match widget {
         WidgetConfig::Workspaces { .. } | WidgetConfig::ActiveWindow { .. } => String::new(),
         WidgetConfig::Layout { .. } => layout(state),

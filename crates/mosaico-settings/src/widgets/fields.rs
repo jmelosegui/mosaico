@@ -11,7 +11,7 @@ use crate::icons::{self, Icon};
 use crate::theme::{self, Colors};
 
 /// Outlines the controls of a changed setting in the accent color.
-fn outline(ui: &mut Ui, c: &Colors, changed: bool) {
+pub(super) fn outline(ui: &mut Ui, c: &Colors, changed: bool) {
     if changed {
         let w = &mut ui.visuals_mut().widgets;
         for state in [&mut w.inactive, &mut w.hovered, &mut w.active, &mut w.open] {
@@ -127,30 +127,48 @@ pub fn number_of_width<N: Numeric>(
     };
     ui.painter()
         .rect(rect, 5.0, c.control, stroke, StrokeKind::Inside);
-    let inner = rect.shrink2(vec2(6.0, 2.0));
+    let inner =
+        eframe::egui::Rect::from_min_max(rect.min + vec2(10.0, 2.0), rect.max - vec2(8.0, 2.0));
     let builder = UiBuilder::new()
         .max_rect(inner)
         .layout(Layout::left_to_right(Align::Center));
-    ui.scope_builder(builder, |ui| {
+    // A child the parent does not lay out, so its cursor stays after the
+    // whole field.
+    let mut child = ui.new_child(builder);
+    let ui = &mut child;
+    {
         let w = &mut ui.visuals_mut().widgets;
         for state in [&mut w.inactive, &mut w.hovered, &mut w.active] {
             state.weak_bg_fill = Color32::TRANSPARENT;
             state.bg_fill = c.control;
         }
-        let unit_width = if unit.is_empty() { 0.0 } else { 24.0 };
-        ui.spacing_mut().interact_size = vec2(inner.width() - unit_width, 22.0);
+        // The number sits on the left, as narrow as its text, and the unit
+        // on the right.
+        ui.spacing_mut().interact_size = vec2(0.0, 22.0);
         ui.spacing_mut().button_padding.x = 0.0;
         let field = ui
             .add(drag_value(value, range, speed))
             .on_hover_text("Drag, or click to type");
         field.widget_info(|| WidgetInfo::labeled(Role::SpinButton, true, label));
         if !unit.is_empty() {
-            let unit = RichText::new(unit).font(theme::regular(12.0));
-            ui.label(unit.color(c.faint_text));
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                let unit = RichText::new(unit).font(theme::regular(12.0));
+                ui.label(unit.color(c.faint_text));
+            });
+        }
+        let blank = eframe::egui::Rect::from_min_max(
+            eframe::egui::pos2(field.rect.right(), inner.top()),
+            inner.right_bottom(),
+        );
+        let blank = ui.interact(blank, field.id.with("blank"), Sense::click());
+        if blank
+            .on_hover_cursor(eframe::egui::CursorIcon::Text)
+            .clicked()
+        {
+            ui.memory_mut(|m| m.request_focus(field.id));
         }
         field
-    })
-    .inner
+    }
 }
 
 /// A field for `value`, showing two decimals when it has any.
@@ -168,7 +186,7 @@ pub(super) fn drag_value<N: Numeric>(
 }
 
 /// How wide a [`number`] is.
-pub(super) const NUMBER_WIDTH: f32 = 84.0;
+pub(super) const NUMBER_WIDTH: f32 = 96.0;
 
 /// A line of text `width` points wide, showing `hint` while it is empty.
 /// `label` names it for assistive technology.

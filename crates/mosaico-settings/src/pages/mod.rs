@@ -116,10 +116,10 @@ impl Page {
 const FILE_PAGES: &[Page] = &[Page::Bar, Page::Keybindings, Page::Rules];
 
 /// The pages that edit a file of their own, reading their files from
-/// `store`.
-pub fn file_pages(store: &ConfigStore) -> FilePages {
+/// `store`. `monitors` are connected and `fonts` are installed.
+pub fn file_pages(store: &ConfigStore, monitors: usize, fonts: &[String]) -> FilePages {
     FilePages::new(vec![
-        Box::new(bar::BarPage::new(store)),
+        Box::new(bar::BarPage::new(store, monitors, fonts)),
         Box::new(keybindings::KeybindingsPage::new(store.clone())),
         Box::new(rules::RulesPage::new(store)),
     ])

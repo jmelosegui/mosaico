@@ -118,3 +118,50 @@ fn a_key_an_entry_leaves_out_is_missing_and_an_empty_one_is_kept() {
     let again: BarMouseConfig = toml::from_str(&text).unwrap();
     assert_eq!(again, config.mouse);
 }
+
+#[test]
+fn bindings_in_effect_apply_the_entries_over_the_defaults_and_none_removes_one() {
+    // Arrange
+    let entries = [
+        ClickBinding::new("layout", "left", "retile"),
+        ClickBinding::new("layout", "right", ClickBinding::NONE),
+        ClickBinding::new("clock", "middle", "toggle-pause"),
+    ];
+
+    // Act
+    let rows = ClickBinding::effective(&entries);
+
+    // Assert
+    assert_eq!(
+        rows,
+        [
+            ClickBinding::new("layout", "left", "retile"),
+            ClickBinding::new("paused", "left", "toggle-pause"),
+            ClickBinding::new("clock", "middle", "toggle-pause"),
+        ]
+    );
+}
+
+#[test]
+fn the_entries_for_rows_are_what_differs_from_the_defaults_and_round_trip() {
+    // Arrange
+    let rows = vec![
+        ClickBinding::new("layout", "left", "cycle-layout"),
+        ClickBinding::new("layout", "left", "retile"),
+        ClickBinding::new("paused", "left", "toggle-pause"),
+    ];
+
+    // Act
+    let entries = ClickBinding::entries_for(&rows);
+
+    // Assert
+    assert_eq!(
+        entries,
+        [
+            ClickBinding::new("layout", "right", ClickBinding::NONE),
+            ClickBinding::new("layout", "left", "retile"),
+        ]
+    );
+    assert_eq!(ClickBinding::effective(&entries).len(), 2);
+    assert!(ClickBinding::entries_for(&ClickBinding::defaults()).is_empty());
+}

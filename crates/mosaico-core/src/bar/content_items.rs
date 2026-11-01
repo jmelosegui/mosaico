@@ -2,7 +2,7 @@
 
 use crate::config::bar::{BarConfig, WidgetConfig};
 
-use super::super::widget_text::{is_shown, label};
+use super::super::widget_text::{icon, is_shown, label};
 use super::super::{BarSide, BarState, SystemReadings, WidgetClicks};
 use super::BarItem;
 
@@ -88,6 +88,7 @@ fn pill(
         (color.to_string(), color.to_string())
     };
     BarItem::Pill {
+        icon: icon(widget),
         label: label(widget, state, readings),
         text_color,
         border_color,

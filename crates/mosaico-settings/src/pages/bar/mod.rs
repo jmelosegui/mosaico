@@ -1,39 +1,48 @@
 //! The Bar page: how the status bar looks and what it shows, from
-//! `bar.toml`.
+//! `bar.toml`, in the tabs Appearance, Widgets and Mouse.
 
-mod order;
+mod appearance;
+mod clicks;
+mod columns;
+mod look;
+mod pills;
+mod preview;
 mod state;
 
 use eframe::egui::Ui;
-use mosaico_core::config::schema::{self, SettingDescriptor};
+use mosaico_core::config::schema::{self, SettingValue};
 use mosaico_core::config::{ConfigStore, Theme};
 
 use super::{FilePage, Page, Row, setting};
 use crate::theme::Colors;
-use crate::widgets;
+use crate::widgets::{self, RowState};
 use state::BarState;
 
 /// A titled group of the keys of `bar.toml`, drawn from their
 /// descriptors.
 type Section = (&'static str, &'static [&'static str]);
 
-/// The sections before the widget order.
-const BEFORE: &[Section] = &[(
-    "Bar",
-    &[
-        "enabled",
-        "height",
-        "background_opacity",
-        "font",
-        "font_size",
-    ],
-)];
+/// The tabs, in order.
+const TABS: [&str; 3] = ["Appearance", "Widgets", "Mouse"];
 
-/// The sections after it.
-const AFTER: &[Section] = &[
-    ("Text", &["font_bold", "font_italic", "font_underline"]),
+/// Rows the window shows without their help, which a search still reads.
+const QUIET: [&str; 3] = ["enabled", "background_opacity", "font_size"];
+
+/// Every single setting, for when a search looks across the tabs.
+const SEARCH: &[Section] = &[
+    ("Bar", &["enabled", "height", "background_opacity"]),
     (
-        "Pills",
+        "Font",
+        &[
+            "font",
+            "font_size",
+            "font_bold",
+            "font_italic",
+            "font_underline",
+        ],
+    ),
+    (
+        "Pills and spacing",
         &[
             "padding",
             "pill_padding",
@@ -45,22 +54,8 @@ const AFTER: &[Section] = &[
         ],
     ),
     ("Mouse", &["mouse.enabled", "mouse.scroll"]),
-    (
-        "Colors",
-        &[
-            "colors.background",
-            "colors.foreground",
-            "colors.active_workspace",
-            "colors.active_workspace_text",
-            "colors.inactive_workspace",
-            "colors.separator",
-            "colors.accent",
-            "colors.widget_background",
-            "colors.pill_border",
-        ],
-    ),
+    ("Colors", appearance::COLORS),
 ];
-
 /// The page editing `bar.toml`.
 pub struct BarPage {
     store: ConfigStore,
@@ -71,11 +66,17 @@ pub struct BarPage {
     /// The theme of the saved `config.toml`, whose palette the colors
     /// offer.
     theme: Theme,
+    tab: usize,
+    /// How many monitors are connected.
+    monitors: usize,
+    /// The installed font families.
+    fonts: Vec<String>,
+    columns: columns::Editor,
 }
 
 impl BarPage {
     /// The page for the `bar.toml` in `store`, with no edits.
-    pub fn new(store: &ConfigStore) -> Self {
+    pub fn new(store: &ConfigStore, monitors: usize, fonts: &[String]) -> Self {
         let defaults = BarState::defaults();
         let mut page = Self {
             store: store.clone(),
@@ -84,6 +85,10 @@ impl BarPage {
             defaults,
             problem: None,
             theme: Theme::default(),
+            tab: 0,
+            monitors,
+            fonts: fonts.to_vec(),
+            columns: columns::Editor::default(),
         };
         page.load();
         page
@@ -123,15 +128,18 @@ impl BarPage {
                     if i > 0 {
                         widgets::divider(ui, c);
                     }
-                    self.setting(ui, c, setting);
+                    self.setting(ui, c, setting.key);
                 }
             });
         }
         any
     }
 
-    fn setting(&mut self, ui: &mut Ui, c: &Colors, descriptor: &SettingDescriptor) {
-        let key = descriptor.key;
+    /// The row of the setting at `key`, from its descriptor.
+    fn setting(&mut self, ui: &mut Ui, c: &Colors, key: &str) {
+        let Some(descriptor) = schema::find_bar(key) else {
+            return;
+        };
         let (Some(saved), Some(default), Some(mut value)) = (
             self.saved.get(key),
             self.defaults.get(key),
@@ -139,7 +147,9 @@ impl BarPage {
         ) else {
             return;
         };
-        let help = Row::new(descriptor.label, descriptor.help).help();
+        let help = Row::new(descriptor.label, descriptor.help)
+            .help()
+            .filter(|_| !QUIET.contains(&key));
         let reset = setting::draw_value(
             ui,
             c,
@@ -152,8 +162,55 @@ impl BarPage {
         let value = if reset { default.clone() } else { value };
         self.edit.set(key, value);
     }
-}
 
+    /// The row of the setting at `key` with a control of the page's own.
+    fn custom(
+        &mut self,
+        ui: &mut Ui,
+        c: &Colors,
+        key: &str,
+        control: impl FnOnce(&mut Ui, &mut SettingValue, bool),
+    ) {
+        let Some(descriptor) = schema::find_bar(key) else {
+            return;
+        };
+        let (Some(saved), Some(default), Some(mut value)) = (
+            self.saved.get(key),
+            self.defaults.get(key),
+            self.edit.get(key).cloned(),
+        ) else {
+            return;
+        };
+        let state = RowState {
+            unsaved: value != *saved,
+            default: (value != *default).then(|| setting::shown(descriptor, self.theme, default)),
+        };
+        let help = Row::new(descriptor.label, descriptor.help).help();
+        let reset = widgets::row(ui, c, descriptor.label, help, &state, |ui| {
+            control(ui, &mut value, state.unsaved);
+        });
+        let value = if reset { default.clone() } else { value };
+        self.edit.set(key, value);
+    }
+
+    /// The rows matching `query` of every tab, for a search.
+    fn search(&mut self, ui: &mut Ui, c: &Colors, query: &str) {
+        let mut any = self.sections(ui, c, query, SEARCH);
+        let help = "Widgets on the left are drawn from the left edge, those on the right from the right edge.";
+        if Row::new("Widgets", help).matches(query) {
+            any = true;
+            self.widgets_tab(ui, c);
+        }
+        if Row::new("Click actions", "A click on a widget").matches(query) {
+            any = true;
+            self.click_table(ui, c);
+        }
+        if !any {
+            let text = format!("No settings match \u{201c}{}\u{201d}.", query.trim());
+            ui.label(eframe::egui::RichText::new(text).color(c.dim_text));
+        }
+    }
+}
 impl FilePage for BarPage {
     fn page(&self) -> Page {
         Page::Bar
@@ -168,15 +225,20 @@ impl FilePage for BarPage {
     }
 
     fn show(&mut self, ui: &mut Ui, c: &Colors, query: &str) {
-        let mut any = self.sections(ui, c, query, BEFORE);
-        any |= order::show(ui, c, query, &self.saved.widgets, &mut self.edit.widgets);
-        any |= self.sections(ui, c, query, AFTER);
-        if !any {
-            let text = format!("No settings match \u{201c}{}\u{201d}.", query.trim());
-            ui.label(eframe::egui::RichText::new(text).color(c.dim_text));
+        if !query.trim().is_empty() {
+            self.search(ui, c, query);
+            return;
+        }
+        widgets::tabs(ui, c, &TABS, &mut self.tab);
+        if self.tab < 2 {
+            preview::show(ui, c, &self.edit, self.theme);
+        }
+        match self.tab {
+            0 => self.appearance(ui, c),
+            1 => self.widgets_tab(ui, c),
+            _ => self.mouse(ui, c),
         }
     }
-
     fn apply(&mut self) -> Result<(), String> {
         state::save(&self.store, &self.saved, &self.edit)?;
         self.load();
