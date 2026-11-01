@@ -80,8 +80,14 @@ icon comes back by itself when Explorer restarts. Set `enabled = false` under
 
 Picking a theme or flavor previews it in the settings window right away.
 
+## Layout
+
+| Section | Setting | Key in `config.toml` |
+|---------|---------|----------------------|
+| Tiling | Default layout, gap, split ratio | `layout.default`, `layout.gap`, `layout.ratio` |
+| Other workspaces | Hide windows by | `layout.hiding` |
+
 ## Current Limits
 
-This release has the General page only; the other pages appear in the sidebar
-but are not ready yet. Edit the [configuration files](configuration.md) to
-change those settings for now.
+Pages that are not ready yet are grayed out in the sidebar. Edit the
+[configuration files](configuration.md) to change those settings for now.

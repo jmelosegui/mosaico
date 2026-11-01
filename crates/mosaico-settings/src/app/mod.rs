@@ -10,7 +10,7 @@ use eframe::egui::{CentralPanel, Context, Frame, Margin, Panel, ScrollArea, Ui};
 use mosaico_core::config::{ConfigStore, Theme};
 
 use crate::model::{self, Draft, Loaded, Settings};
-use crate::pages::{self, Page, PageContext, general};
+use crate::pages::{self, FilePages, Page, PageContext};
 use crate::theme::{self, Colors};
 
 /// How often the daemon is asked whether it runs, in seconds.
@@ -55,6 +55,7 @@ pub enum Applied {
 /// The state of the settings window.
 pub struct SettingsApp {
     draft: Draft<Settings>,
+    files: FilePages,
     defaults: Settings,
     store: Result<ConfigStore, String>,
     /// Why the settings cannot be edited, when they cannot.
@@ -81,6 +82,11 @@ impl SettingsApp {
         };
         Self {
             draft: Draft::new(loaded.settings),
+            files: services
+                .store
+                .as_ref()
+                .map(pages::file_pages)
+                .unwrap_or_default(),
             defaults: Settings::defaults(),
             store: services.store,
             problem: loaded.problem,
@@ -112,15 +118,30 @@ impl SettingsApp {
         self.applied.as_ref()
     }
 
-    /// Saves the edits: the settings of `config.toml` to the file, which
-    /// the daemon reloads, and starting at sign-in through the system.
-    /// The edits that could not be saved are kept.
+    /// How many edits are not saved yet, on every page.
+    pub fn changes(&self) -> usize {
+        self.draft.changes() + self.files.changes()
+    }
+
+    /// Saves the edits: each file's to the file, which the daemon
+    /// reloads, and starting at sign-in through the system. The edits
+    /// that could not be saved are kept.
     pub fn apply(&mut self) {
-        let Ok(store) = &self.store else {
-            return;
-        };
-        if self.problem.is_some() {
-            return;
+        let result = self.apply_config().and_then(|()| self.files.apply());
+        self.applied = Some(match result {
+            Ok(()) => Applied::Saved,
+            Err(e) => Applied::Failed(e),
+        });
+    }
+
+    /// Saves the edits of `config.toml` and starting at sign-in.
+    fn apply_config(&mut self) -> Result<(), String> {
+        if self.draft.changes() == 0 {
+            return Ok(());
+        }
+        let store = self.store.as_ref().map_err(Clone::clone)?;
+        if let Some(problem) = &self.problem {
+            return Err(problem.clone());
         }
         let (saved, edit) = (self.draft.saved().clone(), self.draft.edit.clone());
         let written = model::save(store, &saved, &edit);
@@ -142,10 +163,7 @@ impl SettingsApp {
             self.reload(sign_in);
             self.draft.edit.start_at_sign_in = edit.start_at_sign_in;
         }
-        self.applied = Some(match result {
-            Ok(()) => Applied::Saved,
-            Err(e) => Applied::Failed(e),
-        });
+        result
     }
 
     /// Reads the settings again, dropping any edits.
@@ -171,8 +189,7 @@ impl SettingsApp {
             .frame(Frame::new().fill(c.title_bar))
             .show(ui, |ui| chrome::title_bar(ui, &c))
             .inner;
-        self.close
-            .handle(ui.ctx(), close_clicked, self.draft.changes());
+        self.close.handle(ui.ctx(), close_clicked, self.changes());
         Panel::left("navigation")
             .exact_size(224.0)
             .resizable(false)
@@ -195,9 +212,8 @@ impl SettingsApp {
             )
             .show(ui, |ui| {
                 let state = footer::State {
-                    changes: self.draft.changes(),
+                    changes: self.changes(),
                     applied: self.applied.as_ref(),
-                    blocked: self.problem.is_some(),
                 };
                 footer::show(ui, &c, &state)
             })
@@ -206,6 +222,7 @@ impl SettingsApp {
             Some(footer::Action::Apply) => self.apply(),
             Some(footer::Action::Revert) => {
                 self.draft.revert();
+                self.files.revert();
                 self.applied = None;
             }
             None => {}
@@ -214,7 +231,7 @@ impl SettingsApp {
             .frame(Frame::new().fill(c.page))
             .show(ui, |ui| self.page(ui, &c));
 
-        self.close.show(ui.ctx(), &c, self.draft.changes());
+        self.close.show(ui.ctx(), &c, self.changes());
         chrome::resize_edges(ui.ctx());
     }
 
@@ -223,9 +240,18 @@ impl SettingsApp {
             Frame::new()
                 .inner_margin(Margin::symmetric(32, 24))
                 .show(ui, |ui| {
-                    pages::header(ui, c, self.page, general::FILE);
+                    let file = self.page.file();
+                    pages::header(ui, c, self.page, file);
+                    if let Some(page) = self.files.get(self.page) {
+                        if let Some(problem) = page.problem() {
+                            pages::problem(ui, c, file, problem);
+                        }
+                        let enabled = page.problem().is_none();
+                        ui.add_enabled_ui(enabled, |ui| page.show(ui, c, &self.query));
+                        return;
+                    }
                     if let Some(problem) = &self.problem {
-                        pages::problem(ui, c, general::FILE, problem);
+                        pages::problem(ui, c, file, problem);
                     }
                     let saved = self.draft.saved().clone();
                     let cx = PageContext {
@@ -235,7 +261,7 @@ impl SettingsApp {
                         log_file: &self.log_file,
                     };
                     ui.add_enabled_ui(self.problem.is_none(), |ui| {
-                        general::show(ui, &cx, &self.query, &mut self.draft.edit);
+                        pages::show(ui, &cx, self.page, &self.query, &mut self.draft.edit);
                     });
                 });
         });
@@ -265,6 +291,7 @@ impl SettingsApp {
             if self.draft.changes() == 0 {
                 self.reload(self.draft.saved().start_at_sign_in);
             }
+            self.files.reload_unedited();
         }
         ctx.request_repaint_after(std::time::Duration::from_secs_f64(POLL_SECS));
     }

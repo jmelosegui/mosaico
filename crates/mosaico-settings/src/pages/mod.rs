@@ -1,9 +1,14 @@
 //! The pages of the settings window, and what they share.
 
-pub mod general;
+mod file_page;
+mod general;
+mod layout;
 mod setting;
 
+pub use file_page::{FilePage, FilePages};
+
 use eframe::egui::{Frame, Margin, RichText, Stroke, Ui};
+use mosaico_core::config::ConfigStore;
 
 use crate::icons::Icon;
 use mosaico_core::config::schema;
@@ -72,7 +77,43 @@ impl Page {
 
     /// Whether the page can be opened yet.
     pub fn is_ready(self) -> bool {
-        self == Self::General
+        self.sections().is_some() || FILE_PAGES.contains(&self)
+    }
+
+    /// The file the page edits.
+    pub fn file(self) -> &'static str {
+        match self {
+            Self::Bar => "bar.toml",
+            Self::Keybindings => "keybindings.toml",
+            Self::Rules => "user-rules.toml",
+            _ => "config.toml",
+        }
+    }
+
+    /// The page's rows of `config.toml` settings, if it has them.
+    fn sections(self) -> Option<&'static [Section]> {
+        match self {
+            Self::General => Some(general::SECTIONS),
+            Self::Layout => Some(layout::SECTIONS),
+            _ => None,
+        }
+    }
+}
+
+/// The pages that edit a file of their own; `file_pages` makes one of
+/// each.
+const FILE_PAGES: &[Page] = &[];
+
+/// The pages that edit a file of their own, reading their files from
+/// `store`.
+pub fn file_pages(_store: &ConfigStore) -> FilePages {
+    FilePages::new(Vec::new())
+}
+
+/// Shows the rows of `page` matching `query`, in their sections.
+pub fn show(ui: &mut Ui, cx: &PageContext, page: Page, query: &str, edit: &mut Settings) {
+    if let Some(list) = page.sections() {
+        sections(ui, cx, query, list, edit);
     }
 }
 

@@ -55,10 +55,10 @@ fn control(
             widgets::toggle(ui, c, label, on);
         }
         (SettingKind::Int { min, max, unit }, SettingValue::Int(n)) => {
-            widgets::number(ui, c, n, min..=max, 0.2, unit, changed);
+            widgets::number(ui, c, label, n, min..=max, 0.2, unit, changed);
         }
         (SettingKind::Float { min, max, step }, SettingValue::Float(x)) => {
-            widgets::number(ui, c, x, min..=max, step / 5.0, "", changed);
+            widgets::number(ui, c, label, x, min..=max, step / 5.0, "", changed);
         }
         (SettingKind::Choice(options), SettingValue::Text(s)) => {
             let options: Vec<_> = options
