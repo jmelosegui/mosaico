@@ -51,14 +51,16 @@ item:
 Checks performed:
 
 1. Config directory exists (creates it if missing)
-2. `config.toml` syntax validation
+2. `config.toml` syntax validation, and each value it holds that mosaico does
+   not take as written: a number out of its range, a name it does not list, or
+   a key that is no setting, named as the settings window names it
 3. Theme flavor validation
 4. `keybindings.toml` syntax validation
 5. Key names resolve to valid key codes
 6. `rules.toml` syntax validation
 7. Community rules cache age
 8. `user-rules.toml` syntax validation
-9. `bar.toml` syntax validation, how many click bindings the bar has, and
+9. `bar.toml` syntax validation, its values checked as for `config.toml`, how many click bindings the bar has, and
    each one it ignores, with why
 10. Autostart status: warns when the startup entry starts another copy of
     mosaico or other arguments, or is turned off in the startup apps

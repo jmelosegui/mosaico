@@ -3,6 +3,7 @@
 //! entries the bar leaves out, and why.
 
 use mosaico_core::bar::WidgetClicks;
+use mosaico_core::config::schema::BAR_SETTINGS;
 use mosaico_core::config::{BarConfig, ConfigStore};
 
 use super::context::{Context, say};
@@ -20,6 +21,7 @@ pub fn check_bar(cx: &mut Context) {
     let loads = || store.try_load_bar().map(|_| ());
     let file = toml_file_line("bar.toml", &store.bar_path(), loads);
     say!(cx, "{file}");
+    super::doctor_settings::check_settings(cx, "bar.toml", &store.bar_path(), BAR_SETTINGS);
     for line in bar_click_lines(&store) {
         say!(cx, "{line}");
     }
