@@ -45,7 +45,8 @@ pub trait Installer {
     /// beside the mosaico executable.
     fn settings_name(&self) -> &str;
 
-    /// Makes the executable at `exe` the one whose content is `binary`.
+    /// Makes the executable at `exe` the one whose content is `binary`,
+    /// installing it when there is none there yet.
     fn replace(&self, exe: &Path, binary: &[u8]) -> Result<()>;
 
     /// Deletes what earlier [`replace`](Self::replace)s left beside the
