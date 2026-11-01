@@ -335,7 +335,7 @@ and brings its docs, so it can merge on its own.
 - [x] Release artifacts and `mosaico update` include `mosaico-settings`
 - [x] `cargo xtask size` keeps checking `mosaico.exe` and reports the
       settings app's size separately
-- [ ] Docs, website guide with screenshots in a dark and a light flavor,
+- [x] Docs, website guide with screenshots in a dark and a light flavor,
       cheatsheet
 
 ### Verification

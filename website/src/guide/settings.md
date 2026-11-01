@@ -85,7 +85,11 @@ icon comes back by itself when Explorer restarts. Set `enabled = false` under
 | Startup | Tray icon (`config.toml`), start at sign-in (registry) | `config.toml`, registry |
 | Logging | Write a log file, level, maximum file size | `config.toml` |
 
-Picking a theme or flavor previews it in the settings window right away.
+Picking a theme or flavor previews it in the settings window right away. The
+window follows the theme, so a light flavor such as Catppuccin Latte gives a
+light window.
+
+![The General page with the Catppuccin Latte flavor](../images/settings/general-latte.png)
 
 ## Layout
 
