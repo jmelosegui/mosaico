@@ -87,6 +87,13 @@ Picking a theme or flavor previews it in the settings window right away.
 | Tiling | Default layout, gap, split ratio | `layout.default`, `layout.gap`, `layout.ratio` |
 | Other workspaces | Hide windows by | `layout.hiding` |
 
+## Mouse
+
+| Section | Setting | Key in `config.toml` |
+|---------|---------|----------------------|
+| Focus | Pointer follows focus, focus follows pointer | `mouse.follows_focus`, `mouse.focus_follows_mouse` |
+| Dragging | Drag to swap, resize splits | `mouse.drag_to_swap`, `mouse.resize_splits` |
+
 ## Current Limits
 
 Pages that are not ready yet are grayed out in the sidebar. Edit the
