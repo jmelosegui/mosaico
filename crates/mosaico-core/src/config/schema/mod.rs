@@ -7,9 +7,11 @@
 
 mod bar_settings;
 mod config_settings;
+mod review;
 
 pub use bar_settings::{BAR_SETTINGS, bar_default, find_bar};
 pub use config_settings::{CONFIG_SETTINGS, config_default};
+pub use review::{SettingProblem, review};
 
 use std::fmt;
 
