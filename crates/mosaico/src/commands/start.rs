@@ -11,6 +11,13 @@ const STARTUP_TIMEOUT: Duration = Duration::from_secs(10);
 const POLL_INTERVAL: Duration = Duration::from_millis(50);
 
 pub fn execute(cx: &mut Context) -> Exit {
+    announced_as(cx, env!("CARGO_PKG_VERSION"))
+}
+
+/// Starts the daemon like [`execute`], showing `version` in the banner.
+/// After an update the daemon runs the new binary while the process
+/// starting it is still the old one, so it announces the new version.
+pub fn announced_as(cx: &mut Context, version: &str) -> Exit {
     if cx.daemon.is_running() {
         say!(cx, "Mosaico is already running.");
         return Exit::Success;
@@ -52,7 +59,7 @@ pub fn execute(cx: &mut Context) -> Exit {
         return Exit::Failure;
     }
 
-    print_banner(cx, pid);
+    print_banner(cx, pid, version);
     Exit::Success
 }
 
@@ -86,24 +93,23 @@ const TIPS: &[&str] = &[
     "Run 'mosaico debug events' to watch window events live",
 ];
 
-fn print_banner(cx: &mut Context, pid: u32) {
+fn print_banner(cx: &mut Context, pid: u32, version: &str) {
     let d = "\x1b[90m"; // Dim gray: labels
     let w = "\x1b[1;97m"; // Bold bright white: values
     let r = "\x1b[0m"; // Reset
     let tip = TIPS[pid as usize % TIPS.len()];
 
-    (cx.logo)(&mut *cx.out, env!("CARGO_PKG_VERSION"));
+    (cx.logo)(&mut *cx.out, version);
     say!(cx, "");
     say!(cx, "  {d}Config{r}   {}", cx.config.dir().display());
     say!(cx, "  {d}Daemon{r}   Started (PID: {w}{pid}{r})");
     say!(cx, "  {d}Repo{r}     https://github.com/jmelosegui/mosaico");
     say!(cx, "  {d}Tip{r}      {tip}");
 
-    if let Ok(Some(remote)) = update::newer_release(cx.http, env!("CARGO_PKG_VERSION")) {
+    if let Ok(Some(remote)) = update::newer_release(cx.http, version) {
         let y = "\x1b[33m"; // Yellow
-        let local = env!("CARGO_PKG_VERSION");
         say!(cx, "");
-        say!(cx, "  {y}Update available: v{local} -> {remote}{r}");
+        say!(cx, "  {y}Update available: v{version} -> {remote}{r}");
         say!(cx, "  {y}Run 'mosaico update' to install it{r}");
     }
 
