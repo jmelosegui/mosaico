@@ -23,9 +23,9 @@ Follow the [Rust API Guidelines](https://rust-lang.github.io/api-guidelines/).
 
 ## File organization
 
-- Aim for source files under about 150 lines, one concern per file. This is a guideline, not a hard limit: a
-  module that reads better whole can grow to about 300 lines. Do not split cohesive code or contort it to stay
-  under 150; record the intended growth with `cargo xtask metrics --bless`.
+- Keep source files under 300 lines, one concern per file. Smaller files are welcome, but do not split cohesive
+  code or contort it to stay small. A file past 300 lines counts against `cargo xtask metrics`; split it by
+  concern.
 - Each CLI subcommand gets its own file under `commands/`.
 - Use `mod.rs` to declare and re-export submodules, and `pub use` in `lib.rs` for short paths.
 
