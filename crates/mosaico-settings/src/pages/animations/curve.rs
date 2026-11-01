@@ -57,7 +57,8 @@ pub fn show(
                     );
                     edited = fields(ui, c, points, custom);
                     if play_button(ui, c).clicked() {
-                        ui.data_mut(|d| d.insert_temp(play, ui.input(|i| i.time)));
+                        let now = ui.input(|i| i.time);
+                        ui.data_mut(|d| d.insert_temp(play, now));
                         ui.request_repaint();
                     }
                 });
