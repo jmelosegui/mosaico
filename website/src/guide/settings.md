@@ -30,10 +30,24 @@ on the current page by name and description. Under the pages it shows whether
 the daemon is running and which version it is.
 
 Each setting shows its default value, and a reset button appears next to any
-setting you have changed. The footer counts your unsaved changes, and
-**Revert** drops them all. Closing the window with unsaved changes, by its
+setting that is not at its default. The footer counts your unsaved changes,
+and **Revert** drops them all. Closing the window with unsaved changes, by its
 close button, Alt+F4 or the taskbar, asks first: **Keep editing** goes back
 to the window and **Discard and close** closes it.
+
+## Saving
+
+**Apply** writes your changes to the configuration file, and the running
+daemon picks them up at once, as it does when you edit the file by hand: a
+new theme recolors the borders and the bar without a restart. Only the
+settings you changed are touched; comments, blank lines and the order of the
+file are kept. A setting set back to its default is removed from the file, so
+it follows the default if a later version changes it.
+
+While you have no unsaved changes, the window follows edits made to the file
+in an editor. If the file has a problem that would stop mosaico loading it,
+the window says what it is and shows the defaults, and **Apply** stays
+disabled until the file is fixed, so a broken file is never saved over.
 
 ## Tray Icon
 
@@ -69,6 +83,5 @@ Picking a theme or flavor previews it in the settings window right away.
 ## Current Limits
 
 This release has the General page only; the other pages appear in the sidebar
-but are not ready yet. **Apply** is disabled, so changes made here are not
-saved. Edit the [configuration files](configuration.md) to change settings for
-now.
+but are not ready yet. Edit the [configuration files](configuration.md) to
+change those settings for now.

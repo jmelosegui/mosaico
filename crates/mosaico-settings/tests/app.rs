@@ -1,18 +1,55 @@
-//! Runs the settings window headless, with made-up settings and daemon.
+//! Runs the settings window headless, on a config folder of its own and
+//! with a made-up daemon and sign-in.
+
+use std::cell::RefCell;
+use std::path::PathBuf;
+use std::rc::Rc;
 
 use eframe::egui::{Role, ViewportCommand, ViewportEvent, ViewportId};
 use egui_kittest::Harness;
-use egui_kittest::kittest::Queryable;
-use mosaico_core::config::{CatppuccinFlavor, Theme};
-use mosaico_settings::{DaemonState, Forward, General, Services, SettingsApp};
+use egui_kittest::kittest::{NodeT, Queryable};
+use mosaico_core::config::schema::SettingValue;
+use mosaico_core::config::{CatppuccinFlavor, ConfigStore, Theme};
+use mosaico_settings::{Applied, DaemonState, Forward, Services, Settings, SettingsApp};
 
-fn saved() -> General {
-    General::defaults()
+fn saved() -> Settings {
+    Settings::defaults()
 }
 
-fn harness(daemon: DaemonState) -> Harness<'static, SettingsApp> {
+/// A config folder of its own for `test`, emptied first.
+fn folder(test: &str) -> ConfigStore {
+    let dir: PathBuf = std::env::temp_dir()
+        .join("mosaico-settings-app-tests")
+        .join(format!("{test}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    ConfigStore::new(dir)
+}
+
+/// What the window asked sign-in to be turned to, and whether it fails.
+#[derive(Clone, Default)]
+struct SignIn {
+    asked: Rc<RefCell<Vec<bool>>>,
+    fails: bool,
+}
+
+fn window(
+    store: ConfigStore,
+    daemon: DaemonState,
+    sign_in: &SignIn,
+) -> Harness<'static, SettingsApp> {
+    let sign_in = sign_in.clone();
     let app = SettingsApp::new(Services {
-        general: saved(),
+        store: Ok(store),
+        start_at_sign_in: false,
+        sign_in: Box::new(move |on| {
+            sign_in.asked.borrow_mut().push(on);
+            if sign_in.fails {
+                Err("the system said no".into())
+            } else {
+                Ok(())
+            }
+        }),
         log_file: "logs/mosaico.log".into(),
         daemon: Box::new(move || daemon.clone()),
     });
@@ -21,6 +58,14 @@ fn harness(daemon: DaemonState) -> Harness<'static, SettingsApp> {
         .build_ui_state(|ui, app: &mut SettingsApp| app.show(ui), app);
     harness.run();
     harness
+}
+
+fn harness(daemon: DaemonState) -> Harness<'static, SettingsApp> {
+    let test = std::thread::current()
+        .name()
+        .unwrap_or("test")
+        .replace("::", "-");
+    window(folder(&test), daemon, &SignIn::default())
 }
 
 fn search(h: &mut Harness<'static, SettingsApp>, text: &str) {
@@ -33,6 +78,9 @@ fn stopped() -> Harness<'static, SettingsApp> {
     harness(DaemonState::Stopped)
 }
 
+fn logging<'a>(h: &'a Harness<'static, SettingsApp>) -> &'a SettingValue {
+    h.state().edit().get("logging.enabled")
+}
 #[test]
 fn starts_with_no_unsaved_changes() {
     let h = stopped();
@@ -49,7 +97,7 @@ fn toggling_a_setting_counts_one_unsaved_change() {
         .click();
     h.run();
 
-    assert!(h.state().edit().log_to_file);
+    assert_eq!(logging(&h), &SettingValue::Bool(true));
     h.get_by_label("1 unsaved change");
 }
 
@@ -79,7 +127,7 @@ fn picking_a_flavor_previews_it() {
     h.run();
 
     let latte = Theme::Catppuccin(CatppuccinFlavor::Latte);
-    assert_eq!(h.state().edit().theme, latte);
+    assert_eq!(h.state().edit().theme(), latte);
     assert!(!h.ctx.global_style().visuals.dark_mode);
 }
 
@@ -166,7 +214,7 @@ fn keep_editing_keeps_the_window_and_the_edits() {
     h.run();
 
     assert!(h.query_by_label("Discard unsaved changes?").is_none());
-    assert!(h.state().edit().log_to_file);
+    assert_eq!(logging(&h), &SettingValue::Bool(true));
     h.get_by_label("1 unsaved change");
 }
 
@@ -212,4 +260,107 @@ fn a_summons_restores_and_focuses_the_window() {
         "{sent:?}"
     );
     assert!(sent.contains(&ViewportCommand::Focus), "{sent:?}");
+}
+
+fn click(h: &mut Harness<'static, SettingsApp>, role: Role, label: &str) {
+    h.get_by_role_and_label(role, label).click();
+    h.run();
+}
+
+#[test]
+fn apply_writes_the_edits_to_config_toml_and_keeps_its_comments() {
+    // Arrange
+    let store = folder("apply-writes");
+    let file = "# my setup\n[logging]\nlevel = \"warn\" # quieter\n";
+    std::fs::write(store.config_path(), file).unwrap();
+    let path = store.config_path();
+    let mut h = window(store, DaemonState::Stopped, &SignIn::default());
+    click(&mut h, Role::Switch, "Write a log file");
+
+    // Act
+    click(&mut h, Role::Button, "Apply");
+
+    // Assert
+    let written = std::fs::read_to_string(path).unwrap();
+    assert_eq!(written, format!("{file}enabled = true\n"));
+    assert_eq!(h.state().applied(), Some(&Applied::Saved));
+    assert_eq!(h.state().saved(), h.state().edit());
+    h.get_by_label("Changes saved");
+}
+
+#[test]
+fn apply_turns_start_at_sign_in_on_through_the_system() {
+    let sign_in = SignIn::default();
+    let mut h = window(folder("apply-sign-in"), DaemonState::Stopped, &sign_in);
+    click(&mut h, Role::Switch, "Start at sign-in");
+
+    click(&mut h, Role::Button, "Apply");
+
+    assert_eq!(*sign_in.asked.borrow(), [true]);
+    assert!(h.state().saved().start_at_sign_in);
+    h.get_by_label("Changes saved");
+}
+
+#[test]
+fn a_failed_apply_says_why_and_keeps_the_edit_that_failed() {
+    // Arrange
+    let store = folder("apply-fails");
+    let path = store.config_path();
+    let sign_in = SignIn {
+        fails: true,
+        ..SignIn::default()
+    };
+    let mut h = window(store, DaemonState::Stopped, &sign_in);
+    click(&mut h, Role::Switch, "Write a log file");
+    click(&mut h, Role::Switch, "Start at sign-in");
+
+    // Act
+    click(&mut h, Role::Button, "Apply");
+
+    // Assert
+    h.get_by_label("Could not save: the system said no");
+    let written = std::fs::read_to_string(path).unwrap();
+    assert_eq!(written, "[logging]\nenabled = true\n");
+    assert!(!h.state().saved().start_at_sign_in);
+    assert!(h.state().edit().start_at_sign_in);
+}
+
+#[test]
+fn a_file_the_daemon_would_not_load_is_shown_and_not_saved_over() {
+    // Arrange
+    let store = folder("apply-broken");
+    let broken = "[animations]\neasing = \"wobble\"\n";
+    std::fs::write(store.config_path(), broken).unwrap();
+    let path = store.config_path();
+
+    // Act
+    let h = window(store, DaemonState::Stopped, &SignIn::default());
+
+    // Assert
+    h.get_by_label("config.toml has a problem, so it can't be edited here");
+    assert!(
+        h.get_by_role_and_label(Role::Button, "Apply")
+            .accesskit_node()
+            .is_disabled()
+    );
+    assert_eq!(h.state().edit(), &saved());
+    assert_eq!(std::fs::read_to_string(path).unwrap(), broken);
+}
+
+#[test]
+fn an_edit_made_in_an_editor_shows_up_while_nothing_is_unsaved() {
+    // Arrange
+    let store = folder("apply-outside-edit");
+    let path = store.config_path();
+    let mut h = window(store, DaemonState::Stopped, &SignIn::default());
+
+    // Act
+    std::fs::write(path, "[logging]\nenabled = true\n").unwrap();
+    for _ in 0..20 {
+        h.step();
+    }
+
+    // Assert
+    assert_eq!(logging(&h), &SettingValue::Bool(true));
+    assert_eq!(h.state().saved(), h.state().edit());
 }

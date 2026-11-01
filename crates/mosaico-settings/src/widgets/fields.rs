@@ -1,9 +1,9 @@
-//! A drop-down list and a number field, in the shape of the other
-//! controls.
+//! A drop-down list, a number field and a text field, in the shape of
+//! the other controls.
 
 use eframe::egui::{
-    ComboBox, DragValue, Frame, Margin, Response, Role, Stroke, Ui, Widget, WidgetInfo,
-    style::WidgetVisuals,
+    ComboBox, DragValue, Frame, Margin, Response, Role, Stroke, TextEdit, Ui, Widget, WidgetInfo,
+    emath::Numeric, style::WidgetVisuals,
 };
 
 use crate::icons::{self, Icon};
@@ -59,12 +59,13 @@ pub fn dropdown<T: PartialEq + Clone>(
 }
 
 /// A number in `range` followed by its `unit`, which can be typed or
-/// dragged.
-pub fn number(
+/// dragged, `speed` per point dragged.
+pub fn number<N: Numeric>(
     ui: &mut Ui,
     c: &Colors,
-    value: &mut u64,
-    range: std::ops::RangeInclusive<u64>,
+    value: &mut N,
+    range: std::ops::RangeInclusive<N>,
+    speed: f64,
     unit: &str,
     changed: bool,
 ) -> Response {
@@ -87,7 +88,10 @@ pub fn number(
             }
             ui.horizontal_centered(|ui| {
                 let field = ui
-                    .add_sized([56.0, 22.0], DragValue::new(value).range(range).speed(0.2))
+                    .add_sized(
+                        [56.0, 22.0],
+                        DragValue::new(value).range(range).speed(speed),
+                    )
                     .on_hover_text("Drag, or click to type");
                 let unit = eframe::egui::RichText::new(unit).font(theme::regular(12.0));
                 ui.label(unit.color(c.faint_text));
@@ -97,6 +101,44 @@ pub fn number(
             .inner
         })
         .inner
+}
+
+/// A line of text `width` points wide, showing `hint` while it is empty.
+/// `label` names it for assistive technology.
+pub fn text(
+    ui: &mut Ui,
+    c: &Colors,
+    label: &str,
+    width: f32,
+    value: &mut String,
+    hint: &str,
+    changed: bool,
+) -> Response {
+    let stroke = if changed {
+        Stroke::new(1.0, c.accent)
+    } else {
+        Stroke::NONE
+    };
+    let response = Frame::new()
+        .fill(c.control)
+        .stroke(stroke)
+        .corner_radius(5)
+        .inner_margin(Margin::symmetric(6, 0))
+        .show(ui, |ui| {
+            ui.set_height(26.0);
+            ui.horizontal_centered(|ui| {
+                let field = TextEdit::singleline(value)
+                    .frame(Frame::NONE)
+                    .hint_text(hint)
+                    .font(theme::regular(12.0))
+                    .desired_width(width);
+                ui.add(field)
+            })
+            .inner
+        })
+        .inner;
+    response.widget_info(|| WidgetInfo::labeled(Role::TextInput, true, label));
+    response
 }
 
 /// A button, filled with the accent when it is the `primary` one.

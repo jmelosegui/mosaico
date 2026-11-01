@@ -5,7 +5,7 @@ mod row;
 mod segmented;
 mod toggle;
 
-pub use fields::{button, dropdown, number};
+pub use fields::{button, dropdown, number, text};
 pub use row::{RowState, divider, row, section};
 pub use segmented::segmented;
 pub use toggle::toggle;
