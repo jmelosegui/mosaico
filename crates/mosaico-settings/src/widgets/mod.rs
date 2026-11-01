@@ -15,9 +15,9 @@ pub use color::{ColorPicker, color};
 pub use fields::{button, dropdown, number, text};
 #[expect(unused_imports, reason = "the page redesigns use these")]
 pub use marks::{badge, checkbox, chip, icon_button, keycaps};
-pub use row::{RowState, divider, row, section};
 #[expect(unused_imports, reason = "the page redesigns use these")]
-pub use row::{card, heading};
+pub use row::card;
+pub use row::{RowState, divider, heading, row, section};
 pub use segmented::segmented;
 pub use slider::slider;
 #[expect(unused_imports, reason = "the page redesigns use these")]

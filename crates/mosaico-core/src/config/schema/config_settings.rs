@@ -78,13 +78,13 @@ pub const CONFIG_SETTINGS: &[SettingDescriptor] = &[
     setting(
         "layout.gap",
         "Gap",
-        "Space between windows and around the screen edges.",
+        "Pixels between windows and the screen edges.",
         pixels(GAP_MAX),
     ),
     setting(
         "layout.ratio",
         "Split ratio",
-        "The share of a split the first window gets.",
+        "Share of each split given to the first window.",
         SettingKind::Float {
             min: RATIO_MIN,
             max: RATIO_MAX,
@@ -93,10 +93,10 @@ pub const CONFIG_SETTINGS: &[SettingDescriptor] = &[
     ),
     setting(
         "layout.hiding",
-        "Hide windows by",
-        "How windows on other workspaces are hidden. Cloak keeps their taskbar entries.",
+        "Hide windows on other workspaces",
+        "How windows on workspaces you are not looking at are put away. The list shows the ways this system supports.",
         SettingKind::Choice(&[
-            ("cloak", "Cloak"),
+            ("cloak", "Keep in taskbar (recommended)"),
             ("hide", "Hide"),
             ("minimize", "Minimize"),
         ]),

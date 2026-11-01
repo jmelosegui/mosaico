@@ -14,6 +14,9 @@ use crate::widgets::{self, RowState};
 /// segmented control.
 const MAX_SEGMENTS: usize = 3;
 
+/// Choices whose labels are too long for a segmented control.
+const DROPDOWNS: [&str; 1] = ["layout.hiding"];
+
 /// Numbers with a small range that read best on a track.
 const SLIDERS: [&str; 5] = [
     "layout.gap",
@@ -22,6 +25,12 @@ const SLIDERS: [&str; 5] = [
     "animations.duration",
     "background_opacity",
 ];
+
+/// Where the track of a slider ends, for settings whose largest value is
+/// far beyond what is usually picked. Larger values can still be typed.
+fn track_max<N: From<u8>>(key: &str) -> Option<N> {
+    (key == "layout.gap").then(|| N::from(48))
+}
 
 /// Draws the row of the setting at `key`, with `help` under its label.
 pub fn draw(ui: &mut Ui, cx: &PageContext, key: &str, help: Option<&str>, edit: &mut Settings) {
@@ -91,20 +100,21 @@ fn control(
             widgets::toggle(ui, c, label, on);
         }
         (SettingKind::Int { min, max, unit }, SettingValue::Int(n)) => {
-            let draw = if SLIDERS.contains(&setting.key) {
-                widgets::slider
+            if SLIDERS.contains(&setting.key) {
+                let track = min..=track_max(setting.key).unwrap_or(max);
+                widgets::slider(ui, c, label, n, min..=max, track, 0.2, unit, changed);
             } else {
-                widgets::number
-            };
-            draw(ui, c, label, n, min..=max, 0.2, unit, changed);
+                widgets::number(ui, c, label, n, min..=max, 0.2, unit, changed);
+            }
         }
         (SettingKind::Float { min, max, step }, SettingValue::Float(x)) => {
-            let draw = if SLIDERS.contains(&setting.key) {
-                widgets::slider
+            let speed = step / 5.0;
+            if SLIDERS.contains(&setting.key) {
+                let track = min..=track_max(setting.key).unwrap_or(max);
+                widgets::slider(ui, c, label, x, min..=max, track, speed, "", changed);
             } else {
-                widgets::number
-            };
-            draw(ui, c, label, x, min..=max, step / 5.0, "", changed);
+                widgets::number(ui, c, label, x, min..=max, speed, "", changed);
+            }
         }
         (SettingKind::Choice(options), SettingValue::Text(s)) => {
             let options: Vec<_> = options
@@ -115,10 +125,12 @@ fn control(
                 .iter()
                 .find(|(name, _)| name == s)
                 .map_or(options[0].0, |(name, _)| *name);
-            if options.len() <= MAX_SEGMENTS {
+            if options.len() <= MAX_SEGMENTS && !DROPDOWNS.contains(&setting.key) {
                 widgets::segmented(ui, c, &options, &mut chosen, changed);
             } else {
-                widgets::dropdown(ui, c, label, 140.0, &options, &mut chosen, changed);
+                let longest = options.iter().map(|(_, label)| label.len()).max();
+                let width = (longest.unwrap_or(0) as f32 * 7.0 + 40.0).max(140.0);
+                widgets::dropdown(ui, c, label, width, &options, &mut chosen, changed);
             }
             *s = chosen.to_owned();
         }

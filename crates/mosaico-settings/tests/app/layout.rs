@@ -12,7 +12,13 @@ fn the_layout_page_saves_its_settings_and_shows_them_when_reopened() {
 
     // Act
     click(&mut h, Role::RadioButton, "Vertical stack");
-    click(&mut h, Role::RadioButton, "Minimize");
+    click(&mut h, Role::ComboBox, "Hide windows on other workspaces");
+    // The title bar has a Minimize button too; the option is below it.
+    h.get_all_by_label("Minimize")
+        .max_by(|a, b| a.rect().top().total_cmp(&b.rect().top()))
+        .expect("the option in the drop-down")
+        .click();
+    h.run();
     click(&mut h, Role::Button, "Apply");
 
     // Assert
@@ -55,7 +61,22 @@ fn a_number_typed_on_the_layout_page_is_an_edit() {
 }
 
 #[test]
-fn clicking_the_far_end_of_the_gap_track_sets_the_largest_gap() {
+fn a_gap_beyond_the_end_of_the_track_can_be_typed() {
+    let mut h = stopped();
+    open(&mut h, "Layout");
+
+    h.get_by_role_and_label(Role::SpinButton, "Gap").click();
+    h.run();
+    let field = h.get_by_role_and_label(Role::SpinButton, "Gap");
+    field.type_text("120");
+    h.key_press(eframe::egui::Key::Enter);
+    h.run();
+
+    assert_eq!(h.state().edit().get("layout.gap"), &SettingValue::Int(120));
+}
+
+#[test]
+fn clicking_the_far_end_of_the_gap_track_sets_the_largest_usual_gap() {
     let mut h = stopped();
     open(&mut h, "Layout");
 
@@ -77,5 +98,5 @@ fn clicking_the_far_end_of_the_gap_track_sets_the_largest_gap() {
     });
     h.run();
 
-    assert_eq!(h.state().edit().get("layout.gap"), &SettingValue::Int(200));
+    assert_eq!(h.state().edit().get("layout.gap"), &SettingValue::Int(48));
 }
