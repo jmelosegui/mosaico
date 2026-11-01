@@ -162,26 +162,26 @@ pub const CONFIG_SETTINGS: &[SettingDescriptor] = &[
     ),
     setting(
         "mouse.follows_focus",
-        "Pointer follows focus",
-        "Moving focus with the keyboard moves the pointer to the window.",
+        "Mouse follows focus",
+        "Move the cursor to the center of the focused window when you navigate with the keyboard.",
         SettingKind::Bool,
     ),
     setting(
         "mouse.focus_follows_mouse",
-        "Focus follows pointer",
-        "Pointing at a window focuses it.",
+        "Focus follows mouse",
+        "Focus the window under the cursor without clicking.",
         SettingKind::Bool,
     ),
     setting(
         "mouse.drag_to_swap",
         "Drag to swap",
-        "Dropping a dragged window on another swaps them.",
+        "Drop a tiled window you drag by its title bar on another tile to swap the two, or on another monitor to put it before the tile under the pointer. Off: the window goes back to its slot.",
         SettingKind::Bool,
     ),
     setting(
         "mouse.resize_splits",
         "Resize splits",
-        "Resizing a window with the mouse moves the split next to it.",
+        "Drag the edge between two tiles to move the split between them. A corner where two splits meet moves both. Off: a resized window goes back to its slot.",
         SettingKind::Bool,
     ),
     setting(

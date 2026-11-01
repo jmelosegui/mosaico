@@ -11,7 +11,7 @@ fn the_mouse_page_saves_its_switches_and_shows_them_when_reopened() {
     open(&mut h, "Mouse");
 
     // Act
-    click(&mut h, Role::Switch, "Focus follows pointer");
+    click(&mut h, Role::Switch, "Focus follows mouse");
     click(&mut h, Role::Switch, "Drag to swap");
     click(&mut h, Role::Button, "Apply");
 
