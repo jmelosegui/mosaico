@@ -59,6 +59,41 @@ jobs:
       - name: CLI tests
         run: cargo test -p mosaico --test cli
 
+  settings-portability:
+    name: Settings app (${{ matrix.os }})
+    # Only Windows ships, but the settings app and the core it edits
+    # through must keep building elsewhere, so a Linux or macOS port adds a
+    # platform crate rather than untangling this one.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Linux libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxkbcommon-dev libwayland-dev libx11-dev libxcursor-dev libxrandr-dev libxi-dev libgl1-mesa-dev
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Clippy
+        run: cargo clippy -p mosaico-settings --all-targets -- -D warnings
+
+      - name: Build
+        run: cargo build -p mosaico-settings
+
+      - name: Tests
+        run: cargo test -p mosaico-settings
+
   desktop:
     name: Desktop tests
     # tests/window_management.rs drives a live daemon, launches notepad and

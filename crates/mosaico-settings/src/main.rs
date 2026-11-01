@@ -5,8 +5,11 @@
 #[cfg(target_os = "windows")]
 mod platform;
 
+#[cfg(target_os = "windows")]
 use eframe::egui::{ViewportBuilder, vec2};
+#[cfg(target_os = "windows")]
 use mosaico_core::config::SETTINGS_WINDOW_MIN;
+#[cfg(target_os = "windows")]
 use mosaico_settings::{Forward, SettingsApp, remembered};
 
 #[cfg(target_os = "windows")]
