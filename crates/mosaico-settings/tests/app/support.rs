@@ -71,9 +71,11 @@ pub fn harness(daemon: DaemonState) -> Harness<'static, SettingsApp> {
 }
 
 pub fn search(h: &mut Harness<'static, SettingsApp>, text: &str) {
-    h.get_by_role(Role::TextInput).click();
+    h.get_by_role_and_label(Role::TextInput, "Search settings")
+        .click();
     h.run();
-    h.get_by_role(Role::TextInput).type_text(text);
+    h.get_by_role_and_label(Role::TextInput, "Search settings")
+        .type_text(text);
 }
 
 pub fn stopped() -> Harness<'static, SettingsApp> {

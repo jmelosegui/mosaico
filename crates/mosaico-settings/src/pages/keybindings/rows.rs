@@ -59,7 +59,7 @@ impl KeybindingsPage {
         }
     }
 
-    pub(super) fn matches(&self, index: usize, query: &str) -> bool {
+    pub(super) fn row_matches(&self, index: usize, query: &str) -> bool {
         let binding = &self.current[index];
         let query = query.trim().to_lowercase();
         let texts = [

@@ -4,16 +4,17 @@
 mod chrome;
 mod close;
 mod footer;
+mod page;
 mod prefs;
 mod refresh;
+mod search;
 mod sidebar;
 
-use eframe::egui::{CentralPanel, Frame, Margin, Panel, ScrollArea, Ui};
+use eframe::egui::{CentralPanel, Frame, Margin, Panel, Ui};
 use mosaico_core::config::{ConfigStore, SettingsAppConfig, Theme};
 
 use crate::model::{self, Draft, Loaded, Settings};
-use crate::pages::{self, FilePages, Page, PageContext};
-use crate::theme::Colors;
+use crate::pages::{self, FilePages, Page};
 
 pub use prefs::remembered;
 
@@ -69,6 +70,10 @@ pub struct SettingsApp {
     sign_in: SignIn,
     page: Page,
     query: String,
+    /// The page whose results a search scrolls to next.
+    scroll_to: Option<Page>,
+    /// Whether the next frame shows its content from the top.
+    scroll_top: bool,
     log_file: String,
     daemon: Box<dyn FnMut() -> DaemonState>,
     daemon_state: DaemonState,
@@ -101,6 +106,8 @@ impl SettingsApp {
             sign_in: services.sign_in,
             page: prefs::page_named(&remembered.page),
             query: String::new(),
+            scroll_to: None,
+            scroll_top: false,
             log_file: services.log_file,
             daemon: services.daemon,
             daemon_state: DaemonState::Stopped,
@@ -199,7 +206,8 @@ impl SettingsApp {
             .show(ui, |ui| chrome::title_bar(ui, &c))
             .inner;
         self.close.handle(ui.ctx(), close_clicked, self.changes());
-        Panel::left("navigation")
+        let query = self.query.clone();
+        let picked = Panel::left("navigation")
             .exact_size(224.0)
             .resizable(false)
             .frame(Frame::new().fill(c.sidebar).inner_margin(Margin {
@@ -209,8 +217,20 @@ impl SettingsApp {
                 bottom: 12,
             }))
             .show(ui, |ui| {
-                sidebar::show(ui, &c, &mut self.page, &mut self.query, &self.daemon_state);
-            });
+                let counts = self.searching().then(|| self.counts());
+                let nav = sidebar::Nav {
+                    page: self.page,
+                    counts: counts.as_ref(),
+                    daemon: &self.daemon_state,
+                };
+                sidebar::show(ui, &c, &nav, &mut self.query)
+            })
+            .inner;
+        if let Some(page) = picked {
+            self.page = page;
+            self.scroll_to = self.searching().then_some(page);
+        }
+        self.scroll_top |= self.query != query || (picked.is_some() && self.scroll_to.is_none());
         let footer = Panel::bottom("footer")
             .exact_size(52.0)
             .resizable(false)
@@ -242,38 +262,6 @@ impl SettingsApp {
 
         self.close.show(ui.ctx(), &c, self.changes());
         chrome::resize_edges(ui.ctx());
-    }
-
-    fn page(&mut self, ui: &mut Ui, c: &Colors) {
-        ScrollArea::vertical().auto_shrink(false).show(ui, |ui| {
-            Frame::new()
-                .inner_margin(Margin::symmetric(32, 24))
-                .show(ui, |ui| {
-                    let file = self.page.file();
-                    pages::header(ui, c, self.page, self.page.subtitle());
-                    if let Some(page) = self.files.get(self.page) {
-                        if let Some(problem) = page.problem() {
-                            pages::problem(ui, c, file, problem);
-                        }
-                        let enabled = page.problem().is_none();
-                        ui.add_enabled_ui(enabled, |ui| page.show(ui, c, &self.query));
-                        return;
-                    }
-                    if let Some(problem) = &self.problem {
-                        pages::problem(ui, c, file, problem);
-                    }
-                    let saved = self.draft.saved().clone();
-                    let cx = PageContext {
-                        c,
-                        saved: &saved,
-                        defaults: &self.defaults,
-                        log_file: &self.log_file,
-                    };
-                    ui.add_enabled_ui(self.problem.is_none(), |ui| {
-                        pages::show(ui, &cx, self.page, &self.query, &mut self.draft.edit);
-                    });
-                });
-        });
     }
 }
 

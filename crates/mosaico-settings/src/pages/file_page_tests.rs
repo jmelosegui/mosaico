@@ -25,6 +25,10 @@ impl FilePage for Fake {
         None
     }
 
+    fn matches(&self, _query: &str) -> usize {
+        0
+    }
+
     fn show(&mut self, _ui: &mut Ui, _c: &Colors, _query: &str) {}
 
     fn apply(&mut self) -> Result<(), String> {

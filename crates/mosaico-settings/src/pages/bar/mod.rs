@@ -10,7 +10,7 @@ mod preview;
 mod state;
 
 use eframe::egui::Ui;
-use mosaico_core::config::schema::{self, SettingValue};
+use mosaico_core::config::schema::{self, SettingDescriptor, SettingValue};
 use mosaico_core::config::{ConfigStore, Theme};
 
 use super::{FilePage, Page, Row, setting};
@@ -56,6 +56,25 @@ const SEARCH: &[Section] = &[
     ("Mouse", &["mouse.enabled", "mouse.scroll"]),
     ("Colors", appearance::COLORS),
 ];
+
+/// What a search finds the Widgets tab by, beside the names of the
+/// widgets on the bar.
+const WIDGETS: Row = Row::new(
+    "Widgets",
+    "Widgets on the left are drawn from the left edge, those on the right from the right edge.",
+);
+
+/// What a search finds the table of click actions by.
+const CLICKS: Row = Row::new("Click actions", "A click on a widget");
+
+/// The single settings of `keys` matching `query`.
+fn found(keys: &[&str], query: &str) -> Vec<&'static SettingDescriptor> {
+    keys.iter()
+        .filter_map(|key| schema::find_bar(key))
+        .filter(|s| Row::keyed(s.key, s.label, s.help).matches(query))
+        .collect()
+}
+
 /// The page editing `bar.toml`.
 pub struct BarPage {
     store: ConfigStore,
@@ -111,18 +130,12 @@ impl BarPage {
         self.edit = state;
     }
 
-    fn sections(&mut self, ui: &mut Ui, c: &Colors, query: &str, sections: &[Section]) -> bool {
-        let mut any = false;
+    fn sections(&mut self, ui: &mut Ui, c: &Colors, query: &str, sections: &[Section]) {
         for (title, keys) in sections {
-            let shown: Vec<_> = keys
-                .iter()
-                .filter_map(|key| schema::find_bar(key))
-                .filter(|s| Row::new(s.label, s.help).matches(query))
-                .collect();
+            let shown = found(keys, query);
             if shown.is_empty() {
                 continue;
             }
-            any = true;
             widgets::section(ui, c, title, |ui| {
                 for (i, setting) in shown.iter().enumerate() {
                     if i > 0 {
@@ -132,7 +145,6 @@ impl BarPage {
                 }
             });
         }
-        any
     }
 
     /// The row of the setting at `key`, from its descriptor.
@@ -193,21 +205,23 @@ impl BarPage {
         self.edit.set(key, value);
     }
 
+    /// Whether a search for `query` finds the Widgets tab: by its name or
+    /// by a widget on the bar.
+    fn widgets_match(&self, query: &str) -> bool {
+        let widgets = &self.edit.widgets;
+        let mut on_bar = widgets.left.iter().chain(&widgets.right);
+        WIDGETS.matches(query)
+            || on_bar.any(|w| Row::new(columns::label(w.kind), "").matches(query))
+    }
+
     /// The rows matching `query` of every tab, for a search.
     fn search(&mut self, ui: &mut Ui, c: &Colors, query: &str) {
-        let mut any = self.sections(ui, c, query, SEARCH);
-        let help = "Widgets on the left are drawn from the left edge, those on the right from the right edge.";
-        if Row::new("Widgets", help).matches(query) {
-            any = true;
+        self.sections(ui, c, query, SEARCH);
+        if self.widgets_match(query) {
             self.widgets_tab(ui, c);
         }
-        if Row::new("Click actions", "A click on a widget").matches(query) {
-            any = true;
+        if CLICKS.matches(query) {
             self.click_table(ui, c);
-        }
-        if !any {
-            let text = format!("No settings match \u{201c}{}\u{201d}.", query.trim());
-            ui.label(eframe::egui::RichText::new(text).color(c.dim_text));
         }
     }
 }
@@ -218,6 +232,14 @@ impl FilePage for BarPage {
 
     fn changes(&self) -> usize {
         self.edit.changes_from(&self.saved)
+    }
+
+    fn matches(&self, query: &str) -> usize {
+        let rows: usize = SEARCH
+            .iter()
+            .map(|(_, keys)| found(keys, query).len())
+            .sum();
+        rows + usize::from(self.widgets_match(query)) + usize::from(CLICKS.matches(query))
     }
 
     fn problem(&self) -> Option<&str> {

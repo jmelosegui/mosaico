@@ -9,10 +9,12 @@ mod keybindings;
 mod layout;
 mod mouse;
 mod rules;
+mod search;
 mod setting;
 mod workspaces;
 
 pub use file_page::{FilePage, FilePages};
+pub use search::{Row, count};
 
 use eframe::egui::{Frame, Margin, RichText, Stroke, Ui};
 use mosaico_core::config::ConfigStore;
@@ -151,31 +153,6 @@ pub struct PageContext<'a> {
     pub log_file: &'a str,
 }
 
-/// A setting's label and help, which search matches.
-pub struct Row {
-    pub label: &'static str,
-    help: &'static str,
-}
-
-impl Row {
-    pub const fn new(label: &'static str, help: &'static str) -> Self {
-        Self { label, help }
-    }
-
-    /// The help under the label, if the row has any.
-    pub fn help(&self) -> Option<&'static str> {
-        (!self.help.is_empty()).then_some(self.help)
-    }
-
-    /// Whether the label or the help contains `query`, ignoring case.
-    pub fn matches(&self, query: &str) -> bool {
-        let query = query.trim().to_lowercase();
-        [self.label, self.help]
-            .iter()
-            .any(|text| text.to_lowercase().contains(&query))
-    }
-}
-
 /// Draws one row, editing the settings.
 pub type Draw = fn(&mut Ui, &PageContext, &Row, &mut Settings);
 
@@ -200,9 +177,9 @@ impl Entry {
         match self {
             Self::Setting(key) | Self::Drawn(key, _) | Self::Bare(key, _) => {
                 let setting = schema::find(key).unwrap_or_else(|| panic!("no setting {key}"));
-                Row::new(setting.label, setting.help)
+                Row::keyed(setting.key, setting.label, setting.help)
             }
-            Self::Custom(row, _) => Row::new(row.label, row.help),
+            Self::Custom(row, _) => *row,
         }
     }
 
@@ -268,7 +245,7 @@ pub fn problem(ui: &mut Ui, c: &Colors, file: &str, problem: &str) {
 }
 
 /// Shows the rows of `sections` that match `query`, leaving out
-/// sections with none.
+/// sections with none. The search says when no page has any.
 fn sections(
     ui: &mut Ui,
     cx: &PageContext,
@@ -276,7 +253,6 @@ fn sections(
     sections: &[Section],
     settings: &mut Settings,
 ) {
-    let mut any = false;
     for (title, entries) in sections {
         let shown: Vec<_> = entries
             .iter()
@@ -286,7 +262,6 @@ fn sections(
         if shown.is_empty() {
             continue;
         }
-        any = true;
         if shown
             .iter()
             .all(|(entry, _)| matches!(entry, Entry::Bare(..)))
@@ -316,9 +291,5 @@ fn sections(
             }
         });
         ui.add_space(16.0);
-    }
-    if !any {
-        let text = format!("No settings match \u{201c}{}\u{201d}.", query.trim());
-        ui.label(RichText::new(text).color(cx.c.dim_text));
     }
 }
