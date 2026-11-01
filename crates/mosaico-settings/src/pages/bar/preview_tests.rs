@@ -1,6 +1,6 @@
 use mosaico_core::config::{BarWidget, Theme, WidgetKind};
 
-use super::{Look, sample};
+use super::{Look, bar_width, sample};
 use crate::icons::Icon;
 use crate::pages::bar::state::BarState;
 
@@ -64,4 +64,26 @@ fn the_widgets_shown_only_at_times_are_previewed() {
             "{kind} is not previewed"
         );
     }
+}
+
+#[test]
+fn a_bar_wider_than_the_page_is_not_squeezed() {
+    // Arrange
+    let look = Look::of(&BarState::defaults(), Theme::default());
+
+    // Act
+    let width = bar_width(300.0, 400.0, &look, 500.0);
+
+    // Assert
+    assert!(
+        width >= 300.0 + 400.0 + look.gap + look.edge * 2.0,
+        "{width}"
+    );
+}
+
+#[test]
+fn a_bar_that_fits_fills_the_page() {
+    let look = Look::of(&BarState::defaults(), Theme::default());
+
+    assert_eq!(bar_width(100.0, 100.0, &look, 500.0), 500.0);
 }
