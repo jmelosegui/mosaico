@@ -102,13 +102,14 @@ has no entry in the file, so it follows `layout.default`.
 
 | Section | Setting | Key in `config.toml` |
 |---------|---------|----------------------|
-| Border | Width, corners | `borders.width`, `borders.corner_style` |
+| Border | Width, corner style | `borders.width`, `borders.corner_style` |
 | Colors | Focused, monocle, unfocused | `borders.colors.focused`, `borders.colors.monocle`, `borders.colors.unfocused` |
 
-Each color is picked from a swatch. Click it to choose the theme default, a
-named color of the theme being edited (the palette changes with the theme), or
-type a `#RRGGBB` value; a hex that isn't a color is not taken. Unfocused also
-offers None, which draws no border on windows without focus.
+Each color is a button with the color's swatch and name. Click it to open the
+theme's colors: pick one (the palette changes with the theme), or type a
+`#RRGGBB` value; a hex that isn't a color is not taken. "Use the theme default"
+goes back to the theme's own color. Unfocused also offers None, which draws no
+border on windows without focus.
 
 ## Mouse
 

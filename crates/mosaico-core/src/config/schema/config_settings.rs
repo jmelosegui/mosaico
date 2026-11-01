@@ -130,31 +130,31 @@ pub const CONFIG_SETTINGS: &[SettingDescriptor] = &[
     setting(
         "borders.width",
         "Width",
-        "How thick the border around windows is. 0 draws none.",
+        "Border width around the focused window.",
         pixels(BORDER_WIDTH_MAX),
     ),
     setting(
         "borders.corner_style",
-        "Corners",
-        "How round borders and window corners are.",
+        "Corner style",
+        "Corners of borders and tiled windows.",
         SettingKind::Choice(&[("square", "Square"), ("small", "Small"), ("round", "Round")]),
     ),
     setting(
         "borders.colors.focused",
         "Focused",
-        "The border of the focused window.",
+        "While a tiled layout is active.",
         SettingKind::Color,
     ),
     setting(
         "borders.colors.monocle",
         "Monocle",
-        "The border of the focused window in monocle.",
+        "While monocle mode is active.",
         SettingKind::Color,
     ),
     setting(
         "borders.colors.unfocused",
         "Unfocused",
-        "The border of the other windows. None draws no border.",
+        "Around unfocused tiled windows. None turns them off.",
         SettingKind::Color,
     ),
     setting(

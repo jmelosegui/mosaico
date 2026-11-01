@@ -108,10 +108,27 @@ fn theme_default_removes_the_key() {
     apply(&mut h);
 
     click(&mut h, Role::Button, "Focused");
-    click(&mut h, Role::Button, "Theme default");
+    click(&mut h, Role::Button, "Use the theme default (blue)");
     apply(&mut h);
 
     assert!(!written(&dir).contains("focused"));
+}
+
+#[test]
+fn corner_styles_are_offered_square_small_round() {
+    let (h, _) = borders("borders-order");
+
+    let mut found: Vec<_> = h
+        .get_all_by_role(Role::RadioButton)
+        .map(|n| {
+            let label = n.accesskit_node().label().unwrap_or_default().to_string();
+            (n.rect().min.x, label)
+        })
+        .collect();
+    found.sort_by(|a, b| a.0.total_cmp(&b.0));
+    let order: Vec<_> = found.into_iter().map(|(_, label)| label).collect();
+
+    assert_eq!(order, ["Square", "Small", "Round"]);
 }
 
 #[test]
