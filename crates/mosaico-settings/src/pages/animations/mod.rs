@@ -1,8 +1,11 @@
 //! The Animations page: how windows move into place, from `config.toml`.
 
+mod curve;
+mod play;
+
 use eframe::egui::Ui;
 use mosaico_core::config::schema::SettingValue;
-use mosaico_core::motion::Easing;
+use mosaico_core::motion::{CubicBezier, Easing};
 
 use super::{Entry, PageContext, Row, Section};
 use crate::model::Settings;
@@ -10,7 +13,7 @@ use crate::widgets::{self, RowState};
 
 pub const SECTIONS: &[Section] = &[
     (
-        "Motion",
+        "Transitions",
         &[
             Entry::Setting("animations.enabled"),
             Entry::Setting("animations.duration"),
@@ -23,18 +26,19 @@ pub const SECTIONS: &[Section] = &[
 const KEY: &str = "animations.easing";
 
 /// The curve a custom easing starts from when it is picked.
-const CUSTOM: &str = "cubic-bezier(0.2, 0, 0, 1)";
+const CUSTOM: [f64; 4] = [0.2, 0.0, 0.0, 1.0];
 
 /// What the easing drop-down picks: a preset, or a curve of the user's
-/// own, typed next to it.
+/// own, whose points are edited under it.
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Pick {
     Preset(Easing),
     Custom,
 }
 
-/// The easing row: a drop-down of the presets and "Custom curve", which
-/// shows a field for the curve. A curve that does not parse says why
+/// The easing row: a drop-down of the presets and "Custom", over a
+/// picture of the curve and the four points of it, which can be edited
+/// when the curve is a custom one. A curve that does not parse says why
 /// under the label, and Apply refuses it.
 fn easing(ui: &mut Ui, cx: &PageContext, row: &Row, edit: &mut Settings) {
     let mut text = text(edit.get(KEY));
@@ -48,37 +52,37 @@ fn easing(ui: &mut Ui, cx: &PageContext, row: &Row, edit: &mut Settings) {
         unsaved: text != saved,
         default: (text != default).then(|| label_of(&default)),
     };
-    let now = match parsed {
-        Ok(Easing::CubicBezier(_)) | Err(_) => Pick::Custom,
-        Ok(preset) => Pick::Preset(preset),
+    let shape = parsed.as_ref().ok().copied();
+    let now = match shape {
+        Some(Easing::CubicBezier(_)) | None => Pick::Custom,
+        Some(preset) => Pick::Preset(preset),
     };
     let mut options: Vec<_> = Easing::PRESETS
         .iter()
         .map(|e| (Pick::Preset(*e), e.label()))
         .collect();
-    options.push((Pick::Custom, "Custom curve"));
+    options.push((Pick::Custom, "Custom"));
     let mut pick = now;
     let reset = widgets::row(ui, cx.c, row.label, Some(&help), &st, |ui| {
-        widgets::dropdown(ui, cx.c, row.label, 170.0, &options, &mut pick, st.unsaved);
-        if pick == Pick::Custom && now == Pick::Custom {
-            widgets::text(
-                ui,
-                cx.c,
-                "Custom curve",
-                190.0,
-                &mut text,
-                CUSTOM,
-                st.unsaved,
-            );
-        }
+        widgets::dropdown(ui, cx.c, row.label, 190.0, &options, &mut pick, st.unsaved);
     });
+    let mut points = shape.map_or(CUSTOM, Easing::control_points);
+    let edited = curve::show(ui, cx.c, shape, &mut points, now == Pick::Custom);
     text = match (reset, pick) {
         (true, _) => default,
         (false, Pick::Preset(preset)) => preset.to_string(),
-        (false, Pick::Custom) if now != Pick::Custom => CUSTOM.into(),
+        (false, Pick::Custom) if now != Pick::Custom => bezier(CUSTOM).unwrap_or(text),
+        (false, Pick::Custom) if edited => bezier(points).unwrap_or(text),
         (false, Pick::Custom) => text,
     };
     edit.set(KEY, SettingValue::Text(text));
+}
+
+/// The easing text of a curve with `points`, if they are a curve.
+fn bezier([x1, y1, x2, y2]: [f64; 4]) -> Option<String> {
+    let round = |v: f64| (v * 100.0).round() / 100.0;
+    CubicBezier::new(round(x1), round(y1), round(x2), round(y2))
+        .map(|curve| Easing::CubicBezier(curve).to_string())
 }
 
 fn text(value: &SettingValue) -> String {

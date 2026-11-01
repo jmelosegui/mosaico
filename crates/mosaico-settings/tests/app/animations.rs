@@ -22,7 +22,7 @@ fn a_preset_easing_picked_from_the_list_is_saved_by_name() {
     click(&mut h, Role::ComboBox, "Easing");
     h.get_by_label("Linear").click();
     h.run();
-    click(&mut h, Role::Switch, "Follow the system");
+    click(&mut h, Role::Switch, "Follow the system setting");
     click(&mut h, Role::Button, "Apply");
 
     // Assert
@@ -33,25 +33,20 @@ fn a_preset_easing_picked_from_the_list_is_saved_by_name() {
 }
 
 #[test]
-fn a_custom_curve_shows_a_field_that_starts_from_a_valid_curve() {
+fn picking_a_custom_curve_starts_from_a_valid_curve() {
     // Arrange
     let store = folder("animations-custom");
     let dir = store.config_path().parent().unwrap().to_path_buf();
     let mut h = window(store, DaemonState::Stopped, &SignIn::default());
     open(&mut h, "Animations");
-    assert!(
-        h.query_by_role_and_label(Role::TextInput, "Custom curve")
-            .is_none()
-    );
 
     // Act
     click(&mut h, Role::ComboBox, "Easing");
-    h.get_by_label("Custom curve").click();
+    h.get_by_label("Custom").click();
     h.run();
     click(&mut h, Role::Button, "Apply");
 
     // Assert
-    h.get_by_role_and_label(Role::TextInput, "Custom curve");
     assert_eq!(
         config(&dir),
         "[animations]\neasing = \"cubic-bezier(0.2, 0, 0, 1)\"\n"
@@ -59,9 +54,9 @@ fn a_custom_curve_shows_a_field_that_starts_from_a_valid_curve() {
 }
 
 #[test]
-fn a_curve_that_does_not_parse_says_why_and_is_not_saved() {
+fn a_point_of_a_custom_curve_can_be_typed() {
     // Arrange
-    let store = folder("animations-invalid");
+    let store = folder("animations-point");
     let dir = store.config_path().parent().unwrap().to_path_buf();
     std::fs::write(
         dir.join("config.toml"),
@@ -72,24 +67,62 @@ fn a_curve_that_does_not_parse_says_why_and_is_not_saved() {
     open(&mut h, "Animations");
 
     // Act
-    click(&mut h, Role::TextInput, "Custom curve");
-    h.get_by_role_and_label(Role::TextInput, "Custom curve")
-        .type_text("x");
+    click(&mut h, Role::SpinButton, "Curve x2");
+    h.get_by_role_and_label(Role::SpinButton, "Curve x2")
+        .type_text("0.6");
+    h.key_press(eframe::egui::Key::Enter);
     h.run();
     click(&mut h, Role::Button, "Apply");
 
     // Assert
-    let says_why = h.query_all_by_label_contains("invalid easing").any(|n| {
-        let node = n.accesskit_node();
-        let text = node.label().or(node.value()).unwrap_or_default();
-        text.starts_with("invalid easing")
-    });
-    assert!(says_why, "the row's help says why");
-    assert_ne!(easing(&h), &SettingValue::Text(CUSTOM.into()));
     assert_eq!(
         config(&dir),
-        "[animations]\neasing = \"cubic-bezier(0.2, 0, 0, 1)\"\n"
+        "[animations]\neasing = \"cubic-bezier(0.2, 0, 0.6, 1)\"\n"
     );
 }
 
-const CUSTOM: &str = "cubic-bezier(0.2, 0, 0, 1)";
+#[test]
+fn play_runs_the_dot_along_the_curve_and_stops() {
+    // Arrange
+    let (done, finished) = std::sync::mpsc::channel();
+
+    // Act
+    std::thread::spawn(move || {
+        let store = folder("animations-play");
+        let mut h = window(store, DaemonState::Stopped, &SignIn::default());
+        open(&mut h, "Animations");
+        h.get_by_role_and_label(Role::Button, "Play").click();
+        h.run_steps(90);
+        h.run();
+        done.send(()).unwrap();
+    });
+
+    // Assert
+    assert!(
+        finished
+            .recv_timeout(std::time::Duration::from_secs(60))
+            .is_ok(),
+        "the window stopped responding after Play was clicked"
+    );
+}
+
+#[test]
+fn a_preset_shows_its_points_without_letting_them_be_edited() {
+    // Arrange
+    let store = folder("animations-preset-points");
+    let dir = store.config_path().parent().unwrap().to_path_buf();
+    let mut h = window(store, DaemonState::Stopped, &SignIn::default());
+    open(&mut h, "Animations");
+
+    // Act
+    click(&mut h, Role::SpinButton, "Curve x2");
+    h.get_by_role_and_label(Role::SpinButton, "Curve x2")
+        .type_text("0.6");
+    h.key_press(eframe::egui::Key::Enter);
+    h.run();
+    click(&mut h, Role::Button, "Apply");
+
+    // Assert
+    assert_eq!(config(&dir), "");
+    assert_eq!(easing(&h), &SettingValue::Text("ease-out-cubic".into()));
+}

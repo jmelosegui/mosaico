@@ -184,7 +184,7 @@ pub const CONFIG_SETTINGS: &[SettingDescriptor] = &[
     setting(
         "animations.enabled",
         "Animate windows",
-        "Windows move to their new place instead of jumping there.",
+        "Windows move to their new place over a short time when they swap, move or resize, and when the layout changes.",
         SettingKind::Bool,
     ),
     setting(
@@ -200,13 +200,13 @@ pub const CONFIG_SETTINGS: &[SettingDescriptor] = &[
     setting(
         "animations.easing",
         "Easing",
-        "The curve windows follow: a preset or cubic-bezier(x1, y1, x2, y2).",
+        "How windows speed up and slow down on the way.",
         SettingKind::Text,
     ),
     setting(
         "animations.follow_system",
-        "Follow the system",
-        "Windows snap while the system turns animations off.",
+        "Follow the system setting",
+        "Snap windows into place while the system has animations turned off, and in a remote session.",
         SettingKind::Bool,
     ),
     setting(

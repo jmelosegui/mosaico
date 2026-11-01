@@ -122,12 +122,13 @@ border on windows without focus.
 
 | Section | Setting | Key in `config.toml` |
 |---------|---------|----------------------|
-| Motion | Animate windows, duration, easing | `animations.enabled`, `animations.duration`, `animations.easing` |
-| System | Follow the system | `animations.follow_system` |
+| Transitions | Animate windows, duration, easing | `animations.enabled`, `animations.duration`, `animations.easing` |
+| System | Follow the system setting | `animations.follow_system` |
 
-Easing lists the presets and **Custom curve**, which shows a field for a
-`cubic-bezier(x1, y1, x2, y2)` curve. A curve that is not valid says why under
-the setting's name, and Apply refuses it until it is fixed.
+Easing lists the presets and **Custom**. A picture of the curve sits under the
+row, with its four points as `cubic-bezier(x1, y1, x2, y2)`: a preset shows
+the points closest to it, and a custom curve lets you type them, each from 0 to
+1. **Play** runs a dot along the curve to show how it moves.
 
 ## Bar
 
