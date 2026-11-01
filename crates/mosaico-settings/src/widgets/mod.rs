@@ -12,10 +12,9 @@ mod tabs;
 mod toggle;
 
 pub use color::{ColorPicker, color};
-pub use fields::{button, dropdown, number, text};
+pub use fields::{button, dimmed_dropdown, dropdown, number, text};
 #[expect(unused_imports, reason = "the page redesigns use these")]
 pub use marks::{badge, checkbox, chip, icon_button, keycaps};
-#[expect(unused_imports, reason = "the page redesigns use these")]
 pub use row::card;
 pub use row::{RowState, divider, heading, row, section};
 pub use segmented::segmented;

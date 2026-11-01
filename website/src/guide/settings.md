@@ -92,11 +92,11 @@ Picking a theme or flavor previews it in the settings window right away.
 
 | Section | Setting | Key in `config.toml` |
 |---------|---------|----------------------|
-| Switching | Whether a switch changes the focused monitor or every monitor, and wrapping around | `workspaces.mode`, `workspaces.wrap` |
-| Layouts | The layout of each of the eight workspaces | `[workspaces.layouts]`, as `1 = "vertical-stack"` |
+| Switching | Mode (per monitor or global) and wrap around | `workspaces.mode`, `workspaces.wrap` |
+| Layout per workspace | The layout of each of the eight workspaces, in two columns | `[workspaces.layouts]`, as `1 = "vertical-stack"` |
 
-A workspace set to **Default layout** has no entry in the file, so it follows
-`layout.default`.
+A workspace shown as dimmed **Default (BSP)** (the name of the default layout)
+has no entry in the file, so it follows `layout.default`.
 
 ## Borders
 
