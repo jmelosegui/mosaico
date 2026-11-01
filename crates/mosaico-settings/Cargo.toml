@@ -1,6 +1,6 @@
 [package]
 name = "mosaico-settings"
-version = "0.11.0"
+version = "0.12.0"
 edition = "2024"
 description = "The settings window of the mosaico tiling window manager"
 license = "MIT"
