@@ -1,9 +1,10 @@
 use std::path::Path;
 
+use mosaico_core::config::schema::CONFIG_SETTINGS;
 use mosaico_core::config::{ConfigStore, ThemeCheck, ThemeConfig};
 
 use super::context::{Context, Exit, say};
-use super::{doctor_animations, doctor_bar, doctor_runtime};
+use super::{doctor_animations, doctor_bar, doctor_runtime, doctor_settings};
 
 /// ANSI escape helpers for doctor output.
 const OK: &str = "\x1b[32m[ok]\x1b[0m";
@@ -16,6 +17,8 @@ pub fn execute(cx: &mut Context) -> Exit {
     say!(cx, "");
     check_config_dir(&cx.config);
     check_config_file(&cx.config);
+    let config = cx.config.config_path();
+    doctor_settings::check_settings(cx, "config.toml", &config, CONFIG_SETTINGS);
     check_theme(&cx.config);
     check_keybindings_file(&cx.config);
     check_keybinding_keys(&cx.config);

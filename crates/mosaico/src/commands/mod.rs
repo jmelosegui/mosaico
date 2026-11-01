@@ -8,6 +8,7 @@ pub mod doctor;
 mod doctor_animations;
 mod doctor_bar;
 mod doctor_runtime;
+mod doctor_settings;
 pub mod init;
 pub mod pause;
 mod request;

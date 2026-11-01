@@ -275,7 +275,7 @@ and brings its docs, so it can merge on its own.
 - [x] Tests: every config field has a descriptor and the reverse; every
       default validates unchanged; every out-of-range value is clamped to the
       descriptor's bounds
-- [ ] `mosaico doctor` messages come from the descriptors
+- [x] `mosaico doctor` messages come from the descriptors
 
 ### 37.2 Editing config files
 

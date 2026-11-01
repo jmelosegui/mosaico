@@ -16,10 +16,13 @@ It checks:
 1. Config directory exists
 2. All configuration files are valid TOML, and how many click bindings
    `bar.toml` gives the bar, with any it ignores
-3. All keybinding key names resolve to valid key codes
-4. Daemon status (running, stopped, or stale)
-5. Monitor enumeration and dimensions
-6. Window transitions: the `[animations]` settings, whether Windows allows
+3. Each value in `config.toml` and `bar.toml` that mosaico does not take as
+   written (out of range, not one of the names listed, or an unknown key),
+   named with the label the settings window gives it
+4. All keybinding key names resolve to valid key codes
+5. Daemon status (running, stopped, or stale)
+6. Monitor enumeration and dimensions
+7. Window transitions: the `[animations]` settings, whether Windows allows
    animations right now, and whether windows can move frame by frame
 
 Issues are reported with colored tags: `[ok]`, `[warn]`, `[fail]`, or
