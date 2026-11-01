@@ -93,7 +93,33 @@ pub fn number<N: Numeric>(
     unit: &str,
     changed: bool,
 ) -> Response {
-    let (rect, _) = ui.allocate_exact_size(vec2(NUMBER_WIDTH, 26.0), Sense::hover());
+    number_of_width(
+        ui,
+        c,
+        label,
+        NUMBER_WIDTH,
+        value,
+        range,
+        speed,
+        unit,
+        changed,
+    )
+}
+
+/// A [`number`] `width` points wide, for rows that line several up.
+#[allow(clippy::too_many_arguments)]
+pub fn number_of_width<N: Numeric>(
+    ui: &mut Ui,
+    c: &Colors,
+    label: &str,
+    width: f32,
+    value: &mut N,
+    range: std::ops::RangeInclusive<N>,
+    speed: f64,
+    unit: &str,
+    changed: bool,
+) -> Response {
+    let (rect, _) = ui.allocate_exact_size(vec2(width, 26.0), Sense::hover());
     let stroke = if changed {
         Stroke::new(1.0, c.accent)
     } else {

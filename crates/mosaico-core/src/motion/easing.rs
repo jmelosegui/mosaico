@@ -64,6 +64,20 @@ impl Easing {
         }
     }
 
+    /// The control points `[x1, y1, x2, y2]` of the cubic Bezier that
+    /// looks most like the easing, to start a curve of one's own from. A
+    /// cubic Bezier gives its own; `ease-out-expo` is approximated.
+    pub fn control_points(self) -> [f64; 4] {
+        match self {
+            Self::Linear => [0.0, 0.0, 1.0, 1.0],
+            Self::EaseOutQuad => [0.5, 1.0, 0.89, 1.0],
+            Self::EaseOutCubic => [0.33, 1.0, 0.68, 1.0],
+            Self::EaseInOutCubic => [0.65, 0.0, 0.35, 1.0],
+            Self::EaseOutExpo => [0.16, 1.0, 0.3, 1.0],
+            Self::CubicBezier(curve) => curve.points(),
+        }
+    }
+
     /// How fast [`progress`](Self::progress) changes at `t`: the slope of
     /// the curve there. A motion's speed is its distance times this,
     /// divided by its duration.

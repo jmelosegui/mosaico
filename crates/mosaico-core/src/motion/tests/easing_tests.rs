@@ -45,6 +45,23 @@ fn every_easing_starts_at_exactly_zero_and_ends_at_exactly_one() {
 }
 
 #[test]
+fn the_control_points_of_a_preset_draw_a_curve_close_to_it() {
+    for easing in PRESETS {
+        // Arrange
+        let [x1, y1, x2, y2] = easing.control_points();
+        let curve = Easing::CubicBezier(CubicBezier::new(x1, y1, x2, y2).unwrap());
+
+        // Act
+        let furthest = times(100)
+            .map(|t| (easing.progress(t) - curve.progress(t)).abs())
+            .fold(0.0, f64::max);
+
+        // Assert
+        assert!(furthest < 0.05, "{easing} is {furthest} from its points");
+    }
+}
+
+#[test]
 fn time_outside_the_motion_is_clamped_to_its_ends() {
     for easing in every_easing() {
         // Act

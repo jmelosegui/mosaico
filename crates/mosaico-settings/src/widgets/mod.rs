@@ -15,7 +15,7 @@ mod tabs;
 mod toggle;
 
 pub use color::{ColorPicker, color};
-pub use fields::{button, dimmed_dropdown, dropdown, number, text};
+pub use fields::{button, dimmed_dropdown, dropdown, number, number_of_width, text};
 #[expect(unused_imports, reason = "the page redesigns use these")]
 pub use marks::{badge, checkbox, chip, icon_button, keycaps};
 pub use row::{RowState, card, divider, heading, row, section};
