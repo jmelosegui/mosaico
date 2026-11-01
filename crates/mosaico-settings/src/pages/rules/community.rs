@@ -1,9 +1,12 @@
 //! The community rules, read-only.
 
-use eframe::egui::{CollapsingHeader, RichText, Ui};
+use eframe::egui::{RichText, Ui};
 use mosaico_core::config::WindowRule;
 
+use super::row;
+use crate::icons::Icon;
 use crate::theme::{self, Colors};
+use crate::widgets;
 
 /// What a rule matches on, as one line.
 pub fn describe(rule: &WindowRule) -> String {
@@ -29,35 +32,40 @@ pub fn matches(rule: &WindowRule, query: &str) -> bool {
     describe(rule).to_lowercase().contains(&query)
 }
 
-/// Lists the rules matching `query` under a heading that opens and
-/// closes them; searching opens it.
-pub fn show(ui: &mut Ui, c: &Colors, rules: &[WindowRule], query: &str, problem: Option<&str>) {
-    let shown: Vec<_> = rules.iter().filter(|r| matches(r, query)).collect();
-    let title = format!("Community rules ({})", shown.len());
-    let mut header = CollapsingHeader::new(RichText::new(title).font(theme::bold(13.0)));
-    if !query.trim().is_empty() {
-        header = header.open(Some(true));
+/// Lists the rules matching `query` under their heading, dimmed as they
+/// are read-only. Returns the rule whose Override was clicked.
+pub fn show(
+    ui: &mut Ui,
+    c: &Colors,
+    rules: &[WindowRule],
+    query: &str,
+    problem: Option<&str>,
+) -> Option<WindowRule> {
+    let note = "rules.toml, read-only. Downloaded from jmelosegui/mosaico-rules.";
+    super::heading(ui, c, Some(Icon::Lock), "Community rules", note);
+    if let Some(problem) = problem {
+        let text = RichText::new(problem)
+            .font(theme::regular(11.0))
+            .color(c.warning);
+        ui.label(text);
     }
-    header.show(ui, |ui| {
-        let note = |ui: &mut Ui, text: &str| {
-            ui.label(
-                RichText::new(text)
-                    .font(theme::regular(11.0))
-                    .color(c.faint_text),
-            );
-        };
-        note(
-            ui,
-            "Downloaded for everyone, in rules.toml. Yours above come first.",
-        );
-        if let Some(problem) = problem {
-            note(ui, problem);
-        }
-        for rule in shown {
-            let line = RichText::new(describe(rule))
-                .font(theme::regular(12.0))
-                .color(c.dim_text);
-            ui.label(line);
-        }
+    let shown: Vec<_> = rules.iter().filter(|r| matches(r, query)).collect();
+    if shown.is_empty() {
+        return None;
+    }
+    let mut chosen = None;
+    ui.scope(|ui| {
+        ui.set_opacity(0.8);
+        widgets::card(ui, c, |ui| {
+            for (i, rule) in shown.iter().enumerate() {
+                if i > 0 {
+                    widgets::divider(ui, c);
+                }
+                if row::community(ui, c, i + 1, rule).is_some() {
+                    chosen = Some((*rule).clone());
+                }
+            }
+        });
     });
+    chosen
 }

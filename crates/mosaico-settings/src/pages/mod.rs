@@ -97,6 +97,14 @@ impl Page {
         }
     }
 
+    /// The files the page edits and shows, under its name.
+    pub fn subtitle(self) -> &'static str {
+        match self {
+            Self::Rules => "user-rules.toml and rules.toml",
+            _ => self.file(),
+        }
+    }
+
     /// The page's rows of `config.toml` settings, if it has them.
     fn sections(self) -> Option<&'static [Section]> {
         match self {

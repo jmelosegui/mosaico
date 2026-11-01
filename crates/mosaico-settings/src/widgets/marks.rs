@@ -1,8 +1,8 @@
 //! Small marks inside rows: chips, badges, keycaps and icon buttons.
 
 use eframe::egui::{
-    Color32, CursorIcon, Frame, Margin, Rect, Response, RichText, Role, Sense, Stroke, Ui,
-    WidgetInfo, vec2,
+    Color32, CursorIcon, FontId, Frame, Margin, Rect, Response, RichText, Role, Sense, Stroke, Ui,
+    WidgetInfo, pos2, vec2,
 };
 
 use crate::icons::{self, Icon};
@@ -10,35 +10,48 @@ use crate::theme::{self, Colors};
 
 /// A rounded chip reading `label`, after a dim `key` when there is one,
 /// as in "class is Notepad".
-#[expect(dead_code, reason = "the page redesigns use these")]
 pub fn chip(ui: &mut Ui, c: &Colors, key: Option<&str>, label: &str) -> Response {
-    Frame::new()
-        .fill(c.control)
-        .corner_radius(10)
-        .inner_margin(Margin::symmetric(9, 3))
-        .show(ui, |ui| {
-            ui.spacing_mut().item_spacing.x = 5.0;
-            if let Some(key) = key {
-                let key = RichText::new(key).font(theme::regular(11.0));
-                ui.label(key.color(c.faint_text));
-            }
-            ui.label(RichText::new(label).font(theme::regular(11.0)));
-        })
-        .response
+    let font = theme::regular(11.0);
+    let mut parts = Vec::with_capacity(2);
+    if let Some(key) = key {
+        parts.push((key, c.faint_text));
+    }
+    parts.push((label, c.text));
+    pill(ui, c.control, &font, &parts)
 }
 
 /// A chip in `color`, for a state such as "Tile" or "Don't tile".
-#[expect(dead_code, reason = "the page redesigns use these")]
 pub fn badge(ui: &mut Ui, label: &str, color: Color32) -> Response {
-    Frame::new()
-        .fill(color.gamma_multiply(0.18))
-        .corner_radius(10)
-        .inner_margin(Margin::symmetric(9, 3))
-        .show(ui, |ui| {
-            let text = RichText::new(label).font(theme::bold(11.0)).color(color);
-            ui.label(text);
+    let fill = color.gamma_multiply(0.18);
+    pill(ui, fill, &theme::bold(11.0), &[(label, color)])
+}
+
+/// Texts 5 points apart in a pill of 3 points by 9 of margin. It is
+/// painted at its own size, so a row centers it instead of stretching it.
+fn pill(ui: &mut Ui, fill: Color32, font: &FontId, parts: &[(&str, Color32)]) -> Response {
+    let galleys: Vec<_> = parts
+        .iter()
+        .map(|(text, color)| {
+            let text = (*text).to_owned();
+            ui.painter().layout_no_wrap(text, font.clone(), *color)
         })
-        .response
+        .collect();
+    let gaps = 5.0 * galleys.len().saturating_sub(1) as f32;
+    let width = galleys.iter().map(|g| g.size().x).sum::<f32>() + gaps;
+    let height = galleys.iter().map(|g| g.size().y).fold(0.0, f32::max);
+    let (rect, response) = ui.allocate_exact_size(vec2(width + 18.0, height + 6.0), Sense::hover());
+    ui.painter().rect_filled(rect, 10.0, fill);
+    let mut x = rect.left() + 9.0;
+    for (i, (galley, (text, _))) in galleys.into_iter().zip(parts).enumerate() {
+        let at = pos2(x, rect.center().y - galley.size().y / 2.0);
+        x += galley.size().x + 5.0;
+        // Each text is read out on its own, as a label would be.
+        let part = Rect::from_min_size(at, galley.size());
+        let read = ui.interact(part, response.id.with(i), Sense::hover());
+        read.widget_info(|| WidgetInfo::labeled(Role::Label, true, *text));
+        ui.painter().galley(at, galley, Color32::PLACEHOLDER);
+    }
+    response
 }
 
 /// The keys of a shortcut, one cap each, outlined in the accent when

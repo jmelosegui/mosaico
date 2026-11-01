@@ -51,29 +51,31 @@ impl Draft {
     }
 
     /// Adds a rule that matches nothing yet, to tile.
-    pub fn add(&mut self) {
+    pub fn add(&mut self) -> usize {
         let rule = WindowRule {
             match_class: None,
             match_title: None,
             match_path: None,
             action: RuleAction::Tile,
         };
+        self.push(rule)
+    }
+
+    /// Adds `rule` at the end, as a new one, and returns its place.
+    pub fn push(&mut self, rule: WindowRule) -> usize {
         self.entries.push(Entry { origin: None, rule });
+        self.entries.len() - 1
     }
 
     pub fn remove(&mut self, index: usize) {
         self.entries.remove(index);
     }
 
-    pub fn move_up(&mut self, index: usize) {
-        if index > 0 {
-            self.entries.swap(index, index - 1);
-        }
-    }
-
-    pub fn move_down(&mut self, index: usize) {
-        if index + 1 < self.entries.len() {
-            self.entries.swap(index, index + 1);
+    /// Moves the entry at `from` to place `to`, the ones between shifting over.
+    pub fn move_to(&mut self, from: usize, to: usize) {
+        if from < self.entries.len() && to < self.entries.len() {
+            let entry = self.entries.remove(from);
+            self.entries.insert(to, entry);
         }
     }
 

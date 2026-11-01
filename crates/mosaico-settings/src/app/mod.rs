@@ -245,7 +245,7 @@ impl SettingsApp {
                 .inner_margin(Margin::symmetric(32, 24))
                 .show(ui, |ui| {
                     let file = self.page.file();
-                    pages::header(ui, c, self.page, file);
+                    pages::header(ui, c, self.page, self.page.subtitle());
                     if let Some(page) = self.files.get(self.page) {
                         if let Some(problem) = page.problem() {
                             pages::problem(ui, c, file, problem);
