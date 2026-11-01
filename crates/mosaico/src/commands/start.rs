@@ -92,7 +92,7 @@ fn print_banner(cx: &mut Context, pid: u32) {
     let r = "\x1b[0m"; // Reset
     let tip = TIPS[pid as usize % TIPS.len()];
 
-    (cx.logo)(&mut *cx.out);
+    (cx.logo)(&mut *cx.out, env!("CARGO_PKG_VERSION"));
     say!(cx, "");
     say!(cx, "  {d}Config{r}   {}", cx.config.dir().display());
     say!(cx, "  {d}Daemon{r}   Started (PID: {w}{pid}{r})");
