@@ -137,6 +137,11 @@ pill while paused; click it to resume.
 | -- | Check status | `mosaico status` |
 | -- | Reload config (automatic) | edit `config.toml`, save |
 | -- | Diagnose setup | `mosaico doctor` |
+| -- | Open the settings window | `mosaico settings`, or click the tray icon |
+
+The tray icon menu also pauses and resumes hotkeys, reloads the config, opens
+the config folder or the log, and quits mosaico. See
+[Settings Window](settings.md#tray-icon).
 
 ## Modifier Keys
 
