@@ -66,7 +66,7 @@ fn setting_a_workspace_back_to_the_default_layout_removes_its_entry() {
     open(&mut h, "Workspaces");
 
     // Act
-    pick(&mut h, "Workspace 1", "Default layout");
+    pick(&mut h, "Workspace 1", "Default (BSP)");
     click(&mut h, Role::Button, "Apply");
 
     // Assert
@@ -85,7 +85,7 @@ fn the_switching_mode_and_wrapping_are_saved() {
     open(&mut h, "Workspaces");
 
     // Act
-    click(&mut h, Role::RadioButton, "All monitors");
+    click(&mut h, Role::RadioButton, "Global");
     click(&mut h, Role::Switch, "Wrap around");
     click(&mut h, Role::Button, "Apply");
 
@@ -94,4 +94,23 @@ fn the_switching_mode_and_wrapping_are_saved() {
         written(&dir),
         "[workspaces]\nmode = \"global\"\nwrap = true\n"
     );
+}
+
+#[test]
+fn a_workspace_without_a_layout_of_its_own_names_the_default_layout() {
+    // Arrange
+    let store = folder("workspaces-default-name");
+    let dir = store.config_path().parent().unwrap().to_path_buf();
+    std::fs::write(
+        dir.join("config.toml"),
+        "[layout]\ndefault = \"three-column\"\n",
+    )
+    .unwrap();
+    let mut h = window(store, DaemonState::Stopped, &SignIn::default());
+
+    // Act
+    open(&mut h, "Workspaces");
+
+    // Assert
+    assert_eq!(h.get_all_by_value("Default (Three column)").count(), 8);
 }

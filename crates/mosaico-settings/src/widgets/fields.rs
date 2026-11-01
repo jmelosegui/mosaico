@@ -31,10 +31,30 @@ pub fn dropdown<T: PartialEq + Clone>(
     selected: &mut T,
     changed: bool,
 ) -> Response {
+    dimmed_dropdown(ui, c, label, width, options, selected, (changed, false))
+}
+
+/// A [`dropdown`] whose selection reads dim when `dimmed`, for a choice
+/// that stands for a default. `state` is whether it is `changed` and
+/// `dimmed`.
+pub fn dimmed_dropdown<T: PartialEq + Clone>(
+    ui: &mut Ui,
+    c: &Colors,
+    label: &str,
+    width: f32,
+    options: &[(T, &str)],
+    selected: &mut T,
+    (changed, dimmed): (bool, bool),
+) -> Response {
     let current = options
         .iter()
         .find(|(value, _)| value == selected)
         .map_or("", |(_, label)| label);
+    let current = if dimmed {
+        RichText::new(current).color(c.faint_text)
+    } else {
+        RichText::new(current)
+    };
     let response = ui
         .scope(|ui| {
             outline(ui, c, changed);

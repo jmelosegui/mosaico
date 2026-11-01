@@ -109,17 +109,14 @@ pub const CONFIG_SETTINGS: &[SettingDescriptor] = &[
     ),
     setting(
         "workspaces.mode",
-        "Switching",
-        "Whether a switch changes the focused monitor or every monitor.",
-        SettingKind::Choice(&[
-            ("per-monitor", "Focused monitor"),
-            ("global", "All monitors"),
-        ]),
+        "Mode",
+        "Per monitor switches only the focused monitor. Global switches every monitor together.",
+        SettingKind::Choice(&[("per-monitor", "Per monitor"), ("global", "Global")]),
     ),
     setting(
         "workspaces.wrap",
         "Wrap around",
-        "Stepping past the last workspace goes back to the first.",
+        "Stepping past the last workspace goes back to the first, and before the first to the last.",
         SettingKind::Bool,
     ),
     workspace_layout("workspaces.layouts.1", "Workspace 1"),
