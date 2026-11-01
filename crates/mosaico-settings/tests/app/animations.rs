@@ -82,6 +82,31 @@ fn a_point_of_a_custom_curve_can_be_typed() {
 }
 
 #[test]
+fn play_runs_the_dot_along_the_curve_and_stops() {
+    // Arrange
+    let (done, finished) = std::sync::mpsc::channel();
+
+    // Act
+    std::thread::spawn(move || {
+        let store = folder("animations-play");
+        let mut h = window(store, DaemonState::Stopped, &SignIn::default());
+        open(&mut h, "Animations");
+        h.get_by_role_and_label(Role::Button, "Play").click();
+        h.run_steps(90);
+        h.run();
+        done.send(()).unwrap();
+    });
+
+    // Assert
+    assert!(
+        finished
+            .recv_timeout(std::time::Duration::from_secs(60))
+            .is_ok(),
+        "the window stopped responding after Play was clicked"
+    );
+}
+
+#[test]
 fn a_preset_shows_its_points_without_letting_them_be_edited() {
     // Arrange
     let store = folder("animations-preset-points");
