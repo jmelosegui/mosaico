@@ -1,6 +1,6 @@
 # Phase 37: Tray Icon & Settings App
 
-**Status:** In progress
+**Status:** Complete
 
 **Goal:** Let people configure mosaico without editing TOML. A tray icon
 gives the daemon a visible home. From the icon, a settings window offers only
