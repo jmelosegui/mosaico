@@ -35,7 +35,7 @@ pub const BAR_SETTINGS: &[SettingDescriptor] = &[
     setting(
         "font",
         "Family",
-        "Installed fonts. Widget icons need a Nerd Font.",
+        "Installed fonts. The usual widget icons are drawn in lines; any other icon needs a font that has it, such as a Nerd Font.",
         SettingKind::Text,
     ),
     setting("font_size", "Size", "", ranged(limits::BAR_FONT_SIZE, "px")),
