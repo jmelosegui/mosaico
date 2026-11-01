@@ -195,3 +195,48 @@ fn a_widget_without_a_color_uses_the_bar_colors() {
     };
     assert_eq!(content.right, vec![pill]);
 }
+
+#[test]
+fn a_widget_icon_with_a_drawing_is_drawn_in_lines_before_the_text() {
+    // Arrange -- the bar draws the icons the settings window previews,
+    // not the glyph, which needs a Nerd Font to show.
+    let config = bar(r##"
+        colors = { foreground = "#ffffff", pill_border = "#000000" }
+        left = []
+        right = [{ type = "clock", format = "a", icon = "\uF017" }]
+    "##);
+
+    // Act
+    let content = content(&config, &BarState::default());
+
+    // Assert
+    let pill = BarItem::Pill {
+        icon: Some(BarIcon::Clock),
+        label: "a".into(),
+        text_color: "#ffffff".into(),
+        border_color: "#000000".into(),
+    };
+    assert_eq!(content.right, vec![pill]);
+}
+
+#[test]
+fn a_widget_icon_without_a_drawing_stays_in_the_text() {
+    // Arrange
+    let config = bar(r##"
+        colors = { foreground = "#ffffff", pill_border = "#000000" }
+        left = []
+        right = [{ type = "clock", format = "a", icon = "X" }]
+    "##);
+
+    // Act
+    let content = content(&config, &BarState::default());
+
+    // Assert
+    let pill = BarItem::Pill {
+        icon: None,
+        label: "X a".into(),
+        text_color: "#ffffff".into(),
+        border_color: "#000000".into(),
+    };
+    assert_eq!(content.right, vec![pill]);
+}
