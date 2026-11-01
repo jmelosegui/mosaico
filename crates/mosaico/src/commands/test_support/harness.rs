@@ -53,7 +53,7 @@ impl Harness {
             clock: &self.world,
             http: &self.world.releases,
             installer: &self.world.installer,
-            logo: &|_| {},
+            logo: &|_, version| self.world.logos.borrow_mut().push(version.to_owned()),
             out: &mut self.out,
             err: &mut self.err,
         };

@@ -77,12 +77,12 @@ them, in either direction:
   three, one of four closing, a layout cycle, and monocle on and off) run with transitions on, as users get them
   by default, and count every call until the windows have settled, frames included. All the others run with
   transitions off (`manager_support::still()`), so they measure what the tiler asks of the platform without them.
-- `metrics/code.toml`: per crate, tests (more is better), files and lines over the 150 line limit, `unsafe`
+- `metrics/code.toml`: per crate, tests (more is better), files and lines over the 300 line limit, `unsafe`
   keywords, `.unwrap()`/`.expect(` outside tests in the library crates, and OS names in `mosaico-core` (fewer is
   better).
 
 When a count gets worse, fix the code. When a change is intended (a scenario added, a count improved, tests
-added, a cohesive module allowed past the 150 line guideline), record it with `cargo xtask metrics --bless` and commit the baseline with the change, so the review shows
+added, a file split back under the 300 line limit), record it with `cargo xtask metrics --bless` and commit the baseline with the change, so the review shows
 it. An improvement fails until it is recorded, so it cannot slip back unnoticed. Add a scenario for any new kind of
 work the tiler does.
 

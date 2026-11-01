@@ -13,7 +13,7 @@ const FAIL: &str = "\x1b[31m[fail]\x1b[0m";
 const FIXED: &str = "\x1b[36m[fixed]\x1b[0m";
 
 pub fn execute(cx: &mut Context) -> Exit {
-    (cx.logo)(&mut *cx.out);
+    (cx.logo)(&mut *cx.out, env!("CARGO_PKG_VERSION"));
     say!(cx, "");
     check_config_dir(&cx.config);
     check_config_file(&cx.config);

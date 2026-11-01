@@ -100,6 +100,8 @@ pub struct World {
     pub releases: Releases,
     /// How releases are installed.
     pub installer: FakeInstaller,
+    /// The versions the logo was drawn over, in order.
+    pub logos: RefCell<Vec<String>>,
     /// The fake time.
     pub now: Cell<Instant>,
 }
@@ -127,6 +129,7 @@ impl Default for World {
             exe_missing: Cell::new(false),
             releases: Releases::default(),
             installer: FakeInstaller::default(),
+            logos: RefCell::default(),
             now: Cell::new(Instant::now()),
         }
     }

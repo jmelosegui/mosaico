@@ -38,7 +38,8 @@ impl Installer for RenameInstaller {
 
     /// Renames `exe` to `.exe.old`, writes `binary` at `exe`, then tries
     /// to delete the old file. If the write fails, the old file is
-    /// renamed back.
+    /// renamed back. When there is no `exe` yet, `binary` is written
+    /// there.
     fn replace(&self, exe: &Path, binary: &[u8]) -> Result<()> {
         replace(&Disk, exe, binary)
     }
@@ -96,10 +97,17 @@ fn replace(files: &impl Files, exe: &Path, binary: &[u8]) -> Result<()> {
     // Remove leftover backup from a previous update.
     let _ = files.remove(&backup);
 
-    // Rename the running binary out of the way.
-    files
-        .rename(exe, &backup)
-        .or_platform("rename the running executable aside")?;
+    // Rename the running binary out of the way. When there is none yet,
+    // as for a settings app that has never been installed, there is
+    // nothing to keep.
+    match files.rename(exe, &backup) {
+        Err(e) if e.kind() == io::ErrorKind::NotFound => {
+            return files
+                .write(exe, binary)
+                .or_platform("write the new executable");
+        }
+        renamed => renamed.or_platform("rename the running executable aside")?,
+    }
 
     // Write the new binary.
     if let Err(e) = files.write(exe, binary) {

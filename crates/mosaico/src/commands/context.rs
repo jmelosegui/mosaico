@@ -107,8 +107,8 @@ pub struct Context<'a> {
     pub http: &'a dyn HttpClient,
     /// How this platform's release is packaged and installed.
     pub installer: &'a dyn Installer,
-    /// Draws the mosaico logo.
-    pub logo: &'a dyn Fn(&mut dyn Write),
+    /// Draws the mosaico logo over `version`, as in `0.12.1`.
+    pub logo: &'a dyn Fn(&mut dyn Write, &str),
     /// Standard output.
     pub out: &'a mut dyn Write,
     /// Standard error.

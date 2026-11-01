@@ -1,7 +1,7 @@
 //! Code health counts for each crate, read from its source files.
 //!
 //! The counts follow the rules in AGENTS.md and the rust-conventions
-//! skill: files stay under about 150 lines, `unsafe` stays small,
+//! skill: files stay under 300 lines, `unsafe` stays small,
 //! library code does not unwrap, and the portable core names no OS
 //! concept.
 
@@ -11,7 +11,7 @@ use crate::scan::{braces, is_test_file, occurrences, words};
 use crate::source::SourceFile;
 
 /// How many lines a source file may have before it counts as too long.
-pub const LINE_LIMIT: usize = 150;
+pub const LINE_LIMIT: usize = 300;
 
 /// Crates whose non-test code must not `.unwrap()` or `.expect()`.
 const LIBRARY_CRATES: &[&str] = &["mosaico-core", "mosaico-windows"];

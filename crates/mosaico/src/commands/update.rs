@@ -84,10 +84,11 @@ pub fn execute(cx: &mut Context, force: bool) -> Exit {
         say!(cx, "Reinstalled v{local}.");
     }
 
-    // 6. Restart daemon if it was running.
+    // 6. Restart daemon if it was running, as the version just installed.
     if daemon_was_running {
         say!(cx, "Restarting daemon...");
-        return super::start::execute(cx);
+        let installed = tag.strip_prefix('v').unwrap_or(&tag);
+        return super::start::announced_as(cx, installed);
     }
     Exit::Success
 }
@@ -109,3 +110,7 @@ fn fail(cx: &mut Context, reason: impl Display, daemon_was_running: bool) -> Exi
 #[cfg(test)]
 #[path = "tests/update_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "tests/update_restart_tests.rs"]
+mod restart_tests;

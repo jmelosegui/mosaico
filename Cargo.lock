@@ -1701,7 +1701,7 @@ dependencies = [
 
 [[package]]
 name = "mosaico"
-version = "0.12.0"
+version = "0.12.1"
 dependencies = [
  "clap",
  "embed-resource",
@@ -1712,7 +1712,7 @@ dependencies = [
 
 [[package]]
 name = "mosaico-core"
-version = "0.12.0"
+version = "0.12.1"
 dependencies = [
  "mosaico-metrics",
  "serde",
@@ -1724,14 +1724,14 @@ dependencies = [
 
 [[package]]
 name = "mosaico-metrics"
-version = "0.12.0"
+version = "0.12.1"
 dependencies = [
  "toml 0.8.23",
 ]
 
 [[package]]
 name = "mosaico-settings"
-version = "0.12.0"
+version = "0.12.1"
 dependencies = [
  "eframe",
  "egui_kittest",
@@ -1742,7 +1742,7 @@ dependencies = [
 
 [[package]]
 name = "mosaico-windows"
-version = "0.12.0"
+version = "0.12.1"
 dependencies = [
  "mosaico-core",
  "serde_json",
@@ -3950,7 +3950,7 @@ checksum = "e450f9b2ed1dff33c94c12589a87338689467b9c4f5d8a5710bd09a847d2c8a7"
 
 [[package]]
 name = "xtask"
-version = "0.12.0"
+version = "0.12.1"
 dependencies = [
  "mosaico-metrics",
 ]
