@@ -167,20 +167,24 @@ problem on this page, which stays read-only until the file is fixed; the other
 pages are not affected.
 ## Keybindings
 
-Edits `keybindings.toml`. The hotkeys are grouped by what they do: focus,
-moving windows, workspaces, layout, floating windows and so on. Each row
-shows the action and its key combination as keycaps.
+Edits `keybindings.toml`. The hotkeys are grouped as Focus, Move, Workspaces,
+Windows and layout, and Mosaico. Each row shows the action, its id in
+`keybindings.toml` and its shortcut as keycaps. **Filter by action or key**
+narrows the list, and **Restore defaults** puts every action back on its default
+shortcut, adding the ones the file lost.
 
-Click **Change** on a row, then press the new combination. Hold at least one
-of Ctrl, Alt or Shift (function keys can stand alone). The first key you
-press is taken; **Esc** cancels. A key mosaico has no name for is refused and
-the row keeps waiting. A binding that is not on its default shows the default
-and a reset button.
+Click the pencil on a row, then press the new shortcut. Hold at least one of
+Ctrl, Alt or Shift (function keys can stand alone). The first key you press is
+taken; **Esc** cancels. A key mosaico has no name for is refused and the row
+keeps waiting. A binding that is not on its default shows a reset button.
 
-If two bindings share a combination, in any order or case of its modifiers,
-both rows are marked **Conflict** and name each other. **Apply** will not
-save until one of them is changed. Search matches the action and the keys,
-so `alt+j` or `float` narrows the list.
+If the shortcut you press already belongs to another binding, a banner under the
+row says so and offers **Cancel** or **Replace**. Replace gives the shortcut to
+this row and removes the other binding until you restore it or revert. If two
+bindings in the file share a combination, in any order or case of its
+modifiers, both rows are marked **Conflict** and name each other. **Apply**
+will not save until one of them is changed. Search matches the action and the
+keys, so `alt+j` or `float` narrows the list.
 
 Applying changes only the keys you edited: comments, blank lines, the order
 and the line endings of `keybindings.toml` are kept. The daemon picks the new

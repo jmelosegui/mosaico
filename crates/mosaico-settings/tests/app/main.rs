@@ -9,6 +9,7 @@ mod borders;
 mod close;
 mod general;
 mod keybindings;
+mod keybindings_taken;
 mod layout;
 mod mouse;
 mod rules;
