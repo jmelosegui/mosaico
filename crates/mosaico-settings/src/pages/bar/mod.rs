@@ -5,6 +5,7 @@ mod appearance;
 mod clicks;
 mod columns;
 mod look;
+mod pills;
 mod preview;
 mod state;
 
