@@ -333,7 +333,7 @@ and brings its docs, so it can merge on its own.
 ### 37.7 Shipping
 
 - [x] Release artifacts and `mosaico update` include `mosaico-settings`
-- [ ] `cargo xtask size` keeps checking `mosaico.exe` and reports the
+- [x] `cargo xtask size` keeps checking `mosaico.exe` and reports the
       settings app's size separately
 - [ ] Docs, website guide with screenshots in a dark and a light flavor,
       cheatsheet
