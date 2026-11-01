@@ -109,3 +109,7 @@ fn fail(cx: &mut Context, reason: impl Display, daemon_was_running: bool) -> Exi
 #[cfg(test)]
 #[path = "tests/update_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "tests/update_restart_tests.rs"]
+mod restart_tests;

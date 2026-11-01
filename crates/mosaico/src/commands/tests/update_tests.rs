@@ -23,7 +23,7 @@ fn zip_of(files: &[(&str, &[u8])]) -> Vec<u8> {
 /// A harness for `test` in which the latest release is `tag`, with this
 /// platform's archive holding the binary `new binary` and the settings
 /// app `new settings`.
-fn released(test: &str, tag: &str) -> Harness {
+pub(super) fn released(test: &str, tag: &str) -> Harness {
     let h = Harness::new(test);
     h.world.releases.publish(tag);
     let archive = zip_of(&[
