@@ -30,7 +30,11 @@ enum Commands {
     /// Create the default configuration file
     Init,
     /// Start the window manager daemon
-    Start,
+    Start {
+        /// Print nothing and skip the update check, as when starting at login
+        #[arg(long)]
+        quiet: bool,
+    },
     /// Stop the window manager daemon
     Stop,
     /// Show whether the daemon is running
@@ -131,7 +135,8 @@ fn main() {
 fn run(cx: &mut Context, command: Commands) -> Exit {
     match command {
         Commands::Init => commands::init::execute(cx),
-        Commands::Start => commands::start::execute(cx),
+        Commands::Start { quiet: false } => commands::start::execute(cx),
+        Commands::Start { quiet: true } => commands::start::quietly(cx),
         Commands::Stop => commands::stop::execute(cx),
         Commands::Status => commands::status::execute(cx),
         Commands::Doctor => commands::doctor::execute(cx),

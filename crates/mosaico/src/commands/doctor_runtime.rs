@@ -50,7 +50,7 @@ pub fn check_autostart(cx: &mut Context) {
         ),
         Ok(AutostartStatus::TurnedOff) => say!(
             cx,
-            "  {WARN} Autostart is turned off in the startup apps settings (run `mosaico autostart enable` to turn it back on)"
+            "  {WARN} Autostart is turned off (run `mosaico autostart enable` to turn it back on)"
         ),
         Ok(AutostartStatus::Empty) => say!(
             cx,

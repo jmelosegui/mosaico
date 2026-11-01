@@ -3,13 +3,13 @@ use std::path::PathBuf;
 use super::*;
 
 #[test]
-fn autostart_runs_the_executable_with_start() {
+fn autostart_starts_the_executable_quietly() {
     // Act
     let command = LaunchCommand::autostart("/apps/mosaico");
 
     // Assert
     assert_eq!(command.program, PathBuf::from("/apps/mosaico"));
-    assert_eq!(command.args, ["start"]);
+    assert_eq!(command.args, ["start", "--quiet"]);
 }
 
 #[test]

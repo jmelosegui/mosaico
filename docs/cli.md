@@ -125,6 +125,10 @@ notice if a newer release exists.
 If a daemon is already running (detected via IPC pipe check), it reports the
 existing state instead of starting a second instance.
 
+`mosaico start --quiet` prints nothing and skips the version check, so it
+returns as soon as the daemon answers. Autostart runs it this way, so login
+never waits on the network. Errors are still printed to stderr.
+
 ### `mosaico stop`
 
 Sends a `Stop` command to the running daemon over IPC (named pipe). If the
@@ -186,9 +190,11 @@ Checks performed:
    `mosaico autostart enable` would register from the running executable
    (`AutostartStatus::read` in `mosaico_core::system`): `[ok]` when they
    match, `[warn]` when nothing is registered, when the user turned the
-   entry off in the startup apps settings (Settings or Task Manager), or
+   entry off (disabled the logon task, or, for an older Run entry, turned it
+   off in the startup apps settings), or
    when another command is registered (another copy of mosaico, or other
-   arguments), `[fail]` when the registered program is
+   arguments, such as the `start` without `--quiet` older releases
+   registered), `[fail]` when the registered program is
    not a file (the binary moved or was deleted), the entry names no program,
    or the registration cannot be read. A program on a network share is not
    looked at, so it counts as another command. Doctor only reports; it never
@@ -217,18 +223,31 @@ Manages starting mosaico at login, through the platform's `Autostart`
 (`mosaico_core::system`):
 
 - `enable` registers the running executable (`current_exe`) to run
-  `mosaico start` at login, replacing any earlier registration and turning
-  it back on if the user turned it off
+  `mosaico start --quiet` at login, replacing any earlier registration and
+  turning it back on if the user turned it off
 - `disable` removes the registration
 - `status` compares what is registered with what `enable` would register
   (`AutostartStatus::read`) and says whether autostart is enabled,
-  disabled, turned off in the startup apps settings, or registered with an
+  disabled, turned off, or registered with an
   empty entry, another command, or a program that is not a file
 
 Each prints what it did or found. One that fails prints `Error: <reason>`
-and exits with status 1. On Windows the registration is a value under
-`HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run`, the
-user's own Run key.
+and exits with status 1.
+
+On Windows (`LogonTaskAutostart` in `mosaico-windows`) the registration is a
+task named `Mosaico autostart for <user SID>` in the root folder of the Task
+Scheduler Library, registered through its COM API. It starts at the user's
+logon, as that user, without elevation, at priority 4 (normal; the Task
+Scheduler's default is below normal), with no time limit and no delay.
+Startup programs in the Run registry key start later: Explorer waits before
+running them, then starts them one at a time. Disabling the task in the
+Task Scheduler counts as turned off.
+
+Older releases wrote a `Mosaico` value under
+`HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run`. While no
+task exists that value, and its Startup apps switch, are still read as the
+registration, so `status` and `doctor` report it as another command
+(`start` without `--quiet`). `enable` and `disable` delete it.
 
 ### `mosaico action <verb> [direction]`
 

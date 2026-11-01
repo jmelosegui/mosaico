@@ -15,16 +15,20 @@ pub struct LaunchCommand {
 }
 
 impl LaunchCommand {
-    /// What mosaico registers to start at login: `exe start`, where
-    /// `exe` is the mosaico executable to run.
+    /// What mosaico registers to start at login: `exe start --quiet`,
+    /// where `exe` is the mosaico executable to run. Nobody reads what
+    /// `start` prints at login, so it prints nothing and does not wait
+    /// on the network to look for a newer release.
     ///
     /// Enabling autostart registers this with the executable that is
     /// running, so after the binary moves, enabling again points the
-    /// registration at its new place.
+    /// registration at its new place. A registration from before
+    /// `--quiet` counts as another command until autostart is enabled
+    /// again.
     pub fn autostart(exe: impl Into<PathBuf>) -> Self {
         Self {
             program: exe.into(),
-            args: vec!["start".to_string()],
+            args: vec!["start".to_string(), "--quiet".to_string()],
         }
     }
 }
@@ -52,6 +56,10 @@ impl fmt::Display for LaunchCommand {
 /// - Registration is per user and needs no elevation. A user has one
 ///   registration: `enable` replaces whatever is registered, including
 ///   an entry another copy of mosaico made, and `disable` removes it.
+/// - The registered command starts as soon as the user's session does,
+///   at the priority of a program the user starts. It does not wait in
+///   line behind the other programs the system starts at login, nor for
+///   a delay the system adds to them.
 /// - `enable` registers exactly the command it is given: at login the
 ///   platform runs its `program` with its `args`, in order, and nothing
 ///   else. Once it succeeds, `registered_command` returns an equal
@@ -75,6 +83,10 @@ impl fmt::Display for LaunchCommand {
 ///   turns the entry back on, and `disable` leaves the setting alone. A
 ///   platform without such a setting returns false. The setting of
 ///   another program's entry is never changed.
+/// - A platform that changed how it registers mosaico still honours a
+///   registration an older mosaico made the old way: `registered_command`
+///   and `is_turned_off` report it while there is no registration of the
+///   new kind, `enable` replaces it, and `disable` removes it.
 /// - `disable` succeeds when nothing was registered.
 /// - A registration, removal or read that fails in the system is an
 ///   [`Error::Platform`](crate::Error::Platform).

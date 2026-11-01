@@ -189,7 +189,28 @@ fn an_autostart_entry_with_other_arguments_is_a_warning() {
     assert_eq!(
         out,
         format!(
-            "  {WARN} Autostart starts \"{EXE}\" daemon instead of \"{EXE}\" start (run `mosaico autostart enable` to switch)\n"
+            "  {WARN} Autostart starts \"{EXE}\" daemon instead of \"{EXE}\" start --quiet (run `mosaico autostart enable` to switch)\n"
+        )
+    );
+}
+
+#[test]
+fn an_autostart_entry_from_before_quiet_starts_is_a_warning() {
+    // Arrange -- what older releases registered.
+    let mut h = Harness::new("doctor-autostart-old");
+    *h.world.autostart.borrow_mut() = Some(LaunchCommand {
+        program: EXE.into(),
+        args: vec!["start".into()],
+    });
+
+    // Act
+    let out = autostart_check(&mut h);
+
+    // Assert
+    assert_eq!(
+        out,
+        format!(
+            "  {WARN} Autostart starts \"{EXE}\" start instead of \"{EXE}\" start --quiet (run `mosaico autostart enable` to switch)\n"
         )
     );
 }
@@ -209,7 +230,7 @@ fn an_autostart_entry_for_another_mosaico_is_a_warning() {
     assert_eq!(
         out,
         format!(
-            "  {WARN} Autostart starts \"{other}\" start instead of \"{EXE}\" start (run `mosaico autostart enable` to switch)\n"
+            "  {WARN} Autostart starts \"{other}\" start --quiet instead of \"{EXE}\" start --quiet (run `mosaico autostart enable` to switch)\n"
         )
     );
 }
@@ -267,7 +288,7 @@ fn an_autostart_entry_the_user_turned_off_is_a_warning() {
     assert_eq!(
         out,
         format!(
-            "  {WARN} Autostart is turned off in the startup apps settings (run `mosaico autostart enable` to turn it back on)\n"
+            "  {WARN} Autostart is turned off (run `mosaico autostart enable` to turn it back on)\n"
         )
     );
 }

@@ -31,8 +31,12 @@ features = [
     "Win32_System_IO",                 # ConnectNamedPipe (requires overlapped IO module)
     "Win32_Storage_FileSystem",        # CreateFileW (pipe client)
     "Win32_Security",                  # Required by CreateFileW and CreateNamedPipeW
+    "Win32_Security_Authorization",    # ConvertSidToStringSidW (the autostart task's user)
     "Win32_Networking_WinHttp",        # WinHttpOpen, WinHttpConnect, etc.
-    "Win32_System_Registry",           # RegOpenKeyExW, RegSetValueExW, etc.
+    "Win32_System_Registry",           # RegGetValueW, RegDeleteKeyValueW (older autostart entries)
+    "Win32_System_TaskScheduler",      # ITaskService (the autostart task)
+    "Win32_System_Ole",                # Required by ITaskFolder::RegisterTask
+    "Win32_System_Variant",            # VARIANT arguments of the Task Scheduler API
 ]
 
 [lints]

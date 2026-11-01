@@ -14,22 +14,41 @@ pub fn execute(cx: &mut Context) -> Exit {
     announced_as(cx, env!("CARGO_PKG_VERSION"))
 }
 
+/// Starts the daemon like [`execute`], but prints nothing unless it
+/// fails and does not look for a newer release. Autostart runs this at
+/// login, where nobody reads the banner and the network may not be up
+/// yet, so the lookup would only keep the login waiting.
+pub fn quietly(cx: &mut Context) -> Exit {
+    launch(cx, None)
+}
+
 /// Starts the daemon like [`execute`], showing `version` in the banner.
 /// After an update the daemon runs the new binary while the process
 /// starting it is still the old one, so it announces the new version.
 pub fn announced_as(cx: &mut Context, version: &str) -> Exit {
+    launch(cx, Some(version))
+}
+
+/// Starts the daemon unless it runs already, then shows the banner for
+/// `banner`, the version to announce, if there is one. Failures are
+/// reported either way.
+fn launch(cx: &mut Context, banner: Option<&str>) -> Exit {
     if cx.daemon.is_running() {
-        say!(cx, "Mosaico is already running.");
+        if banner.is_some() {
+            say!(cx, "Mosaico is already running.");
+        }
         return Exit::Success;
     }
 
     // Clean up a stale PID file from a previous unclean shutdown.
     if let Ok(Some(pid)) = cx.pid_file.read() {
         if cx.processes.is_alive(pid) {
-            say!(
-                cx,
-                "Mosaico process exists (PID: {pid}) but is not responding."
-            );
+            if banner.is_some() {
+                say!(
+                    cx,
+                    "Mosaico process exists (PID: {pid}) but is not responding."
+                );
+            }
             return Exit::Success;
         }
         let _ = cx.pid_file.remove();
@@ -59,7 +78,9 @@ pub fn announced_as(cx: &mut Context, version: &str) -> Exit {
         return Exit::Failure;
     }
 
-    print_banner(cx, pid, version);
+    if let Some(version) = banner {
+        print_banner(cx, pid, version);
+    }
     Exit::Success
 }
 

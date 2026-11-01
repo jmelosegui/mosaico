@@ -159,3 +159,49 @@ fn reports_a_daemon_that_cannot_be_launched() {
     assert_eq!(exit, Exit::Failure);
     assert_eq!(h.err(), "Error: no such file\n");
 }
+
+#[test]
+fn quietly_starts_the_daemon_without_a_banner_or_looking_for_a_release() {
+    // Arrange
+    let mut h = Harness::new("start-quiet");
+    *h.world.launch.borrow_mut() = Launch::Answers(4321);
+    h.world.releases.publish("v99.0.0");
+
+    // Act
+    let exit = h.run(quietly);
+
+    // Assert
+    assert_eq!(exit, Exit::Success);
+    assert!(h.world.daemon_running.get());
+    assert_eq!(h.out(), "");
+    assert_eq!(h.world.releases.requests.get(), 0, "no update check");
+}
+
+#[test]
+fn quietly_says_nothing_when_the_daemon_is_already_running() {
+    // Arrange
+    let mut h = Harness::new("start-quiet-running");
+    h.world.daemon_up(10);
+
+    // Act
+    let exit = h.run(quietly);
+
+    // Assert
+    assert_eq!(exit, Exit::Success);
+    assert_eq!(h.out(), "");
+    assert_eq!(h.world.processes.borrow().len(), 1, "nothing launched");
+}
+
+#[test]
+fn quietly_still_reports_a_daemon_that_exits_right_after_starting() {
+    // Arrange
+    let mut h = Harness::new("start-quiet-rejected");
+    *h.world.launch.borrow_mut() = Launch::ExitsAtOnce(4321);
+
+    // Act
+    let exit = h.run(quietly);
+
+    // Assert
+    assert_eq!(exit, Exit::Failure);
+    assert!(h.err().contains("exited immediately"), "{}", h.err());
+}

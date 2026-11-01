@@ -28,6 +28,9 @@ newer release is available on GitHub, an update notice is shown.
 If the daemon is already running, the command reports the existing state
 instead of starting a second instance.
 
+`mosaico start --quiet` prints nothing and skips the update check. Automatic
+startup uses it so signing in never waits on the network.
+
 ## `mosaico stop`
 
 Sends a stop command to the running daemon. All windows are restored to
@@ -66,8 +69,8 @@ Checks performed:
 9. `bar.toml` syntax validation, its values checked as for `config.toml`, how many click bindings the bar has, and
    each one it ignores, with why
 10. Autostart status: warns when the startup entry starts another copy of
-    mosaico or other arguments, or is turned off in the startup apps
-    settings, fails when the program it starts no longer exists
+    mosaico or other arguments, or is turned off, fails when the program
+    it starts no longer exists
 11. Daemon status (IPC pipe, PID file, process liveness)
 12. Monitor enumeration and dimensions
 13. Window transitions: the `[animations]` settings (the defaults when
@@ -86,18 +89,26 @@ mosaico autostart disable   # Remove the startup entry
 mosaico autostart status    # Show current autostart state
 ```
 
-This writes a value under the `HKEY_CURRENT_USER` registry Run key, so no
-administrator rights are needed.
+This registers a task in the Windows Task Scheduler that runs
+`mosaico start --quiet` when you sign in. It runs as you, so no
+administrator rights are needed, and at normal priority, as soon as you sign
+in. Programs listed under Settings > Apps > Startup start later: Windows waits
+before it runs them, then starts them one at a time.
 
 The entry starts the `mosaico.exe` you ran `enable` with. If you move the
 binary, or install another copy, the entry keeps pointing at the old one:
 `mosaico autostart status` and `mosaico doctor` say so, and running
 `mosaico autostart enable` again from the right copy fixes it.
 
-Turning mosaico off under Settings > Apps > Startup, or in Task Manager's
-Startup apps, keeps the entry but stops it from running at logon.
-`mosaico autostart status` and `mosaico doctor` report that too, and
+Disabling the task in Task Scheduler (it is named
+`Mosaico autostart for <your SID>`) keeps it but stops it from running at
+sign-in. `mosaico autostart status` and `mosaico doctor` report that too, and
 `mosaico autostart enable` turns it back on.
+
+Releases before this one registered autostart in the registry Run key, under
+Startup apps. `mosaico autostart status` and `mosaico doctor` report such an
+entry as starting other arguments. Run `mosaico autostart enable` once to
+replace it with the task.
 
 On first run, `mosaico init` also prompts to enable autostart.
 

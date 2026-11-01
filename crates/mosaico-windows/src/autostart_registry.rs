@@ -1,4 +1,5 @@
-//! Reading and writing values under keys of the current user.
+//! Reading and deleting values under keys of the current user, where
+//! mosaico registered its autostart before it used a logon task.
 
 #[path = "autostart_registry_write.rs"]
 mod write;
@@ -14,8 +15,8 @@ use mosaico_core::Result;
 use crate::error::OrPlatform;
 use crate::monitor_edid::wide_to_string;
 
-/// A value under a key of `HKEY_CURRENT_USER`. Writing and deleting it
-/// are in `autostart_registry_write.rs`.
+/// A value under a key of `HKEY_CURRENT_USER`. Deleting it is in
+/// `autostart_registry_write.rs`.
 pub struct Value {
     /// The path of the key.
     pub key: &'static str,

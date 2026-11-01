@@ -1,14 +1,20 @@
-//! Windows autostart registration via the HKCU Run registry key.
+//! Windows autostart through a logon task in the Task Scheduler.
 //!
-//! Writes a `Mosaico` value under
-//! `HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run`
-//! holding the command line Windows runs on user logon. No elevation is
-//! required since HKCU is per-user.
+//! `enable` registers a task that starts mosaico when the user logs on,
+//! as that user, without elevation and at normal priority. Programs in
+//! the Run registry key start later: Explorer waits before it runs them,
+//! then starts them one at a time.
 //!
-//! The Startup apps switch in Settings and Task Manager is a value of the
-//! same name under `...\Explorer\StartupApproved\Run`, and logon skips a
-//! Run value whose switch is off. Only mosaico's own switch is read or
-//! removed, never another program's.
+//! The user can disable the task in the Task Scheduler, which turns
+//! autostart off without removing it.
+//!
+//! Older mosaico wrote a `Mosaico` value under
+//! `HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run`,
+//! with a Startup apps switch of the same name under
+//! `...\Explorer\StartupApproved\Run`. While there is no task, that value
+//! is read as the registration, so status and doctor still see it, and
+//! `enable` and `disable` remove it. Only mosaico's own values are read
+//! or removed, never another program's.
 
 #[path = "autostart_command_line.rs"]
 mod command_line;
@@ -16,6 +22,12 @@ mod command_line;
 mod registry;
 #[path = "autostart_switch.rs"]
 mod switch;
+#[path = "autostart_task.rs"]
+mod task;
+#[path = "autostart_task_xml.rs"]
+mod task_xml;
+#[path = "autostart_user.rs"]
+mod user;
 
 use std::path::Path;
 
@@ -23,9 +35,10 @@ use mosaico_core::Result;
 use mosaico_core::system::{Autostart, FileProbe, LaunchCommand};
 
 use self::registry::Value;
+use self::task::LogonTask;
 use crate::files::WindowsFiles;
 
-/// The command line logon runs for mosaico.
+/// The command line older mosaico had logon run.
 const RUN: Value = Value {
     key: r"Software\Microsoft\Windows\CurrentVersion\Run",
     name: "Mosaico",
@@ -37,15 +50,21 @@ const SWITCH: Value = Value {
     name: "Mosaico",
 };
 
-/// [`Autostart`] through the per-user Run registry key.
-pub struct RegistryAutostart;
+/// [`Autostart`] through a logon task of the current user.
+pub struct LogonTaskAutostart;
 
-impl Autostart for RegistryAutostart {
-    /// Reads the Mosaico value and splits it into the program and its
-    /// arguments, finding an unquoted program the way logon does. That
-    /// looks for files only when the program is not in quotes, as mosaico
-    /// never writes it, and never on a network share.
+impl Autostart for LogonTaskAutostart {
+    /// Reads what the task runs. Without a task, reads the older Run
+    /// value and splits it into the program and its arguments, finding
+    /// an unquoted program the way logon does. That looks for files only
+    /// when the program is not in quotes, and never on a network share.
     fn registered_command(&self) -> Result<Option<LaunchCommand>> {
+        if let Some(task) = user_task()?.read()? {
+            return Ok(Some(command_line::from_action(
+                &task.program,
+                &task.arguments,
+            )));
+        }
         let Some(line) = RUN.read_string("read the autostart entry")? else {
             return Ok(None);
         };
@@ -53,25 +72,37 @@ impl Autostart for RegistryAutostart {
         Ok(Some(command_line::split(&line, is_file)))
     }
 
-    /// Reads mosaico's Startup apps switch. Without one the entry is on.
+    /// Whether the task is disabled. Without a task, reads the Startup
+    /// apps switch of the older Run value, and without that it is on.
     fn is_turned_off(&self) -> Result<bool> {
+        if let Some(task) = user_task()?.read()? {
+            return Ok(!task.enabled);
+        }
         let setting = SWITCH.read_binary("read the startup apps setting")?;
         Ok(setting.is_some_and(|data| switch::is_off(&data)))
     }
 
-    /// Writes the command line that runs `command` to the Mosaico value,
-    /// replacing what was there, then removes mosaico's own Startup apps
-    /// switch, which turns the entry on. A command the value cannot hold
-    /// exactly is refused before anything is written.
+    /// Registers the task that runs `command`, replacing the one there
+    /// was, enabled. Then removes the older Run value and its switch, so
+    /// mosaico is not started twice. A command the task cannot hold
+    /// exactly is refused before anything is changed.
     fn enable(&self, command: &LaunchCommand) -> Result<()> {
-        let line = command_line::join(command)?;
-        RUN.write_string(&line, "write the autostart entry")?;
-        SWITCH.delete("turn the autostart entry on")
+        let action = command_line::join(command)?;
+        let user = user::current_user()?;
+        LogonTask::of(&user).register(&task_xml::definition(&user, &action))?;
+        RUN.delete("remove the older autostart entry")?;
+        SWITCH.delete("remove the older startup apps setting")
     }
 
-    /// Deletes the Mosaico value. Succeeds if it did not exist. The
-    /// Startup apps switch is left as it is.
+    /// Deletes the task and the older Run value. Succeeds when they are
+    /// not there. The Startup apps switch is left as it is.
     fn disable(&self) -> Result<()> {
-        RUN.delete("remove the autostart entry")
+        user_task()?.delete()?;
+        RUN.delete("remove the older autostart entry")
     }
+}
+
+/// The logon task of the current user.
+fn user_task() -> Result<LogonTask> {
+    Ok(LogonTask::of(&user::current_user()?))
 }

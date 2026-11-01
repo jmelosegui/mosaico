@@ -11,7 +11,7 @@ through `winget` and standard Windows mechanisms (Add/Remove Programs).
 
 The current install.ps1 copies a bare .exe into `%LOCALAPPDATA%\mosaico`
 and edits the user PATH. There is no uninstall path — the binary cannot
-delete itself while running, the autostart Registry key is left behind,
+delete itself while running, the autostart registration is left behind,
 and the config directory is orphaned. A proper installer solves all of
 this by delegating lifecycle management to the OS.
 
@@ -21,7 +21,7 @@ this by delegating lifecycle management to the OS.
 2. **Install actions** — copy `mosaico.exe` to Program Files, add to
    PATH, optionally enable autostart.
 3. **Uninstall actions** — stop the daemon, remove the binary, remove
-   the PATH entry, remove the autostart Registry key. Leave the config
+   the PATH entry, remove the autostart registration. Leave the config
    directory (`~/.config/mosaico`) intact (standard convention).
 4. **Upgrade support** — in-place upgrade without losing config.
 5. **Winget manifest** — publish to the `microsoft/winget-pkgs`
@@ -35,7 +35,7 @@ Transition existing users from the raw-binary install to winget:
 
 1. **`install.ps1` becomes a migration script** — detects the old
    `%LOCALAPPDATA%\mosaico` install, cleans it up (stops daemon,
-   removes binary, PATH entry, autostart Registry key), then runs
+   removes binary, PATH entry, autostart registration), then runs
    `winget install mosaico`.
 2. **`mosaico update` triggers migration** — on first run after the
    MSI release, detects the old install layout, cleans it up, and
