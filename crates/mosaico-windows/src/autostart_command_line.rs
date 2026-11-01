@@ -1,9 +1,11 @@
-//! Command lines as the Run key holds them.
+//! Command lines as a logon task and the Run key hold them.
 //!
-//! A Run value is one string. At logon Windows starts the program named
-//! at its front, finding an unquoted one the way `CreateProcess` does,
-//! and passes the rest to it as its arguments. So the program goes in
-//! quotes, and the arguments follow the rules in `autostart_args.rs`.
+//! A logon task's action holds the program and its arguments apart, the
+//! arguments as one line. A Run value, which older mosaico registered
+//! with, is one string: at logon Windows starts the program named at its
+//! front, finding an unquoted one the way `CreateProcess` does, and
+//! passes the rest to it as its arguments. Either way the arguments
+//! follow the rules in `autostart_args.rs`.
 
 #[path = "autostart_args.rs"]
 mod args;
@@ -13,14 +15,25 @@ use std::path::{Path, PathBuf};
 use mosaico_core::system::LaunchCommand;
 use mosaico_core::{Error, Result};
 
-/// The command line that runs `command`: the program in quotes, then
-/// each argument.
+/// What a logon task's action runs: a program, and its arguments as one
+/// line.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Action {
+    /// The path of the program, without quotes.
+    pub program: String,
+    /// The arguments, quoted where they need to be.
+    pub arguments: String,
+}
+
+/// The action that runs `command`.
 ///
-/// Fails with [`Error::Unsupported`] for a command the value cannot hold
-/// so that it reads back the same: an empty program, a program path that
-/// is not valid Unicode or has a quote, which would end the quoted
-/// program early, or a NUL character, which would end the value.
-pub fn join(command: &LaunchCommand) -> Result<String> {
+/// Fails with [`Error::Unsupported`] for a command the action cannot
+/// hold so that it runs and reads back the same: an empty program, a
+/// program path that is not valid Unicode or has a quote, a control
+/// character other than a tab, which the task's XML cannot hold or turns
+/// into another, or a `%`, which the Task Scheduler takes for the start
+/// of an environment variable it expands.
+pub fn join(command: &LaunchCommand) -> Result<Action> {
     let program = command.program.to_str().ok_or(Error::Unsupported(
         "an autostart program path that is not valid Unicode",
     ))?;
@@ -30,17 +43,41 @@ pub fn join(command: &LaunchCommand) -> Result<String> {
     if program.contains('"') {
         return Err(Error::Unsupported("an autostart program path with a quote"));
     }
-    if program.contains('\0') || command.args.iter().any(|arg| arg.contains('\0')) {
+    let texts = || std::iter::once(program).chain(command.args.iter().map(String::as_str));
+    if texts().any(|text| text.contains(|c: char| c.is_control() && c != '\t')) {
         return Err(Error::Unsupported(
-            "an autostart command with a NUL character",
+            "an autostart command with a control character",
         ));
     }
-    let mut line = format!("\"{program}\"");
-    for arg in &command.args {
-        line.push(' ');
-        args::push(&mut line, arg);
+    if texts().any(|text| text.contains('%')) {
+        return Err(Error::Unsupported(
+            "an autostart command with a percent sign",
+        ));
     }
-    Ok(line)
+    let mut arguments = String::new();
+    for arg in &command.args {
+        if !arguments.is_empty() {
+            arguments.push(' ');
+        }
+        args::push(&mut arguments, arg);
+    }
+    Ok(Action {
+        program: program.to_string(),
+        arguments,
+    })
+}
+
+/// The command a logon task's action runs. A program in quotes, as the
+/// Task Scheduler accepts it, is read without them.
+pub fn from_action(program: &str, arguments: &str) -> LaunchCommand {
+    let program = program
+        .strip_prefix('"')
+        .and_then(|program| program.strip_suffix('"'))
+        .unwrap_or(program);
+    LaunchCommand {
+        program: PathBuf::from(program),
+        args: args::split(arguments),
+    }
 }
 
 /// Splits a command line into the program and its arguments. The

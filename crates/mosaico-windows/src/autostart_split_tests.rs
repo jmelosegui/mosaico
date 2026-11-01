@@ -33,7 +33,7 @@ fn a_quoted_program_ends_at_its_closing_quote() {
     // Assert
     assert_eq!(
         parsed,
-        LaunchCommand::autostart(r"C:\Program Files\mosaico\mosaico.exe")
+        command(r"C:\Program Files\mosaico\mosaico.exe", &["start"])
     );
 }
 

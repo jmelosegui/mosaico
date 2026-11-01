@@ -28,6 +28,8 @@ pub struct Releases {
     latest: RefCell<Option<String>>,
     /// The files attached to the latest release, by name.
     assets: RefCell<HashMap<String, Vec<u8>>>,
+    /// How many requests were sent, answered or not.
+    pub requests: Cell<usize>,
 }
 
 impl Releases {
@@ -44,6 +46,7 @@ impl Releases {
 
 impl HttpClient for Releases {
     fn get_bytes(&self, host: &str, path: &str, _timeout: Duration) -> Result<Vec<u8>> {
+        self.requests.set(self.requests.get() + 1);
         let url = http::url(host, path);
         let Some(tag) = self.latest.borrow().clone() else {
             return Err(Error::http_request(&url, "send the request", "no network"));

@@ -52,7 +52,7 @@ pub fn run(command: impl FnOnce(&mut Context) -> Exit) -> Exit {
     let mut cx = Context {
         daemon: &daemon,
         processes: &mosaico_windows::process::WindowsProcesses,
-        autostart: &mosaico_windows::autostart::RegistryAutostart,
+        autostart: &mosaico_windows::autostart::LogonTaskAutostart,
         windows: &mosaico_windows::window_control::Win32WindowControl::default(),
         desktop: &mosaico_windows::enumerate::WindowsEnumerator,
         tiler_desktop: &|| {

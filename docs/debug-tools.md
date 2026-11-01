@@ -194,8 +194,9 @@ colored status tags:
 6. **rules.toml** -- validates syntax via `try_load_rules()`
 7. **bar.toml** -- validates syntax via `try_load_bar()`
 8. **Autostart** -- checks that what starts at login is the running mosaico
-   executable with `start`: `[warn]` when nothing or another command is
-   registered, or the entry is turned off in the startup apps settings,
+   executable with `start --quiet`: `[warn]` when nothing or another command
+   is registered (including the `start` older releases registered), or the
+   entry is turned off,
    `[fail]` when the registered program is not a file, the entry is empty
    or the registration cannot be read. It never re-registers;
    `mosaico autostart enable` does

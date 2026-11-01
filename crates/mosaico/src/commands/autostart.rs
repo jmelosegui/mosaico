@@ -39,7 +39,7 @@ pub fn status(cx: &mut Context) -> Exit {
         Ok(AutostartStatus::Disabled) => say!(cx, "Autostart is currently disabled."),
         Ok(AutostartStatus::TurnedOff) => say!(
             cx,
-            "Autostart is currently turned off in the startup apps settings (run `mosaico autostart enable` to turn it back on)."
+            "Autostart is currently turned off (run `mosaico autostart enable` to turn it back on)."
         ),
         Ok(AutostartStatus::Empty) => say!(
             cx,
