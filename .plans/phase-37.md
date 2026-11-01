@@ -77,9 +77,12 @@ and formatting the user wrote survive. The daemon's existing hot-reload
 enabled = true
 ```
 
-The settings app keeps its own preferences, such as window size and
-position, in `settings-app.toml` in the config
-directory. The daemon never reads that file and hot-reload ignores it.
+The settings app keeps its own preferences, its window size, whether it
+was maximized and the page it showed, in `settings-app.toml` in the config
+directory. The daemon never reads that file and hot-reload ignores it. The
+window's position is not kept: with monitors that change or mix scale
+factors, a remembered position could open the window off-screen, so it
+always opens centered.
 
 ## The Tray Icon
 
@@ -301,7 +304,7 @@ and brings its docs, so it can merge on its own.
 - [x] `mosaico-settings` crate, ArtCraft tokens with colors from the
       active flavor, Inter font, flavor preview while editing
 - [x] Follows theme changes made in `config.toml` live
-- [ ] `settings-app.toml`
+- [x] `settings-app.toml`
 - [x] Navigation, Revert, unsaved-change count, daemon status line
 - [x] Unsaved-edit prompt, single instance
 - [x] Setting rows from descriptors, Apply
@@ -351,5 +354,5 @@ and brings its docs, so it can merge on its own.
 | Separate executable or a feature flag on `mosaico.exe` | Separate `mosaico-settings` executable: keeps the size budget and keeps a UI crash away from the daemon |
 | Depend on `craft-ui` by git or copy the tokens | Depend on `craft-ui` (pinned rev) for shared widget styling and copy the per-app tokens, as each ArtCraft app does |
 | Renderer | The renderer the ArtCraft apps ship with (`glow` or `wgpu`), whichever keeps the executable smaller |
-| Where app preferences live | `settings-app.toml` in the config directory, or `craft-settings` storage for consistency with ArtCraft |
+| Where app preferences live | `settings-app.toml` in the config directory, through `ConfigStore`. It keeps the size, maximized state and page, not the position, so the window cannot open off-screen |
 | Scope of the first release | 37.1–37.5 first; keybindings and rules (37.6) can follow |

@@ -12,6 +12,6 @@ mod pages;
 mod theme;
 mod widgets;
 
-pub use app::{Applied, DaemonState, Services, SettingsApp, SignIn};
+pub use app::{Applied, DaemonState, Services, SettingsApp, SignIn, remembered};
 pub use forward::Forward;
 pub use model::Settings;
