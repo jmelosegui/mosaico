@@ -84,8 +84,9 @@ Picking a theme or flavor previews it in the settings window right away.
 
 | Section | Setting | Key in `config.toml` |
 |---------|---------|----------------------|
-| Tiling | Default layout, gap, split ratio | `layout.default`, `layout.gap`, `layout.ratio` |
-| Other workspaces | Hide windows by | `layout.hiding` |
+| Default layout | A picture of each layout; click one to pick it | `layout.default` |
+| Spacing | Gap, split ratio | `layout.gap`, `layout.ratio` |
+| Workspace switching | Hide windows on other workspaces | `layout.hiding` |
 
 ## Workspaces
 

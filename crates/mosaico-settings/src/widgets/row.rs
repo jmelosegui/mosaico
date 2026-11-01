@@ -34,7 +34,7 @@ pub fn heading(ui: &mut Ui, c: &Colors, title: &str, right: impl FnOnce(&mut Ui)
         );
         ui.with_layout(Layout::right_to_left(Align::Center), right);
     });
-    ui.add_space(8.0);
+    ui.add_space(2.0);
 }
 
 /// A card of rows, which `rows` adds with [`divider`]s between them.
@@ -69,7 +69,7 @@ pub fn row(
 ) -> bool {
     let mut reset = false;
     Frame::new()
-        .inner_margin(Margin::symmetric(16, 10))
+        .inner_margin(Margin::symmetric(16, 12))
         .show(ui, |ui| {
             let size = vec2(ui.available_width(), 34.0);
             ui.allocate_ui_with_layout(size, Layout::right_to_left(Align::Center), |ui| {
@@ -100,6 +100,7 @@ pub fn row(
 }
 
 fn title(ui: &mut Ui, c: &Colors, label: &str, unsaved: bool) {
+    ui.spacing_mut().interact_size.y = 0.0;
     ui.horizontal(|ui| {
         ui.label(RichText::new(label).font(theme::bold(13.0)));
         if unsaved {

@@ -92,9 +92,10 @@ pub fn number<N: Numeric>(
             state.bg_fill = c.control;
         }
         let unit_width = if unit.is_empty() { 0.0 } else { 24.0 };
-        let field = DragValue::new(value).range(range).speed(speed);
+        ui.spacing_mut().interact_size = vec2(inner.width() - unit_width, 22.0);
+        ui.spacing_mut().button_padding.x = 0.0;
         let field = ui
-            .add_sized([inner.width() - unit_width, 22.0], field)
+            .add(drag_value(value, range, speed))
             .on_hover_text("Drag, or click to type");
         field.widget_info(|| WidgetInfo::labeled(Role::SpinButton, true, label));
         if !unit.is_empty() {
@@ -104,6 +105,20 @@ pub fn number<N: Numeric>(
         field
     })
     .inner
+}
+
+/// A field for `value`, showing two decimals when it has any.
+pub(super) fn drag_value<N: Numeric>(
+    value: &mut N,
+    range: std::ops::RangeInclusive<N>,
+    speed: f64,
+) -> DragValue<'_> {
+    let field = DragValue::new(value).range(range).speed(speed);
+    if N::INTEGRAL {
+        field
+    } else {
+        field.fixed_decimals(2)
+    }
 }
 
 /// How wide a [`number`] is.
@@ -135,6 +150,7 @@ pub fn text(
             ui.horizontal_centered(|ui| {
                 let field = TextEdit::singleline(value)
                     .frame(Frame::NONE)
+                    .align(eframe::egui::Align2::LEFT_CENTER)
                     .hint_text(hint)
                     .font(theme::regular(12.0))
                     .desired_width(width);

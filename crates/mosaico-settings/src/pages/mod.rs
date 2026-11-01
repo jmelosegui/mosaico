@@ -181,13 +181,16 @@ pub enum Entry {
     Drawn(&'static str, Draw),
     /// A row that is not a setting of a file, drawn by the page.
     Custom(Row, Draw),
+    /// A setting of `config.toml`, drawn by the page right under the
+    /// section's heading rather than in a card of rows.
+    Bare(&'static str, Draw),
 }
 
 impl Entry {
     /// The row's label and help.
     fn row(&self) -> Row {
         match self {
-            Self::Setting(key) | Self::Drawn(key, _) => {
+            Self::Setting(key) | Self::Drawn(key, _) | Self::Bare(key, _) => {
                 let setting = schema::find(key).unwrap_or_else(|| panic!("no setting {key}"));
                 Row::new(setting.label, setting.help)
             }
@@ -198,7 +201,9 @@ impl Entry {
     fn draw(&self, ui: &mut Ui, cx: &PageContext, row: &Row, settings: &mut Settings) {
         match self {
             Self::Setting(key) => setting::draw(ui, cx, key, row.help(), settings),
-            Self::Drawn(_, draw) | Self::Custom(_, draw) => draw(ui, cx, row, settings),
+            Self::Drawn(_, draw) | Self::Custom(_, draw) | Self::Bare(_, draw) => {
+                draw(ui, cx, row, settings);
+            }
         }
     }
 }
@@ -264,6 +269,17 @@ fn sections(
             continue;
         }
         any = true;
+        if shown
+            .iter()
+            .all(|(entry, _)| matches!(entry, Entry::Bare(..)))
+        {
+            widgets::heading(ui, cx.c, title, |_| {});
+            for (entry, row) in &shown {
+                entry.draw(ui, cx, row, settings);
+            }
+            ui.add_space(16.0);
+            continue;
+        }
         widgets::section(ui, cx.c, title, |ui| {
             for (i, (entry, row)) in shown.iter().enumerate() {
                 if i > 0 {

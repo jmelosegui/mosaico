@@ -28,7 +28,6 @@ pub fn show(ui: &mut Ui, c: &Colors, page: &mut Page, query: &mut String, daemon
 fn search(ui: &mut Ui, c: &Colors, query: &mut String) {
     Frame::new()
         .fill(c.control)
-        .stroke(eframe::egui::Stroke::new(1.0, c.line))
         .corner_radius(5)
         .inner_margin(Margin::symmetric(8, 0))
         .show(ui, |ui| {
@@ -41,6 +40,7 @@ fn search(ui: &mut Ui, c: &Colors, query: &mut String) {
                     .hint_text(hint)
                     .font(theme::regular(12.0))
                     .frame(eframe::egui::Frame::NONE)
+                    .align(eframe::egui::Align2::LEFT_CENTER)
                     .desired_width(f32::INFINITY)
                     .show(ui);
             });
@@ -88,7 +88,7 @@ fn nav_item(ui: &mut Ui, c: &Colors, page: Page, selected: bool) -> eframe::egui
 }
 
 fn status(ui: &mut Ui, c: &Colors, daemon: &DaemonState) {
-    ui.spacing_mut().item_spacing.y = 2.0;
+    ui.spacing_mut().item_spacing.y = 0.0;
     let version = concat!("mosaico ", env!("CARGO_PKG_VERSION"));
     let (dot, label, detail) = match daemon {
         DaemonState::Running { version } => {
@@ -97,23 +97,18 @@ fn status(ui: &mut Ui, c: &Colors, daemon: &DaemonState) {
         DaemonState::Stopped => (c.faint_text, "Daemon stopped", version.to_owned()),
     };
     ui.add_space(4.0);
-    ui.horizontal(|ui| {
-        ui.add_space(30.0);
-        ui.label(
-            RichText::new(detail)
-                .font(theme::regular(11.0))
-                .color(c.faint_text),
-        );
-    });
-    ui.horizontal(|ui| {
-        ui.add_space(10.0);
-        let (rect, _) = ui.allocate_exact_size(vec2(14.0, 14.0), Sense::hover());
-        ui.painter().circle_filled(rect.center(), 4.0, dot);
-        ui.add_space(2.0);
-        ui.label(
-            RichText::new(label)
-                .font(theme::regular(12.0))
-                .color(c.text),
-        );
-    });
+    let line = |ui: &mut Ui, text: &str, font, color| {
+        let (rect, shown) =
+            ui.allocate_exact_size(vec2(ui.available_width(), 16.0), Sense::hover());
+        shown.widget_info(|| WidgetInfo::labeled(Role::Label, true, text));
+        let at = rect.left_center() + vec2(26.0, 0.0);
+        let align = eframe::egui::Align2::LEFT_CENTER;
+        ui.painter().text(at, align, text, font, color);
+        rect
+    };
+    line(ui, &detail, theme::regular(11.0), c.faint_text);
+    let rect = line(ui, label, theme::regular(12.0), c.text);
+    let dot_at = rect.left_center() + vec2(12.0, 0.0);
+    ui.painter().circle_filled(dot_at, 4.0, dot);
+    ui.add_space(-2.0);
 }
