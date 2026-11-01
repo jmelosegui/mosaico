@@ -6,6 +6,7 @@ mod general;
 mod layout;
 mod mouse;
 mod setting;
+mod workspaces;
 
 pub use file_page::{FilePage, FilePages};
 
@@ -99,6 +100,7 @@ impl Page {
             Self::Layout => Some(layout::SECTIONS),
             Self::Mouse => Some(mouse::SECTIONS),
             Self::Animations => Some(animations::SECTIONS),
+            Self::Workspaces => Some(workspaces::SECTIONS),
             _ => None,
         }
     }

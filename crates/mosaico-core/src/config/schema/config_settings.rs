@@ -12,6 +12,19 @@ const LAYOUTS: &[(&str, &str)] = &[
     ("three-column", "Three column"),
 ];
 
+/// The layouts a workspace can have of its own; the empty name is none,
+/// so the default layout applies.
+const WORKSPACE_LAYOUTS: &[(&str, &str)] = &[
+    ("", "Default layout"),
+    ("bsp", "BSP"),
+    ("vertical-stack", "Vertical stack"),
+    ("three-column", "Three column"),
+];
+
+/// The settings that are the entries of `[workspaces.layouts]`, which
+/// the default config leaves empty.
+const WORKSPACE_LAYOUT_PREFIX: &str = "workspaces.layouts.";
+
 const LOG_LEVELS: &[(&str, &str)] = &[
     ("debug", "Debug"),
     ("info", "Info"),
@@ -33,6 +46,15 @@ const fn setting(
     }
 }
 
+const fn workspace_layout(key: &'static str, label: &'static str) -> SettingDescriptor {
+    setting(
+        key,
+        label,
+        "The layout of this workspace. The default layout applies when none is picked.",
+        SettingKind::Choice(WORKSPACE_LAYOUTS),
+    )
+}
+
 const fn pixels(max: i32) -> SettingKind {
     SettingKind::Int {
         min: 0,
@@ -41,8 +63,10 @@ const fn pixels(max: i32) -> SettingKind {
     }
 }
 
-/// Every setting of `config.toml`, in the order the file has them, but
-/// for the per-workspace layouts, which are a table of their own.
+/// Every setting of `config.toml`, in the order the file has them.
+///
+/// The layout of a workspace is empty while `[workspaces.layouts]` has no
+/// entry for it, which is its default, so picking none removes the entry.
 pub const CONFIG_SETTINGS: &[SettingDescriptor] = &[
     setting(
         "theme.name",
@@ -98,6 +122,14 @@ pub const CONFIG_SETTINGS: &[SettingDescriptor] = &[
         "Stepping past the last workspace goes back to the first.",
         SettingKind::Bool,
     ),
+    workspace_layout("workspaces.layouts.1", "Workspace 1"),
+    workspace_layout("workspaces.layouts.2", "Workspace 2"),
+    workspace_layout("workspaces.layouts.3", "Workspace 3"),
+    workspace_layout("workspaces.layouts.4", "Workspace 4"),
+    workspace_layout("workspaces.layouts.5", "Workspace 5"),
+    workspace_layout("workspaces.layouts.6", "Workspace 6"),
+    workspace_layout("workspaces.layouts.7", "Workspace 7"),
+    workspace_layout("workspaces.layouts.8", "Workspace 8"),
     setting(
         "borders.width",
         "Width",
@@ -212,6 +244,9 @@ pub const CONFIG_SETTINGS: &[SettingDescriptor] = &[
 
 /// What `config.toml` has at `key` when the file leaves it out.
 pub fn config_default(key: &str) -> Option<SettingValue> {
+    if key.starts_with(WORKSPACE_LAYOUT_PREFIX) {
+        return super::find(key).map(|_| SettingValue::Text(String::new()));
+    }
     let mut value = toml::Value::try_from(Config::default()).ok()?;
     for part in key.split('.') {
         value = value.as_table_mut()?.remove(part)?;

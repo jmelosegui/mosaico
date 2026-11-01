@@ -236,3 +236,52 @@ fn a_write_by_something_else_is_noticed_until_the_next_save() {
     assert!(changed);
     assert!(!doc.has_changed_on_disk());
 }
+
+#[test]
+fn a_workspace_layout_is_an_entry_that_default_removes() {
+    // Arrange
+    let store = temp_store("document-workspace-layout");
+    let file = "[workspaces.layouts] # table\n2 = \"bsp\"\n3 = \"bsp\" # wide\n";
+    std::fs::write(store.config_path(), file).unwrap();
+    let mut doc = store.open_settings().unwrap();
+    let text = |s: &str| SettingValue::Text(s.into());
+
+    // Act
+    doc.put("workspaces.layouts.1", &text("vertical-stack"))
+        .unwrap();
+    doc.put("workspaces.layouts.2", &text("")).unwrap();
+    doc.save().unwrap();
+
+    // Assert
+    let written = contents(&store.config_path());
+    assert_eq!(
+        written,
+        "[workspaces.layouts] # table\n3 = \"bsp\" # wide\n1 = \"vertical-stack\"\n"
+    );
+    let config = store.load_config();
+    assert_eq!(config.workspaces.layouts.len(), 2);
+    assert_eq!(doc.value("workspaces.layouts.2"), Some(text("")));
+    assert_eq!(
+        doc.value("workspaces.layouts.1"),
+        Some(text("vertical-stack"))
+    );
+}
+
+#[test]
+fn a_workspace_layout_is_added_in_a_table_of_its_own() {
+    // Arrange
+    let store = temp_store("document-workspace-layout-new");
+    let mut doc = store.open_settings().unwrap();
+
+    // Act
+    doc.put("workspaces.layouts.8", &SettingValue::Text("bsp".into()))
+        .unwrap();
+    doc.save().unwrap();
+
+    // Assert
+    assert_eq!(
+        contents(&store.config_path()),
+        "[workspaces.layouts]\n8 = \"bsp\"\n"
+    );
+    assert_eq!(store.load_config().workspaces.layouts.len(), 1);
+}

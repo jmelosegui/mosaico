@@ -1,4 +1,5 @@
 use super::*;
+use crate::action::MAX_WORKSPACES;
 use crate::config::Config;
 
 /// The keys of the single values in `table`, joined with dots, under
@@ -23,6 +24,8 @@ fn every_setting_of_the_default_config_is_described_once() {
     let defaults = toml::Table::try_from(Config::default()).unwrap();
     let mut keys = Vec::new();
     leaf_keys("", &defaults, &mut keys);
+    // The layouts of the workspaces are a table the default config leaves empty.
+    keys.extend((1..=MAX_WORKSPACES).map(|n| format!("workspaces.layouts.{n}")));
     keys.sort();
 
     // Act
@@ -88,4 +91,13 @@ fn a_setting_is_split_into_its_tables_and_its_name() {
     let focused = find("borders.colors.focused").unwrap();
     assert_eq!(focused.path(), (vec!["borders", "colors"], "focused"));
     assert_eq!(find("layout.nothing"), None);
+}
+
+#[test]
+fn a_workspace_has_no_layout_of_its_own_by_default() {
+    assert_eq!(
+        config_default("workspaces.layouts.3"),
+        Some(SettingValue::Text(String::new()))
+    );
+    assert_eq!(config_default("workspaces.layouts.9"), None);
 }
