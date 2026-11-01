@@ -4,6 +4,7 @@ mod color;
 mod color_button;
 mod color_hex;
 mod color_popup;
+mod example_field;
 mod fields;
 mod icon_dropdown;
 mod marks;
@@ -14,6 +15,7 @@ mod tabs;
 mod toggle;
 
 pub use color::{ColorPicker, color};
+pub use example_field::example_field;
 pub use fields::{button, dimmed_dropdown, dropdown, number, number_of_width, text};
 pub use icon_dropdown::{Choice, icon_dropdown};
 pub use marks::{badge, chip, keycaps};

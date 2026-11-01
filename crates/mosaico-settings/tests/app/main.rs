@@ -5,6 +5,8 @@ mod support;
 mod animations;
 mod apply;
 mod bar;
+mod bar_widget_options;
+mod bar_widgets;
 mod borders;
 mod close;
 mod general;
