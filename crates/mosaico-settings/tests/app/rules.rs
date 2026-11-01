@@ -79,7 +79,7 @@ fn a_saved_rule_shows_its_chips_and_what_it_does() {
 
     h.get_by_label("class is");
     h.get_by_label("CalcFrame");
-    h.get_by_label("Don't tile");
+    h.get_by_label("Float");
     assert!(!editor_is_open(&h, 1));
 }
 
@@ -108,16 +108,39 @@ fn editing_a_rule_keeps_the_comments_of_the_file() {
 }
 
 #[test]
-fn not_tiling_keeps_a_floating_rule_floating() {
-    let (mut h, path) = with_file("rules-float", FILE);
+fn a_rule_can_float_the_windows_it_matches() {
+    // Arrange
+    let (mut h, path) = with_file("rules-float", "");
+    open(&mut h, "Rules");
+    click(&mut h, Role::Button, "Add rule");
+    type_into(&mut h, "Class is of rule 1", "Popup");
+
+    // Act
+    click(&mut h, Role::RadioButton, "Float");
+    click(&mut h, Role::Button, "Apply");
+
+    // Assert
+    let written = std::fs::read_to_string(path).unwrap();
+    assert_eq!(
+        written,
+        "[[rule]]\nmatch_class = \"Popup\"\naction = \"float\"\n"
+    );
+}
+
+#[test]
+fn not_tiling_a_floating_rule_leaves_its_windows_alone() {
+    // Arrange
+    let (mut h, path) = with_file("rules-ignore", FILE);
     open(&mut h, "Rules");
 
+    // Act
     click(&mut h, Role::Button, "Edit rule 1");
-    click(&mut h, Role::RadioButton, "Tile");
     click(&mut h, Role::RadioButton, "Don't tile");
+    click(&mut h, Role::Button, "Apply");
 
-    h.get_by_label("No unsaved changes");
-    assert_eq!(std::fs::read_to_string(path).unwrap(), FILE);
+    // Assert
+    let written = std::fs::read_to_string(path).unwrap();
+    assert_eq!(written, FILE.replace("\"float\"", "\"ignore\""));
 }
 
 #[test]
