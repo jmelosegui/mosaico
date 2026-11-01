@@ -263,10 +263,7 @@ fn a_widget_the_file_lacks_gets_a_table_of_its_own() {
     let mut widgets = doc.widgets().unwrap();
 
     // Act
-    widgets.left.push(BarWidget {
-        kind: WidgetKind::Ram,
-        enabled: true,
-    });
+    widgets.left.push(BarWidget::new(WidgetKind::Ram, true));
     doc.set_widgets(&widgets).unwrap();
     doc.save().unwrap();
 

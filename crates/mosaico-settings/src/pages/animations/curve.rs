@@ -77,7 +77,7 @@ fn fields(ui: &mut Ui, c: &Colors, points: &mut [f64; 4], enabled: bool) -> bool
                 let field =
                     widgets::number_of_width(ui, c, name, 56.0, point, 0.0..=1.0, 0.01, "", false);
                 edited |= field.changed();
-                ui.add_space(12.0);
+                ui.add_space(6.0);
             }
         });
     });

@@ -135,26 +135,36 @@ the points closest to it, and a custom curve lets you type them, each from 0 to
 The Bar page edits `bar.toml`, a different file from `config.toml`. Apply saves
 it after `config.toml`, and the running bar picks the change up by itself.
 
-| Section | Setting | Key in `bar.toml` |
-|---------|---------|-------------------|
-| Bar | Show the bar, height, background opacity, font and size | `enabled`, `height`, `background_opacity`, `font`, `font_size` |
-| Widgets | Which widgets are on each side, their order, and whether each is on | `[[left]]` and `[[right]]` |
-| Text | Bold, italic, underline, padding, item gap, separator | `font_bold`, `font_italic`, `font_underline`, `padding`, `item_gap`, `separator` |
-| Pills | Padding, radius, border width, workspace gap | `pill_padding`, `pill_radius`, `pill_border_width`, `workspace_gap` |
-| Mouse | Bar mouse actions, scroll action | `mouse.enabled`, `mouse.scroll` |
-| Colors | Background, text, accent and the other bar colors | `colors.*` |
+The page has three tabs, and a preview of the bar at the top of the first two
+that follows what you edit before you apply it.
 
-Each side lists its widgets in order. Widgets on the left are drawn from the
-left edge and those on the right from the right edge, so moving one up puts it
-nearer its edge. The arrows move a widget up or down, or to the other side, and
-the switch turns it off without removing it. The bar has no center zone.
+| Tab | Setting | Key in `bar.toml` |
+|-----|---------|-------------------|
+| Appearance | Show the bar, the monitors it appears on, height, background opacity | `enabled`, `monitors`, `height`, `background_opacity` |
+| Appearance | Font family (from the installed fonts), size, bold, italic, underline | `font`, `font_size`, `font_bold`, `font_italic`, `font_underline` |
+| Appearance | Pill padding, radius, border width, workspace gap, item gap, separator | `pill_padding`, `pill_radius`, `pill_border_width`, `workspace_gap`, `item_gap`, `separator` |
+| Appearance | Background, text, accent and the other bar colors | `colors.*` |
+| Widgets | Which widgets are on each side, their order, whether each is on, and its format, icon and color | `[[left]]` and `[[right]]` |
+| Mouse | Whether the bar takes clicks and the wheel, what the wheel does, and the click actions | `mouse.enabled`, `mouse.scroll`, `[[mouse.click]]` |
+
+The monitors are ticked by default. Unticking one keeps the bar off it, and
+ticking every monitor again removes the list.
+
+On the Widgets tab each side lists its widgets in order. Widgets on the left are
+drawn from the left edge and those on the right from the right edge, so moving
+one up puts it nearer its edge. Drag the grip at the start of a row to move a
+widget, or focus the grip and press the arrow keys: up and down reorder it, left
+and right send it to the other side. The switch turns a widget off without
+removing it, and clicking a row opens its format, icon and color. Add widget puts
+a new one at the end of the side. The bar has no center zone.
+
+The Mouse tab lists the click actions as a table of widget, button and action.
+A click on a workspace number always goes to that workspace.
 
 Saving keeps the comments and the order of the rest of the file, and each widget
-keeps its own settings (icon, color, format). A `bar.toml` that the bar would
-not load is shown as a problem on this page, which stays read-only until the file
-is fixed; the other pages are not affected. The monitor list, the click actions
-and the per-widget settings are still edited in the file.
-
+keeps its own settings. A `bar.toml` that the bar would not load is shown as a
+problem on this page, which stays read-only until the file is fixed; the other
+pages are not affected.
 ## Keybindings
 
 Edits `keybindings.toml`. The hotkeys are grouped by what they do: focus,

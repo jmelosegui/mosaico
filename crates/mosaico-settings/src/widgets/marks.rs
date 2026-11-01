@@ -10,6 +10,7 @@ use crate::theme::{self, Colors};
 
 /// A rounded chip reading `label`, after a dim `key` when there is one,
 /// as in "class is Notepad".
+#[expect(dead_code, reason = "the page redesigns use these")]
 pub fn chip(ui: &mut Ui, c: &Colors, key: Option<&str>, label: &str) -> Response {
     Frame::new()
         .fill(c.control)
@@ -27,6 +28,7 @@ pub fn chip(ui: &mut Ui, c: &Colors, key: Option<&str>, label: &str) -> Response
 }
 
 /// A chip in `color`, for a state such as "Tile" or "Don't tile".
+#[expect(dead_code, reason = "the page redesigns use these")]
 pub fn badge(ui: &mut Ui, label: &str, color: Color32) -> Response {
     Frame::new()
         .fill(color.gamma_multiply(0.18))
@@ -41,6 +43,7 @@ pub fn badge(ui: &mut Ui, label: &str, color: Color32) -> Response {
 
 /// The keys of a shortcut, one cap each, outlined in the accent when
 /// they are `changed`.
+#[expect(dead_code, reason = "the page redesigns use these")]
 pub fn keycaps(ui: &mut Ui, c: &Colors, keys: &[&str], changed: bool) -> Response {
     let stroke = Stroke::new(1.0, if changed { c.accent } else { c.line });
     ui.scope(|ui| {
@@ -112,5 +115,27 @@ pub fn checkbox(ui: &mut Ui, c: &Colors, label: &str, on: &mut bool) -> Response
     }
     let text = rect.left_center() + vec2(24.0, -galley.size().y / 2.0);
     painter.galley(text, galley, c.text);
+    response.on_hover_cursor(CursorIcon::PointingHand)
+}
+
+/// A borderless button in the accent color: a plus and `label`.
+pub fn ghost_button(ui: &mut Ui, c: &Colors, label: &str) -> Response {
+    let font = theme::bold(12.0);
+    let galley = ui
+        .painter()
+        .layout_no_wrap(label.to_owned(), font, c.accent);
+    let size = vec2(14.0 + 6.0 + galley.size().x + 16.0, 28.0);
+    let (rect, response) = ui.allocate_exact_size(size, Sense::click());
+    response.widget_info(|| WidgetInfo::labeled(Role::Button, ui.is_enabled(), label));
+    if ui.is_rect_visible(rect) {
+        let painter = ui.painter();
+        if response.hovered() {
+            painter.rect_filled(rect, 5.0, c.hover);
+        }
+        let glyph = Rect::from_center_size(rect.left_center() + vec2(15.0, 0.0), vec2(12.0, 12.0));
+        icons::paint(painter, glyph, Icon::Plus, c.accent, 2.0);
+        let at = rect.left_center() + vec2(28.0, -galley.size().y / 2.0);
+        painter.galley(at, galley, c.accent);
+    }
     response.on_hover_cursor(CursorIcon::PointingHand)
 }

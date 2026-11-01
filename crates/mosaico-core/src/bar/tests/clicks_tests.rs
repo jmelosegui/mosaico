@@ -94,3 +94,23 @@ fn the_workspaces_widget_takes_its_clicks_on_the_left_alone() {
     assert_eq!(workspaces(BarSide::Right), None);
     assert!(!clicks.clickable(WidgetKind::Workspaces, BarSide::Right));
 }
+
+#[test]
+fn the_actions_offered_for_a_click_are_all_ones_the_bar_runs() {
+    // Act
+    let actions = WidgetClicks::actions();
+
+    // Assert
+    assert!(actions.contains(&Action::CycleLayout));
+    assert!(actions.contains(&Action::Retile));
+    for action in actions {
+        let binding = ClickBinding::new("layout", "left", &action.to_string());
+        assert!(
+            WidgetClicks::rejected(&BarMouseConfig {
+                click: vec![binding],
+                ..BarMouseConfig::default()
+            })
+            .is_empty()
+        );
+    }
+}

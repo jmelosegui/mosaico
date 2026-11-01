@@ -12,6 +12,8 @@ use crate::config::schema::{self, SettingDescriptor, SettingValue};
 use crate::config::{BarConfig, Config};
 use crate::{Error, Result};
 
+#[path = "document_lists.rs"]
+mod lists;
 #[path = "document_widgets.rs"]
 mod widgets;
 
@@ -261,6 +263,9 @@ fn to_value(value: &SettingValue) -> Value {
 #[cfg(test)]
 #[path = "tests/document_bar_tests.rs"]
 mod bar_tests;
+#[cfg(test)]
+#[path = "tests/document_lists_tests.rs"]
+mod lists_tests;
 #[cfg(test)]
 #[path = "tests/document_tests.rs"]
 mod tests;

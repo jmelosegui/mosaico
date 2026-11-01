@@ -98,6 +98,24 @@ impl WidgetConfig {
             Self::Paused { .. } => WidgetKind::Paused,
         }
     }
+
+    /// The format of the time or date, for the widgets that show one.
+    pub fn format(&self) -> Option<&str> {
+        match self {
+            Self::Clock { format, .. } | Self::Date { format, .. } => Some(format),
+            _ => None,
+        }
+    }
+
+    /// A widget of `kind` with every setting at its default.
+    pub fn of_kind(kind: WidgetKind) -> Self {
+        let table = format!("type = \"{}\"", kind.name());
+        toml::from_str(&table).unwrap_or(Self::Paused {
+            enabled: true,
+            icon: String::new(),
+            color: String::new(),
+        })
+    }
 }
 
 #[cfg(test)]

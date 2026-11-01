@@ -2,7 +2,7 @@
 //! the keys that trigger it.
 
 mod capture;
-mod labels;
+pub(super) mod labels;
 mod row;
 
 use eframe::egui::{RichText, Ui};

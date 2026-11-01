@@ -5,16 +5,21 @@ use std::collections::BTreeMap;
 
 use mosaico_core::Error;
 use mosaico_core::config::schema::{BAR_SETTINGS, SettingValue, bar_default};
-use mosaico_core::config::{BarWidgets, ConfigStore, SettingsDocument};
+use mosaico_core::config::{BarWidgets, ClickBinding, ConfigStore, SettingsDocument};
 
 use crate::model::reason;
 
 /// What the Bar page shows: the single settings of the file, by key, and
-/// which widgets are on each side.
+/// which widgets are on each side, on which monitors it shows and what
+/// clicks do.
 #[derive(Debug, Clone, PartialEq)]
 pub struct BarState {
     values: BTreeMap<&'static str, SettingValue>,
     pub widgets: BarWidgets,
+    /// The monitors, numbered from 0, the bar shows on. Empty for all.
+    pub monitors: Vec<usize>,
+    /// The click bindings in effect.
+    pub clicks: Vec<ClickBinding>,
 }
 
 impl BarState {
@@ -26,6 +31,8 @@ impl BarState {
                 .filter_map(|s| Some((s.key, bar_default(s.key)?)))
                 .collect(),
             widgets: BarWidgets::default(),
+            monitors: Vec::new(),
+            clicks: ClickBinding::defaults(),
         }
     }
 
@@ -43,6 +50,8 @@ impl BarState {
             }
         }
         state.widgets = doc.widgets()?;
+        state.monitors = doc.monitors()?;
+        state.clicks = doc.clicks()?;
         Ok(state)
     }
 
@@ -67,9 +76,13 @@ impl BarState {
     }
 
     /// How many edits there are from `other`: the settings that differ,
-    /// and one for the widgets when they do.
+    /// and one for each of the widgets, the monitors and the clicks when
+    /// they do.
     pub fn changes_from(&self, other: &Self) -> usize {
-        self.changed_keys(other).count() + usize::from(self.widgets != other.widgets)
+        self.changed_keys(other).count()
+            + usize::from(self.widgets != other.widgets)
+            + usize::from(self.monitors != other.monitors)
+            + usize::from(self.clicks != other.clicks)
     }
 }
 
@@ -100,6 +113,12 @@ pub fn save(store: &ConfigStore, saved: &BarState, edit: &BarState) -> Result<()
     }
     if edit.widgets != saved.widgets {
         doc.set_widgets(&edit.widgets).map_err(reason)?;
+    }
+    if edit.monitors != saved.monitors {
+        doc.set_monitors(&edit.monitors).map_err(reason)?;
+    }
+    if edit.clicks != saved.clicks {
+        doc.set_clicks(&edit.clicks).map_err(reason)?;
     }
     if doc.is_dirty() {
         doc.save().map_err(reason)?;

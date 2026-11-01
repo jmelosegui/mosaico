@@ -37,6 +37,9 @@ pub mod enumerate;
 /// Wrapping native errors in the core error.
 mod error;
 
+/// The font families installed on the system, for the FontCatalog contract.
+pub mod fonts;
+
 /// Quick file checks that never wait on a network share.
 pub mod files;
 

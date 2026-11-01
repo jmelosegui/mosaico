@@ -34,13 +34,41 @@ impl BarZone {
     }
 }
 
-/// A widget of the bar, without its own settings.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// A widget of the bar with the settings the window edits: whether it is
+/// shown and how it looks. What it shows beyond that, such as how long
+/// the media text may be, stays as the file has it.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BarWidget {
     /// What the widget shows.
     pub kind: WidgetKind,
     /// Whether the bar shows it.
     pub enabled: bool,
+    /// The format of the time or date, for the widgets that show one.
+    pub format: Option<String>,
+    /// The icon text before the widget's own. Empty for none.
+    pub icon: String,
+    /// The text color, a `#rrggbb` value or a theme color name. Empty
+    /// for the widget's own.
+    pub color: String,
+}
+
+impl BarWidget {
+    /// A widget of `kind` with the settings a new entry in the file has.
+    pub fn new(kind: WidgetKind, enabled: bool) -> Self {
+        let mut widget = Self::of(&WidgetConfig::of_kind(kind));
+        widget.enabled = enabled;
+        widget
+    }
+
+    pub(crate) fn of(config: &WidgetConfig) -> Self {
+        Self {
+            kind: config.kind(),
+            enabled: config.enabled(),
+            format: config.format().map(str::to_owned),
+            icon: config.icon().to_owned(),
+            color: config.color().to_owned(),
+        }
+    }
 }
 
 /// The widgets of each side of the bar, in order.
@@ -55,15 +83,7 @@ pub struct BarWidgets {
 impl BarWidgets {
     /// The widgets `config` has.
     pub fn of(config: &BarConfig) -> Self {
-        let list = |widgets: &[WidgetConfig]| {
-            widgets
-                .iter()
-                .map(|w| BarWidget {
-                    kind: w.kind(),
-                    enabled: w.enabled(),
-                })
-                .collect()
-        };
+        let list = |widgets: &[WidgetConfig]| widgets.iter().map(BarWidget::of).collect();
         Self {
             left: list(&config.left),
             right: list(&config.right),
