@@ -313,7 +313,7 @@ and brings its docs, so it can merge on its own.
 - [x] Releases, `install.ps1` and `mosaico update` ship and install
       `mosaico-settings` beside `mosaico`
 - [x] `egui_kittest` tests for the shell in a dark and a light flavor
-- [ ] CI builds the crate for Linux and macOS targets
+- [x] CI builds the crate for Linux and macOS targets
 
 ### 37.5 Pages for config.toml and bar.toml
 
