@@ -6,11 +6,44 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # The tests are not run again here. The test binaries cannot reuse the
+  # release build (tests need panic unwinding, the release profile aborts
+  # and uses LTO), so they would compile the workspace a second time.
+  # Instead this reuses CI's verdict on the tagged commit, which ran the
+  # full suite, and waits for it while the binaries build.
+  tested:
+    name: CI passed
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Wait for CI on the tagged commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for attempt in $(seq 1 90); do
+            run=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$GITHUB_SHA&per_page=1" \
+              --jq '.workflow_runs[0] // empty | "\(.status) \(.conclusion) \(.html_url)"')
+            if [ -z "$run" ] && [ "$attempt" -gt 6 ]; then
+              echo "::error::CI never ran on $GITHUB_SHA. Tag a commit on main."
+              exit 1
+            fi
+            set -- $run
+            if [ "$1" = "completed" ]; then
+              echo "CI finished with '$2': $3"
+              [ "$2" = "success" ] || { echo "::error::CI did not pass on $GITHUB_SHA"; exit 1; }
+              exit 0
+            fi
+            sleep 20
+          done
+          echo "::error::Timed out waiting for CI on $GITHUB_SHA"
+          exit 1
+
   build:
     name: Build
     runs-on: windows-latest
@@ -23,9 +56,6 @@ jobs:
 
       - name: Build release binaries
         run: cargo build --release -p mosaico -p mosaico-settings
-
-      - name: Run tests
-        run: cargo test --lib
 
       - name: Package
         shell: pwsh
@@ -44,7 +74,7 @@ jobs:
 
   release:
     name: Release
-    needs: build
+    needs: [tested, build]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
