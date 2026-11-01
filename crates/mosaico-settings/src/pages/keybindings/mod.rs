@@ -1,20 +1,37 @@
 //! The Keybindings page: the hotkeys of `keybindings.toml`, each with
 //! the keys that trigger it.
 
+mod banner;
 mod capture;
+mod edits;
+mod header;
 pub(super) mod labels;
 mod row;
+mod rows;
 
 use eframe::egui::{RichText, Ui};
-use mosaico_core::config::{ConfigStore, Keybinding, KeybindingsDocument, keybinding};
+use mosaico_core::config::{ConfigStore, Keybinding, KeybindingsDocument, Modifier, keybinding};
 
+use self::banner::Choice;
 use self::capture::Pressed;
-use self::row::{Click, RowView};
+use self::row::Click;
 use super::{FilePage, Page};
 use crate::theme::Colors;
 use crate::widgets;
 
-const PROMPT: &str = "Press the new key combination, or Esc to cancel.";
+const PROMPT: &str = "Press the new shortcut";
+
+/// A shortcut pressed that another binding already has.
+struct Pending {
+    key: String,
+    modifiers: Vec<Modifier>,
+    /// The bindings that have it.
+    others: Vec<usize>,
+    /// The shortcut as the banner says it: `Alt Shift H`.
+    shortcut: String,
+    /// What the other bindings do.
+    owners: String,
+}
 
 /// The Keybindings page, editing `keybindings.toml`.
 pub struct KeybindingsPage {
@@ -33,6 +50,11 @@ pub struct KeybindingsPage {
     capturing: Option<usize>,
     /// Why the last key press was not taken.
     refused: Option<String>,
+    /// A shortcut pressed that is bound already, waiting for the user to
+    /// replace it or cancel.
+    pending: Option<Pending>,
+    /// What the filter field holds.
+    filter: String,
 }
 
 impl KeybindingsPage {
@@ -48,6 +70,8 @@ impl KeybindingsPage {
             defaults: keybinding::defaults(),
             capturing: None,
             refused: None,
+            pending: None,
+            filter: String::new(),
         };
         page.load();
         page
@@ -104,74 +128,10 @@ impl KeybindingsPage {
         }
     }
 
-    fn bind(&mut self, index: usize, key: &str, modifiers: &[mosaico_core::config::Modifier]) {
-        let Some(doc) = &mut self.doc else { return };
-        match doc.set_key(index, key, modifiers) {
-            Ok(()) => {
-                self.stop_capture();
-                self.refresh();
-            }
-            Err(_) => self.refused = Some(format!("{key} can't be used as a hotkey.")),
-        }
-    }
-
     fn stop_capture(&mut self) {
         self.capturing = None;
         self.refused = None;
-    }
-
-    fn default_of(&self, action: mosaico_core::Action) -> Option<&Keybinding> {
-        self.defaults.iter().find(|d| d.action == action)
-    }
-
-    fn show_row(&self, ui: &mut Ui, c: &Colors, index: usize) -> Click {
-        let binding = &self.current[index];
-        let combo = combo_text(binding);
-        let default = self
-            .default_of(binding.action)
-            .map(combo_text)
-            .filter(|d| *d != combo);
-        let unsaved = self.saved.get(index).map(combo_text).as_ref() != Some(&combo);
-        let label = labels::label(binding.action);
-        let capturing =
-            (self.capturing == Some(index)).then(|| self.refused.as_deref().unwrap_or(PROMPT));
-        let view = RowView {
-            label: &label,
-            combo: &combo,
-            unsaved,
-            default: default.as_deref(),
-            clash: self.clashes[index].as_deref(),
-            capturing,
-        };
-        row::draw(ui, c, &view)
-    }
-
-    fn click(&mut self, index: usize, click: Click) {
-        match click {
-            Click::Nothing => {}
-            Click::Change => {
-                self.capturing = Some(index);
-                self.refused = None;
-            }
-            Click::Cancel => self.stop_capture(),
-            Click::Reset => {
-                let default = self.default_of(self.current[index].action).cloned();
-                if let Some(d) = default {
-                    self.bind(index, &d.key, &d.modifiers);
-                }
-            }
-        }
-    }
-
-    fn matches(&self, index: usize, query: &str) -> bool {
-        let binding = &self.current[index];
-        let query = query.trim().to_lowercase();
-        let texts = [
-            labels::label(binding.action),
-            binding.action.to_string(),
-            combo_text(binding),
-        ];
-        texts.iter().any(|t| t.to_lowercase().contains(&query))
+        self.pending = None;
     }
 }
 
@@ -190,10 +150,16 @@ impl FilePage for KeybindingsPage {
     }
 
     fn changes(&self) -> usize {
-        let moved = (self.current.iter().zip(&self.saved))
-            .filter(|(now, was)| combo_text(now) != combo_text(was))
+        let moved = (self.current.iter())
+            .filter(|now| {
+                let was = self.saved_of(now.action).map(combo_text);
+                was.is_none_or(|was| was != combo_text(now))
+            })
             .count();
-        moved + self.current.len().abs_diff(self.saved.len())
+        let dropped = (self.saved.iter())
+            .filter(|was| !self.current.iter().any(|now| now.action == was.action))
+            .count();
+        moved + dropped
     }
 
     fn problem(&self) -> Option<&str> {
@@ -202,13 +168,19 @@ impl FilePage for KeybindingsPage {
 
     fn show(&mut self, ui: &mut Ui, c: &Colors, query: &str) {
         self.take_key_press(ui);
+        if header::draw(ui, c, &mut self.filter) {
+            self.restore_defaults();
+        }
+        let filter = self.filter.clone();
         let mut clicked = None;
+        let mut chosen = Choice::Undecided;
         let mut any = false;
         for group in labels::GROUPS {
-            let shown: Vec<_> = (0..self.current.len())
+            let mut shown: Vec<_> = (0..self.current.len())
                 .filter(|&i| labels::group(self.current[i].action) == group)
-                .filter(|&i| self.matches(i, query))
+                .filter(|&i| self.matches(i, query) && self.matches(i, &filter))
                 .collect();
+            shown.sort_by_key(|&i| labels::rank(self.current[i].action));
             if shown.is_empty() {
                 continue;
             }
@@ -222,12 +194,25 @@ impl FilePage for KeybindingsPage {
                     if click != Click::Nothing {
                         clicked = Some((i, click));
                     }
+                    if let (Some(p), true) = (&self.pending, self.capturing == Some(i)) {
+                        chosen = banner::draw(ui, c, &p.shortcut, &p.owners);
+                    }
                 }
             });
         }
         if !any && self.doc.is_some() {
-            let text = format!("No keybindings match \u{201c}{}\u{201d}.", query.trim());
+            let shown = if filter.trim().is_empty() {
+                query
+            } else {
+                &filter
+            };
+            let text = format!("No keybindings match \u{201c}{}\u{201d}.", shown.trim());
             ui.label(RichText::new(text).color(c.dim_text));
+        }
+        match chosen {
+            Choice::Undecided => {}
+            Choice::Cancel => self.stop_capture(),
+            Choice::Replace => self.replace(),
         }
         if let Some((index, click)) = clicked {
             self.click(index, click);

@@ -43,7 +43,6 @@ pub fn badge(ui: &mut Ui, label: &str, color: Color32) -> Response {
 
 /// The keys of a shortcut, one cap each, outlined in the accent when
 /// they are `changed`.
-#[expect(dead_code, reason = "the page redesigns use these")]
 pub fn keycaps(ui: &mut Ui, c: &Colors, keys: &[&str], changed: bool) -> Response {
     let stroke = Stroke::new(1.0, if changed { c.accent } else { c.line });
     ui.scope(|ui| {
