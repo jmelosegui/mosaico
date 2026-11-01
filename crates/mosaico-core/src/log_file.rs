@@ -7,7 +7,8 @@ use std::path::{Path, PathBuf};
 
 use super::{Level, LogConfig};
 
-const LOG_FILE_NAME: &str = "mosaico.log";
+/// The name of the log file in the log directory.
+pub(crate) const LOG_FILE_NAME: &str = "mosaico.log";
 const BACKUP_SUFFIX: &str = ".1";
 
 /// The open log file.

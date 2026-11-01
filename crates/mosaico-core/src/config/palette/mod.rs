@@ -5,7 +5,11 @@
 
 mod catppuccin;
 mod rose_pine;
+mod surfaces;
 mod tokyo_night;
+mod ui_colors;
+
+pub use ui_colors::UiColors;
 
 use super::bar::BarColors;
 use super::theme::Theme;

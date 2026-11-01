@@ -32,6 +32,10 @@ impl Installer for NothingLeftOver {
         "mosaico"
     }
 
+    fn settings_name(&self) -> &str {
+        "mosaico-settings"
+    }
+
     fn replace(&self, _exe: &Path, _binary: &[u8]) -> Result<()> {
         Ok(())
     }

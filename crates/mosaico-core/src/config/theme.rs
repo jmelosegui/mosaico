@@ -9,6 +9,8 @@
 mod theme_colors;
 #[path = "theme_config.rs"]
 mod theme_config;
+#[path = "theme_list.rs"]
+mod theme_list;
 
 pub use theme_config::{ThemeCheck, ThemeConfig};
 

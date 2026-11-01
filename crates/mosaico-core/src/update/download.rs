@@ -1,4 +1,4 @@
-//! Downloading a release and taking the executable out of its archive.
+//! Downloading a release and taking the executables out of its archive.
 
 use std::io::{self, Cursor, Read};
 use std::time::Duration;
@@ -13,13 +13,21 @@ const DOWNLOAD_HOST: &str = "github.com";
 /// How long each step of the download may take.
 const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(60);
 
+/// The executables of a release, as their contents.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Binaries {
+    /// The mosaico executable, [`binary_name`](Installer::binary_name).
+    pub mosaico: Vec<u8>,
+    /// The settings app, [`settings_name`](Installer::settings_name).
+    pub settings: Vec<u8>,
+}
+
 /// Downloads the release tagged `tag` for the platform of `installer`,
-/// and returns the mosaico executable from its archive.
+/// and returns the executables from its archive.
 ///
 /// The archive is a zip, which is what the release workflow builds for
-/// every platform. The executable is the entry named
-/// [`binary_name`](Installer::binary_name), at the top of the archive or
-/// in a folder, in any letter case.
+/// every platform. Each executable is the entry with its name, at the top
+/// of the archive or in a folder, in any letter case.
 ///
 /// # Errors
 ///
@@ -28,16 +36,19 @@ const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(60);
 /// [`Error::Network`](crate::Error::Network) when the archive cannot be
 /// downloaded, for example because the release has none for this
 /// platform, and with [`Error::Io`](crate::Error::Io) when it is not a
-/// zip archive or does not hold the executable.
-pub fn download_binary(
+/// zip archive or lacks either executable.
+pub fn download_binaries(
     http: &dyn HttpClient,
     installer: &dyn Installer,
     tag: &str,
-) -> Result<Vec<u8>> {
+) -> Result<Binaries> {
     let asset = installer.asset_name()?;
     let path = format!("/jmelosegui/mosaico/releases/download/{tag}/{asset}");
     let archive = http.get_bytes(DOWNLOAD_HOST, &path, DOWNLOAD_TIMEOUT)?;
-    extract(&archive, installer.binary_name())
+    Ok(Binaries {
+        mosaico: extract(&archive, installer.binary_name())?,
+        settings: extract(&archive, installer.settings_name())?,
+    })
 }
 
 /// Takes the file named `binary` out of the zip `archive`.

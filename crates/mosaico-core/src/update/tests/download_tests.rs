@@ -14,7 +14,8 @@ use TestPlatform::{CannotUpdate, Updates};
 const ARCHIVE: &str = "/jmelosegui/mosaico/releases/download/v1.2.3/mosaico-test-os.zip";
 
 /// A platform whose release archive is `mosaico-test-os.zip`, holding
-/// the executable `mosaico-test`, or one that cannot update itself.
+/// the executables `mosaico-test` and `settings-test`, or one that cannot
+/// update itself.
 enum TestPlatform {
     Updates,
     CannotUpdate,
@@ -30,6 +31,10 @@ impl Installer for TestPlatform {
 
     fn binary_name(&self) -> &str {
         "mosaico-test"
+    }
+
+    fn settings_name(&self) -> &str {
+        "settings-test"
     }
 
     fn replace(&self, _exe: &Path, _binary: &[u8]) -> crate::Result<()> {
@@ -77,18 +82,20 @@ fn serving(archive: Vec<u8>) -> FakeHttp {
 }
 
 #[test]
-fn the_binary_comes_from_the_archive_of_this_platform() {
+fn the_binaries_come_from_the_archive_of_this_platform() {
     // Arrange
     let http = serving(zip_of(&[
         ("README.md", b"read me"),
         ("mosaico-test", b"binary"),
+        ("settings-test", b"settings"),
     ]));
 
     // Act
-    let binary = download_binary(&http, &Updates, "v1.2.3").unwrap();
+    let binaries = download_binaries(&http, &Updates, "v1.2.3").unwrap();
 
     // Assert
-    assert_eq!(binary, b"binary");
+    assert_eq!(binaries.mosaico, b"binary");
+    assert_eq!(binaries.settings, b"settings");
     assert_eq!(
         http.requests(),
         [(
@@ -99,15 +106,19 @@ fn the_binary_comes_from_the_archive_of_this_platform() {
 }
 
 #[test]
-fn the_binary_is_found_in_a_folder_and_in_any_letter_case() {
+fn the_binaries_are_found_in_a_folder_and_in_any_letter_case() {
     // Arrange
-    let http = serving(zip_of(&[("mosaico-v1.2.3/MOSAICO-TEST", b"binary")]));
+    let http = serving(zip_of(&[
+        ("mosaico-v1.2.3/MOSAICO-TEST", b"binary"),
+        ("mosaico-v1.2.3/Settings-Test", b"settings"),
+    ]));
 
     // Act
-    let binary = download_binary(&http, &Updates, "v1.2.3").unwrap();
+    let binaries = download_binaries(&http, &Updates, "v1.2.3").unwrap();
 
     // Assert
-    assert_eq!(binary, b"binary");
+    assert_eq!(binaries.mosaico, b"binary");
+    assert_eq!(binaries.settings, b"settings");
 }
 
 #[test]
@@ -116,7 +127,7 @@ fn a_file_whose_name_only_ends_like_the_binary_is_not_it() {
     let http = serving(zip_of(&[("not-mosaico-test", b"other")]));
 
     // Act
-    let error = download_binary(&http, &Updates, "v1.2.3").unwrap_err();
+    let error = download_binaries(&http, &Updates, "v1.2.3").unwrap_err();
 
     // Assert
     assert_eq!(error.to_string(), "mosaico-test not found in zip archive");
@@ -128,7 +139,7 @@ fn a_release_without_this_platforms_archive_is_a_network_error() {
     let http = FakeHttp::default().status("github.com", ARCHIVE, 404);
 
     // Act
-    let error = download_binary(&http, &Updates, "v1.2.3").unwrap_err();
+    let error = download_binaries(&http, &Updates, "v1.2.3").unwrap_err();
 
     // Assert
     assert!(matches!(error, Error::Network(_)), "{error:?}");
@@ -141,7 +152,7 @@ fn an_unreachable_host_is_a_network_error() {
     let http = FakeHttp::default();
 
     // Act
-    let error = download_binary(&http, &Updates, "v1.2.3").unwrap_err();
+    let error = download_binaries(&http, &Updates, "v1.2.3").unwrap_err();
 
     // Assert
     assert!(matches!(error, Error::Network(_)), "{error:?}");
@@ -153,11 +164,24 @@ fn an_archive_without_the_binary_is_an_error() {
     let http = serving(zip_of(&[("README.md", b"read me")]));
 
     // Act
-    let error = download_binary(&http, &Updates, "v1.2.3").unwrap_err();
+    let error = download_binaries(&http, &Updates, "v1.2.3").unwrap_err();
 
     // Assert
     assert!(matches!(error, Error::Io(_)), "{error:?}");
     assert_eq!(error.to_string(), "mosaico-test not found in zip archive");
+}
+
+#[test]
+fn an_archive_without_the_settings_app_is_an_error() {
+    // Arrange -- as archives were before the settings app shipped.
+    let http = serving(zip_of(&[("mosaico-test", b"binary")]));
+
+    // Act
+    let error = download_binaries(&http, &Updates, "v1.2.3").unwrap_err();
+
+    // Assert
+    assert!(matches!(error, Error::Io(_)), "{error:?}");
+    assert_eq!(error.to_string(), "settings-test not found in zip archive");
 }
 
 #[test]
@@ -166,7 +190,7 @@ fn a_download_that_is_not_an_archive_is_an_error() {
     let http = serving(b"Not Found".to_vec());
 
     // Act
-    let error = download_binary(&http, &Updates, "v1.2.3").unwrap_err();
+    let error = download_binaries(&http, &Updates, "v1.2.3").unwrap_err();
 
     // Assert
     assert!(matches!(error, Error::Io(_)), "{error:?}");
@@ -182,7 +206,7 @@ fn an_archive_that_declares_a_size_it_does_not_hold_is_invalid() {
     let http = serving(zip_declaring(1 << 63, "mosaico-test", b"binary"));
 
     // Act
-    let error = download_binary(&http, &Updates, "v1.2.3").unwrap_err();
+    let error = download_binaries(&http, &Updates, "v1.2.3").unwrap_err();
 
     // Assert
     assert!(matches!(error, Error::Io(_)), "{error:?}");
@@ -198,7 +222,7 @@ fn a_platform_that_cannot_update_itself_downloads_nothing() {
     let http = serving(zip_of(&[("mosaico-test", b"binary")]));
 
     // Act
-    let error = download_binary(&http, &CannotUpdate, "v1.2.3").unwrap_err();
+    let error = download_binaries(&http, &CannotUpdate, "v1.2.3").unwrap_err();
 
     // Assert
     assert!(matches!(error, Error::Unsupported(_)), "{error:?}");

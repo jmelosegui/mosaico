@@ -1,6 +1,6 @@
 # Phase 37: Tray Icon & Settings App
 
-**Status:** Pending
+**Status:** In progress
 
 **Goal:** Let people configure mosaico without editing TOML. A tray icon
 gives the daemon a visible home. From the icon, a settings window offers only
@@ -134,6 +134,8 @@ One window with a navigation list on the left and a page on the right:
   reads the files.
 - Only one settings window runs per instance. A second launch brings the
   first forward.
+- The window tiles like any other; mosaico has no built-in rule for it. A
+  user rule matching `mosaico-settings` can float it.
 
 ### Look and feel
 
@@ -290,18 +292,24 @@ and brings its docs, so it can merge on its own.
 
 ### 37.4 Settings app shell
 
-- [ ] Per-flavor UI roles in core's theme palettes
-- [ ] `mosaico-settings` crate, ArtCraft tokens with colors from the
-      active flavor, Inter font, live theme changes, `settings-app.toml`
-- [ ] Navigation, setting rows from descriptors, Apply/Revert, unsaved-edit
-      prompt, daemon status line, single instance
-- [ ] `mosaico settings` and the tray's Settings… item start it
-- [ ] `egui_kittest` tests for the shell in a dark and a light flavor
+- [x] Per-flavor UI roles in core's theme palettes
+- [x] `mosaico-settings` crate, ArtCraft tokens with colors from the
+      active flavor, Inter font, flavor preview while editing
+- [ ] Follows theme changes made in `config.toml` live; `settings-app.toml`
+- [x] Navigation, Revert, unsaved-change count, daemon status line
+- [ ] Setting rows from descriptors, Apply, unsaved-edit prompt, single
+      instance
+- [x] `mosaico settings` starts it
+- [ ] The tray's Settings… item starts it
+- [x] Releases, `install.ps1` and `mosaico update` ship and install
+      `mosaico-settings` beside `mosaico`
+- [x] `egui_kittest` tests for the shell in a dark and a light flavor
 - [ ] CI builds the crate for Linux and macOS targets
 
 ### 37.5 Pages for config.toml and bar.toml
 
-- [ ] General, Layout, Workspaces, Borders, Mouse, Animations, Bar
+- [x] General (read-only until Apply lands)
+- [ ] Layout, Workspaces, Borders, Mouse, Animations, Bar
 - [ ] Color picker with palette names, widget order editor
 - [ ] `egui_kittest` tests: each page edits, saves and reloads through a
       temporary store
@@ -315,7 +323,7 @@ and brings its docs, so it can merge on its own.
 
 ### 37.7 Shipping
 
-- [ ] Release artifacts and `mosaico update` include `mosaico-settings`
+- [x] Release artifacts and `mosaico update` include `mosaico-settings`
 - [ ] `cargo xtask size` keeps checking `mosaico.exe` and reports the
       settings app's size separately
 - [ ] Docs, website guide with screenshots in a dark and a light flavor,

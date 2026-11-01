@@ -11,6 +11,7 @@ mod doctor_runtime;
 pub mod init;
 pub mod pause;
 mod request;
+pub mod settings;
 pub mod start;
 pub mod status;
 pub mod stop;

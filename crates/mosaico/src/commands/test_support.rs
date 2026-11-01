@@ -18,7 +18,7 @@ mod windows;
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, VecDeque};
 use std::io;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use mosaico_core::ipc::{Command, IpcError, Response};
@@ -29,7 +29,7 @@ use super::context::{Clock, Daemon};
 
 pub use autostart_fake::{EXE, MOVED_AWAY};
 pub use harness::Harness;
-pub use release::{ASSET, BINARY, FakeInstaller, Releases};
+pub use release::{ASSET, BINARY, FakeInstaller, Releases, SETTINGS};
 pub use windows::Frames;
 
 /// How long a fake process stays alive.
@@ -73,6 +73,10 @@ pub struct World {
     pub can_kill: Cell<bool>,
     /// What `launch_daemon` does.
     pub launch: RefCell<Launch>,
+    /// Programs started with `launch`, in order.
+    pub launched: RefCell<Vec<PathBuf>>,
+    /// Error `launch` fails with, if any.
+    pub launch_error: RefCell<Option<String>>,
     /// What is registered to start at login.
     pub autostart: RefCell<Option<LaunchCommand>>,
     /// Whether the user turned the registration off in the system's
@@ -110,6 +114,8 @@ impl Default for World {
             processes: RefCell::default(),
             can_kill: Cell::new(true),
             launch: RefCell::new(Launch::Answers(4321)),
+            launched: RefCell::default(),
+            launch_error: RefCell::default(),
             autostart: RefCell::default(),
             turned_off: Cell::new(false),
             autostart_error: RefCell::default(),
@@ -176,6 +182,14 @@ impl ProcessControl for World {
             }
             Launch::Fails(message) => Err(failure(message)),
         }
+    }
+
+    fn launch(&self, program: &Path) -> Result<u32> {
+        if let Some(error) = self.launch_error.borrow().clone() {
+            return Err(Error::platform("start the program", error));
+        }
+        self.launched.borrow_mut().push(program.to_path_buf());
+        Ok(5678)
     }
 
     fn is_alive(&self, pid: u32) -> bool {

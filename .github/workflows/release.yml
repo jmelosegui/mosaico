@@ -21,8 +21,8 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - name: Build release binary
-        run: cargo build --release
+      - name: Build release binaries
+        run: cargo build --release -p mosaico -p mosaico-settings
 
       - name: Run tests
         run: cargo test --lib
@@ -33,6 +33,7 @@ jobs:
           $staging = "mosaico-windows-amd64"
           New-Item -ItemType Directory -Force -Path $staging | Out-Null
           Copy-Item "target\release\mosaico.exe" "$staging\mosaico.exe"
+          Copy-Item "target\release\mosaico-settings.exe" "$staging\mosaico-settings.exe"
           Compress-Archive -Path "$staging\*" -DestinationPath "$staging.zip"
 
       - name: Upload artifact

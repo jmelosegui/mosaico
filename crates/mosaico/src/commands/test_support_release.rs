@@ -13,8 +13,12 @@ use mosaico_core::{Error, Result};
 /// The file name of the release archive in the fake world.
 pub const ASSET: &str = "mosaico-test-os.zip";
 
-/// The file name of the executable in that archive.
+/// The file name of the mosaico executable in that archive.
 pub const BINARY: &str = "mosaico-test";
+
+/// The file name of the settings app in that archive and beside the
+/// mosaico executable.
+pub const SETTINGS: &str = "mosaico-test-settings";
 
 /// GitHub in the fake world. It cannot be reached until a release is
 /// published.
@@ -61,10 +65,12 @@ impl HttpClient for Releases {
 /// install instead of writing a file.
 #[derive(Default)]
 pub struct FakeInstaller {
-    /// The executable replaced, and the binary it was replaced with.
-    pub replaced: RefCell<Option<(PathBuf, Vec<u8>)>>,
-    /// Error replacing fails with, if any.
-    pub error: RefCell<Option<String>>,
+    /// The executables replaced, in order, and what they were replaced
+    /// with.
+    pub replaced: RefCell<Vec<(PathBuf, Vec<u8>)>>,
+    /// Error replacing fails with, if any, and the file name it fails
+    /// on; every file when that is `None`.
+    pub error: RefCell<Option<(String, Option<&'static str>)>>,
     /// Whether this platform cannot update itself.
     pub unsupported: Cell<bool>,
 }
@@ -89,12 +95,20 @@ impl Installer for FakeInstaller {
         BINARY
     }
 
+    fn settings_name(&self) -> &str {
+        SETTINGS
+    }
+
     fn replace(&self, exe: &Path, binary: &[u8]) -> Result<()> {
         self.supported()?;
-        if let Some(error) = self.error.borrow().clone() {
+        if let Some((error, on)) = self.error.borrow().clone()
+            && on.is_none_or(|name| exe.file_name() == Some(name.as_ref()))
+        {
             return Err(Error::platform("write the new executable", error));
         }
-        *self.replaced.borrow_mut() = Some((exe.to_path_buf(), binary.to_vec()));
+        self.replaced
+            .borrow_mut()
+            .push((exe.to_path_buf(), binary.to_vec()));
         Ok(())
     }
 

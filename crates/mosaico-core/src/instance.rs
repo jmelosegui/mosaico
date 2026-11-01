@@ -129,6 +129,11 @@ impl Instance {
         self.config_dir.join("logs")
     }
 
+    /// Path of the daemon's log file, in [`Self::log_dir`].
+    pub fn log_path(&self) -> PathBuf {
+        self.log_dir().join(crate::log::file::LOG_FILE_NAME)
+    }
+
     /// Path of the daemon's PID file.
     pub fn pid_path(&self) -> PathBuf {
         self.data_dir.join("mosaico.pid")

@@ -9,9 +9,8 @@ its workspace, from a key or from a window rule, without becoming unmanaged.
 
 A window rule can only tile a window or ignore it. An ignored window gets no
 border, is not hidden when its workspace is switched away, and stays on
-screen over every workspace. Small tools, pickers, players and the
-mosaico settings window do not belong in the grid, but they still belong to a
-workspace.
+screen over every workspace. Small tools, pickers and players do not belong in the grid, but they still
+belong to a workspace.
 
 A floating window is managed but not tiled:
 
@@ -54,8 +53,8 @@ A window without a standard title bar is only managed when a rule matches it
 with `"tile"` or `"float"`. Owned windows, tool windows and dialogs are never
 managed.
 
-The settings window floats by a rule built into mosaico, evaluated after the
-user rules and before the community rules, so a user rule can still tile it.
+The settings window is managed like any other window and tiles by default.
+A user rule can float it.
 
 ### Keybindings
 

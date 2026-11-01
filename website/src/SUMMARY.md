@@ -9,6 +9,7 @@
 - [Cheatsheet](guide/cheatsheet.md)
 - [CLI Commands](guide/cli.md)
 - [Configuration](guide/configuration.md)
+    - [Settings Window](guide/settings.md)
     - [Keyboard Bindings](guide/keybindings.md)
     - [Window Rules](guide/window-rules.md)
     - [Status Bar](guide/status-bar.md)

@@ -10,6 +10,6 @@ mod download;
 mod install;
 mod release;
 
-pub use download::download_binary;
+pub use download::{Binaries, download_binaries};
 pub use install::Installer;
 pub use release::{is_newer_tag, latest_tag, newer_release};

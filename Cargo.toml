@@ -3,6 +3,7 @@ members = [
     "crates/mosaico",
     "crates/mosaico-core",
     "crates/mosaico-metrics",
+    "crates/mosaico-settings",
     "crates/mosaico-windows",
     "xtask",
 ]
