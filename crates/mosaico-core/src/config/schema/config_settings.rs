@@ -116,7 +116,7 @@ pub const CONFIG_SETTINGS: &[SettingDescriptor] = &[
     setting(
         "workspaces.wrap",
         "Wrap around",
-        "Stepping past the last workspace goes back to the first, and before the first to the last.",
+        "The bar wheel and the next and previous workspace actions go from the last workspace back to the first, and from the first to the last.",
         SettingKind::Bool,
     ),
     workspace_layout("workspaces.layouts.1", "Workspace 1"),

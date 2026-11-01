@@ -4,6 +4,7 @@ use eframe::egui::{
     Align, CursorIcon, Frame, Key, Layout, Margin, Modifiers, Rect, RichText, Role, Sense, Stroke,
     Ui, UiBuilder, WidgetInfo, pos2, vec2,
 };
+use mosaico_core::bar::sample_text;
 use mosaico_core::config::{BarWidget, BarZone};
 
 use super::{Change, Ctx, ROW, grip_id, icon, label, note};
@@ -98,7 +99,7 @@ pub(super) fn row(
     let mut toggle = ui.new_child(UiBuilder::new().max_rect(area));
     widgets::toggle(&mut toggle, c, name, &mut widget.enabled);
     if selected {
-        options(ui, cx, widget);
+        options(ui, cx, place, widget);
     } else if !last {
         let y = rect.bottom();
         ui.painter().line_segment(
@@ -166,8 +167,8 @@ fn keys(ui: &Ui, cx: &mut Ctx, zone: BarZone, index: usize, last: bool) {
     });
 }
 
-/// The format, icon and color of an open widget.
-fn options(ui: &mut Ui, cx: &mut Ctx, widget: &mut BarWidget) {
+/// The format, icon and color of an open widget, and its removal.
+fn options(ui: &mut Ui, cx: &mut Ctx, place: (BarZone, usize), widget: &mut BarWidget) {
     let c = cx.c;
     Frame::new()
         .fill(c.selected)
@@ -182,8 +183,9 @@ fn options(ui: &mut Ui, cx: &mut Ctx, widget: &mut BarWidget) {
             ui.spacing_mut().item_spacing.y = 8.0;
             if let Some(format) = &widget.format {
                 let mut text = format.clone();
+                let example = sample_text(widget);
                 option(ui, c, "Format", |ui| {
-                    widgets::text(ui, c, "Format", 178.0, &mut text, "", false)
+                    widgets::example_field(ui, c, "Format", 178.0, &mut text, &example)
                 });
                 widget.format = Some(text);
             }
@@ -204,6 +206,12 @@ fn options(ui: &mut Ui, cx: &mut Ctx, widget: &mut BarWidget) {
             };
             option(ui, c, "Color", |ui| {
                 widgets::color(ui, c, &picker, &mut widget.color)
+            });
+            option(ui, c, "Remove from the bar", |ui| {
+                let label = format!("Remove {}", label(widget.kind));
+                if widgets::icon_button(ui, c, Icon::Trash, &label, c.dim_text).clicked() {
+                    cx.change = Some(Change::Remove(place));
+                }
             });
         });
     let y = ui.cursor().top();

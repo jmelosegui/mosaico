@@ -80,6 +80,7 @@ enum Change {
         by_key: bool,
     },
     Add(BarZone, WidgetKind),
+    Remove((BarZone, usize)),
 }
 
 /// Where each row and column was drawn this frame.
@@ -125,6 +126,10 @@ impl BarPage {
             Some(Change::Add(zone, kind)) => {
                 edit.zone_mut(zone).push(BarWidget::new(kind, true));
                 state.open = Some((zone, edit.zone(zone).len() - 1));
+            }
+            Some(Change::Remove((zone, index))) => {
+                edit.zone_mut(zone).remove(index);
+                state.open = None;
             }
             None => {}
         }

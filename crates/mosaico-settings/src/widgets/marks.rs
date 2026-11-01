@@ -82,8 +82,10 @@ pub fn icon_button(ui: &mut Ui, c: &Colors, icon: Icon, label: &str, color: Colo
         if response.hovered() {
             ui.painter().rect_filled(rect, 5.0, c.hover);
         }
-        let glyph = Rect::from_center_size(rect.center(), vec2(14.0, 14.0));
-        icons::paint(ui.painter(), glyph, icon, color, 1.5);
+        // The sketches fit an icon's outline, about 16 of its 24 units, to
+        // 80% of a 14-point box.
+        let glyph = Rect::from_center_size(rect.center(), vec2(17.0, 17.0));
+        icons::paint(ui.painter(), glyph, icon, color, 1.75);
     }
     response
         .on_hover_text(label)

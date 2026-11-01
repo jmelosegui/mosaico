@@ -171,8 +171,10 @@ drawn from the left edge and those on the right from the right edge, so moving
 one up puts it nearer its edge. Drag the grip at the start of a row to move a
 widget, or focus the grip and press the arrow keys: up and down reorder it, left
 and right send it to the other side. The switch turns a widget off without
-removing it, and clicking a row opens its format, icon and color. Add widget puts
-a new one at the end of the side. The bar has no center zone.
+removing it, and clicking a row opens its format, icon and color. A clock or date
+format shows the time it writes beside it, and the trash button at the bottom
+takes the widget off the bar. Add widget puts a new one at the end of the side.
+The bar has no center zone.
 
 ![The Widgets tab, with the widgets of each side](../images/settings/bar-widgets.png)
 
