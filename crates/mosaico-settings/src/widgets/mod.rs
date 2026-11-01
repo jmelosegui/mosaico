@@ -1,10 +1,12 @@
 //! The controls of the settings window, styled like the ArtCraft apps.
 
+mod color;
 mod fields;
 mod row;
 mod segmented;
 mod toggle;
 
+pub use color::{ColorPicker, color};
 pub use fields::{button, dropdown, number, text};
 pub use row::{RowState, divider, row, section};
 pub use segmented::segmented;

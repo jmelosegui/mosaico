@@ -23,15 +23,24 @@ use super::theme::Theme;
 /// (`pine`, `iris`, `magenta`, ...) only resolve under their own
 /// family.
 pub fn named_color(theme: Theme, name: &str) -> Option<&'static str> {
-    let table: &[(&str, &str)] = match theme {
-        Theme::Catppuccin(f) => catppuccin::table(f),
-        Theme::RosePine(f) => rose_pine::table(f),
-        Theme::TokyoNight(f) => tokyo_night::table(f),
-    };
-    table
+    table(theme)
         .iter()
         .find(|(n, _)| n.eq_ignore_ascii_case(name))
         .map(|(_, hex)| *hex)
+}
+
+/// The names [`named_color`] resolves for `theme`, in the order its
+/// palette lists them.
+pub fn color_names(theme: Theme) -> Vec<&'static str> {
+    table(theme).iter().map(|(name, _)| *name).collect()
+}
+
+fn table(theme: Theme) -> &'static [(&'static str, &'static str)] {
+    match theme {
+        Theme::Catppuccin(f) => catppuccin::table(f),
+        Theme::RosePine(f) => rose_pine::table(f),
+        Theme::TokyoNight(f) => tokyo_night::table(f),
+    }
 }
 
 /// Returns the bar color palette for the given theme.

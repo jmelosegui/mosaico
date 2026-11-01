@@ -1,0 +1,94 @@
+//! The colors a theme offers a border, and what a border setting shows.
+
+use crate::config::palette;
+use crate::config::{Color, Theme};
+
+impl Theme {
+    /// The names of the theme's palette colors, such as `"mauve"`, in the
+    /// order the palette lists them. Each resolves with
+    /// [`Theme::named_color`].
+    pub fn color_names(self) -> Vec<&'static str> {
+        palette::color_names(self)
+    }
+
+    /// The color the border setting at `key` has when it is empty, such
+    /// as `"borders.colors.focused"`. `None` for any other key.
+    pub fn border_default(self, key: &str) -> Option<&'static str> {
+        match key {
+            "borders.colors.focused" => Some(self.border_focused()),
+            "borders.colors.monocle" => Some(self.border_monocle()),
+            "borders.colors.unfocused" => Some(self.border_unfocused()),
+            _ => None,
+        }
+    }
+
+    /// The color a setting holding `value` is drawn with: `fallback` when
+    /// it is empty, the palette's color for a name, or the hex itself.
+    /// `None` for `"none"` and for text that is no color.
+    pub fn swatch(self, value: &str, fallback: &str) -> Option<Color> {
+        let value = value.trim();
+        if value.eq_ignore_ascii_case("none") {
+            return None;
+        }
+        Color::from_hex(self.resolve_color(value, fallback))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::{CatppuccinFlavor, RosePineFlavor};
+
+    const MOCHA: Theme = Theme::Catppuccin(CatppuccinFlavor::Mocha);
+
+    #[test]
+    fn color_names_are_those_the_theme_resolves() {
+        for theme in Theme::ALL {
+            let names = theme.color_names();
+            assert!(!names.is_empty(), "{theme:?}");
+            for name in names {
+                assert!(theme.named_color(name).is_some(), "{theme:?} {name}");
+            }
+        }
+    }
+
+    #[test]
+    fn color_names_follow_the_theme() {
+        assert!(MOCHA.color_names().contains(&"mauve"));
+        let pine = Theme::RosePine(RosePineFlavor::Main);
+        assert!(pine.color_names().contains(&"iris"));
+        assert!(!MOCHA.color_names().contains(&"iris"));
+    }
+
+    #[test]
+    fn border_default_is_the_themes_color_for_each_border() {
+        assert_eq!(
+            MOCHA.border_default("borders.colors.focused"),
+            Some(MOCHA.border_focused())
+        );
+        assert_eq!(
+            MOCHA.border_default("borders.colors.monocle"),
+            Some(MOCHA.border_monocle())
+        );
+        assert_eq!(
+            MOCHA.border_default("borders.colors.unfocused"),
+            Some(MOCHA.border_unfocused())
+        );
+        assert_eq!(MOCHA.border_default("borders.width"), None);
+    }
+
+    #[test]
+    fn swatch_resolves_names_hex_and_the_fallback() {
+        let blue = Color::from_hex("#89b4fa");
+        assert_eq!(MOCHA.swatch("blue", "#000000"), blue);
+        assert_eq!(MOCHA.swatch("#89B4FA", "#000000"), blue);
+        assert_eq!(MOCHA.swatch("", "#89b4fa"), blue);
+    }
+
+    #[test]
+    fn swatch_is_none_for_none_and_for_text_that_is_no_color() {
+        assert_eq!(MOCHA.swatch("none", "#89b4fa"), None);
+        assert_eq!(MOCHA.swatch("chartreuse", "#89b4fa"), None);
+        assert_eq!(MOCHA.swatch("#12", "#89b4fa"), None);
+    }
+}

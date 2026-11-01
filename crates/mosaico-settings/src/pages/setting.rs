@@ -2,6 +2,7 @@
 //! descriptor calls for.
 
 use eframe::egui::Ui;
+use mosaico_core::config::Theme;
 use mosaico_core::config::schema::{self, SettingDescriptor, SettingKind, SettingValue};
 
 use super::PageContext;
@@ -22,7 +23,7 @@ pub fn draw(ui: &mut Ui, cx: &PageContext, key: &str, help: Option<&str>, edit: 
         default: (&value != default).then(|| shown(setting, default)),
     };
     let reset = widgets::row(ui, cx.c, setting.label, help, &st, |ui| {
-        control(ui, cx, setting, &mut value, st.unsaved);
+        control(ui, cx, setting, edit.theme(), &mut value, st.unsaved);
     });
     edit.set(key, if reset { default.clone() } else { value });
 }
@@ -46,6 +47,7 @@ fn control(
     ui: &mut Ui,
     cx: &PageContext,
     setting: &SettingDescriptor,
+    theme: Theme,
     value: &mut SettingValue,
     changed: bool,
 ) {
@@ -77,7 +79,14 @@ fn control(
             *s = chosen.to_owned();
         }
         (SettingKind::Color, SettingValue::Text(s)) => {
-            widgets::text(ui, c, label, 120.0, s, "theme default", changed);
+            let picker = widgets::ColorPicker {
+                label,
+                theme,
+                fallback: theme.border_default(setting.key).unwrap_or_default(),
+                allow_none: setting.allows_none(),
+                changed,
+            };
+            widgets::color(ui, c, &picker, s);
         }
         (_, SettingValue::Text(s)) => {
             widgets::text(ui, c, label, 200.0, s, "", changed);

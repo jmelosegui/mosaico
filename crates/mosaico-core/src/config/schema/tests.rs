@@ -87,6 +87,17 @@ fn a_value_of_another_kind_or_an_unlisted_name_is_refused() {
 }
 
 #[test]
+fn only_the_unfocused_border_color_can_be_none() {
+    let none: Vec<_> = CONFIG_SETTINGS
+        .iter()
+        .filter(|s| s.allows_none())
+        .map(|s| s.key)
+        .collect();
+
+    assert_eq!(none, ["borders.colors.unfocused"]);
+}
+
+#[test]
 fn a_setting_is_split_into_its_tables_and_its_name() {
     let focused = find("borders.colors.focused").unwrap();
     assert_eq!(focused.path(), (vec!["borders", "colors"], "focused"));
