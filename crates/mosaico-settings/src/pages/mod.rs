@@ -211,6 +211,16 @@ impl Entry {
 /// A titled group of rows.
 pub type Section = (&'static str, &'static [Entry]);
 
+/// The line of help a section has under its title, if any.
+fn intro(title: &str) -> Option<&'static str> {
+    match title {
+        "Colors" => Some(
+            "A theme color follows the theme when you switch flavors. A hex color stays fixed.",
+        ),
+        _ => None,
+    }
+}
+
 /// A page's name over the file it edits.
 pub fn header(ui: &mut Ui, c: &Colors, page: Page, file: &str) {
     ui.label(RichText::new(page.label()).font(theme::bold(18.0)));
@@ -280,7 +290,16 @@ fn sections(
             ui.add_space(16.0);
             continue;
         }
-        widgets::section(ui, cx.c, title, |ui| {
+        widgets::heading(ui, cx.c, title, |_| {});
+        if let Some(help) = intro(title) {
+            ui.label(
+                RichText::new(help)
+                    .font(theme::regular(11.0))
+                    .color(cx.c.dim_text),
+            );
+            ui.add_space(6.0);
+        }
+        widgets::card(ui, cx.c, |ui| {
             for (i, (entry, row)) in shown.iter().enumerate() {
                 if i > 0 {
                     widgets::divider(ui, cx.c);
@@ -288,6 +307,7 @@ fn sections(
                 entry.draw(ui, cx, row, settings);
             }
         });
+        ui.add_space(16.0);
     }
     if !any {
         let text = format!("No settings match \u{201c}{}\u{201d}.", query.trim());

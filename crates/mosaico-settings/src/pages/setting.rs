@@ -29,7 +29,11 @@ const SLIDERS: [&str; 5] = [
 /// Where the track of a slider ends, for settings whose largest value is
 /// far beyond what is usually picked. Larger values can still be typed.
 fn track_max<N: From<u8>>(key: &str) -> Option<N> {
-    (key == "layout.gap").then(|| N::from(48))
+    match key {
+        "layout.gap" => Some(N::from(48)),
+        "borders.width" => Some(N::from(16)),
+        _ => None,
+    }
 }
 
 /// Draws the row of the setting at `key`, with `help` under its label.
@@ -64,15 +68,16 @@ pub fn draw_value(
 ) -> bool {
     let st = RowState {
         unsaved: value != saved,
-        default: (value != default).then(|| shown(setting, default)),
+        default: (value != default).then(|| shown(setting, theme, default)),
     };
     widgets::row(ui, c, setting.label, help, &st, |ui| {
         control(ui, c, setting, theme, value, st.unsaved);
     })
 }
 
-/// `value` as a row shows it in its default.
-pub fn shown(setting: &SettingDescriptor, value: &SettingValue) -> String {
+/// `value` as a row shows it in its default; an empty color is the one
+/// `theme` has for the setting.
+pub fn shown(setting: &SettingDescriptor, theme: Theme, value: &SettingValue) -> String {
     match (setting.kind, value) {
         (SettingKind::Int { unit, .. }, SettingValue::Int(n)) if !unit.is_empty() => {
             format!("{n} {unit}")
@@ -81,7 +86,12 @@ pub fn shown(setting: &SettingDescriptor, value: &SettingValue) -> String {
             .iter()
             .find(|(name, _)| name == s)
             .map_or_else(|| s.clone(), |(_, label)| (*label).to_owned()),
-        (SettingKind::Color, SettingValue::Text(s)) if s.is_empty() => "the theme's".into(),
+        (SettingKind::Color, SettingValue::Text(s)) if s.is_empty() => {
+            match theme.default_color(setting.key) {
+                Some(hex) => theme.color_name(&hex).map_or(hex.clone(), str::to_owned),
+                None => "the theme's".into(),
+            }
+        }
         _ => value.to_string(),
     }
 }

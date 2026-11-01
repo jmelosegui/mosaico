@@ -46,6 +46,15 @@ impl Theme {
         Some(color)
     }
 
+    /// The name the palette gives `hex`, such as `"blue"`, if it lists
+    /// that color.
+    pub fn color_name(self, hex: &str) -> Option<&'static str> {
+        self.color_names().into_iter().find(|name| {
+            self.named_color(name)
+                .is_some_and(|color| color.eq_ignore_ascii_case(hex.trim()))
+        })
+    }
+
     /// The color a setting holding `value` is drawn with: `fallback` when
     /// it is empty, the palette's color for a name, or the hex itself.
     /// `None` for `"none"` and for text that is no color.
@@ -82,6 +91,12 @@ mod tests {
         let pine = Theme::RosePine(RosePineFlavor::Main);
         assert!(pine.color_names().contains(&"iris"));
         assert!(!MOCHA.color_names().contains(&"iris"));
+    }
+
+    #[test]
+    fn color_name_is_the_palette_name_of_a_hex() {
+        assert_eq!(MOCHA.color_name("#89B4FA"), Some("blue"));
+        assert_eq!(MOCHA.color_name("#123456"), None);
     }
 
     #[test]
