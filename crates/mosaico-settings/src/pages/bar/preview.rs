@@ -204,3 +204,7 @@ fn draw(painter: &Painter, bar: Rect, look: &Look, pills: &[Pill], x: f32) -> f3
     }
     (x - look.workspace_gap - start).max(0.0)
 }
+
+#[cfg(test)]
+#[path = "preview_tests.rs"]
+mod tests;
