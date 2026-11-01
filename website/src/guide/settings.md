@@ -127,6 +127,27 @@ Easing lists the presets and **Custom curve**, which shows a field for a
 `cubic-bezier(x1, y1, x2, y2)` curve. A curve that is not valid says why under
 the setting's name, and Apply refuses it until it is fixed.
 
+## Keybindings
+
+Edits `keybindings.toml`. The hotkeys are grouped by what they do: focus,
+moving windows, workspaces, layout, floating windows and so on. Each row
+shows the action and its key combination as keycaps.
+
+Click **Change** on a row, then press the new combination. Hold at least one
+of Ctrl, Alt or Shift (function keys can stand alone). The first key you
+press is taken; **Esc** cancels. A key mosaico has no name for is refused and
+the row keeps waiting. A binding that is not on its default shows the default
+and a reset button.
+
+If two bindings share a combination, in any order or case of its modifiers,
+both rows are marked **Conflict** and name each other. **Apply** will not
+save until one of them is changed. Search matches the action and the keys,
+so `alt+j` or `float` narrows the list.
+
+Applying changes only the keys you edited: comments, blank lines, the order
+and the line endings of `keybindings.toml` are kept. The daemon picks the new
+keys up as it does when you edit the file by hand.
+
 ## Current Limits
 
 Pages that are not ready yet are grayed out in the sidebar. Edit the

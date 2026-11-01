@@ -8,6 +8,7 @@ mod color;
 mod hiding_behaviour;
 /// Keybinding definitions and defaults.
 pub mod keybinding;
+mod keybinding_conflicts;
 /// What the mouse does: the pointer and focus, and dragging windows.
 pub mod limits;
 mod mouse;
@@ -45,12 +46,13 @@ pub use bar::{BarColors, BarConfig, BarMouseConfig, BarScroll, ClickBinding, Wid
 pub use color::Color;
 pub use hiding_behaviour::HidingBehaviour;
 pub use keybinding::{Keybinding, Modifier};
+pub use keybinding_conflicts::{Conflict, conflicts};
 pub use mouse::MouseConfig;
 pub use palette::UiColors;
 pub use reload::{ConfigReload, ConfigReloader, ConfigWatch};
 pub use rule_action::{RuleAction, decide};
 pub use rules::{WindowRule, default_rules, matching_rule, validate_rules};
-pub use store::{ConfigStore, SettingsDocument};
+pub use store::{ConfigStore, KeybindingsDocument, SettingsDocument};
 pub use theme::{
     CatppuccinFlavor, RosePineFlavor, Theme, ThemeCheck, ThemeConfig, TokyoNightFlavor,
 };

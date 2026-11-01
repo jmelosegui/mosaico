@@ -322,7 +322,7 @@ and brings its docs, so it can merge on its own.
 
 ### 37.6 Keybindings and rules
 
-- [ ] Key capture validated by core's keybinding parser, conflict
+- [x] Key capture validated by core's keybinding parser, conflict
       detection in core
 - [ ] Rules list editor for `user-rules.toml`; community rules read-only
 - [ ] Tests for capture, conflicts and round-trips

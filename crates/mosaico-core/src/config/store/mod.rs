@@ -1,4 +1,5 @@
 mod document;
+mod keybindings_document;
 mod load;
 mod merge_animations;
 mod merge_bar;
@@ -29,6 +30,7 @@ use crate::{Error, Instance, Result};
 use super::report;
 
 pub use document::SettingsDocument;
+pub use keybindings_document::KeybindingsDocument;
 
 /// The config files of one instance, all kept in one directory.
 ///
