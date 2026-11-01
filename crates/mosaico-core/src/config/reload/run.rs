@@ -26,13 +26,19 @@ pub struct ConfigWatch<W> {
 }
 
 impl<W: DirectoryWatcher> ConfigWatch<W> {
-    /// Records the watched files in `store`, then opens a watcher on their
-    /// directory with `open`.
+    /// Creates the directory of `store` when it does not exist yet, records
+    /// the watched files in it, then opens a watcher on it with `open`.
+    ///
+    /// The daemon can start before anything wrote a config file, and a
+    /// watcher cannot watch a directory that is not there, so without the
+    /// directory the files written into it later would never be reloaded.
     ///
     /// # Errors
     ///
-    /// Returns the error of `open`, when the directory cannot be watched.
+    /// Returns the error creating the directory, or the error of `open`
+    /// when the directory cannot be watched.
     pub fn open(store: ConfigStore, open: impl FnOnce(&Path) -> Result<W>) -> Result<Self> {
+        std::fs::create_dir_all(store.dir())?;
         let reloader = ConfigReloader::new(store);
         let watcher = open(reloader.store.dir())?;
         Ok(Self { reloader, watcher })
