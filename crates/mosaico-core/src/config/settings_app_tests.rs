@@ -27,6 +27,25 @@ fn what_the_window_saves_is_what_it_loads_next_time() {
 }
 
 #[test]
+fn the_window_saves_into_a_config_folder_that_does_not_exist_yet() {
+    // Arrange
+    let store = store("no-folder");
+    std::fs::remove_dir_all(store.dir()).unwrap();
+    let app = SettingsAppConfig {
+        page: "Bar".into(),
+        ..SettingsAppConfig::default()
+    };
+
+    // Act
+    let saved = store.save_settings_app(&app);
+
+    // Assert
+    assert!(saved.is_ok(), "{saved:?}");
+    assert_eq!(store.load_settings_app(), app);
+    let _ = std::fs::remove_dir_all(store.dir());
+}
+
+#[test]
 fn a_missing_or_broken_file_gives_the_defaults() {
     let store = store("broken");
     assert_eq!(store.load_settings_app(), SettingsAppConfig::default());

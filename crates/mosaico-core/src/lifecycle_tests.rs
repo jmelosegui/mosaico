@@ -1,141 +1,15 @@
-use std::cell::RefCell;
 use std::fs;
 use std::panic::{AssertUnwindSafe, catch_unwind};
-use std::path::{Path, PathBuf};
-use std::rc::Rc;
 
 use super::*;
 use crate::Error;
-use crate::system::InstanceLock;
+use crate::config::ConfigStore;
+use crate::pid::PidFile;
 
-/// The process id of the daemon under test.
-const PID: u32 = 4242;
+#[path = "lifecycle_test_support.rs"]
+mod support;
 
-/// The executable the daemon under test runs from.
-const EXE: &str = "mosaico-under-test";
-
-/// What the fakes saw happen, in order.
-type Journal = Rc<RefCell<Vec<String>>>;
-
-/// A lock that another daemon may hold already.
-struct FakeLock {
-    journal: Journal,
-    held_elsewhere: bool,
-    /// The PID file, to tell whether it is still there when the lock is
-    /// released.
-    pid_path: PathBuf,
-}
-
-impl SingleInstance for FakeLock {
-    fn acquire(&self, _instance: &Instance) -> Result<InstanceLock> {
-        if self.held_elsewhere {
-            self.journal.borrow_mut().push("refused".into());
-            return Err(Error::AlreadyRunning);
-        }
-        self.journal.borrow_mut().push("locked".into());
-        let journal = Rc::clone(&self.journal);
-        let pid_path = self.pid_path.clone();
-        Ok(InstanceLock::new(move || {
-            let pid_file = if pid_path.exists() { "with" } else { "without" };
-            journal
-                .borrow_mut()
-                .push(format!("released {pid_file} the PID file"));
-        }))
-    }
-}
-
-/// An installer that only notes the leftovers it is asked to delete.
-struct FakeInstaller {
-    journal: Journal,
-    fails: bool,
-}
-
-impl Installer for FakeInstaller {
-    fn asset_name(&self) -> Result<&str> {
-        Ok("mosaico.zip")
-    }
-
-    fn binary_name(&self) -> &str {
-        "mosaico"
-    }
-
-    fn settings_name(&self) -> &str {
-        "mosaico-settings"
-    }
-
-    fn replace(&self, _exe: &Path, _binary: &[u8]) -> Result<()> {
-        Ok(())
-    }
-
-    fn remove_leftovers(&self, exe: &Path) -> Result<()> {
-        self.journal
-            .borrow_mut()
-            .push(format!("leftovers of {}", exe.display()));
-        if self.fails {
-            return Err(Error::platform("delete the old executable", "in use"));
-        }
-        Ok(())
-    }
-}
-
-/// A daemon of an instance in a fresh temporary directory.
-struct Harness {
-    instance: Instance,
-    journal: Journal,
-    lock: FakeLock,
-    installer: FakeInstaller,
-    exe: Option<PathBuf>,
-}
-
-impl Harness {
-    fn new(test: &str) -> Self {
-        let dir = std::env::temp_dir()
-            .join("mosaico-lifecycle-tests")
-            .join(format!("{test}-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&dir);
-        let instance = Instance::new(None, dir.join("config"), dir.join("data")).unwrap();
-        let journal = Journal::default();
-        Self {
-            lock: FakeLock {
-                journal: Rc::clone(&journal),
-                held_elsewhere: false,
-                pid_path: instance.pid_path(),
-            },
-            installer: FakeInstaller {
-                journal: Rc::clone(&journal),
-                fails: false,
-            },
-            exe: Some(PathBuf::from(EXE)),
-            instance,
-            journal,
-        }
-    }
-
-    /// Runs the daemon with `serve` as its loop.
-    fn run(&self, serve: &dyn Fn(&Instance) -> Result<()>) -> Result<()> {
-        run(Startup {
-            instance: &self.instance,
-            lock: &self.lock,
-            installer: &self.installer,
-            exe: self.exe.clone(),
-            pid: PID,
-            serve,
-        })
-    }
-
-    /// Notes something the loop saw.
-    fn note(&self, entry: impl Into<String>) {
-        self.journal.borrow_mut().push(entry.into());
-    }
-
-    fn journal(&self) -> Vec<String> {
-        self.journal.borrow().clone()
-    }
-
-    fn pid_file(&self) -> PidFile {
-        PidFile::new(self.instance.pid_path())
-    }
-}
+use support::{EXE, Harness, PID};
 
 #[test]
 fn a_daemon_holds_its_lock_and_pid_file_while_it_serves_and_gives_both_back() {
@@ -305,5 +179,39 @@ fn no_leftovers_are_looked_for_when_the_executable_is_unknown() {
     assert_eq!(
         h.journal(),
         ["locked", "released without the PID file"].map(String::from)
+    );
+}
+
+#[test]
+fn a_daemon_without_config_files_writes_the_defaults_before_its_loop_reads_them() {
+    // Arrange -- a fresh install, where the daemon starts before
+    // `mosaico init` ever ran, and the config folder does not exist.
+    let h = Harness::new("writes-defaults");
+    let store = ConfigStore::for_instance(&h.instance);
+    assert!(!store.dir().exists());
+    let serve = |_: &Instance| {
+        let files: Vec<_> = [
+            store.config_path(),
+            store.keybindings_path(),
+            store.rules_path(),
+            store.user_rules_path(),
+            store.bar_path(),
+        ]
+        .iter()
+        .filter(|path| path.is_file())
+        .map(|path| path.file_name().unwrap().to_string_lossy().into_owned())
+        .collect();
+        h.note(format!("serving with {}", files.join(", ")));
+        Ok(())
+    };
+
+    // Act
+    let result = h.run(&serve);
+
+    // Assert
+    assert!(result.is_ok(), "{result:?}");
+    assert_eq!(
+        h.journal()[2],
+        "serving with config.toml, keybindings.toml, rules.toml, user-rules.toml, bar.toml"
     );
 }
