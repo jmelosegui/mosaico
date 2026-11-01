@@ -114,7 +114,7 @@ offers None, which draws no border on windows without focus.
 
 | Section | Setting | Key in `config.toml` |
 |---------|---------|----------------------|
-| Focus | Pointer follows focus, focus follows pointer | `mouse.follows_focus`, `mouse.focus_follows_mouse` |
+| Focus | Mouse follows focus, focus follows mouse | `mouse.follows_focus`, `mouse.focus_follows_mouse` |
 | Dragging | Drag to swap, resize splits | `mouse.drag_to_swap`, `mouse.resize_splits` |
 
 ## Animations
