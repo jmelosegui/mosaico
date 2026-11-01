@@ -19,7 +19,11 @@ pub trait FilePage {
     /// disabled under the problem, so it has no edits then.
     fn problem(&self) -> Option<&str>;
 
-    /// Draws the rows matching `query`, editing them.
+    /// How many rows match `query`; a search leaves out a page with none.
+    fn matches(&self, query: &str) -> usize;
+
+    /// Draws the rows matching `query`, editing them. A search draws
+    /// the page only when `matches` found some.
     fn show(&mut self, ui: &mut Ui, c: &Colors, query: &str);
 
     /// Writes the edits to the file. On failure the edits are kept.
@@ -47,6 +51,14 @@ impl FilePages {
             .iter_mut()
             .find(|p| p.page() == page)
             .map(|p| &mut **p as &mut dyn FilePage)
+    }
+
+    /// How many rows of `page` match `query`, if a file page draws it.
+    pub fn matches(&self, page: Page, query: &str) -> Option<usize> {
+        self.0
+            .iter()
+            .find(|p| p.page() == page)
+            .map(|p| p.matches(query))
     }
 
     /// The edits of every page, together.

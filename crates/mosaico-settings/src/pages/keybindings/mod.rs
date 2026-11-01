@@ -166,19 +166,31 @@ impl FilePage for KeybindingsPage {
         self.problem.as_deref()
     }
 
+    fn matches(&self, query: &str) -> usize {
+        (0..self.current.len())
+            .filter(|&i| self.row_matches(i, query))
+            .count()
+    }
+
     fn show(&mut self, ui: &mut Ui, c: &Colors, query: &str) {
         self.take_key_press(ui);
-        if header::draw(ui, c, &mut self.filter) {
+        // A search of the window replaces the page's own filter.
+        let searching = !query.trim().is_empty();
+        if !searching && header::draw(ui, c, &mut self.filter) {
             self.restore_defaults();
         }
-        let filter = self.filter.clone();
+        let filter = if searching {
+            String::new()
+        } else {
+            self.filter.clone()
+        };
         let mut clicked = None;
         let mut chosen = Choice::Undecided;
         let mut any = false;
         for group in labels::GROUPS {
             let mut shown: Vec<_> = (0..self.current.len())
                 .filter(|&i| labels::group(self.current[i].action) == group)
-                .filter(|&i| self.matches(i, query) && self.matches(i, &filter))
+                .filter(|&i| self.row_matches(i, query) && self.row_matches(i, &filter))
                 .collect();
             shown.sort_by_key(|&i| labels::rank(self.current[i].action));
             if shown.is_empty() {
@@ -201,12 +213,7 @@ impl FilePage for KeybindingsPage {
             });
         }
         if !any && self.doc.is_some() {
-            let shown = if filter.trim().is_empty() {
-                query
-            } else {
-                &filter
-            };
-            let text = format!("No keybindings match \u{201c}{}\u{201d}.", shown.trim());
+            let text = format!("No keybindings match \u{201c}{}\u{201d}.", filter.trim());
             ui.label(RichText::new(text).color(c.dim_text));
         }
         match chosen {

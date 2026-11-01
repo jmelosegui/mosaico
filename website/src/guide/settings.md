@@ -32,9 +32,21 @@ action = "float"
 
 ![The settings window on the General page](../images/settings/general.png)
 
-The sidebar lists the pages and has a search field that filters the settings
-on the current page by name and description. Under the pages it shows whether
-the daemon is running and which version it is.
+The sidebar lists the pages and, under them, whether the daemon is running and
+which version it is.
+
+## Search
+
+![Searching for gap finds settings on the Layout and Bar pages](../images/settings/search.png)
+
+The search field at the top of the sidebar looks on every page, not only the
+one you are on. It matches a setting's name, its description and its key in
+the file (`corner_style`), a keybinding's action or keys, a rule's patterns
+and action, and the widgets on the bar. The matches are shown one page under
+another, each under the page's name and file, and each page in the sidebar
+shows how many it has; a page with none is dimmed. Click a page to jump to its
+matches. Esc or the cross at the end of the field clears the search and shows
+the page you picked last.
 
 Each setting shows its default value, and a reset button appears next to any
 setting that is not at its default. The footer counts your unsaved changes,

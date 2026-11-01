@@ -155,6 +155,17 @@ impl RulesPage {
         let blank = blank && rule.match_path.is_none();
         blank || community::matches(rule, query)
     }
+
+    fn yours_matching(&self, query: &str) -> usize {
+        (0..self.draft.entries.len())
+            .filter(|&i| self.shown(i, query))
+            .count()
+    }
+
+    fn community_matching(&self, query: &str) -> usize {
+        let matching = self.community.iter();
+        matching.filter(|r| community::matches(r, query)).count()
+    }
 }
 
 impl FilePage for RulesPage {
@@ -170,9 +181,22 @@ impl FilePage for RulesPage {
         self.problem.as_deref()
     }
 
+    fn matches(&self, query: &str) -> usize {
+        self.yours_matching(query) + self.community_matching(query)
+    }
+
     fn show(&mut self, ui: &mut Ui, c: &Colors, query: &str) {
-        self.intro(ui, c);
-        self.your_rules(ui, c, query);
+        // A search shows only the lists that have a match.
+        let searching = !query.trim().is_empty();
+        if !searching {
+            self.intro(ui, c);
+        }
+        if !searching || self.yours_matching(query) > 0 {
+            self.your_rules(ui, c, query);
+        }
+        if searching && self.community_matching(query) == 0 {
+            return;
+        }
         let problem = self.community_problem.as_deref();
         if let Some(rule) = community::show(ui, c, &self.community, query, problem) {
             self.editing = Some(self.draft.push(rule));

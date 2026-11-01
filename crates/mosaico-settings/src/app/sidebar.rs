@@ -2,53 +2,56 @@
 //! runs.
 
 use eframe::egui::{
-    Align, Color32, CursorIcon, Frame, Layout, Margin, Rect, RichText, Role, Sense, TextEdit, Ui,
-    WidgetInfo, vec2,
+    Align, Align2, Color32, CursorIcon, Layout, Rect, Role, Sense, Ui, WidgetInfo, vec2,
 };
 
 use super::DaemonState;
-use crate::icons::{self, Icon};
+use crate::icons;
 use crate::pages::Page;
 use crate::theme::{self, Colors};
 
-/// Draws the navigation, switching `page` when another is clicked and
-/// editing the search `query`.
-pub fn show(ui: &mut Ui, c: &Colors, page: &mut Page, query: &mut String, daemon: &DaemonState) {
-    search(ui, c, query);
+/// What the navigation shows.
+pub struct Nav<'a> {
+    /// The page shown, or shown again when the search is cleared. It is
+    /// not highlighted while searching, as the results span the pages.
+    pub page: Page,
+    /// While searching, how many rows of each page match, in the order of
+    /// `Page::ALL`.
+    pub counts: Option<&'a [usize; Page::ALL.len()]>,
+    pub daemon: &'a DaemonState,
+}
+
+/// Draws the navigation, editing the search `query`. Returns the page
+/// clicked.
+pub fn show(ui: &mut Ui, c: &Colors, nav: &Nav, query: &mut String) -> Option<Page> {
+    super::search::field(ui, c, query);
     ui.add_space(12.0);
     ui.spacing_mut().item_spacing.y = 2.0;
-    for item in Page::ALL {
-        if nav_item(ui, c, item, item == *page).clicked() {
-            *page = item;
+    let mut picked = None;
+    for (n, item) in Page::ALL.into_iter().enumerate() {
+        let found = nav.counts.map(|counts| counts[n]);
+        let selected = item == nav.page && found.is_none();
+        if nav_item(ui, c, item, selected, found).clicked() {
+            picked = Some(item);
         }
     }
-    ui.with_layout(Layout::bottom_up(Align::Min), |ui| status(ui, c, daemon));
+    ui.with_layout(Layout::bottom_up(Align::Min), |ui| {
+        status(ui, c, nav.daemon)
+    });
+    picked
 }
 
-fn search(ui: &mut Ui, c: &Colors, query: &mut String) {
-    Frame::new()
-        .fill(c.control)
-        .corner_radius(5)
-        .inner_margin(Margin::symmetric(8, 0))
-        .show(ui, |ui| {
-            ui.set_height(28.0);
-            ui.horizontal_centered(|ui| {
-                let (rect, _) = ui.allocate_exact_size(vec2(14.0, 14.0), Sense::hover());
-                icons::paint(ui.painter(), rect, Icon::Search, c.faint_text, 1.5);
-                let hint = RichText::new("Search settings").color(c.faint_text);
-                TextEdit::singleline(query)
-                    .hint_text(hint)
-                    .font(theme::regular(12.0))
-                    .frame(eframe::egui::Frame::NONE)
-                    .align(eframe::egui::Align2::LEFT_CENTER)
-                    .desired_width(f32::INFINITY)
-                    .show(ui);
-            });
-        });
-}
-
-fn nav_item(ui: &mut Ui, c: &Colors, page: Page, selected: bool) -> eframe::egui::Response {
+/// A page of the navigation. While searching, `found` says how many of
+/// its rows match; a page with none is dimmed.
+fn nav_item(
+    ui: &mut Ui,
+    c: &Colors,
+    page: Page,
+    selected: bool,
+    found: Option<usize>,
+) -> eframe::egui::Response {
     let ready = page.is_ready();
+    let lit = found.is_none_or(|n| n > 0);
     let sense = if ready {
         Sense::click()
     } else {
@@ -65,7 +68,7 @@ fn nav_item(ui: &mut Ui, c: &Colors, page: Page, selected: bool) -> eframe::egui
     };
     let painter = ui.painter();
     painter.rect_filled(rect, 6.0, fill);
-    let (icon, text, font) = match (selected, ready) {
+    let (icon, text, font) = match (selected, ready && lit) {
         (true, _) => (c.accent, c.text, theme::bold(13.0)),
         (false, true) => (c.dim_text, c.dim_text, theme::regular(13.0)),
         (false, false) => (c.faint_text, c.faint_text, theme::regular(13.0)),
@@ -73,13 +76,18 @@ fn nav_item(ui: &mut Ui, c: &Colors, page: Page, selected: bool) -> eframe::egui
     let glyph = Rect::from_center_size(rect.left_center() + vec2(18.0, 0.0), vec2(16.0, 16.0));
     icons::paint(painter, glyph, page.icon(), icon, 1.5);
     let at = rect.left_center() + vec2(36.0, 0.0);
-    painter.text(
-        at,
-        eframe::egui::Align2::LEFT_CENTER,
-        page.label(),
-        font,
-        text,
-    );
+    painter.text(at, Align2::LEFT_CENTER, page.label(), font, text);
+    if let Some(n) = found.filter(|&n| n > 0) {
+        let at = rect.right_center() - vec2(10.0, 0.0);
+        let count = n.to_string();
+        painter.text(
+            at,
+            Align2::RIGHT_CENTER,
+            count,
+            theme::regular(11.0),
+            c.faint_text,
+        );
+    }
     if ready {
         response.on_hover_cursor(CursorIcon::PointingHand)
     } else {
@@ -102,7 +110,7 @@ fn status(ui: &mut Ui, c: &Colors, daemon: &DaemonState) {
             ui.allocate_exact_size(vec2(ui.available_width(), 16.0), Sense::hover());
         shown.widget_info(|| WidgetInfo::labeled(Role::Label, true, text));
         let at = rect.left_center() + vec2(26.0, 0.0);
-        let align = eframe::egui::Align2::LEFT_CENTER;
+        let align = Align2::LEFT_CENTER;
         ui.painter().text(at, align, text, font, color);
         rect
     };

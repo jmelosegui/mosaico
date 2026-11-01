@@ -16,5 +16,6 @@ mod layout;
 mod mouse;
 mod prefs;
 mod rules;
+mod search;
 mod shell;
 mod workspaces;
