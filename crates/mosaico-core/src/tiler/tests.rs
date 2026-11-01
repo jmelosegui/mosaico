@@ -99,6 +99,8 @@ mod monocle_out_of_view_tests;
 mod monocle_return_tests;
 #[path = "tests/monocle_stale_tests.rs"]
 mod monocle_stale_tests;
+#[path = "tests/move_monitor_tests.rs"]
+mod move_monitor_tests;
 #[path = "tests/move_tests.rs"]
 mod move_tests;
 #[path = "tests/pipeline_tests.rs"]
