@@ -53,3 +53,29 @@ fn a_number_typed_on_the_layout_page_is_an_edit() {
     );
     h.get_by_label("1 unsaved change");
 }
+
+#[test]
+fn clicking_the_far_end_of_the_gap_track_sets_the_largest_gap() {
+    let mut h = stopped();
+    open(&mut h, "Layout");
+
+    let track = h.get_by_role_and_label(Role::Slider, "Gap").rect();
+    h.hover_at(track.right_center() - eframe::egui::vec2(1.0, 0.0));
+    h.run();
+    h.event(eframe::egui::Event::PointerButton {
+        pos: track.right_center() - eframe::egui::vec2(1.0, 0.0),
+        button: eframe::egui::PointerButton::Primary,
+        pressed: true,
+        modifiers: Default::default(),
+    });
+    h.run();
+    h.event(eframe::egui::Event::PointerButton {
+        pos: track.right_center() - eframe::egui::vec2(1.0, 0.0),
+        button: eframe::egui::PointerButton::Primary,
+        pressed: false,
+        modifiers: Default::default(),
+    });
+    h.run();
+
+    assert_eq!(h.state().edit().get("layout.gap"), &SettingValue::Int(200));
+}

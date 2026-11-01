@@ -2,8 +2,9 @@
 //! the other controls.
 
 use eframe::egui::{
-    ComboBox, DragValue, Frame, Margin, Response, Role, Stroke, TextEdit, Ui, Widget, WidgetInfo,
-    emath::Numeric, style::WidgetVisuals,
+    Align, Color32, ComboBox, DragValue, Frame, Layout, Margin, Response, RichText, Role, Sense,
+    Stroke, StrokeKind, TextEdit, Ui, UiBuilder, Widget, WidgetInfo, emath::Numeric,
+    style::WidgetVisuals, vec2,
 };
 
 use crate::icons::{self, Icon};
@@ -58,7 +59,7 @@ pub fn dropdown<T: PartialEq + Clone>(
     response
 }
 
-/// A number in `range` followed by its `unit`, which can be typed or
+/// A number in `range` and its `unit` after it, which can be typed or
 /// dragged, `speed` per point dragged. `label` names it for assistive
 /// technology.
 #[allow(clippy::too_many_arguments)]
@@ -72,40 +73,41 @@ pub fn number<N: Numeric>(
     unit: &str,
     changed: bool,
 ) -> Response {
+    let (rect, _) = ui.allocate_exact_size(vec2(NUMBER_WIDTH, 26.0), Sense::hover());
     let stroke = if changed {
         Stroke::new(1.0, c.accent)
     } else {
         Stroke::NONE
     };
-    Frame::new()
-        .fill(c.control)
-        .stroke(stroke)
-        .corner_radius(5)
-        .inner_margin(Margin::symmetric(4, 0))
-        .show(ui, |ui| {
-            ui.set_height(26.0);
-            let w = &mut ui.visuals_mut().widgets;
-            for state in [&mut w.inactive, &mut w.hovered, &mut w.active] {
-                state.weak_bg_fill = eframe::egui::Color32::TRANSPARENT;
-                state.bg_fill = c.control;
-            }
-            ui.horizontal_centered(|ui| {
-                let field = ui
-                    .add_sized(
-                        [56.0, 22.0],
-                        DragValue::new(value).range(range).speed(speed),
-                    )
-                    .on_hover_text("Drag, or click to type");
-                field.widget_info(|| WidgetInfo::labeled(Role::SpinButton, true, label));
-                let unit = eframe::egui::RichText::new(unit).font(theme::regular(12.0));
-                ui.label(unit.color(c.faint_text));
-                ui.add_space(4.0);
-                field
-            })
-            .inner
-        })
-        .inner
+    ui.painter()
+        .rect(rect, 5.0, c.control, stroke, StrokeKind::Inside);
+    let inner = rect.shrink2(vec2(6.0, 2.0));
+    let builder = UiBuilder::new()
+        .max_rect(inner)
+        .layout(Layout::left_to_right(Align::Center));
+    ui.scope_builder(builder, |ui| {
+        let w = &mut ui.visuals_mut().widgets;
+        for state in [&mut w.inactive, &mut w.hovered, &mut w.active] {
+            state.weak_bg_fill = Color32::TRANSPARENT;
+            state.bg_fill = c.control;
+        }
+        let unit_width = if unit.is_empty() { 0.0 } else { 24.0 };
+        let field = DragValue::new(value).range(range).speed(speed);
+        let field = ui
+            .add_sized([inner.width() - unit_width, 22.0], field)
+            .on_hover_text("Drag, or click to type");
+        field.widget_info(|| WidgetInfo::labeled(Role::SpinButton, true, label));
+        if !unit.is_empty() {
+            let unit = RichText::new(unit).font(theme::regular(12.0));
+            ui.label(unit.color(c.faint_text));
+        }
+        field
+    })
+    .inner
 }
+
+/// How wide a [`number`] is.
+pub(super) const NUMBER_WIDTH: f32 = 84.0;
 
 /// A line of text `width` points wide, showing `hint` while it is empty.
 /// `label` names it for assistive technology.

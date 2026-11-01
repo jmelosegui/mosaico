@@ -18,12 +18,27 @@ pub struct RowState {
 /// A heading over a card. `rows` adds the rows, with [`divider`]s
 /// between them.
 pub fn section(ui: &mut Ui, c: &Colors, title: &str, rows: impl FnOnce(&mut Ui)) {
-    ui.label(
-        RichText::new(title)
-            .font(theme::bold(13.0))
-            .color(c.dim_text),
-    );
-    ui.add_space(4.0);
+    heading(ui, c, title, |_| {});
+    card(ui, c, rows);
+    ui.add_space(16.0);
+}
+
+/// The title of a section, with `right` adding controls at its far end,
+/// such as a button.
+pub fn heading(ui: &mut Ui, c: &Colors, title: &str, right: impl FnOnce(&mut Ui)) {
+    ui.horizontal(|ui| {
+        ui.label(
+            RichText::new(title)
+                .font(theme::bold(13.0))
+                .color(c.dim_text),
+        );
+        ui.with_layout(Layout::right_to_left(Align::Center), right);
+    });
+    ui.add_space(8.0);
+}
+
+/// A card of rows, which `rows` adds with [`divider`]s between them.
+pub fn card(ui: &mut Ui, c: &Colors, rows: impl FnOnce(&mut Ui)) {
     Frame::new()
         .fill(c.card)
         .stroke(Stroke::new(1.0, c.line))
@@ -33,7 +48,6 @@ pub fn section(ui: &mut Ui, c: &Colors, title: &str, rows: impl FnOnce(&mut Ui))
             ui.spacing_mut().item_spacing.y = 0.0;
             rows(ui);
         });
-    ui.add_space(16.0);
 }
 
 /// A line between two rows of a card.

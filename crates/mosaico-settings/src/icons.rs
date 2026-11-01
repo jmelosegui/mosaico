@@ -5,6 +5,7 @@ use std::f32::consts::PI;
 use eframe::egui::{Color32, Painter, Pos2, Rect, Shape, Stroke, pos2};
 
 /// An icon the window draws.
+#[expect(dead_code, reason = "the page redesigns use these")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Icon {
     General,
@@ -23,6 +24,15 @@ pub enum Icon {
     Maximize,
     Restore,
     Close,
+    Grip,
+    Plus,
+    Trash,
+    Edit,
+    Lock,
+    Warning,
+    Check,
+    Up,
+    Play,
 }
 
 /// One stroke of an icon, in grid units.
@@ -123,6 +133,47 @@ fn parts(icon: Icon) -> &'static [Part] {
             Open(&[(6.0, 6.0), (18.0, 18.0)]),
             Open(&[(18.0, 6.0), (6.0, 18.0)]),
         ],
+        Icon::Grip => &[
+            Circle((9.0, 5.5), 0.5),
+            Circle((15.0, 5.5), 0.5),
+            Circle((9.0, 12.0), 0.5),
+            Circle((15.0, 12.0), 0.5),
+            Circle((9.0, 18.5), 0.5),
+            Circle((15.0, 18.5), 0.5),
+        ],
+        Icon::Plus => &[
+            Open(&[(12.0, 5.0), (12.0, 19.0)]),
+            Open(&[(5.0, 12.0), (19.0, 12.0)]),
+        ],
+        Icon::Trash => &[
+            Open(&[(4.0, 7.0), (20.0, 7.0)]),
+            Open(&[(9.0, 7.0), (9.0, 4.0), (15.0, 4.0), (15.0, 7.0)]),
+            Open(&[(6.0, 7.0), (7.0, 20.0), (17.0, 20.0), (18.0, 7.0)]),
+        ],
+        Icon::Edit => &[
+            Closed(&[
+                (4.0, 20.0),
+                (8.0, 20.0),
+                (19.0, 9.0),
+                (15.0, 5.0),
+                (4.0, 16.0),
+            ]),
+            Open(&[(13.0, 7.0), (17.0, 11.0)]),
+        ],
+        Icon::Lock => &[
+            Closed(&const { rect(6.0, 11.0, 18.0, 21.0) }),
+            Open(&[(8.0, 11.0), (8.0, 7.0)]),
+            Arc((12.0, 7.0), 4.0, PI, 2.0 * PI),
+            Open(&[(16.0, 7.0), (16.0, 11.0)]),
+        ],
+        Icon::Warning => &[
+            Closed(&[(12.0, 3.0), (22.0, 20.0), (2.0, 20.0)]),
+            Open(&[(12.0, 10.0), (12.0, 14.0)]),
+            Circle((12.0, 17.25), 0.25),
+        ],
+        Icon::Check => &[Open(&[(5.0, 12.0), (10.0, 17.0), (19.0, 7.0)])],
+        Icon::Up => &[Open(&[(6.0, 15.0), (12.0, 9.0), (18.0, 15.0)])],
+        Icon::Play => &[Closed(&[(7.0, 5.0), (19.0, 12.0), (7.0, 19.0)])],
     }
 }
 
