@@ -270,7 +270,7 @@ and brings its docs, so it can merge on its own.
 
 - [x] `SettingDescriptor` and `SettingKind` in core, with descriptors for
       every field of `config.toml`
-- [ ] Descriptors for every field of `bar.toml`
+- [x] Descriptors for every field of `bar.toml`
 - [x] Ranges as constants shared by validation and descriptors
 - [x] Tests: every config field has a descriptor and the reverse; every
       default validates unchanged; every out-of-range value is clamped to the
@@ -315,17 +315,17 @@ and brings its docs, so it can merge on its own.
 ### 37.5 Pages for config.toml and bar.toml
 
 - [x] General
-- [ ] Layout, Workspaces, Borders, Mouse, Animations, Bar
-- [ ] Color picker with palette names, widget order editor
-- [ ] `egui_kittest` tests: each page edits, saves and reloads through a
+- [x] Layout, Workspaces, Borders, Mouse, Animations, Bar
+- [x] Color picker with palette names, widget order editor
+- [x] `egui_kittest` tests: each page edits, saves and reloads through a
       temporary store
 
 ### 37.6 Keybindings and rules
 
 - [x] Key capture validated by core's keybinding parser, conflict
       detection in core
-- [ ] Rules list editor for `user-rules.toml`; community rules read-only
-- [ ] Tests for capture, conflicts and round-trips
+- [x] Rules list editor for `user-rules.toml`; community rules read-only
+- [x] Tests for capture, conflicts and round-trips
 
 ### 37.7 Shipping
 

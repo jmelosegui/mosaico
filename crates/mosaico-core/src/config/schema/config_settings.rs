@@ -1,6 +1,6 @@
 //! The settings of `config.toml`.
 
-use super::{SettingDescriptor, SettingKind, SettingValue};
+use super::{SettingDescriptor, SettingKind, SettingValue, default_at};
 use crate::config::Config;
 use crate::config::limits::{
     BORDER_WIDTH_MAX, DURATION_MAX_MS, GAP_MAX, LOG_FILE_MB, RATIO_MAX, RATIO_MIN,
@@ -32,7 +32,7 @@ const LOG_LEVELS: &[(&str, &str)] = &[
     ("error", "Error"),
 ];
 
-const fn setting(
+pub(super) const fn setting(
     key: &'static str,
     label: &'static str,
     help: &'static str,
@@ -247,9 +247,5 @@ pub fn config_default(key: &str) -> Option<SettingValue> {
     if key.starts_with(WORKSPACE_LAYOUT_PREFIX) {
         return super::find(key).map(|_| SettingValue::Text(String::new()));
     }
-    let mut value = toml::Value::try_from(Config::default()).ok()?;
-    for part in key.split('.') {
-        value = value.as_table_mut()?.remove(part)?;
-    }
-    SettingValue::from_toml(&value)
+    default_at(&Config::default(), key)
 }

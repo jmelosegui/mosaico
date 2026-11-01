@@ -127,6 +127,31 @@ Easing lists the presets and **Custom curve**, which shows a field for a
 `cubic-bezier(x1, y1, x2, y2)` curve. A curve that is not valid says why under
 the setting's name, and Apply refuses it until it is fixed.
 
+## Bar
+
+The Bar page edits `bar.toml`, a different file from `config.toml`. Apply saves
+it after `config.toml`, and the running bar picks the change up by itself.
+
+| Section | Setting | Key in `bar.toml` |
+|---------|---------|-------------------|
+| Bar | Show the bar, height, background opacity, font and size | `enabled`, `height`, `background_opacity`, `font`, `font_size` |
+| Widgets | Which widgets are on each side, their order, and whether each is on | `[[left]]` and `[[right]]` |
+| Text | Bold, italic, underline, padding, item gap, separator | `font_bold`, `font_italic`, `font_underline`, `padding`, `item_gap`, `separator` |
+| Pills | Padding, radius, border width, workspace gap | `pill_padding`, `pill_radius`, `pill_border_width`, `workspace_gap` |
+| Mouse | Bar mouse actions, scroll action | `mouse.enabled`, `mouse.scroll` |
+| Colors | Background, text, accent and the other bar colors | `colors.*` |
+
+Each side lists its widgets in order. Widgets on the left are drawn from the
+left edge and those on the right from the right edge, so moving one up puts it
+nearer its edge. The arrows move a widget up or down, or to the other side, and
+the switch turns it off without removing it. The bar has no center zone.
+
+Saving keeps the comments and the order of the rest of the file, and each widget
+keeps its own settings (icon, color, format). A `bar.toml` that the bar would
+not load is shown as a problem on this page, which stays read-only until the file
+is fixed; the other pages are not affected. The monitor list, the click actions
+and the per-widget settings are still edited in the file.
+
 ## Keybindings
 
 Edits `keybindings.toml`. The hotkeys are grouped by what they do: focus,

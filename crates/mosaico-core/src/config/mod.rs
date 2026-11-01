@@ -2,6 +2,8 @@
 mod animations;
 /// Status bar configuration.
 pub mod bar;
+/// Which widgets the bar shows, where, and in what order.
+mod bar_widgets;
 /// Colors as the configuration writes them.
 mod color;
 /// How windows are hidden on a workspace switch.
@@ -43,6 +45,7 @@ use serde::{Deserialize, Serialize};
 
 pub use animations::AnimationConfig;
 pub use bar::{BarColors, BarConfig, BarMouseConfig, BarScroll, ClickBinding, WidgetConfig};
+pub use bar_widgets::{BarWidget, BarWidgets, BarZone};
 pub use color::Color;
 pub use hiding_behaviour::HidingBehaviour;
 pub use keybinding::{Keybinding, Modifier};

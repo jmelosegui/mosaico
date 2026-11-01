@@ -2,6 +2,7 @@
 
 mod save;
 
+pub(crate) use save::reason;
 pub use save::{Loaded, save};
 
 use std::collections::BTreeMap;
