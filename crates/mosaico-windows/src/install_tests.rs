@@ -129,26 +129,18 @@ fn replacing_first_removes_a_backup_left_by_an_earlier_update() {
 }
 
 #[test]
-fn replacing_an_executable_that_is_not_there_fails_without_writing() {
-    // Arrange
-    let exe = installed("missing");
-    fs::remove_file(&exe).unwrap();
+fn replacing_installs_an_executable_that_is_not_there_yet() {
+    // Arrange -- an install from before the settings app shipped has no
+    // mosaico-settings.exe for the update to rename aside.
+    let exe = installed("missing").with_file_name("mosaico-settings.exe");
 
     // Act
-    let error = RenameInstaller.replace(&exe, b"new").unwrap_err();
+    let result = RenameInstaller.replace(&exe, b"new");
 
     // Assert
-    assert!(
-        matches!(
-            error,
-            Error::Platform {
-                operation: "rename the running executable aside",
-                ..
-            }
-        ),
-        "{error:?}"
-    );
-    assert!(!exe.exists());
+    assert!(result.is_ok(), "{result:?}");
+    assert_eq!(fs::read(&exe).unwrap(), b"new");
+    assert!(!exe.with_extension("exe.old").exists());
 }
 
 #[test]
