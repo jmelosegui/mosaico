@@ -69,6 +69,14 @@ Widgets are placed in `[[left]]`, `[[center]]`, or `[[right]]` arrays.
 | `media` | Currently playing track | `max_length` |
 | `paused` | Shown (in red) when hotkeys are paused | `color` |
 
+A widget's `icon` is shown before its text. The usual icons (grid, window,
+clock, calendar, memory, processor, download, pause, music and columns, which
+are `\uF009`, `\uF2D0`, `\uF017`, `\uF073`, `\uF2DB`, `\uF085`, `\uF019`,
+`\uF04C`, `\uF001` and `\uF0DB`) are drawn by mosaico in lines, in the pill's
+text color, so they look the same with any font and match the preview in the
+[settings window](settings.md#bar). Any other icon is drawn as text in the bar
+font, so it needs a font that has it, such as a Nerd Font.
+
 The `active_window` widget displays the application icon of the currently
 focused window. It extracts the icon from the running process and renders
 it as a bitmap in the bar. When no window is focused or the icon cannot be

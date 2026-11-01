@@ -25,6 +25,8 @@ action = "float"
 
 ## Layout
 
+![The settings window on the General page](../images/settings/general.png)
+
 The sidebar lists the pages and has a search field that filters the settings
 on the current page by name and description. Under the pages it shows whether
 the daemon is running and which version it is.
@@ -82,6 +84,8 @@ Picking a theme or flavor previews it in the settings window right away.
 
 ## Layout
 
+![The Layout page](../images/settings/layout.png)
+
 | Section | Setting | Key in `config.toml` |
 |---------|---------|----------------------|
 | Default layout | A picture of each layout; click one to pick it | `layout.default` |
@@ -89,6 +93,8 @@ Picking a theme or flavor previews it in the settings window right away.
 | Workspace switching | Hide windows on other workspaces | `layout.hiding` |
 
 ## Workspaces
+
+![The Workspaces page](../images/settings/workspaces.png)
 
 | Section | Setting | Key in `config.toml` |
 |---------|---------|----------------------|
@@ -99,6 +105,8 @@ A workspace shown as dimmed **Default (BSP)** (the name of the default layout)
 has no entry in the file, so it follows `layout.default`.
 
 ## Borders
+
+![The Borders page](../images/settings/borders.png)
 
 | Section | Setting | Key in `config.toml` |
 |---------|---------|----------------------|
@@ -113,12 +121,16 @@ border on windows without focus.
 
 ## Mouse
 
+![The Mouse page](../images/settings/mouse.png)
+
 | Section | Setting | Key in `config.toml` |
 |---------|---------|----------------------|
 | Focus | Mouse follows focus, focus follows mouse | `mouse.follows_focus`, `mouse.focus_follows_mouse` |
 | Dragging | Drag to swap, resize splits | `mouse.drag_to_swap`, `mouse.resize_splits` |
 
 ## Animations
+
+![The Animations page, with the easing curve and Play](../images/settings/animations.png)
 
 | Section | Setting | Key in `config.toml` |
 |---------|---------|----------------------|
@@ -136,7 +148,11 @@ The Bar page edits `bar.toml`, a different file from `config.toml`. Apply saves
 it after `config.toml`, and the running bar picks the change up by itself.
 
 The page has three tabs, and a preview of the bar at the top of the first two
-that follows what you edit before you apply it.
+that follows what you edit before you apply it. The preview draws each widget's
+icon as the bar does: the usual widget icons are drawn in lines, so they look the
+same whatever font the bar uses.
+
+![The Appearance tab of the Bar page, with the bar preview at the top](../images/settings/bar.png)
 
 | Tab | Setting | Key in `bar.toml` |
 |-----|---------|-------------------|
@@ -158,6 +174,8 @@ and right send it to the other side. The switch turns a widget off without
 removing it, and clicking a row opens its format, icon and color. Add widget puts
 a new one at the end of the side. The bar has no center zone.
 
+![The Widgets tab, with the widgets of each side](../images/settings/bar-widgets.png)
+
 The Mouse tab lists the click actions as a table of widget, button and action.
 A click on a workspace number always goes to that workspace.
 
@@ -165,7 +183,10 @@ Saving keeps the comments and the order of the rest of the file, and each widget
 keeps its own settings. A `bar.toml` that the bar would not load is shown as a
 problem on this page, which stays read-only until the file is fixed; the other
 pages are not affected.
+
 ## Keybindings
+
+![The Keybindings page](../images/settings/keybindings.png)
 
 Edits `keybindings.toml`. The hotkeys are grouped as Focus, Move, Workspaces,
 Windows and layout, and Mosaico. Each row shows the action, its id in
@@ -192,24 +213,23 @@ keys up as it does when you edit the file by hand.
 
 ## Rules
 
+![The Rules page, with your rules above the read-only community rules](../images/settings/rules.png)
+
 The **Rules** page edits `user-rules.toml` and lists the community rules of
 `rules.toml`. **Add rule** in the header adds a rule at the end of your list.
 Each of your rules is a row of chips naming what it matches (the window
-class, a part of the title, the program path), a **Tile** or **Don't tile**
-badge, and a pencil and a trash button. The pencil opens an editor under the
-row with a field for each match (leave a field empty to match anything) and a
-**Tile** / **Don't tile** choice; **Done** closes it. Drag the grip at the
-start of a row to move the rule, because the first rule that matches a window
-decides. A rule needs at least a class, a title or a path before it can be
+class, a part of the title, the program path), a **Tile**, **Float** or
+**Don't tile** badge, and a pencil and a trash button. The pencil opens an
+editor under the row with a field for each match (leave a field empty to match
+anything) and a **Tile** / **Float** / **Don't tile** choice; **Done** closes
+it. Drag the grip at the start of a row to move the rule, because the first
+rule that matches a window decides. A rule needs at least a class, a title or a path before it can be
 saved.
+
+![A rule open in the editor under its row](../images/settings/rules-editor.png)
 
 Apply keeps the comments and blank lines of the file, and a rule that moves
 takes its comment along. Your rules match before the community rules, which
 are listed under **Community rules** with a lock and cannot be edited here.
 **Override** copies a community rule into your rules, where you can edit it.
 Searching filters both lists by pattern or action.
-
-## Current Limits
-
-Pages that are not ready yet are grayed out in the sidebar. Edit the
-[configuration files](configuration.md) to change those settings for now.
