@@ -96,7 +96,7 @@ fn the_systems_own_pick_does_not_take_focus_from_the_window_chosen() {
     // Arrange -- the primary shows workspace 2, with windows 3 and 5,
     // and remembers window 3 there. Window 1 on monitor 1 has focus.
     let platform = FakePlatform::new(2, &[(3, 0), (5, 0), (1, 1)]);
-    let mut manager = start(&platform, None, &Config::default());
+    let mut manager = start(&platform, None, &Config::with_gap(8));
     // Window 3 has focus at the start.
     manager.handle_action(&Action::SendToWorkspace(2));
     manager.handle_action(&Action::GoToWorkspace(1));

@@ -19,7 +19,7 @@ fn animated() -> Settings {
     };
     Settings {
         animations,
-        ..Settings::default()
+        ..Settings::with_gap(8)
     }
 }
 
@@ -31,7 +31,7 @@ fn still() -> Settings {
     };
     Settings {
         animations,
-        ..Settings::default()
+        ..Settings::with_gap(8)
     }
 }
 

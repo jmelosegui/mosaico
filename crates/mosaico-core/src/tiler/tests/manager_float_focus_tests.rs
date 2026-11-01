@@ -14,7 +14,7 @@ fn a_window_opening_while_one_floats_goes_behind_it_after_taking_focus() {
     // open yet.
     let platform = FakePlatform::new(1, &[(1, 0), (2, 0), (3, 0)]);
     platform.edit(3, |w| w.visible = false);
-    let mut manager = start(&platform, None, &Config::default());
+    let mut manager = start(&platform, None, &Config::with_gap(8));
     manager.flush_pending();
     manager.handle_action(&Action::ToggleFloat);
     manager.flush_pending();

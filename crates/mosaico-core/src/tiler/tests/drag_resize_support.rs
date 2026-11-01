@@ -19,7 +19,7 @@ pub(in crate::tiler) const LEFT: Edges = held(true, false, false, false);
 pub(in crate::tiler) fn resizing() -> Settings {
     Settings {
         resize_splits: true,
-        ..Settings::default()
+        ..Settings::with_gap(8)
     }
 }
 

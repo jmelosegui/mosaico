@@ -165,7 +165,7 @@ fn a_hidden_window_that_waits_is_put_behind_once_it_is_shown() {
     // Arrange -- with "hide", window 1 is in monocle on the primary's
     // workspace 2, in view. Window 2 is hidden on the second monitor's
     // workspace 2, which is not in view.
-    let mut settings = Settings::default();
+    let mut settings = Settings::with_gap(8);
     settings.layout.hiding = HidingBehaviour::Hide;
     let mut h = Harness::with_settings(settings, 2, &[(1, 0), (2, 1)]);
     // Window 1 has focus at the start.

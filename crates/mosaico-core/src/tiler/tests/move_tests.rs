@@ -95,7 +95,7 @@ fn the_cursor_follows_a_moved_window() {
     // Arrange
     let settings = Settings {
         mouse_follows_focus: true,
-        ..Settings::default()
+        ..Settings::with_gap(8)
     };
     let mut h = Harness::with_settings(settings, 1, &[(1, 0), (2, 0)]);
 

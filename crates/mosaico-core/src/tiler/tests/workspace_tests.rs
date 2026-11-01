@@ -3,7 +3,7 @@ use crate::config::{HidingBehaviour, WorkspaceMode};
 use super::*;
 
 fn with_mode(mode: WorkspaceMode, hiding: HidingBehaviour) -> Settings {
-    let mut settings = Settings::default();
+    let mut settings = Settings::with_gap(8);
     settings.workspaces.mode = mode;
     settings.layout.hiding = hiding;
     settings

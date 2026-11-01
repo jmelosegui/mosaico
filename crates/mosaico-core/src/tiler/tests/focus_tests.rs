@@ -6,7 +6,7 @@ use super::*;
 fn following_cursor() -> Settings {
     Settings {
         mouse_follows_focus: true,
-        ..Settings::default()
+        ..Settings::with_gap(8)
     }
 }
 
@@ -67,7 +67,7 @@ fn keyboard_focus_moves_the_cursor_when_it_follows_focus() {
 #[test]
 fn the_focus_border_follows_focus_immediately() {
     // Arrange
-    let mut settings = Settings::default();
+    let mut settings = Settings::with_gap(8);
     settings.borders.colors.focused = "#111111".into();
     settings.borders.colors.unfocused = "#222222".into();
     let mut h = Harness::with_settings(settings, 1, &[(1, 0), (2, 0)]);

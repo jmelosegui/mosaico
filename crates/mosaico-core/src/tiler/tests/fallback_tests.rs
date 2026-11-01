@@ -9,7 +9,7 @@ use super::*;
 
 /// A platform that cannot cloak windows, with `configured` in the config.
 fn cannot_cloak(configured: HidingBehaviour) -> Settings {
-    let mut settings = Settings::default();
+    let mut settings = Settings::with_gap(8);
     settings.layout.hiding = configured;
     settings.hiding_support = HidingSupport::new(|how| match how {
         HidingBehaviour::Cloak => None,
@@ -70,7 +70,7 @@ fn windows_hidden_by_the_fallback_are_shown_the_same_way() {
 fn reloading_a_strategy_the_platform_lacks_falls_back_too() {
     // Arrange -- minimizing is available, cloaking is not.
     let mut h = Harness::with_settings(cannot_cloak(HidingBehaviour::Minimize), 1, &[(1, 0)]);
-    let mut config = Config::default();
+    let mut config = Config::with_gap(8);
     config.layout.hiding = HidingBehaviour::Cloak;
     h.step(Input::Config(Box::new(config)));
 
@@ -88,7 +88,7 @@ fn reloading_a_strategy_the_platform_lacks_falls_back_too() {
 fn reloading_an_unchanged_strategy_keeps_its_fallback() {
     // Arrange -- the config asks for cloaking at startup and still does.
     let mut h = Harness::with_settings(cannot_cloak(HidingBehaviour::Cloak), 1, &[(1, 0)]);
-    let mut config = Config::default();
+    let mut config = Config::with_gap(8);
     config.layout.hiding = HidingBehaviour::Cloak;
     config.layout.gap = 16;
     h.step(Input::Config(Box::new(config)));
@@ -109,7 +109,7 @@ fn the_next_daemon_shows_a_window_the_way_the_fallback_hid_it() {
     let record = TempRecord::new("fallback-record");
     let platform = FakePlatform::new(1, &[(1, 0)]);
     platform.lack(HidingBehaviour::Cloak);
-    let mut manager = start(&platform, Some(record.file()), &Config::default());
+    let mut manager = start(&platform, Some(record.file()), &Config::with_gap(8));
 
     // Act
     manager.handle_action(&Action::GoToWorkspace(2));
@@ -128,7 +128,7 @@ fn hide_reports_the_fallback_causes_are_taken_for_the_tilers_own() {
     // whether or not it is an echo.
     let platform = FakePlatform::new(1, &[(1, 0)]);
     platform.lack(HidingBehaviour::Cloak);
-    let mut manager = start(&platform, None, &Config::default());
+    let mut manager = start(&platform, None, &Config::with_gap(8));
     manager.handle_action(&Action::GoToWorkspace(2));
     assert!(!platform.window(1).visible);
     platform.take_calls();

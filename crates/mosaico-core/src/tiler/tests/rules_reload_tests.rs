@@ -11,7 +11,7 @@ use super::*;
 /// Windows 1 and 2 on workspace 1, then window 1 sent to workspace 2,
 /// which hides window 2 `how` on workspace 1.
 fn window_2_hidden(how: HidingBehaviour) -> Harness {
-    let mut settings = Settings::default();
+    let mut settings = Settings::with_gap(8);
     settings.layout.hiding = how;
     settings.workspaces.mode = WorkspaceMode::PerMonitor;
     let mut h = Harness::with_settings(settings, 1, &[(1, 0), (2, 0)]);

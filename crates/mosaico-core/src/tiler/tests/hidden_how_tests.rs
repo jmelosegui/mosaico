@@ -11,14 +11,14 @@ use super::*;
 
 /// A harness that hides windows with "hide".
 fn hiding_with_hide(windows: &[(u64, usize)]) -> Harness {
-    let mut settings = Settings::default();
+    let mut settings = Settings::with_gap(8);
     settings.layout.hiding = HidingBehaviour::Hide;
     Harness::with_settings(settings, 1, windows)
 }
 
 /// Reloads a configuration that minimizes windows to hide them.
 fn reload_with_minimize(h: &mut Harness) {
-    let mut config = Config::default();
+    let mut config = Config::with_gap(8);
     config.layout.hiding = HidingBehaviour::Minimize;
     h.step(Input::Config(Box::new(config)));
 }

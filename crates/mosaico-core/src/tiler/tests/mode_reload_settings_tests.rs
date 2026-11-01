@@ -14,7 +14,7 @@ use super::*;
 /// has window 1 hidden `how` on workspace 2. Monitor 1 shows workspace
 /// 2, with focus, and has window 3 hidden on workspace 1.
 fn out_of_step(how: HidingBehaviour) -> Harness {
-    let mut settings = Settings::default();
+    let mut settings = Settings::with_gap(8);
     settings.layout.hiding = how;
     settings.workspaces.mode = WorkspaceMode::PerMonitor;
     let mut h = Harness::with_settings(settings, 2, &[(1, 0), (2, 0), (3, 1)]);
@@ -43,7 +43,7 @@ fn find(h: &Harness, wanted: &Effect) -> Option<usize> {
 fn change_hiding(old: HidingBehaviour, new: HidingBehaviour) {
     // Arrange
     let mut h = out_of_step(old);
-    let mut config = Config::default();
+    let mut config = Config::with_gap(8);
     config.layout.hiding = new;
 
     // Act
@@ -81,7 +81,7 @@ fn turning_global_mode_on_while_switching_from_minimize_to_cloak() {
 fn turning_global_mode_on_while_changing_the_gap_places_with_the_new_gap() {
     // Arrange
     let mut h = out_of_step(HidingBehaviour::Cloak);
-    let mut config = Config::default();
+    let mut config = Config::with_gap(8);
     config.layout.gap = 20;
 
     // Act
@@ -102,7 +102,7 @@ fn turning_global_mode_on_lays_out_a_monitor_that_switches_once() {
     let mut h = out_of_step(how);
 
     // Act
-    turn_global_mode_on(&mut h, Config::default());
+    turn_global_mode_on(&mut h, Config::with_gap(8));
 
     // Assert -- shown, placed once, then the old workspace hidden, as in
     // a workspace switch.

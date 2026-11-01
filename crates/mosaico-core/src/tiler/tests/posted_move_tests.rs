@@ -31,7 +31,7 @@ fn a_window_created_visible_is_placed_and_repainted_after_its_move_lands() {
     let platform = FakePlatform::new(1, &[(1, 0), (99, 0)]);
     platform.edit(99, |w| w.visible = false);
     platform.land_pre_placements();
-    let mut manager = start(&platform, None, &Config::default());
+    let mut manager = start(&platform, None, &Config::with_gap(8));
     platform.edit(99, |w| w.visible = true);
     platform.take_calls();
 
@@ -55,7 +55,7 @@ fn a_window_restored_into_another_slot_is_placed_and_repainted_after_its_move_la
     // Arrange
     let platform = FakePlatform::new(1, &[(1, 0), (2, 0), (3, 0)]);
     platform.land_pre_placements();
-    let mut manager = start(&platform, None, &Config::default());
+    let mut manager = start(&platform, None, &Config::with_gap(8));
     platform.edit(2, |w| w.minimized = true);
     manager.handle_event(&WindowEvent::Minimized { window: wid(2) });
     platform.edit(2, |w| w.minimized = false);
@@ -84,7 +84,7 @@ fn a_window_pre_placed_while_hidden_is_left_alone_once_in_its_slot() {
     let platform = FakePlatform::new(1, &[(1, 0), (99, 0)]);
     platform.edit(99, |w| w.visible = false);
     platform.land_pre_placements();
-    let mut manager = start(&platform, None, &Config::default());
+    let mut manager = start(&platform, None, &Config::with_gap(8));
     manager.handle_event(&WindowEvent::Created { window: wid(99) });
     platform.edit(99, |w| w.visible = true);
     platform.take_calls();

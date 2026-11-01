@@ -18,7 +18,7 @@ const PRIMARY_SLOT: Rect = Rect {
 };
 
 fn settings(how: HidingBehaviour, mode: WorkspaceMode) -> Settings {
-    let mut settings = Settings::default();
+    let mut settings = Settings::with_gap(8);
     settings.layout.hiding = how;
     settings.workspaces.mode = mode;
     settings
@@ -27,7 +27,7 @@ fn settings(how: HidingBehaviour, mode: WorkspaceMode) -> Settings {
 /// Reloads a configuration with workspace mode `mode`, that hides
 /// windows `how`.
 fn reload(h: &mut Harness, how: HidingBehaviour, mode: WorkspaceMode) {
-    let mut config = Config::default();
+    let mut config = Config::with_gap(8);
     config.layout.hiding = how;
     config.workspaces.mode = mode;
     h.step(Input::Config(Box::new(config)));

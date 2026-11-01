@@ -17,7 +17,7 @@ fn color_of(effects: &[Effect], window: u64) -> Option<Color> {
 #[test]
 fn a_border_color_that_is_not_a_color_is_drawn_in_the_fallback_color() {
     // Arrange -- a name the theme does not know is left as written.
-    let mut settings = Settings::default();
+    let mut settings = Settings::with_gap(8);
     settings.borders.colors.focused = "chartreuse".into();
     settings.borders.colors.unfocused = "#222222".into();
 
@@ -39,7 +39,7 @@ fn a_border_color_that_is_not_a_color_is_drawn_in_the_fallback_color() {
 #[test]
 fn none_turns_off_unfocused_borders_only() {
     // Arrange
-    let mut settings = Settings::default();
+    let mut settings = Settings::with_gap(8);
     settings.borders.colors.focused = BorderColors::NONE.into();
     settings.borders.colors.unfocused = BorderColors::NONE.into();
 

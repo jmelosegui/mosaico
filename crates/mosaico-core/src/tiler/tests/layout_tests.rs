@@ -31,7 +31,7 @@ fn startup_skips_windows_the_platform_rules_out() {
 #[test]
 fn startup_decorates_and_borders_managed_windows() {
     // Arrange / Act
-    let settings = Settings::default();
+    let settings = Settings::with_gap(8);
     let desktop = {
         let mut d = FakeDesktop::default();
         d.windows.insert(wid(1), FakeWindow::app(0));

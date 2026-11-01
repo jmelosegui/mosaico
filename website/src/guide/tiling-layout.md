@@ -88,7 +88,7 @@ Layout settings are in `config.toml`:
 
 ```toml
 [layout]
-gap = 8               # Pixel gap between windows (0-200)
+gap = 20              # Pixel gap between windows (0-200)
 ratio = 0.5           # Split ratio for the primary partition (0.1-0.9)
 default = "bsp"       # Default layout for all workspaces
 ```

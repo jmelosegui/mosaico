@@ -9,7 +9,7 @@ use crate::config::{Config, HidingBehaviour, WorkspaceMode};
 use super::*;
 
 fn hiding(how: HidingBehaviour) -> Settings {
-    let mut settings = Settings::default();
+    let mut settings = Settings::with_gap(8);
     settings.layout.hiding = how;
     settings.workspaces.mode = WorkspaceMode::PerMonitor;
     settings
@@ -17,7 +17,7 @@ fn hiding(how: HidingBehaviour) -> Settings {
 
 /// Reloads a configuration that hides windows `how`.
 fn reload(h: &mut Harness, how: HidingBehaviour) {
-    let mut config = Config::default();
+    let mut config = Config::with_gap(8);
     config.layout.hiding = how;
     h.step(Input::Config(Box::new(config)));
 }
@@ -200,7 +200,7 @@ fn an_unchanged_strategy_shows_windows_as_before() {
     // changed. Not the default, so falling back to it would show.
     let mut h = Harness::with_settings(hiding(HidingBehaviour::Minimize), 1, &[(1, 0), (2, 0)]);
     h.action(Action::GoToWorkspace(2));
-    let mut config = Config::default();
+    let mut config = Config::with_gap(8);
     config.layout.hiding = HidingBehaviour::Minimize;
     config.layout.gap = 16;
     h.step(Input::Config(Box::new(config)));

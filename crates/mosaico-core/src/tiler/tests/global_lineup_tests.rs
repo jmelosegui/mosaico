@@ -21,7 +21,7 @@ const PRIMARY_SLOT: Rect = Rect {
 };
 
 fn settings(how: HidingBehaviour, mode: WorkspaceMode) -> Settings {
-    let mut settings = Settings::default();
+    let mut settings = Settings::with_gap(8);
     settings.layout.hiding = how;
     settings.workspaces.mode = mode;
     settings

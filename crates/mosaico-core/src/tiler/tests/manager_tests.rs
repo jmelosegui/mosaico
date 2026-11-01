@@ -13,7 +13,7 @@ fn startup_tiles_the_windows_the_platform_lists() {
     let platform = FakePlatform::new(1, &[(1, 0), (2, 0)]);
 
     // Act
-    let manager = start(&platform, None, &Config::default());
+    let manager = start(&platform, None, &Config::with_gap(8));
 
     // Assert -- placed side by side through the window control, with
     // their corners set through the decorations.
@@ -42,7 +42,7 @@ fn startup_fails_when_the_monitors_cannot_be_listed() {
     platform.fail_monitors();
 
     // Act
-    let started = TilingManager::new(platform.clone(), None, &Config::default(), Vec::new());
+    let started = TilingManager::new(platform.clone(), None, &Config::with_gap(8), Vec::new());
 
     // Assert
     assert!(started.is_err());
@@ -54,7 +54,7 @@ fn windows_are_hidden_in_a_way_the_platform_has() {
     // Arrange -- the config asks for cloaking, which this platform lacks.
     let platform = FakePlatform::new(1, &[(1, 0)]);
     platform.lack(HidingBehaviour::Cloak);
-    let mut manager = start(&platform, None, &Config::default());
+    let mut manager = start(&platform, None, &Config::with_gap(8));
 
     // Act
     manager.handle_action(&Action::GoToWorkspace(2));
@@ -73,7 +73,7 @@ fn a_window_a_display_change_brings_onto_monocle_is_put_behind_it() {
     // Arrange -- window 1 is in monocle on the primary, window 2 is on
     // the second monitor.
     let platform = FakePlatform::new(2, &[(1, 0), (2, 1)]);
-    let mut manager = start(&platform, None, &Config::default());
+    let mut manager = start(&platform, None, &Config::with_gap(8));
     manager.handle_action(&Action::ToggleMonocle);
     platform.take_calls();
 
@@ -128,7 +128,7 @@ fn the_work_areas_stay_when_the_monitors_cannot_be_read_again() {
 fn shutdown_shows_every_window_and_gives_back_their_corners() {
     // Arrange
     let platform = FakePlatform::new(1, &[(1, 0), (2, 0)]);
-    let mut manager = start(&platform, None, &Config::default());
+    let mut manager = start(&platform, None, &Config::with_gap(8));
     manager.handle_action(&Action::SendToWorkspace(2));
     platform.take_calls();
 

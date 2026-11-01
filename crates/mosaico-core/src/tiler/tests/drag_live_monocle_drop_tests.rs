@@ -73,7 +73,7 @@ fn a_window_there_minimized_without_a_report_stays_so_as_monocle_comes_back() {
 #[test]
 fn with_drag_to_swap_off_a_window_dropped_on_a_monocle_workspace_joins_its_end_as_before() {
     // Arrange
-    let mut h = monocle_on_second(Settings::default(), &[3, 4]);
+    let mut h = monocle_on_second(Settings::with_gap(8), &[3, 4]);
 
     // Act
     drag_to(&mut h, 1, center(RIGHT));

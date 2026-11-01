@@ -125,6 +125,15 @@ impl Config {
                 .to_string();
         }
     }
+
+    /// The defaults with a gap of `gap` pixels, for tests whose windows
+    /// were laid out with that gap rather than with the default's.
+    #[cfg(test)]
+    pub(crate) fn with_gap(gap: i32) -> Self {
+        let mut config = Self::default();
+        config.layout.gap = gap;
+        config
+    }
 }
 
 #[cfg(test)]

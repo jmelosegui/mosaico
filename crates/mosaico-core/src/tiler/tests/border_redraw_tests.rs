@@ -14,7 +14,7 @@ use super::*;
 /// left one focused, with focused and unfocused borders in different
 /// colors. Every border has been drawn once.
 fn three_windows(monitors: usize) -> (FakePlatform, TilingManager<FakePlatform>) {
-    let mut config = Config::default();
+    let mut config = Config::with_gap(8);
     config.borders.colors.focused = "#111111".into();
     config.borders.colors.unfocused = "#222222".into();
     let platform = FakePlatform::new(monitors, &[(1, 0), (2, 0), (3, 0)]);

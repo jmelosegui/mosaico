@@ -26,7 +26,7 @@ pub struct LayoutConfig {
 impl Default for LayoutConfig {
     fn default() -> Self {
         Self {
-            gap: 8,
+            gap: 20,
             ratio: 0.5,
             hiding: HidingBehaviour::default(),
             default: LayoutKind::default(),

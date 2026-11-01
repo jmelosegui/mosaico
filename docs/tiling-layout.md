@@ -106,7 +106,7 @@ gap-handling rules:
 
 ### Configuration
 
-- `gap: i32` -- pixel gap between windows (default: 8, range: 0-200)
+- `gap: i32` -- pixel gap between windows (default: 20, range: 0-200)
 - `ratio: f64` -- split ratio for the primary partition (default: 0.5,
   range: 0.1-0.9), where every split is until the user moves it
 
@@ -344,7 +344,7 @@ numbers:
 
 ```toml
 [layout]
-gap = 8
+gap = 20
 ratio = 0.5
 default = "bsp"            # default layout for all workspaces
 

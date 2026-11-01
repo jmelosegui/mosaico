@@ -64,7 +64,7 @@ fn the_heights_of_the_stacks_stay_through_cycling_layouts_monocle_and_a_reload()
     resize(&mut h, 1, &[0.4, 0.3, 0.2, 0.1]);
     h.action(Action::CycleLayout);
     resize(&mut h, 1, &[0.7, 0.3]);
-    let mut config = Config::default();
+    let mut config = Config::with_gap(8);
     config.layout.ratio = 0.4;
 
     // Act -- around to BSP, monocle on and off, the configured ratio

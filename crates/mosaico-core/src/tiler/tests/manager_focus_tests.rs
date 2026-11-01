@@ -13,7 +13,7 @@ use super::*;
 fn a_focus_change_waits_until_the_manager_is_flushed() {
     // Arrange
     let platform = FakePlatform::new(1, &[(1, 0), (2, 0)]);
-    let mut manager = start(&platform, None, &Config::default());
+    let mut manager = start(&platform, None, &Config::with_gap(8));
     manager.flush_pending();
     platform.take_calls();
 
@@ -37,7 +37,7 @@ fn a_focus_change_waits_until_the_manager_is_flushed() {
 fn a_focus_report_for_another_window_waits_for_the_held_focus_change() {
     // Arrange -- focus moves to window 2 and is held back.
     let platform = FakePlatform::new(1, &[(1, 0), (2, 0)]);
-    let mut manager = start(&platform, None, &Config::default());
+    let mut manager = start(&platform, None, &Config::with_gap(8));
     manager.flush_pending();
     manager.handle_action(&Action::Focus(Direction::Right));
 
@@ -52,7 +52,7 @@ fn a_focus_report_for_another_window_waits_for_the_held_focus_change() {
 fn nothing_held_for_a_closed_window_is_applied() {
     // Arrange -- only the focused window has a border, so window 2 has
     // none to drop when it closes, while its move is held.
-    let mut config = Config::default();
+    let mut config = Config::with_gap(8);
     config.borders.colors.unfocused = BorderColors::NONE.into();
     let platform = FakePlatform::new(1, &[(1, 0), (2, 0)]);
     let mut manager = start(&platform, None, &config);
@@ -77,7 +77,7 @@ fn nothing_held_for_a_closed_window_is_applied() {
 
 /// A manager that focused window 1 at startup, then window 2.
 fn focused_twice(platform: &FakePlatform) -> TilingManager<FakePlatform> {
-    let mut manager = start(platform, None, &Config::default());
+    let mut manager = start(platform, None, &Config::with_gap(8));
     manager.flush_pending();
     manager.handle_action(&Action::Focus(Direction::Right));
     manager.flush_pending();
@@ -119,7 +119,7 @@ fn a_switch_is_timed_by_the_platforms_clock() {
     // taken for the switch's own until the platform's clock says
     // otherwise.
     let platform = FakePlatform::new(1, &[(1, 0)]);
-    let mut manager = start(&platform, None, &Config::default());
+    let mut manager = start(&platform, None, &Config::with_gap(8));
     manager.flush_pending();
     manager.handle_action(&Action::GoToWorkspace(2));
     manager.handle_event(&WindowEvent::Focused { window: wid(1) });

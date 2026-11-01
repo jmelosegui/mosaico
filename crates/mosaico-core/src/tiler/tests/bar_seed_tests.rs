@@ -31,7 +31,7 @@ fn started_with(maximized: u64) -> (Tiler, FakeDesktop) {
         .maximized = true;
     let windows = [wid(1), wid(9)];
     let (tiler, _) = Tiler::new(
-        Settings::default(),
+        Settings::with_gap(8),
         &displays(1),
         &windows,
         &desktop,

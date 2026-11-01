@@ -120,7 +120,7 @@ fn a_drag_a_key_interrupted_shows_no_preview_as_it_goes_on() {
 #[test]
 fn with_drag_to_swap_off_no_preview_shows() {
     // Arrange -- the near miss.
-    let mut h = Harness::with_settings(Settings::default(), 1, &[(1, 0), (2, 0)]);
+    let mut h = Harness::with_settings(Settings::with_gap(8), 1, &[(1, 0), (2, 0)]);
     let right = h.rect_of(2);
     grab(&mut h, 1);
 
