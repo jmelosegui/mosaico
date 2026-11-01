@@ -14,6 +14,7 @@ mod merge_wrap;
 mod migrate;
 mod migrate_borders;
 mod migrate_workspaces;
+mod rules_document;
 mod write_back;
 
 #[cfg(test)]
@@ -31,6 +32,7 @@ use super::report;
 
 pub use document::SettingsDocument;
 pub use keybindings_document::KeybindingsDocument;
+pub use rules_document::RulesDocument;
 
 /// The config files of one instance, all kept in one directory.
 ///

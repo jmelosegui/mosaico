@@ -52,7 +52,7 @@ pub use palette::UiColors;
 pub use reload::{ConfigReload, ConfigReloader, ConfigWatch};
 pub use rule_action::{RuleAction, decide};
 pub use rules::{WindowRule, default_rules, matching_rule, validate_rules};
-pub use store::{ConfigStore, KeybindingsDocument, SettingsDocument};
+pub use store::{ConfigStore, KeybindingsDocument, RulesDocument, SettingsDocument};
 pub use theme::{
     CatppuccinFlavor, RosePineFlavor, Theme, ThemeCheck, ThemeConfig, TokyoNightFlavor,
 };
