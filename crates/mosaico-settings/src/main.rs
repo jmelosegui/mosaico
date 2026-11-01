@@ -6,7 +6,8 @@
 mod platform;
 
 use eframe::egui::{ViewportBuilder, vec2};
-use mosaico_settings::{Forward, SettingsApp};
+use mosaico_core::config::SETTINGS_WINDOW_MIN;
+use mosaico_settings::{Forward, SettingsApp, remembered};
 
 #[cfg(target_os = "windows")]
 fn main() -> eframe::Result {
@@ -20,11 +21,16 @@ fn main() -> eframe::Result {
         Err(_) => None,
     };
     let services = platform::services();
+    // The place is not remembered: the window opens centered, on a
+    // monitor that is surely connected.
+    let prefs = remembered(&services.store);
+    let (width, height) = prefs.size();
     let viewport = ViewportBuilder::default()
         .with_title("mosaico settings")
         .with_app_id("mosaico-settings")
-        .with_inner_size(vec2(980.0, 700.0))
-        .with_min_inner_size(vec2(720.0, 480.0))
+        .with_inner_size(vec2(width, height))
+        .with_min_inner_size(vec2(SETTINGS_WINDOW_MIN.0, SETTINGS_WINDOW_MIN.1))
+        .with_maximized(prefs.maximized)
         .with_decorations(false)
         .with_icon(icon());
     let options = eframe::NativeOptions {

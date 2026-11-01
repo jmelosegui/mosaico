@@ -14,6 +14,11 @@ The daemon does not need to be running, and starting the daemon does not open
 the window. Only one settings window opens at a time: opening it again brings
 the one already open to the front.
 
+The window remembers its size, whether it was maximized and the page it
+showed, and opens that way next time. It keeps them in `settings-app.toml` in
+the config folder, which the daemon never reads. It always opens centered, so
+it cannot open on a monitor that is no longer connected.
+
 The window tiles like any other window. To float it instead, add a rule to
 `user-rules.toml`:
 

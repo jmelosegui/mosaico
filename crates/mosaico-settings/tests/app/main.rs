@@ -14,6 +14,7 @@ mod keybindings;
 mod keybindings_taken;
 mod layout;
 mod mouse;
+mod prefs;
 mod rules;
 mod shell;
 mod workspaces;

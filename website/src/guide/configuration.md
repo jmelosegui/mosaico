@@ -14,6 +14,7 @@ Run `mosaico init` to generate fully-commented template files.
 | `rules.toml` | Community window rules (auto-downloaded) | On startup |
 | `user-rules.toml` | Personal window rule overrides | Yes |
 | `bar.toml` | Status bar settings | Yes |
+| `settings-app.toml` | The [settings window](settings.md)'s size and last page, written by the window | Not read by the daemon |
 
 ## `config.toml`
 

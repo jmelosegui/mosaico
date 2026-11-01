@@ -4,17 +4,18 @@
 mod chrome;
 mod close;
 mod footer;
+mod prefs;
+mod refresh;
 mod sidebar;
 
-use eframe::egui::{CentralPanel, Context, Frame, Margin, Panel, ScrollArea, Ui};
-use mosaico_core::config::{ConfigStore, Theme};
+use eframe::egui::{CentralPanel, Frame, Margin, Panel, ScrollArea, Ui};
+use mosaico_core::config::{ConfigStore, SettingsAppConfig, Theme};
 
 use crate::model::{self, Draft, Loaded, Settings};
 use crate::pages::{self, FilePages, Page, PageContext};
-use crate::theme::{self, Colors};
+use crate::theme::Colors;
 
-/// How often the daemon is asked whether it runs, in seconds.
-const POLL_SECS: f64 = 2.0;
+pub use prefs::remembered;
 
 /// Whether the daemon answers.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -74,6 +75,7 @@ pub struct SettingsApp {
     polled_at: Option<f64>,
     styled: Option<Theme>,
     close: close::CloseGuard,
+    remembered: SettingsAppConfig,
 }
 
 impl SettingsApp {
@@ -84,6 +86,7 @@ impl SettingsApp {
             Ok(store) => Loaded::read(store, sign_in),
             Err(e) => Loaded::blocked(e.clone(), sign_in),
         };
+        let remembered = prefs::remembered(&services.store);
         Self {
             draft: Draft::new(loaded.settings),
             files: services
@@ -96,7 +99,7 @@ impl SettingsApp {
             problem: loaded.problem,
             applied: None,
             sign_in: services.sign_in,
-            page: Page::General,
+            page: prefs::page_named(&remembered.page),
             query: String::new(),
             log_file: services.log_file,
             daemon: services.daemon,
@@ -104,6 +107,7 @@ impl SettingsApp {
             polled_at: None,
             styled: None,
             close: close::CloseGuard::default(),
+            remembered,
         }
     }
 
@@ -186,6 +190,7 @@ impl SettingsApp {
     pub fn show(&mut self, ui: &mut Ui) {
         let c = self.style(ui.ctx());
         self.poll(ui.ctx());
+        self.track(ui.ctx());
 
         let close_clicked = Panel::top("title bar")
             .exact_size(36.0)
@@ -270,39 +275,14 @@ impl SettingsApp {
                 });
         });
     }
-
-    /// Styles the window for the theme being edited, which previews it.
-    fn style(&mut self, ctx: &Context) -> Colors {
-        let theme = self.draft.edit.theme();
-        let colors = Colors::of(theme);
-        if self.styled != Some(theme) {
-            if self.styled.is_none() {
-                theme::install_fonts(ctx);
-            }
-            theme::apply(ctx, &colors);
-            self.styled = Some(theme);
-        }
-        colors
-    }
-
-    fn poll(&mut self, ctx: &Context) {
-        let now = ctx.input(|i| i.time);
-        if self.polled_at.is_none_or(|at| now - at >= POLL_SECS) {
-            self.daemon_state = (self.daemon)();
-            self.polled_at = Some(now);
-            // Without edits, the window follows the file, so what an
-            // editor writes, or a fix to it, shows up.
-            if self.draft.changes() == 0 {
-                self.reload(self.draft.saved().start_at_sign_in);
-            }
-            self.files.reload_unedited();
-        }
-        ctx.request_repaint_after(std::time::Duration::from_secs_f64(POLL_SECS));
-    }
 }
 
 impl eframe::App for SettingsApp {
     fn ui(&mut self, ui: &mut Ui, _frame: &mut eframe::Frame) {
         self.show(ui);
+    }
+
+    fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
+        self.remember();
     }
 }
