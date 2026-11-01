@@ -135,7 +135,7 @@ fn parse_toml<T: DeserializeOwned>(path: &Path, content: &str) -> Result<T> {
 
 /// A config error about the file at `path`. It reads
 /// `<path>: <problem>`, as these errors always have.
-fn file_error(path: &Path, problem: impl fmt::Display) -> Error {
+pub(super) fn file_error(path: &Path, problem: impl fmt::Display) -> Error {
     Error::config(Some(path.to_path_buf()), problem.to_string())
 }
 
