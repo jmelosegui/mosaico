@@ -24,6 +24,17 @@ fn the_presets_are_written_with_their_config_names() {
 }
 
 #[test]
+fn the_presets_list_every_named_easing_once_with_its_own_label() {
+    // Act
+    let labels: std::collections::BTreeSet<_> = Easing::PRESETS.iter().map(|e| e.label()).collect();
+
+    // Assert
+    assert_eq!(Easing::PRESETS[0], Easing::default());
+    assert_eq!(labels.len(), Easing::PRESETS.len());
+    assert!(!labels.contains(bezier(0.2, 0.0, 0.0, 1.0).label()));
+}
+
+#[test]
 fn every_easing_reads_back_as_what_was_written() {
     // Arrange -- including numbers with no short decimal form.
     let easings = [
