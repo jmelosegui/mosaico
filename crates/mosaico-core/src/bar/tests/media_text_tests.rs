@@ -52,13 +52,13 @@ fn the_media_widget_shows_only_the_artist_without_a_title() {
 fn the_media_widget_shows_its_icon_before_the_track() {
     // Act
     let label = label_of(
-        r#"{ type = "media" }"#,
+        r#"{ type = "media", icon = "M" }"#,
         &BarState::default(),
         &playing("Artist", "Title"),
     );
 
     // Assert
-    assert_eq!(label, "\u{F001} Artist - Title");
+    assert_eq!(label, "M Artist - Title");
 }
 
 #[test]
@@ -120,14 +120,14 @@ fn a_maximum_length_of_zero_leaves_only_the_icon() {
         &system,
     );
     let label = label_of(
-        r#"{ type = "media", max_length = 0 }"#,
+        r#"{ type = "media", icon = "M", max_length = 0 }"#,
         &BarState::default(),
         &system,
     );
 
     // Assert
     assert!(shown);
-    assert_eq!(label, "\u{F001}");
+    assert_eq!(label, "M");
 }
 
 #[test]
