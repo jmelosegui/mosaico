@@ -11,7 +11,7 @@ use mosaico_core::system::{
 use mosaico_core::tiler::Enumerator;
 use mosaico_core::{Command, Error, Instance};
 use mosaico_settings::{DaemonState, Services};
-use mosaico_windows::autostart::RegistryAutostart;
+use mosaico_windows::autostart::LogonTaskAutostart;
 use mosaico_windows::enumerate::WindowsEnumerator;
 use mosaico_windows::files::WindowsFiles;
 use mosaico_windows::fonts::InstalledFonts;
@@ -49,7 +49,7 @@ pub fn services() -> Services {
             daemon: Box::new(|| DaemonState::Stopped),
         };
     };
-    let autostart = AutostartStatus::read(&RegistryAutostart, &WindowsFiles, mosaico_exe);
+    let autostart = AutostartStatus::read(&LogonTaskAutostart, &WindowsFiles, mosaico_exe);
     let client = PipeClient::new(&pipe_name(instance));
     Services {
         store: Ok(ConfigStore::for_instance(instance)),
@@ -66,9 +66,9 @@ pub fn services() -> Services {
 /// autostart enable` and `disable` do.
 fn set_sign_in(on: bool) -> mosaico_core::Result<()> {
     if on {
-        RegistryAutostart.enable(&LaunchCommand::autostart(mosaico_exe()?))
+        LogonTaskAutostart.enable(&LaunchCommand::autostart(mosaico_exe()?))
     } else {
-        RegistryAutostart.disable()
+        LogonTaskAutostart.disable()
     }
 }
 

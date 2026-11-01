@@ -100,7 +100,7 @@ fn status_names_the_command_of_another_registration() {
     assert_eq!(
         h.out(),
         format!(
-            "Autostart is currently enabled, but starts \"{EXE}\" daemon instead of \"{EXE}\" start.\n"
+            "Autostart is currently enabled, but starts \"{EXE}\" daemon instead of \"{EXE}\" start --quiet.\n"
         )
     );
 }
@@ -188,7 +188,7 @@ fn status_says_when_the_user_turned_autostart_off() {
     assert_eq!(exit, Exit::Success);
     assert_eq!(
         h.out(),
-        "Autostart is currently turned off in the startup apps settings (run `mosaico autostart enable` to turn it back on).\n"
+        "Autostart is currently turned off (run `mosaico autostart enable` to turn it back on).\n"
     );
 }
 

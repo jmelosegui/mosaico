@@ -1,7 +1,7 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 #![warn(clippy::undocumented_unsafe_blocks)]
 
-/// Windows startup registration via the HKCU Run registry key.
+/// Windows startup registration via a logon task in the Task Scheduler.
 pub mod autostart;
 
 /// COM-based window cloaking via the ImmersiveShell.
