@@ -138,6 +138,13 @@ impl Instance {
     pub fn pid_path(&self) -> PathBuf {
         self.data_dir.join("mosaico.pid")
     }
+
+    /// Path of the note that the daemon should start again once an
+    /// installer is done replacing mosaico, see
+    /// [`RestartMarker`](crate::update::RestartMarker).
+    pub fn restart_marker_path(&self) -> PathBuf {
+        self.data_dir.join("restart-after-install")
+    }
 }
 
 fn validate_name(name: &str) -> Result<(), InstanceError> {

@@ -19,7 +19,7 @@
 #[path = "autostart_command_line.rs"]
 mod command_line;
 #[path = "autostart_registry.rs"]
-mod registry;
+pub(crate) mod registry;
 #[path = "autostart_switch.rs"]
 mod switch;
 #[path = "autostart_task.rs"]

@@ -13,6 +13,10 @@ use mosaico_core::{Error, Result};
 /// The file name of the release archive in the fake world.
 pub const ASSET: &str = "mosaico-test-os.zip";
 
+/// The file name of the installer package of the release in the fake
+/// world.
+pub const PACKAGE: &str = "mosaico-test-os.pkg";
+
 /// The file name of the mosaico executable in that archive.
 pub const BINARY: &str = "mosaico-test";
 
@@ -76,6 +80,20 @@ pub struct FakeInstaller {
     pub error: RefCell<Option<(String, Option<&'static str>)>>,
     /// Whether this platform cannot update itself.
     pub unsupported: Cell<bool>,
+    /// The folder the installer package installed mosaico into, if it is
+    /// installed.
+    pub package_folder: RefCell<Option<PathBuf>>,
+    /// The packages run, in order, and whether each was run to reinstall.
+    pub packages_run: RefCell<Vec<(Vec<u8>, bool)>>,
+    /// Error running a package fails with, if any.
+    pub package_error: RefCell<Option<String>>,
+    /// The executables a process runs from.
+    pub running: RefCell<Vec<PathBuf>>,
+    /// The executables moved aside because a process ran from them, in
+    /// order.
+    pub set_aside: RefCell<Vec<PathBuf>>,
+    /// The executables whose leftovers were removed, in order.
+    pub cleaned: RefCell<Vec<PathBuf>>,
 }
 
 impl FakeInstaller {
@@ -115,7 +133,35 @@ impl Installer for FakeInstaller {
         Ok(())
     }
 
-    fn remove_leftovers(&self, _exe: &Path) -> Result<()> {
+    fn remove_leftovers(&self, exe: &Path) -> Result<()> {
+        self.cleaned.borrow_mut().push(exe.to_path_buf());
         Ok(())
+    }
+
+    fn package_name(&self) -> Result<&str> {
+        self.supported()?;
+        Ok(PACKAGE)
+    }
+
+    fn package_folder(&self) -> Option<PathBuf> {
+        self.package_folder.borrow().clone()
+    }
+
+    fn run_package(&self, package: &[u8], reinstall: bool) -> Result<()> {
+        if let Some(error) = self.package_error.borrow().clone() {
+            return Err(Error::platform("start the installer", error));
+        }
+        self.packages_run
+            .borrow_mut()
+            .push((package.to_vec(), reinstall));
+        Ok(())
+    }
+
+    fn set_aside_if_running(&self, exe: &Path) -> Result<bool> {
+        if !self.running.borrow().iter().any(|running| running == exe) {
+            return Ok(false);
+        }
+        self.set_aside.borrow_mut().push(exe.to_path_buf());
+        Ok(true)
     }
 }

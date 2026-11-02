@@ -19,7 +19,7 @@ use mosaico_core::ipc::{Command, IpcClient, IpcError, Response};
 use mosaico_core::pid::PidFile;
 use mosaico_core::system::{Autostart, FileProbe, ProcessControl};
 use mosaico_core::tiler::{Desktop, Enumerator};
-use mosaico_core::update::Installer;
+use mosaico_core::update::{Installer, RestartMarker};
 
 pub use clock::{Clock, SystemClock};
 
@@ -107,6 +107,9 @@ pub struct Context<'a> {
     pub http: &'a dyn HttpClient,
     /// How this platform's release is packaged and installed.
     pub installer: &'a dyn Installer,
+    /// The note an installer hook leaves when it stops the daemon, so the
+    /// hook that runs after the install starts it again.
+    pub restart: RestartMarker,
     /// Draws the mosaico logo over `version`, as in `0.12.1`.
     pub logo: &'a dyn Fn(&mut dyn Write, &str),
     /// Standard output.

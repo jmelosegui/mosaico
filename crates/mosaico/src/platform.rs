@@ -12,6 +12,7 @@ use mosaico_core::lifecycle::Startup;
 use mosaico_core::pid::PidFile;
 use mosaico_core::system::{Interrupts, ProcessSetup};
 use mosaico_core::tiler::{Enumerator, Platform};
+use mosaico_core::update::RestartMarker;
 
 use crate::commands::banner;
 use crate::commands::context::{Context, Exit, SystemClock};
@@ -67,6 +68,7 @@ pub fn run(command: impl FnOnce(&mut Context) -> Exit) -> Exit {
         clock: &SystemClock,
         http: &mosaico_windows::http::WinHttpClient,
         installer: &mosaico_windows::install::RenameInstaller,
+        restart: RestartMarker::new(instance.restart_marker_path()),
         logo: &banner::draw_logo,
         out: &mut out,
         err: &mut err,

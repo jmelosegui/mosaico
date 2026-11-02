@@ -7,7 +7,12 @@ use std::process::{Command, Stdio};
 
 use mosaico_core::Result;
 use mosaico_core::system::ProcessControl;
-use windows::Win32::Foundation::CloseHandle;
+use windows::Win32::Foundation::{
+    CloseHandle, HANDLE_FLAG_INHERIT, HANDLE_FLAGS, SetHandleInformation,
+};
+use windows::Win32::System::Console::{
+    GetStdHandle, STD_ERROR_HANDLE, STD_INPUT_HANDLE, STD_OUTPUT_HANDLE,
+};
 use windows::Win32::System::Threading::{
     OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_TERMINATE, TerminateProcess,
 };
@@ -104,6 +109,45 @@ fn kill_process(pid: u32) -> Result<()> {
 /// handles are what make `cmd.output()` hang in tests.
 const DETACH_FLAGS: u32 = 0x08000000 | 0x00000200;
 
+/// Stops children from inheriting this process's own standard handles.
+///
+/// A detached child gets null standard streams, but Windows still hands
+/// it every inheritable handle of its parent. When this process's output
+/// is a pipe, as when an installer runs `mosaico installer-hook` and
+/// reads its output until the pipe closes, the daemon it starts would
+/// hold that pipe open for as long as it runs, and the installer would
+/// wait for it. Children that inherit these streams on purpose are not
+/// affected: Rust duplicates the handle it hands them.
+fn keep_standard_handles_to_this_process() {
+    for stream in [STD_INPUT_HANDLE, STD_OUTPUT_HANDLE, STD_ERROR_HANDLE] {
+        // SAFETY: GetStdHandle only reads this process's handle table.
+        let Ok(handle) = (unsafe { GetStdHandle(stream) }) else {
+            continue;
+        };
+        if handle.is_invalid() {
+            continue;
+        }
+        // SAFETY: `handle` is one of this process's standard handles,
+        // and only its inherit flag changes. A console or missing handle
+        // that has no such flag fails harmlessly.
+        let _ = unsafe { SetHandleInformation(handle, HANDLE_FLAG_INHERIT.0, HANDLE_FLAGS(0)) };
+    }
+}
+
+/// Starts `command` detached, with its standard streams closed and none
+/// of this process's handles, and returns its pid.
+fn spawn_detached(mut command: Command, operation: &'static str) -> Result<u32> {
+    keep_standard_handles_to_this_process();
+    let child = command
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .creation_flags(DETACH_FLAGS)
+        .spawn()
+        .or_platform(operation)?;
+    Ok(child.id())
+}
+
 /// [`ProcessControl`] on Windows.
 pub struct WindowsProcesses;
 
@@ -112,27 +156,14 @@ impl ProcessControl for WindowsProcesses {
     /// subcommand, detached and with its standard streams closed.
     fn launch_daemon(&self) -> Result<u32> {
         let exe = std::env::current_exe().or_platform("find the mosaico executable")?;
-        let child = Command::new(exe)
-            .arg("daemon")
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .creation_flags(DETACH_FLAGS)
-            .spawn()
-            .or_platform("start the daemon")?;
-        Ok(child.id())
+        let mut daemon = Command::new(exe);
+        daemon.arg("daemon");
+        spawn_detached(daemon, "start the daemon")
     }
 
     /// Runs `program` detached, with its standard streams closed.
     fn launch(&self, program: &Path) -> Result<u32> {
-        let child = Command::new(program)
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .creation_flags(DETACH_FLAGS)
-            .spawn()
-            .or_platform("start the program")?;
-        Ok(child.id())
+        spawn_detached(Command::new(program), "start the program")
     }
 
     fn is_alive(&self, pid: u32) -> bool {
@@ -143,3 +174,7 @@ impl ProcessControl for WindowsProcesses {
         kill_process(pid)
     }
 }
+
+#[cfg(test)]
+#[path = "process_tests.rs"]
+mod tests;
