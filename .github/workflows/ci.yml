@@ -59,6 +59,48 @@ jobs:
       - name: CLI tests
         run: cargo test -p mosaico --test cli
 
+  installer:
+    name: Installer
+    # Builds the MSI the release workflow publishes, so a broken package
+    # definition fails here rather than on a release tag.
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install WiX
+        run: |
+          dotnet tool install --global wix --version 5.0.2
+          wix extension add --global WixToolset.Util.wixext/5.0.2
+
+      - name: Build the MSI
+        run: cargo xtask msi
+
+      - name: Install and uninstall the MSI
+        shell: pwsh
+        run: |
+          $msi = "target\release\mosaico-windows-amd64.msi"
+          $dir = "$env:LOCALAPPDATA\Programs\mosaico"
+          function Run-Msiexec($action, $log) {
+            $arguments = "$action `"$msi`" /qn /norestart /l*v `"$log`""
+            $p = Start-Process msiexec -ArgumentList $arguments -Wait -PassThru
+            if ($p.ExitCode -ne 0) { Get-Content $log -Tail 60; throw "msiexec $action failed: $($p.ExitCode)" }
+          }
+          Run-Msiexec "/i" "install.log"
+          foreach ($exe in "mosaico.exe", "mosaico-settings.exe") {
+            if (-not (Test-Path "$dir\$exe")) { throw "$exe was not installed" }
+          }
+          & "$dir\mosaico.exe" --version
+          if ((Get-ItemProperty HKCU:\Software\mosaico).InstallFolder -ne "$dir\") { throw "InstallFolder not recorded" }
+          if ([Environment]::GetEnvironmentVariable("PATH", "User") -notlike "*$dir*") { throw "not on the user PATH" }
+          Run-Msiexec "/x" "uninstall.log"
+          if (Test-Path $dir) { throw "the install folder is still there" }
+          if (Test-Path HKCU:\Software\mosaico) { throw "the registry key is still there" }
+
   settings-portability:
     name: Settings app (${{ matrix.os }})
     # Only Windows ships, but the settings app and the core it edits
