@@ -184,7 +184,9 @@ where you put it, above the tiles.
   window, stopping at the edge of its monitor. Drag it to put it on
   another monitor.
 - `Alt + .` and `Alt + ,` widen and narrow it, and `Alt + Shift + .` and
-  `Alt + Shift + ,` heighten and shorten it, around its center.
+  `Alt + Shift + ,` heighten and shorten it, around its center. On a tile,
+  the same keys move the splits beside it (see
+  [Resizing Tiles](#from-the-keyboard)).
 - Floating windows stay on their workspace: `send-to-workspace` leaves
   them where they are. They hide and show with their workspace, and are
   hidden while it is in monocle.
@@ -300,6 +302,21 @@ in the stacks, retile.
 
 Set `resize_splits = false` under `[mouse]` in `config.toml` to have a
 window you resize go back to its slot, as before.
+
+### From the keyboard
+
+The keys that resize a floating window resize a tile too: `Alt + .` and
+`Alt + ,` (`grow-width` and `shrink-width`) widen and narrow the focused
+tile, and `Alt + Shift + .` and `Alt + Shift + ,` (`grow-height` and
+`shrink-height`) heighten and shorten it, by a twentieth of the monitor's
+work area per press. A press moves the edge of the tile that borders a
+split, as dragging that edge would: its right or bottom edge, or its left
+or top one when that is at the edge of the screen, so the last window of a
+row or a column grows towards the others. The master of three columns grows
+on both sides and stays centered. A press stops where a drag would, and does
+nothing in monocle, on a maximized window, or along an axis where the tile
+borders no split, as for a window alone on its workspace. The keys work
+whether or not `resize_splits` is on, and a retile puts the splits back.
 
 ## Minimum Sizes
 

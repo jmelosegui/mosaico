@@ -25,7 +25,6 @@
 //! with the splits a drop then would set (`drag_live.rs`).
 
 use crate::layout::{SplitRatios, Tiles, changes, resized_splits};
-use crate::{Rect, WindowId};
 
 use super::super::{Plan, Tiler};
 use super::Drag;
@@ -92,12 +91,7 @@ impl Tiler {
         // In monocle, no edge borders a split.
         let ws = self.monitors.get(drag.monitor).map(|mon| mon.active_ws())?;
         let index = ws.index_of(drag.window).filter(|_| !ws.monocle())?;
-        let positions = self.compute_positions(drag.monitor);
-        let slot = |w: &WindowId| positions.iter().find(|(p, _)| p == w).map(|&(_, r)| r);
-        let slots: Vec<Rect> = ws.windows().iter().filter_map(slot).collect();
-        if slots.len() != ws.len() {
-            return None;
-        }
+        let slots = self.slots_in_order(drag.monitor)?;
         let mins = self.min_sizes_of(ws.windows());
         let tiles = Tiles::new(ws.layout_kind(), self.layout.gap, &slots, ws.split_ratios())
             .with_minimums(&mins);

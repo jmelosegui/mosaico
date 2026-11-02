@@ -40,6 +40,7 @@ contracts the manager runs on.
 | `crates/mosaico-core/src/tiler/drag_aim.rs` | Where a window dragged over another monitor goes while the pointer is in a gap between tiles: the target the last report noted |
 | `crates/mosaico-core/src/tiler/drag_drop.rs`, `drag_slots.rs`, `drag_preview.rs` | `on_moved()` -- what a drop does; the slots a drop is decided against, and the layout another monitor would have with the window; `preview_drop()` -- the preview of where the window lands |
 | `crates/mosaico-core/src/tiler/drag_resize.rs` | `move_splits()` -- the splits a tiled window resized by its edges moves; `splits_dropped()` -- those it would move if let go now |
+| `crates/mosaico-core/src/layout/split_step.rs`, `tiler/tile_keys.rs` | `stepped_splits()` -- the splits a resize key moves on a tile; `resize_tile()` -- the resize keys on the focused tile |
 | `crates/mosaico-core/src/tiler/drag_live.rs`, `drag_live_layout.rs`, `drag_live_back.rs` | `follow_live()` -- the tiles a drop would move, laid out live on each report of the dragged window; `live_layout()` -- what a drop now would leave; `settle_live()`, `forget_live()` -- putting them back once the drag no longer lays them out |
 | `crates/mosaico-core/src/tiler/applier_drag.rs` | The pointer while the user drags a window: left alone, and moved where it was last asked once the drag ends |
 | `crates/mosaico-core/src/tiler/manager.rs`, `manager_inputs.rs` | `TilingManager` -- runs the tiler on a `Platform`, event/action dispatch |
@@ -1084,6 +1085,31 @@ its split moves there. The same goes for the edge of a corner the user did
 not move: one that ends more than 4 pixels from both the start read and
 its slot, as when the start was read late on a window off its slot, moves
 its split there.
+
+### Resizing Splits From the Keyboard
+
+`grow-width`, `shrink-width`, `grow-height` and `shrink-height` resize the
+focused floating window around its center (`resize_float`), and otherwise
+the focused tile (`resize_tile` in `tiler/tile_keys.rs`). A tile has no size
+of its own, so a press moves a split it borders, through the same
+`resized_splits` a drag ends with: `layout::stepped_splits`
+(`split_step.rs`) takes the tile's right or bottom edge when it borders a
+split (`split_edges::border`), and its left or top one otherwise, moves it a
+step outwards to grow or inwards to shrink, from the tile's slot rather than
+from where the window is on its way, and drops it there. The step is a
+twentieth of the monitor's work area on that axis, as for a floating window,
+and never 4 pixels or less (`MIN_TRAVEL`), which `resized_splits` would take
+for a wobble; the master of three columns, whose two edges move together,
+moves each by half a step. The same bounds and minimum sizes hold as for a
+drag, and down a stack the edge trades height between the two windows
+beside it alone.
+
+The monitor is then laid out again with `Timing::Coalesced`, as a move is,
+so a burst of presses lays it out once, and the placements may animate. A
+press that would leave the splits as they are, as at a bound, sets and lays
+out nothing. A tile in monocle, a maximized one, one on a workspace out of
+view, and an axis on which no edge of the tile borders a split, as for a
+window alone, do nothing. The keys do not depend on `[mouse] resize_splits`.
 
 ### Tiles That Follow a Drag
 

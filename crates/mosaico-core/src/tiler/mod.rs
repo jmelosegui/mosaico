@@ -57,6 +57,7 @@ mod snapshot;
 mod startup;
 mod state;
 mod step;
+mod tile_keys;
 mod window_effects;
 mod work_area;
 mod workspace;
