@@ -2,7 +2,7 @@
 //! window or move the pointer, and what it hands the manager. Borders and
 //! corners are in `fake_platform_decorations.rs`.
 
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use crate::config::HidingBehaviour;
 use crate::{Decorations, HidingEvents, Rect, Result, WindowControl, WindowId};
@@ -12,11 +12,15 @@ use super::{Call, FakePlatform};
 
 impl WindowControl for FakePlatform {
     fn place(&self, window: WindowId, rect: Rect) -> Result<()> {
+        let mut takes = Duration::ZERO;
         if let Some(w) = self.shared.desktop.borrow_mut().windows.get_mut(&window) {
             w.hung |= std::mem::take(&mut w.hangs_on_place);
+            takes = w.place_takes;
         }
         let effect = Effect::snap(window, rect, Timing::Now);
-        self.change(Call::Place(window, rect), effect)
+        let placed = self.change(Call::Place(window, rect), effect);
+        self.advance(takes);
+        placed
     }
 
     fn pre_place(&self, window: WindowId, rect: Rect) -> Result<()> {
