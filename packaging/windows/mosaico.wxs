@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The mosaico installer: a per-user MSI built with WiX 5 by `cargo xtask msi`.
+
+  It installs mosaico.exe and mosaico-settings.exe in
+  %LOCALAPPDATA%\Programs\mosaico without asking for elevation, puts that
+  folder on the user PATH, adds a Start menu shortcut to the settings app
+  and records the folder under HKCU\Software\mosaico, which is how mosaico
+  knows the installer owns it (`mosaico update` then upgrades through the
+  installer instead of replacing files).
+
+  Upgrades and uninstalls run `mosaico installer-hook`, so the daemon is
+  stopped through its own `stop` (restoring the windows it hid) before its
+  files are replaced or removed, started again after an upgrade if it was
+  running, and its autostart entry is removed on uninstall.
+
+  The UpgradeCode must never change: it is what ties every version
+  together for upgrades, and what winget matches an installed mosaico on.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="Mosaico"
+           Manufacturer="jmelosegui"
+           Version="$(Version)"
+           UpgradeCode="BCE5918A-87F4-4D50-B087-CD5305C8ABE6"
+           Scope="perUser"
+           Language="1033"
+           Compressed="yes">
+    <SummaryInformation Description="Mosaico tiling window manager" />
+
+    <!-- Removing the old version inside the install transaction lets a
+         failed upgrade roll back to it. -->
+    <MajorUpgrade Schedule="afterInstallInitialize"
+                  DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Icon Id="mosaico.ico" SourceFile="$(AssetsDir)\mosaico.ico" />
+    <Property Id="ARPPRODUCTICON" Value="mosaico.ico" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/jmelosegui/mosaico" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/jmelosegui/mosaico/issues" />
+    <Property Id="ARPNOMODIFY" Value="1" />
+    <Property Id="ARPNOREPAIR" Value="1" />
+    <!-- The hooks below stop mosaico gracefully. Restart Manager would
+         end it without letting it put back the windows it hid. -->
+    <Property Id="MSIRESTARTMANAGERCONTROL" Value="Disable" />
+
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="ProgramsFolder" Name="Programs">
+        <Directory Id="INSTALLFOLDER" Name="mosaico" />
+      </Directory>
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder" />
+
+    <Component Id="Binaries" Directory="INSTALLFOLDER" Guid="4D7E2C61-0B0B-4C61-9E0C-6A3F3B0C1D21">
+      <File Id="MosaicoExe" Source="$(BinDir)\mosaico.exe" KeyPath="no" />
+      <File Id="SettingsExe" Source="$(BinDir)\mosaico-settings.exe" KeyPath="no" />
+      <RegistryValue Root="HKCU" Key="Software\mosaico" Name="InstallFolder"
+                     Type="string" Value="[INSTALLFOLDER]" KeyPath="yes" />
+      <Environment Id="UserPath" Name="PATH" Value="[INSTALLFOLDER]"
+                   Part="last" Action="set" System="no" Permanent="no" />
+      <RemoveFolder Id="RemoveInstallFolder" Directory="INSTALLFOLDER" On="uninstall" />
+      <RemoveFolder Id="RemoveProgramsFolder" Directory="ProgramsFolder" On="uninstall" />
+    </Component>
+
+    <Component Id="SettingsShortcut" Directory="ProgramMenuFolder" Guid="9A3C5E8F-2B71-4F0D-8C36-1E5B7D2A4C90">
+      <Shortcut Id="SettingsStartMenu" Name="Mosaico Settings"
+                Description="Settings of the mosaico tiling window manager"
+                Target="[INSTALLFOLDER]mosaico-settings.exe"
+                WorkingDirectory="INSTALLFOLDER" Icon="mosaico.ico" />
+      <RegistryValue Root="HKCU" Key="Software\mosaico" Name="SettingsShortcut"
+                     Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+
+    <!-- Hooks, run hidden through WixQuietExec, which logs their output
+         to the installer's log and reads its command line from
+         WixQuietExecCmdLine. Their failure never fails the install. -->
+    <SetProperty Id="WixQuietExecCmdLine" Action="SetBeforeUpgradeHook" Sequence="execute"
+                 Value="&quot;[INSTALLFOLDER]mosaico.exe&quot; installer-hook before-upgrade"
+                 Before="BeforeUpgradeHook" Condition="WIX_UPGRADE_DETECTED OR REINSTALL" />
+    <CustomAction Id="BeforeUpgradeHook" BinaryRef="Wix4UtilCA_$(sys.BUILDARCHSHORT)"
+                  DllEntry="WixQuietExec" Execute="immediate" Return="ignore" />
+
+    <SetProperty Id="WixQuietExecCmdLine" Action="SetBeforeUninstallHook" Sequence="execute"
+                 Value="&quot;[INSTALLFOLDER]mosaico.exe&quot; installer-hook before-uninstall"
+                 Before="BeforeUninstallHook"
+                 Condition="REMOVE~=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+    <CustomAction Id="BeforeUninstallHook" BinaryRef="Wix4UtilCA_$(sys.BUILDARCHSHORT)"
+                  DllEntry="WixQuietExec" Execute="immediate" Return="ignore" />
+
+    <SetProperty Id="WixQuietExecCmdLine" Action="SetAfterInstallHook" Sequence="execute"
+                 Value="&quot;[INSTALLFOLDER]mosaico.exe&quot; installer-hook after-install"
+                 Before="AfterInstallHook" Condition="NOT REMOVE" />
+    <CustomAction Id="AfterInstallHook" BinaryRef="Wix4UtilCA_$(sys.BUILDARCHSHORT)"
+                  DllEntry="WixQuietExec" Execute="immediate" Return="ignore" />
+
+    <InstallExecuteSequence>
+      <Custom Action="BeforeUpgradeHook" After="CostFinalize"
+              Condition="WIX_UPGRADE_DETECTED OR REINSTALL" />
+      <Custom Action="BeforeUninstallHook" After="BeforeUpgradeHook"
+              Condition="REMOVE~=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+      <Custom Action="AfterInstallHook" After="InstallFinalize" Condition="NOT REMOVE" />
+    </InstallExecuteSequence>
+  </Package>
+</Wix>

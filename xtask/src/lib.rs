@@ -6,6 +6,7 @@ use std::process::Command;
 
 pub mod code;
 pub mod metrics;
+pub mod msi;
 mod scan;
 pub mod size;
 pub mod source;
