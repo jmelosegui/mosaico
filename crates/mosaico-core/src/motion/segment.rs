@@ -76,6 +76,12 @@ impl Segment {
         self.to
     }
 
+    /// The same segment, starting `by` later.
+    pub fn delayed(self, by: Duration) -> Self {
+        let start = self.start + by;
+        Self { start, ..self }
+    }
+
     /// When the segment ends: its start plus its duration.
     pub fn end(&self) -> Instant {
         self.start + self.duration

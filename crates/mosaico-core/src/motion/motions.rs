@@ -1,6 +1,6 @@
 //! The windows that are moving, each to its target.
 
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use crate::{Rect, WindowId};
 
@@ -119,6 +119,21 @@ impl Motions {
             turn
         };
         motion.step = step;
+    }
+
+    /// Puts off every motion the current step gave a target by `by`, as
+    /// when applying the rest of the step kept the caller waiting that
+    /// long, so no frame could be sent: each starts, or turns, once the
+    /// step is applied, with its whole duration still ahead, rather than
+    /// spending it before its first frame.
+    pub fn delay_step(&mut self, by: Duration) {
+        let step = self.step;
+        for motion in self.moving.iter_mut().filter(|m| m.step == step) {
+            motion.segment = motion.segment.delayed(by);
+            if !motion.framed {
+                motion.moved_at += by;
+            }
+        }
     }
 
     /// Ends the window's motion, wherever the window is, as when it is

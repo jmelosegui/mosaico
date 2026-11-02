@@ -98,7 +98,8 @@ impl Applier {
     }
 
     /// Applies effects in order, holding back the ones that may wait. The
-    /// windows they set moving form a step, which falls behind as one.
+    /// windows they set moving form a step, which falls behind as one, and
+    /// starts once all of it is applied.
     pub(super) fn apply(
         &mut self,
         effects: Vec<Effect>,
@@ -115,6 +116,7 @@ impl Applier {
             }
             self.release_dropped_focus();
         }
+        self.start_step(now, platform.now());
     }
 
     /// Stops the echo filter waiting for a focus change the coalescer no
@@ -139,5 +141,6 @@ impl Applier {
         for effect in self.held.take() {
             self.run(&effect, platform, now);
         }
+        self.start_step(now, platform.now());
     }
 }
