@@ -132,6 +132,12 @@ the settings app. If the daemon is running, it is stopped before the update and
 restarted afterward. An open settings window keeps running the old version
 until you close it.
 
+When mosaico was installed with the MSI, by winget or the install script, the
+update downloads the release's MSI and runs it, so the installed version shown
+in **Installed apps** stays right. The command returns while the installer
+runs; the installer stops and restarts the daemon. A copy outside the
+installer's folder replaces its own files instead.
+
 ```sh
 mosaico update          # Update to the latest release
 mosaico update --force  # Reinstall even if already on the latest version
