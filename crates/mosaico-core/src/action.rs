@@ -96,13 +96,17 @@ pub enum Action {
     ToggleFloat,
     /// Focus the next floating window of the workspace on screen.
     CycleFloat,
-    /// Widen the focused floating window by one step, around its center.
+    /// Widen the focused window by one step: a floating one around its
+    /// center, a tiled one by moving a split it borders.
     GrowWidth,
-    /// Narrow the focused floating window by one step, around its center.
+    /// Narrow the focused window by one step: a floating one around its
+    /// center, a tiled one by moving a split it borders.
     ShrinkWidth,
-    /// Heighten the focused floating window by one step, around its center.
+    /// Heighten the focused window by one step: a floating one around its
+    /// center, a tiled one by moving a split it borders.
     GrowHeight,
-    /// Shorten the focused floating window by one step, around its center.
+    /// Shorten the focused window by one step: a floating one around its
+    /// center, a tiled one by moving a split it borders.
     ShrinkHeight,
 }
 

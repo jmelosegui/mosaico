@@ -23,8 +23,6 @@ mod stack;
 #[path = "floating_toggle.rs"]
 mod toggle;
 
-pub(super) use place::Axis;
-
 /// Where each window last floated in this session, so floating it again
 /// puts it back there, and which floating windows left their workspace
 /// by hiding or minimizing, so they float again when they come back.

@@ -3,9 +3,10 @@
 
 use crate::WindowId;
 use crate::action::Direction;
+use crate::layout::Axis;
 
 use super::super::{Plan, Tiler, Timing};
-use super::place::{self, Axis};
+use super::place;
 
 impl Tiler {
     /// The focused window and its monitor, when it floats on the workspace
@@ -34,17 +35,24 @@ impl Tiler {
     }
 
     /// Grows or shrinks the focused floating window along `axis` by one
-    /// step, around its center. Does nothing on a tile.
-    pub(in crate::tiler) fn resize_float(&mut self, plan: &mut Plan, axis: Axis, grow: bool) {
+    /// step, around its center. Returns `false`, doing nothing, when the
+    /// focused window does not float.
+    pub(in crate::tiler) fn resize_float(
+        &mut self,
+        plan: &mut Plan,
+        axis: Axis,
+        grow: bool,
+    ) -> bool {
         let Some((window, mi)) = self.focused_float() else {
-            return;
+            return false;
         };
         let Some(rect) = plan.rect(window) else {
-            return;
+            return true;
         };
         let min = plan.min_size(window).unwrap_or_default();
         let resized = place::resize(rect, self.monitors[mi].work_area, axis, grow, min);
         self.place_float(plan, window, mi, resized);
+        true
     }
 
     /// Places floating `window` at `rect` on monitor `mi` and moves its

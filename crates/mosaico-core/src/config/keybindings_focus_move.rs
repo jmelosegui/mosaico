@@ -64,8 +64,9 @@ action = "cycle-float"
 key = "F"
 modifiers = ["alt", "shift"]
 
-# Resize the focused floating window: Alt + Period/Comma for its width,
-# Alt + Shift + Period/Comma for its height
+# Resize the focused window: Alt + Period/Comma for its width,
+# Alt + Shift + Period/Comma for its height. A floating window grows or
+# shrinks around its center; a tiled one moves the split beside it.
 [[keybinding]]
 action = "grow-width"
 key = "Period"

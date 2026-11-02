@@ -60,13 +60,13 @@ pub(crate) enum ActionCommands {
     ToggleFloat,
     /// Focus the next floating window on the focused monitor
     CycleFloat,
-    /// Widen the focused floating window
+    /// Widen the focused window, floating or tiled
     GrowWidth,
-    /// Narrow the focused floating window
+    /// Narrow the focused window, floating or tiled
     ShrinkWidth,
-    /// Heighten the focused floating window
+    /// Heighten the focused window, floating or tiled
     GrowHeight,
-    /// Shorten the focused floating window
+    /// Shorten the focused window, floating or tiled
     ShrinkHeight,
 }
 

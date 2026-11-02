@@ -3,8 +3,8 @@
 
 use crate::Action;
 use crate::action::{Origin, Scope, workspace_after};
+use crate::layout::Axis;
 
-use super::floating::Axis;
 use super::{Effect, Plan, Tiler};
 
 impl Tiler {
@@ -60,10 +60,19 @@ impl Tiler {
             Action::TogglePause => {}
             Action::ToggleFloat => self.toggle_float(plan),
             Action::CycleFloat => self.cycle_float(plan),
-            Action::GrowWidth => self.resize_float(plan, Axis::Width, true),
-            Action::ShrinkWidth => self.resize_float(plan, Axis::Width, false),
-            Action::GrowHeight => self.resize_float(plan, Axis::Height, true),
-            Action::ShrinkHeight => self.resize_float(plan, Axis::Height, false),
+            Action::GrowWidth => self.resize_focused(plan, Axis::Width, true),
+            Action::ShrinkWidth => self.resize_focused(plan, Axis::Width, false),
+            Action::GrowHeight => self.resize_focused(plan, Axis::Height, true),
+            Action::ShrinkHeight => self.resize_focused(plan, Axis::Height, false),
+        }
+    }
+
+    /// Grows or shrinks the focused window along `axis` by one step: a
+    /// floating one around its center, and a tiled one by moving a split
+    /// it borders.
+    fn resize_focused(&mut self, plan: &mut Plan, axis: Axis, grow: bool) {
+        if !self.resize_float(plan, axis, grow) {
+            self.resize_tile(plan, axis, grow);
         }
     }
 

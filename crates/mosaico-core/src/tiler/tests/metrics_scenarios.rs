@@ -87,6 +87,10 @@ pub(super) const SCENARIOS: &[Scenario] = &[
     ("float_on_and_off", floating::on_and_off),
     ("float_nudge_burst_of_9", floating::nudge_burst),
     ("float_grow_width", floating::grow),
+    ("tile_grow_width", || act(&[Action::GrowWidth])),
+    ("tile_resize_burst_of_9", || {
+        act(&[Action::GrowWidth, Action::ShrinkWidth].repeat(5)[..9])
+    }),
     ("open_floating_by_rule", floating::open_by_rule),
 ];
 

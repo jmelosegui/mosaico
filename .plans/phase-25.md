@@ -1,6 +1,16 @@
 # Phase 25: Interactive Window Resizing
 
-**Status:** Pending
+**Status:** In progress
+
+**Shipped so far:** the floating resize keys resize tiles too, rather than
+new `resize-<direction>` actions: `grow-width`, `shrink-width`,
+`grow-height` and `shrink-height` (Alt + Period/Comma, with Shift for the
+height) move a split the focused tile borders by the floating step, a
+twentieth of the work area, through `layout::stepped_splits`
+(`layout/split_step.rs`) and `resize_tile` (`tiler/tile_keys.rs`). The edge
+is picked as described below; a key grows or shrinks the tile instead of
+pointing in a direction. The directional actions and `resize_step` below are
+still open.
 
 **Goal:** Resize the splits of a layout from the keyboard: a key moves an
 edge of the focused window, and the split that edge borders follows, on the
@@ -230,6 +240,10 @@ heights (35.4, 35.5).
 
 ## Tasks
 
+- [x] Grow and shrink keys on a tile: `grow-width`, `shrink-width`,
+      `grow-height` and `shrink-height` move a split it borders, with
+      `stepped_splits` in core, unit and tiler tests, metrics scenarios
+      (`tile_grow_width`, `tile_resize_burst_of_9`) and docs
 - [ ] `Action::Resize(Direction)`, with `from_str`, `Display`, `scope()`
       and the CLI
 - [ ] No default keys: the docs suggest `Alt+Ctrl+H/J/K/L` to add by hand,

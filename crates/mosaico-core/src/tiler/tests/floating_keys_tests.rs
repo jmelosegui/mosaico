@@ -80,16 +80,3 @@ fn the_resize_keys_grow_and_shrink_a_floating_window_around_its_center() {
     assert_eq!(wider.center_x(), before.center_x());
     assert!(h.rect_of(2).height < before.height);
 }
-
-#[test]
-fn the_resize_keys_do_nothing_on_a_tile() {
-    // Arrange
-    let mut h = Harness::new(1, &[(1, 0), (2, 0)]);
-    h.event(WindowEvent::Focused { window: wid(1) });
-
-    // Act
-    h.action(Action::GrowWidth);
-
-    // Assert
-    assert!(h.placements().is_empty());
-}

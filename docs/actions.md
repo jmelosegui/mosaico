@@ -75,6 +75,8 @@ Directions parse from and serialize to lowercase strings: `"left"`, `"right"`,
 | `GoToWorkspaceNext` | Switch to the workspace after the one on screen | -- |
 | `GoToWorkspacePrev` | Switch to the workspace before the one on screen | -- |
 | `SendToWorkspace(1-8)` | Send focused window to workspace N | Alt+Shift+1 - Alt+Shift+8 |
+| `GrowWidth` / `ShrinkWidth` | Widen or narrow the focused window by a step: a floating one around its center, a tile by moving a split it borders | Alt+. / Alt+, |
+| `GrowHeight` / `ShrinkHeight` | Heighten or shorten the focused window by a step, as above | Alt+Shift+. / Alt+Shift+, |
 
 `GoToWorkspaceNext` and `GoToWorkspacePrev` step from the workspace on the
 focused monitor, every monitor in global mode, the way `workspace_after()`

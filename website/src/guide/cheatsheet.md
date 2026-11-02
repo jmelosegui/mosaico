@@ -19,8 +19,8 @@ Alt + N                  cycle layout (BSP -> VStack -> 3Col)
 Alt + T                  toggle monocle (full-screen one window)
 Alt + F                  float the focused window, or tile it again
 Alt + Shift + F          focus the next floating window
-Alt + . / Alt + ,        widen / narrow the focused floating window
-Alt + Shift + . / ,      heighten / shorten the focused floating window
+Alt + . / Alt + ,        widen / narrow the focused window (floating or tiled)
+Alt + Shift + . / ,      heighten / shorten the focused window (floating or tiled)
 Alt + M                  minimize focused window
 Alt + Q                  close focused window
 Alt + Shift + R          retile (re-apply current layout, splits back)
@@ -118,7 +118,9 @@ off. See [Dragging Windows](tiling-layout.md#dragging-windows).
 | On its own slot, in a gap, or with `Esc` pressed | It goes back to its slot |
 
 Drag the edge between two tiles to resize them, or a corner where two
-splits meet to move both; `Alt + Shift + R` puts the splits back. Set
+splits meet to move both; `Alt + .` / `Alt + ,` and `Alt + Shift + .` /
+`Alt + Shift + ,` resize the focused tile from the keyboard, and
+`Alt + Shift + R` puts the splits back. Set
 `resize_splits = false` under `[mouse]` in `config.toml` to turn this off.
 See [Resizing Tiles](tiling-layout.md#resizing-tiles).
 

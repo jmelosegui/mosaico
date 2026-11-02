@@ -1,5 +1,6 @@
 //! Where floating windows go: arithmetic on rectangles, with no state.
 
+use crate::layout::Axis;
 use crate::{Direction, MinSize, Rect};
 
 /// How many steps a nudge or a resize takes to cross the work area.
@@ -85,13 +86,12 @@ pub(in crate::tiler) fn nudge(rect: Rect, area: Rect, dir: Direction) -> Rect {
     )
 }
 
-/// Which side of a window a resize changes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(in crate::tiler) enum Axis {
-    /// Its width.
-    Width,
-    /// Its height.
-    Height,
+/// One step of a nudge or a resize across `area` along `axis`.
+pub(in crate::tiler) fn step(area: Rect, axis: Axis) -> i32 {
+    match axis {
+        Axis::Width => area.width / STEPS,
+        Axis::Height => area.height / STEPS,
+    }
 }
 
 /// `rect` one step wider or taller (`grow`), or narrower or shorter,
@@ -108,12 +108,12 @@ pub(in crate::tiler) fn resize(
     let mut out = rect;
     match axis {
         Axis::Width => {
-            let width = (rect.width + sign * area.width / STEPS).max(min.width.max(1));
+            let width = (rect.width + sign * step(area, axis)).max(min.width.max(1));
             out.width = width.min(area.width);
             out.x = rect.center_x() - out.width / 2;
         }
         Axis::Height => {
-            let height = (rect.height + sign * area.height / STEPS).max(min.height.max(1));
+            let height = (rect.height + sign * step(area, axis)).max(min.height.max(1));
             out.height = height.min(area.height);
             out.y = rect.center_y() - out.height / 2;
         }
