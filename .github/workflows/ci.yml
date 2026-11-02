@@ -145,6 +145,44 @@ jobs:
           Expect (-not (Test-Path HKCU:\Software\mosaico)) "the registry key is still there"
           Expect ([Environment]::GetEnvironmentVariable("PATH", "User") -notlike "*$dir*") "still on the user PATH"
 
+      - name: Move a running zip install to the MSI with install.ps1
+        shell: pwsh
+        run: |
+          $legacy = "$env:LOCALAPPDATA\mosaico"
+          $dir = "$env:LOCALAPPDATA\Programs\mosaico"
+          function Daemons {
+            @(Get-CimInstance Win32_Process -Filter "Name = 'mosaico.exe'" | Where-Object { $_.CommandLine -match '\sdaemon$' })
+          }
+          function User-Path { @([Environment]::GetEnvironmentVariable("PATH", "User").Split(";") | ForEach-Object { $_.TrimEnd("\") }) }
+          function Expect($condition, $message) { if (-not $condition) { throw $message } }
+
+          # What the zip and the earlier install.ps1 left: the executables
+          # in the data folder, on the PATH, running and starting at logon.
+          New-Item -ItemType Directory -Force $legacy | Out-Null
+          Copy-Item target\release\mosaico.exe, target\release\mosaico-settings.exe $legacy
+          [Environment]::SetEnvironmentVariable("PATH", "$([Environment]::GetEnvironmentVariable('PATH', 'User'));$legacy", "User")
+          & "$legacy\mosaico.exe" start
+          & "$legacy\mosaico.exe" autostart enable
+          Expect ((Daemons).Count -eq 1) "the zip install's daemon did not start"
+
+          $env:MOSAICO_INSTALL_MSI = "new.msi"
+          try { & .\docs\install.ps1 } catch { Get-Content "$env:TEMP\mosaico-install.log" -Tail 80 -ErrorAction SilentlyContinue; throw }
+
+          $exe = "$dir\mosaico.exe"
+          $daemons = Daemons
+          Expect ($daemons.Count -eq 1) "expected one daemon after the move, found $($daemons.Count)"
+          Expect ($daemons[0].ExecutablePath -eq $exe) "the daemon runs $($daemons[0].ExecutablePath)"
+          Expect ((& $exe autostart status) -eq "Autostart is currently enabled.") "autostart after the move: $(& $exe autostart status)"
+          Expect (-not (Test-Path "$legacy\mosaico.exe")) "the zip install's mosaico.exe is still there"
+          Expect (-not (Test-Path "$legacy\mosaico-settings.exe")) "the zip install's settings app is still there"
+          Expect ((User-Path) -notcontains $legacy) "the zip install is still on the user PATH"
+          Expect ((User-Path) -contains $dir) "the installed folder is not on the user PATH"
+
+          $p = Start-Process msiexec -ArgumentList "/x `"new.msi`" /qn /norestart /l*v `"uninstall-moved.log`"" -Wait -PassThru
+          Expect ($p.ExitCode -eq 0) "the uninstall failed: $($p.ExitCode)"
+          Expect ((Daemons).Count -eq 0) "the daemon still runs after the uninstall"
+          Expect (-not (Get-ScheduledTask -TaskName "Mosaico autostart for *" -ErrorAction SilentlyContinue)) "the autostart task is still registered"
+
       - name: Upload the installer logs
         if: failure()
         uses: actions/upload-artifact@v4

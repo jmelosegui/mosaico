@@ -44,8 +44,12 @@ function Remove-FromUserPath {
 function Install-Msi {
     param($Url)
     $MsiPath = Join-Path $TempDir $MsiName
-    Write-Info "Downloading $Url..."
-    Invoke-WebRequest -Uri $Url -OutFile $MsiPath
+    if (Test-Path $Url -PathType Leaf) {
+        Copy-Item $Url $MsiPath
+    } else {
+        Write-Info "Downloading $Url..."
+        Invoke-WebRequest -Uri $Url -OutFile $MsiPath
+    }
 
     # Carry a copy installed from the zip over to the MSI: note whether
     # its daemon runs and whether autostart starts it, then stop it.
@@ -69,6 +73,7 @@ function Install-Msi {
     $Process = Start-Process msiexec.exe -ArgumentList $Arguments -Wait -PassThru
     # 3010: installed, a restart is required to finish.
     if ($Process.ExitCode -notin 0, 3010) {
+        if ($LegacyRunning) { & $Legacy start | Out-Host }
         Write-Err "The installer failed with code $($Process.ExitCode). Its log is $Log"
     }
 
@@ -124,25 +129,32 @@ function Install-Zip {
 
 Write-Info "Installing mosaico..."
 
-# Get latest release version
-try {
-    $Headers = @{ "User-Agent" = "mosaico-installer" }
-    $Release = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases/latest" -Headers $Headers
-    $Version = $Release.tag_name
-    Write-Info "Latest version: $Version"
-} catch {
-    Write-Err "Could not determine latest version. Check https://github.com/$Repo/releases"
-}
-
 $TempBase = (Get-Item $env:TEMP).FullName
 $TempDir = Join-Path $TempBase "mosaico-install-$PID"
-New-Item -ItemType Directory -Force -Path $TempDir | Out-Null
 
-$Download = "https://github.com/$Repo/releases/download/$Version"
-if ($Release.assets | Where-Object { $_.name -eq $MsiName }) {
-    $Mosaico = Install-Msi "$Download/$MsiName"
+# MOSAICO_INSTALL_MSI names an MSI on disk to install instead of the
+# latest release's, which is how CI tests this script.
+if ($env:MOSAICO_INSTALL_MSI) {
+    $Package = (Resolve-Path $env:MOSAICO_INSTALL_MSI).Path
+    New-Item -ItemType Directory -Force -Path $TempDir | Out-Null
+    $Mosaico = Install-Msi $Package
 } else {
-    $Mosaico = Install-Zip "$Download/$ZipName"
+    try {
+        $Headers = @{ "User-Agent" = "mosaico-installer" }
+        $Release = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases/latest" -Headers $Headers
+        $Version = $Release.tag_name
+        Write-Info "Latest version: $Version"
+    } catch {
+        Write-Err "Could not determine latest version. Check https://github.com/$Repo/releases"
+    }
+
+    New-Item -ItemType Directory -Force -Path $TempDir | Out-Null
+    $Download = "https://github.com/$Repo/releases/download/$Version"
+    if ($Release.assets | Where-Object { $_.name -eq $MsiName }) {
+        $Mosaico = Install-Msi "$Download/$MsiName"
+    } else {
+        $Mosaico = Install-Zip "$Download/$ZipName"
+    }
 }
 
 # Cleanup
