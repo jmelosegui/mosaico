@@ -64,6 +64,21 @@ impl Applier {
         self.transitions.journal.begin_step();
     }
 
+    /// Starts the motions of the step begun at `began` once it has been
+    /// applied, at `applied`, with their whole durations ahead. A placement
+    /// of the step can keep the daemon waiting, as for an application that
+    /// repaints a window moved to another monitor, and no frame is sent
+    /// meanwhile: motions that started at `began` would spend their time
+    /// before their first frame, and jump to their targets.
+    pub(in crate::tiler::applier) fn start_step(&mut self, began: Instant, applied: Instant) {
+        let waited = applied.saturating_duration_since(began);
+        if waited.is_zero() {
+            return;
+        }
+        self.transitions.motions.delay_step(waited);
+        self.transitions.journal.delay_step(began, waited);
+    }
+
     /// Logs the windows the last step set moving, if it set any, before
     /// its first frame, the next step, or the end of any motion, whichever
     /// comes first; after the lines of the steps it closed as it turned

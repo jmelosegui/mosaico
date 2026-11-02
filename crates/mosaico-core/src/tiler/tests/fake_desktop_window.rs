@@ -1,6 +1,7 @@
 //! A window of the fake desktop.
 
 use std::sync::atomic::{AtomicU32, Ordering};
+use std::time::Duration;
 
 use crate::tiler::WindowFacts;
 use crate::{MinSize, Rect, WindowId};
@@ -42,6 +43,9 @@ pub(crate) struct FakeWindow {
     /// Whether its application stops responding as the next placement of
     /// the window is made, before the placement gets to it.
     pub(crate) hangs_on_place: bool,
+    /// How long a placement of the window keeps the caller waiting, as
+    /// for an application that repaints all of itself on another monitor.
+    pub(crate) place_takes: Duration,
     /// The smallest size the window says it can be, if any.
     pub(crate) min_size: Option<MinSize>,
     /// What is queued for the window, oldest first, and for how many
@@ -76,6 +80,7 @@ impl FakeWindow {
             absorbs_frames: false,
             hung: false,
             hangs_on_place: false,
+            place_takes: Duration::ZERO,
             min_size: None,
             queued: Vec::new(),
         }

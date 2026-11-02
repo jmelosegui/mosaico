@@ -112,7 +112,11 @@ wakes the daemon on display frames.
    be on its way, as to a busy window, and otherwise from where the desktop
    has it, with the duration and easing configured now. Otherwise the window
    is placed as before. The windows one `apply` or `flush` sets moving form a
-   step.
+   step. The step's motions start once all of it is applied
+   (`Motions::delay_step`): a placement that snaps can keep the daemon
+   waiting, as an application repaints a window moved to another monitor,
+   and no frame goes out meanwhile, so motions timed from before it would
+   reach their targets by their first frame and jump there.
 3. **The daemon takes frames.** While `TilingManager::wants_frames()` says
    windows move, the daemon loop asks its `FrameClock` for frames, and the
    `FramePacer` wakes it about once per display refresh (`DaemonMsg::Frame`).
@@ -531,7 +535,9 @@ rule of both decisions with the reason it gives, and the journal and each of
 its lines. `tiler/tests/` drives the tiling manager with transitions on, on
 the fake platform and its fake clock: a swap moving both windows together and
 ending with exact placements, a second swap mid-flight, frames that land late,
-a window that falls behind or hangs, each way a motion ends, a display change
+a window that falls behind or hangs, a step whose window moved to another
+monitor keeps the caller waiting as it is placed, each way a motion ends, a
+display change
 that keeps the targets, borders drawn once a posted placement lands, on a
 report or once the wait for it is over, transitions turned off while windows
 are still posted to, the view of posted shows, hides and minimizes, the

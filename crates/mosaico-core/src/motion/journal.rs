@@ -10,7 +10,7 @@
 //! way to it, gets the lines of `journal_lines_placed.rs`.
 
 use std::collections::HashMap;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use crate::WindowId;
 
@@ -111,6 +111,20 @@ impl Journal {
             self.started.push(window);
         }
         self.spec = Some(spec);
+    }
+
+    /// Puts off the motions the current step gave a target, at `began`,
+    /// by `by`, as [`Motions::delay_step`](super::Motions::delay_step)
+    /// does: each is due that much later, and one that started then,
+    /// started that much later.
+    pub fn delay_step(&mut self, began: Instant, by: Duration) {
+        let step = self.step;
+        for record in self.motions.values_mut().filter(|r| r.step == step) {
+            record.due += by;
+            if record.started >= began {
+                record.started += by;
+            }
+        }
     }
 
     /// The lines of the steps closed since the last call, as a later step
