@@ -88,6 +88,9 @@ mod monitor;
 /// Opening folders and files with the program the user picked for them.
 pub mod opener;
 
+/// Starting applications the user named, as the Run box does.
+pub mod launcher;
+
 /// The window under the mouse pointer, for focus-follows-mouse.
 pub mod pointer;
 

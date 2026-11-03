@@ -103,9 +103,13 @@ detached from the daemon (no shared console or handles; it outlives the daemon),
 in the user's home folder, without waiting for it. Fail with
 `Error::Platform` when nothing by that name can be started.
 
-Windows: `ShellExecuteExW` with `SEE_MASK_NOASYNC | SEE_MASK_DOENVSUBST |
-SEE_MASK_FLAG_NO_UI`, `lpDirectory` set to the profile folder, and arguments
-quoted with the rules `CommandLineToArgvW` reads.
+Windows: `ShellExecuteExW` with `SEE_MASK_NOASYNC | SEE_MASK_FLAG_NO_UI`,
+`lpDirectory` set to the profile folder, and arguments quoted with the rules
+`CommandLineToArgvW` reads. `%VAR%` references are expanded in the command and
+the arguments. The shell guesses a web address from a name it cannot find and
+opens it in the browser, so the launcher first looks the name up itself: a URI,
+a path that exists, a name on `PATH` (trying `PATHEXT` for one without an
+extension), or an App Paths key. Anything else fails with an error.
 ShellExecute resolves App Paths (`msedge.exe`), `PATH`, and URIs, and does not
 inherit the daemon's handles, which matters since the daemon's handles
 already caused a hang with msiexec.
@@ -191,6 +195,12 @@ revisited in review.
     which still need a daemon restart as before.
 11. **Settings app support is in this phase,** so the feature is usable
     without editing TOML, as phase 37 set out.
+12. **A name the system cannot find is an error, not a web search.** The shell
+    turns an unknown name into a web address and opens the browser, so the
+    Windows launcher looks the name up first, the way the shell does.
+13. **The launch runs on the daemon's thread** and waits only for the shell to
+    hand the program over, not for its window. It is a key press, rare and
+    short, and a failure can then be returned to the caller and logged.
 
 ## Tasks
 
@@ -202,9 +212,12 @@ Each task is one pull request, stacked on the one before.
 
 ### 38.2 Launch contract
 
-- [ ] `system::Launcher` trait with its contract, and a recording fake for tests
-- [ ] Windows `ShellLauncher`: `ShellExecuteExW`, argument quoting, home folder,
-      with tests for quoting and for a command that does not exist
+- [x] `system::Launcher` trait with its contract
+- [x] Windows `ShellLauncher`: `ShellExecuteExW`, argument quoting, variables,
+      home folder, with tests for quoting and for a command that does not exist
+- [x] Names looked up as the shell does (URI, path, `PATH` with `PATHEXT`, App
+      Paths) before the shell is asked, because the shell turns a name it cannot
+      find into a web search in the browser
 
 ### 38.3 Configuration
 
@@ -221,6 +234,7 @@ Each task is one pull request, stacked on the one before.
 ### 38.4 Hotkeys and daemon
 
 - [ ] `hotkey::Target`; registration, pause and rejections over both lists
+- [ ] A recording fake `Launcher` for the daemon's tests
 - [ ] Windows hotkey channel carries `Target`; the daemon starts the program
 - [ ] Metrics baselines blessed if they move
 
