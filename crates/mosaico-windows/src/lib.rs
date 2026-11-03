@@ -4,6 +4,9 @@
 /// Windows startup registration via a logon task in the Task Scheduler.
 pub mod autostart;
 
+/// A COM apartment for the calls that need one.
+mod apartment;
+
 /// COM-based window cloaking via the ImmersiveShell.
 mod com;
 
