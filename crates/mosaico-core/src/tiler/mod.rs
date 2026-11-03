@@ -82,7 +82,7 @@ pub use hidden::{HiddenWindows, WindowIdentity};
 pub use hidden_file::HiddenFile;
 pub use input::{BarReservation, Input};
 pub use last_drawn::LastDrawn;
-pub use manager::TilingManager;
+pub use manager::{Launched, TilingManager};
 pub use placement::{Timing, Transition};
 pub use platform::Platform;
 pub use release::{MAX_HOLD, QUIET, release_at};

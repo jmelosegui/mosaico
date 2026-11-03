@@ -53,7 +53,7 @@ pub(super) fn launch(
         return;
     };
     match manager.launch(binding, launcher) {
-        Ok(()) => mosaico_core::log_info!("{}: started", binding.name()),
+        Ok(launched) => mosaico_core::log_info!("{}: {launched}", binding.name()),
         Err(e) => mosaico_core::log_warn!("{}: {e}", binding.name()),
     }
     bar_mgr.update(&manager.bar_states(&get_update(), hotkeys_paused));
