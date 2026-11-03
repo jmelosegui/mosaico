@@ -249,9 +249,9 @@ Each task is one pull request, stacked on the one before.
 
 ### 38.5 Focus an open window
 
-- [ ] `TilingManager::focus_matching`: first match, cycling, hidden workspace,
-      other monitor, monocle, no match, with tests
-- [ ] Daemon falls back to launching when nothing matched
+- [x] `Input::Raise` and `Tiler::raise`: hidden workspace, other monitor, monocle
+- [x] `TilingManager::launch` with `focus`: first match, cycling, falls back to
+      launching when nothing matched, with tests
 
 ### 38.6 Settings app
 
