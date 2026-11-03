@@ -1,8 +1,9 @@
 use crate::Result;
 use crate::config::bar::BarConfig;
 use crate::config::keybinding;
+use crate::config::report;
 use crate::config::rules::{KeybindingsFile, RulesFile, UserRulesFile};
-use crate::config::{Config, Keybinding, WindowRule, default_rules};
+use crate::config::{Config, Keybinding, LaunchBinding, WindowRule, default_rules, parse_launches};
 
 use super::migrate::migrate_config_if_needed;
 use super::{ConfigStore, load_or_default, load_toml, parse_toml, read_file};
@@ -74,6 +75,41 @@ impl ConfigStore {
             || self.try_load_keybindings(),
             keybinding::defaults,
         )
+    }
+
+    /// Reads the `[[launch]]` entries of `keybindings.toml`, each on its
+    /// own, as [`parse_launches`] does.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`Error::Config`](crate::Error::Config) naming the file
+    /// if it cannot be read, is not TOML, or `launch` is not a list of
+    /// tables.
+    pub fn try_load_launches(&self) -> Result<Vec<Result<LaunchBinding>>> {
+        let path = self.keybindings_path();
+        parse_launches(&path, &read_file(&path)?)
+    }
+
+    /// Loads the launch bindings in `keybindings.toml`, skipping the
+    /// entries that cannot be read.
+    ///
+    /// A missing file silently gives none. A file that cannot be read
+    /// gives none, and each entry skipped is reported as a warning, on
+    /// standard error and in the log.
+    pub fn load_launches(&self) -> Vec<LaunchBinding> {
+        let entries = load_or_default(
+            &self.keybindings_path(),
+            || self.try_load_launches(),
+            Vec::new,
+        );
+        entries
+            .into_iter()
+            .filter_map(|entry| {
+                entry
+                    .inspect_err(|e| report::warning(format_args!("{e}")))
+                    .ok()
+            })
+            .collect()
     }
 
     /// Loads and parses `rules.toml`.

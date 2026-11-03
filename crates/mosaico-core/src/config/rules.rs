@@ -58,12 +58,37 @@ pub fn matching_rule<'a>(
 }
 
 fn matches_rule(class: &str, title: &str, path: &str, rule: &WindowRule) -> bool {
-    if let Some(ref mc) = rule.match_class
+    matches(
+        class,
+        title,
+        path,
+        rule.match_class.as_deref(),
+        rule.match_title.as_deref(),
+        rule.match_path.as_deref(),
+    )
+}
+
+/// Whether a window with this class, title and executable path matches
+/// the `match_*` fields given, which must all match. With none given,
+/// nothing matches.
+///
+/// The class is compared whole and the title as a part, both ignoring
+/// case. An empty title field matches only an empty title. The path field
+/// matches the end of the path, as [`path_ends_with`] does.
+pub(super) fn matches(
+    class: &str,
+    title: &str,
+    path: &str,
+    match_class: Option<&str>,
+    match_title: Option<&str>,
+    match_path: Option<&str>,
+) -> bool {
+    if let Some(mc) = match_class
         && !class.eq_ignore_ascii_case(mc)
     {
         return false;
     }
-    if let Some(ref mt) = rule.match_title {
+    if let Some(mt) = match_title {
         if mt.is_empty() {
             // match_title = "" means the window title must be empty.
             if !title.is_empty() {
@@ -76,12 +101,12 @@ fn matches_rule(class: &str, title: &str, path: &str, rule: &WindowRule) -> bool
             return false;
         }
     }
-    if let Some(ref mp) = rule.match_path
+    if let Some(mp) = match_path
         && !path_ends_with(path, mp)
     {
         return false;
     }
-    rule.match_class.is_some() || rule.match_title.is_some() || rule.match_path.is_some()
+    match_class.is_some() || match_title.is_some() || match_path.is_some()
 }
 
 /// Case-insensitive check that `path` ends with `suffix` at a path
