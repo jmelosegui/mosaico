@@ -118,6 +118,16 @@ struct LaunchTables {
 /// Returns [`Error::Config`](crate::Error::Config) naming `path` when
 /// `content` is not TOML or `launch` is not a list of tables.
 pub fn parse_launches(path: &Path, content: &str) -> Result<Vec<Result<LaunchBinding>>> {
+    launches_in(path, content, true)
+}
+
+/// Reads the launch bindings in `content` as [`parse_launches`] does,
+/// but takes one with a blank command, as one being filled in has.
+pub(crate) fn read_launches(path: &Path, content: &str) -> Result<Vec<Result<LaunchBinding>>> {
+    launches_in(path, content, false)
+}
+
+fn launches_in(path: &Path, content: &str, complete: bool) -> Result<Vec<Result<LaunchBinding>>> {
     let error = |problem: String| Error::config(Some(PathBuf::from(path)), problem);
     let tables: LaunchTables = toml::from_str(content).map_err(|e| error(e.to_string()))?;
     Ok(tables
@@ -125,17 +135,17 @@ pub fn parse_launches(path: &Path, content: &str) -> Result<Vec<Result<LaunchBin
         .into_iter()
         .enumerate()
         .map(|(i, table)| {
-            parse_one(table)
+            parse_one(table, complete)
                 .map_err(|problem| error(format!("launch binding {}: {problem}", i + 1)))
         })
         .collect())
 }
 
-fn parse_one(table: toml::Table) -> std::result::Result<LaunchBinding, String> {
+fn parse_one(table: toml::Table, complete: bool) -> std::result::Result<LaunchBinding, String> {
     let binding: LaunchBinding = table
         .try_into()
         .map_err(|e: toml::de::Error| e.message().to_string())?;
-    if binding.command.trim().is_empty() {
+    if complete && binding.command.trim().is_empty() {
         return Err("`command` is empty".to_string());
     }
     Ok(binding)

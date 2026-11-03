@@ -162,8 +162,9 @@ The Keybindings page gets an "Applications" section under the action rows:
 one row per `[[launch]]` table with the shortcut capture, command, arguments
 (one text field, split on spaces with quotes respected), the focus checkbox
 and match path, plus Add and Remove. `KeybindingsDocument` gains positional
-methods for `[[launch]]` (`launches`, `add_launch`, `set_launch_*`,
-`remove_launch`) that keep comments, as the `[[keybinding]]` ones do.
+methods for `[[launch]]` (`launches`, `add_launch`, `set_launch`,
+`set_launch_key`, `remove_launch`) that keep comments, as the `[[keybinding]]`
+ones do.
 
 ## Decisions
 
@@ -210,6 +211,24 @@ revisited in review.
 13. **The launch runs on the daemon's thread** and waits only for the shell to
     hand the program over, not for its window. It is a key press, rare and
     short, and a failure can then be returned to the caller and logged.
+14. **The settings app edits command, arguments, match path and focus.** Class
+    and title matching stay in the file, kept as written, but get no fields:
+    the path covers the common case and three more fields would crowd the
+    editor.
+15. **Arguments are one text field,** split on spaces, with double quotes
+    grouping and `""` an empty argument. The file still stores an array.
+16. **A new application starts blank with its editor open,** and the shortcut
+    is captured only when its button is clicked, so typing the command is
+    never taken as a key press. Apply refuses a launch binding with no command
+    or no shortcut, including one written by hand, and says which.
+17. **Replacing a taken shortcut removes the launch binding that had it,**
+    as it removes an action binding that had it: a launch binding without a
+    shortcut does nothing.
+18. **Restore defaults leaves launch bindings alone.** There are no default
+    ones, and removing the user's would be a surprise.
+19. **An open editor survives the window rereading the file.** The window
+    follows the file every two seconds while nothing is edited; the editor
+    stays open and starts over from the file only when it changed under it.
 
 ## Tasks
 
@@ -255,8 +274,8 @@ Each task is one pull request, stacked on the one before.
 
 ### 38.6 Settings app
 
-- [ ] `KeybindingsDocument` methods for `[[launch]]`, keeping comments
-- [ ] "Applications" section: add, edit, remove, conflicts, with app tests
+- [x] `KeybindingsDocument` methods for `[[launch]]`, keeping comments
+- [x] "Applications" section: add, edit, remove, conflicts, with app tests
 
 ### 38.7 Documentation and verification
 

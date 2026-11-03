@@ -10,7 +10,7 @@ use super::merge_keybindings::keybinding_toml_entry;
 use super::write_back::write_back;
 use super::{ConfigStore, file_error, parse_toml};
 use crate::config::rules::KeybindingsFile;
-use crate::config::{Conflict, Keybinding, Modifier, conflicts, keybinding};
+use crate::config::{Conflict, Keybinding, Modifier, conflicts_with_launches, keybinding};
 use crate::hotkey::{Key, KeyCombo};
 use crate::{Action, Result};
 
@@ -71,9 +71,10 @@ impl KeybindingsDocument {
         file.map(|f| f.keybinding).unwrap_or_default()
     }
 
-    /// The key combinations more than one binding is bound to.
+    /// The key combinations more than one binding is bound to, launch
+    /// bindings included.
     pub fn conflicts(&self) -> Vec<Conflict> {
-        conflicts(&self.bindings())
+        conflicts_with_launches(&self.bindings(), &self.launch_slots())
     }
 
     /// Binds the binding at `index` to `key` with `modifiers`, keeping any
@@ -142,13 +143,17 @@ impl KeybindingsDocument {
         self.dirty
     }
 
-    /// Checks the file, with the edits made so far, loads.
+    /// Checks the file, with the edits made so far, loads, and that every
+    /// launch binding has a command and a key combination, so none is
+    /// skipped by the daemon.
     ///
     /// # Errors
     ///
-    /// Returns the [`Error::Config`] loading it would give.
+    /// Returns the [`Error::Config`] loading it would give, or naming the
+    /// launch binding that would be skipped.
     pub fn check(&self) -> Result<()> {
-        parse_toml::<KeybindingsFile>(&self.path, &self.doc.to_string()).map(drop)
+        parse_toml::<KeybindingsFile>(&self.path, &self.doc.to_string())?;
+        self.check_launches()
     }
 
     /// Writes the edits to the file, in its own line endings, after
@@ -213,6 +218,9 @@ fn modifier_list(modifiers: &[Modifier]) -> Array {
         .map(|(_, name)| *name)
         .collect()
 }
+
+#[path = "keybindings_document_launch.rs"]
+mod launch;
 
 #[cfg(test)]
 #[path = "tests/keybindings_document_tests.rs"]
