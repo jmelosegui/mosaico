@@ -9,7 +9,7 @@
 //! paused, and a platform's
 //! [`HotkeyRegistrar`](crate::hotkey::HotkeyRegistrar) carries that out.
 //! A [`HotkeySource`](crate::hotkey::HotkeySource) runs both for the
-//! daemon and sends the actions of the presses.
+//! daemon and sends the [Target](crate::hotkey::Target) of each press.
 
 mod combo;
 mod hotkeys;
@@ -18,6 +18,7 @@ mod key_names;
 mod registrar;
 mod rejected;
 mod source;
+mod target;
 
 pub use combo::{KeyCombo, Modifiers};
 pub use hotkeys::Hotkeys;
@@ -27,3 +28,4 @@ pub(crate) use key::{digit, function, letter};
 pub use registrar::{HotkeyId, HotkeyRegistrar};
 pub use rejected::Rejected;
 pub use source::{HotkeyControl, HotkeySource, HotkeyWatch};
+pub use target::Target;

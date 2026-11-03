@@ -2,9 +2,9 @@
 
 use std::sync::mpsc::Sender;
 
-use mosaico_core::config::Keybinding;
-use mosaico_core::hotkey::{HotkeyControl, HotkeySource, HotkeyWatch, Hotkeys, Rejected};
-use mosaico_core::{Action, Result};
+use mosaico_core::Result;
+use mosaico_core::config::{Keybinding, LaunchBinding};
+use mosaico_core::hotkey::{HotkeyControl, HotkeySource, HotkeyWatch, Hotkeys, Rejected, Target};
 use windows::Win32::UI::WindowsAndMessaging::{
     DispatchMessageW, GetMessageW, MSG, PM_REMOVE, PeekMessageW, TranslateMessage, WM_APP,
     WM_HOTKEY,
@@ -27,12 +27,18 @@ const WM_HOTKEY_PAUSE: u32 = WM_APP + 2;
 pub(crate) struct WindowsHotkeySource;
 
 impl HotkeySource for WindowsHotkeySource {
-    fn start(&self, bindings: Vec<Keybinding>, actions: Sender<Action>) -> Result<HotkeyWatch> {
+    fn start(
+        &self,
+        bindings: Vec<Keybinding>,
+        launches: Vec<LaunchBinding>,
+        presses: Sender<Target>,
+    ) -> Result<HotkeyWatch> {
         let (thread, ()) = MessageThread::spawn("hotkeys", move |ready| {
-            let (mut hotkeys, rejected) = Hotkeys::register(Win32Hotkeys::new(), &bindings);
+            let (mut hotkeys, rejected) =
+                Hotkeys::register(Win32Hotkeys::new(), &bindings, &launches);
             log_rejected(NOT_WORKING, &rejected);
             ready.report(Ok(()));
-            run_message_pump(&mut hotkeys, &actions);
+            run_message_pump(&mut hotkeys, &presses);
             // Dropping the hotkeys unregisters every one still registered.
         })?;
         Ok(HotkeyWatch::new(HotkeyThread(thread)))
@@ -60,7 +66,7 @@ impl HotkeyControl for HotkeyThread {
 
 /// The hotkey thread's message pump. Hotkey messages go first, so a
 /// shortcut is handled before anything else waiting in the queue.
-fn run_message_pump(hotkeys: &mut Hotkeys<Win32Hotkeys>, actions: &Sender<Action>) {
+fn run_message_pump(hotkeys: &mut Hotkeys<Win32Hotkeys>, presses: &Sender<Target>) {
     let mut msg = MSG::default();
 
     loop {
@@ -68,7 +74,7 @@ fn run_message_pump(hotkeys: &mut Hotkeys<Win32Hotkeys>, actions: &Sender<Action
         // SAFETY: PeekMessageW drains WM_HOTKEY messages from the thread's
         // message queue without blocking. The MSG struct is stack-allocated.
         while unsafe { PeekMessageW(&mut msg, None, WM_HOTKEY, WM_HOTKEY, PM_REMOVE).as_bool() } {
-            dispatch(hotkeys, actions, msg.wParam.0);
+            dispatch(hotkeys, presses, msg.wParam.0);
         }
 
         // Block until the next message arrives, then process it.
@@ -79,7 +85,7 @@ fn run_message_pump(hotkeys: &mut Hotkeys<Win32Hotkeys>, actions: &Sender<Action
         }
 
         if msg.message == WM_HOTKEY {
-            dispatch(hotkeys, actions, msg.wParam.0);
+            dispatch(hotkeys, presses, msg.wParam.0);
             continue;
         }
 
@@ -102,11 +108,11 @@ fn run_message_pump(hotkeys: &mut Hotkeys<Win32Hotkeys>, actions: &Sender<Action
     }
 }
 
-/// Sends the action of the hotkey a `WM_HOTKEY` message reports, unless
+/// Sends what the hotkey a `WM_HOTKEY` message reports asks for, unless
 /// the hotkeys say it should not run.
-fn dispatch(hotkeys: &Hotkeys<Win32Hotkeys>, actions: &Sender<Action>, wparam: usize) {
-    if let Some(action) = hotkey::hotkey_id(wparam).and_then(|id| hotkeys.triggered(id)) {
-        let _ = actions.send(action);
+fn dispatch(hotkeys: &Hotkeys<Win32Hotkeys>, presses: &Sender<Target>, wparam: usize) {
+    if let Some(target) = hotkey::hotkey_id(wparam).and_then(|id| hotkeys.triggered(id)) {
+        let _ = presses.send(target);
     }
 }
 
@@ -114,7 +120,7 @@ fn dispatch(hotkeys: &Hotkeys<Win32Hotkeys>, actions: &Sender<Action>, wparam: u
 const NOT_WORKING: &str = "Hotkey not working";
 
 /// How the log introduces a hotkey a pause could not give back, which
-/// stays registered and keeps running its action.
+/// stays registered and keeps working.
 const STILL_HELD: &str = "Hotkey could not be released while paused";
 
 fn log_rejected(what: &str, rejected: &[Rejected]) {
@@ -132,11 +138,11 @@ mod tests {
     use super::WindowsHotkeySource;
 
     #[test]
-    fn stopping_the_watch_lets_go_of_the_action_sender() {
+    fn stopping_the_watch_lets_go_of_the_press_sender() {
         // Arrange -- no bindings, so nothing is registered system-wide.
-        let (actions, received) = mpsc::channel();
+        let (presses, received) = mpsc::channel();
         let watch = WindowsHotkeySource
-            .start(Vec::new(), actions)
+            .start(Vec::new(), Vec::new(), presses)
             .expect("the thread starts");
         watch.pause().expect("the thread gets the pause");
         watch.unpause().expect("the thread gets the unpause");
@@ -144,7 +150,7 @@ mod tests {
         // Act
         watch.stop();
 
-        // Assert -- the thread ended, so a loop over the actions ends too.
+        // Assert -- the thread ended, so a loop over the presses ends too.
         assert_eq!(received.try_recv(), Err(TryRecvError::Disconnected));
     }
 }

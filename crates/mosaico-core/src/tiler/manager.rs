@@ -16,6 +16,8 @@ mod bars;
 mod frames;
 #[path = "manager_inputs.rs"]
 mod inputs;
+#[path = "manager_launch.rs"]
+mod launch;
 
 /// Manages tiled windows across all connected monitors.
 ///

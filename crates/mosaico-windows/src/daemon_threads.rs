@@ -4,8 +4,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::thread;
 
-use mosaico_core::Action;
 use mosaico_core::config::{ConfigReload, ConfigStore, ConfigWatch};
+use mosaico_core::hotkey::Target;
 use mosaico_core::http::HttpClient;
 use mosaico_core::tray::TrayCommand;
 use mosaico_core::{community_rules, update};
@@ -65,14 +65,18 @@ pub(super) fn spawn_event_bridge(
     })
 }
 
-/// Bridges hotkey actions into the daemon message channel.
-pub(super) fn spawn_action_bridge(
-    action_rx: mpsc::Receiver<Action>,
+/// Bridges what hotkey presses ask for into the daemon message channel.
+pub(super) fn spawn_press_bridge(
+    press_rx: mpsc::Receiver<Target>,
     tx: mpsc::Sender<DaemonMsg>,
 ) -> thread::JoinHandle<()> {
     thread::spawn(move || {
-        for action in action_rx {
-            if tx.send(DaemonMsg::Action(action)).is_err() {
+        for target in press_rx {
+            let msg = match target {
+                Target::Action(action) => DaemonMsg::Action(action),
+                Target::Launch(index) => DaemonMsg::Launch(index),
+            };
+            if tx.send(msg).is_err() {
                 break;
             }
         }
