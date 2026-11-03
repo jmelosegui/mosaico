@@ -279,9 +279,12 @@ Each task is one pull request, stacked on the one before.
 
 ### 38.7 Documentation and verification
 
-- [ ] `website/src/guide/keybindings.md`: "Launching Applications" section
+- [x] `website/src/guide/keybindings.md`: "Launching Applications" section,
+      and the Applications section in `website/src/guide/settings.md`
 - [ ] Manual: a launch key starts Edge and Windows Terminal; with `focus`, the
       key brings Edge back from another workspace and cycles its windows; a
-      missing program logs an error and the daemon keeps running
+      missing program logs an error and the daemon keeps running. Not done
+      yet: the stack was built without the maintainer at the desktop, and the
+      daemon tiles the live desktop.
 
 [`Action`]: ../crates/mosaico-core/src/action.rs

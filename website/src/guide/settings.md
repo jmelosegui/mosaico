@@ -235,6 +235,17 @@ Applying changes only the keys you edited: comments, blank lines, the order
 and the line endings of `keybindings.toml` are kept. The daemon picks the new
 keys up as it does when you edit the file by hand.
 
+Under the actions, **Applications** lists the shortcuts that start a program
+(see [Launching Applications](keybindings.md#launching-applications)).
+**Add application** adds one and opens its editor: the command, the arguments
+on one line (separated by spaces, with double quotes around an argument that
+holds spaces), the path its windows end with, and whether a press focuses an
+open window of it instead of starting another, which is off by default. Click
+the pencil to capture its shortcut, the arrow to open or close its editor, and
+the bin to remove it. **Apply** refuses an application with no command or no
+shortcut. Conflicts and Replace work across actions and applications alike;
+**Restore defaults** leaves applications alone.
+
 ## Rules
 
 ![The Rules page, with your rules above the read-only community rules](../images/settings/rules.png)
