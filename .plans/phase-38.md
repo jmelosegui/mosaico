@@ -281,10 +281,16 @@ Each task is one pull request, stacked on the one before.
 
 - [x] `website/src/guide/keybindings.md`: "Launching Applications" section,
       and the Applications section in `website/src/guide/settings.md`
-- [ ] Manual: a launch key starts Edge and Windows Terminal; with `focus`, the
+- [x] Manual: a launch key starts Edge and Windows Terminal; with `focus`, the
       key brings Edge back from another workspace and cycles its windows; a
-      missing program logs an error and the daemon keeps running. Not done
-      yet: the stack was built without the maintainer at the desktop, and the
-      daemon tiles the live desktop.
+      missing program logs an error and the daemon keeps running. Checked on
+      the live desktop with a separate instance: without `focus` every press
+      opened a new Terminal window; with `focus` presses cycled through three
+      Terminal windows and two Edge windows; Edge (not on `PATH`) was found
+      through App Paths; it was brought back from a hidden workspace, from the
+      other monitor and from behind a monocle window; a missing program logged
+      a warning and opened nothing. The check found that a press which only
+      focused a window was logged as "started"; `launch` now returns
+      `Launched`, and the log says "focused an open window".
 
 [`Action`]: ../crates/mosaico-core/src/action.rs
