@@ -47,7 +47,7 @@ impl<P: Platform> TilingManager<P> {
     /// When `launcher` cannot start the program.
     pub fn launch(&mut self, binding: &LaunchBinding, launcher: &dyn Launcher) -> Result<Launched> {
         if binding.focus && self.raise_matching(binding) {
-            return Ok(Launched::Started);
+            return Ok(Launched::Focused);
         }
         launcher.launch(&binding.command, &binding.args)?;
         Ok(Launched::Started)
