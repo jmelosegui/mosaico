@@ -12,6 +12,7 @@ mod hiding_behaviour;
 pub mod keybinding;
 mod keybinding_conflicts;
 mod launch;
+mod launch_args;
 /// What the mouse does: the pointer and focus, and dragging windows.
 pub mod limits;
 mod mouse;
@@ -54,6 +55,7 @@ pub use hiding_behaviour::HidingBehaviour;
 pub use keybinding::{Keybinding, Modifier};
 pub use keybinding_conflicts::{Conflict, conflicts, conflicts_with_launches};
 pub use launch::{LaunchBinding, WindowMatch, parse_launches};
+pub use launch_args::{join_args, split_args};
 pub use mouse::MouseConfig;
 pub use palette::UiColors;
 pub use reload::{ConfigReload, ConfigReloader, ConfigWatch};
