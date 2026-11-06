@@ -74,14 +74,16 @@ inherit flag on the launcher's standard handles first.
 - [x] Fix detached children holding the launcher's output open
 - [x] Release workflow builds the MSI and attaches it with the zip
 - [x] CI builds the MSI and installs and uninstalls it
-- [x] Release workflow job that opens the winget-pkgs pull request
-      (`vedantmgoyal9/winget-releaser`, needs the `WINGET_TOKEN` secret)
+- [x] WinGet workflow, run by hand once a release's MSI has been
+      installed and checked, that opens the winget-pkgs pull request
+      (`winget.yml`, `vedantmgoyal9/winget-releaser`, needs the
+      `WINGET_TOKEN` secret); a tag never publishes to WinGet
 - [x] `packaging/winget/new-manifests.ps1` for the first submission
 - [x] `install.ps1` installs the MSI and moves a zip install over to it
 - [x] Docs: README, installation guide, `mosaico update`
 - [ ] Tag the first release with an MSI
 - [ ] Submit the first version of `jmelosegui.mosaico` to winget-pkgs by
-      hand; later versions go through the release workflow
+      hand; later versions go through the WinGet workflow
 - [ ] Sign the MSI and executables (SmartScreen warns about unsigned
       downloads)
 - [ ] Decide when to stop publishing the zip

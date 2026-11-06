@@ -104,32 +104,8 @@ jobs:
             mosaico-windows-amd64.zip
             mosaico-windows-amd64.msi
 
-  # Opens a pull request at microsoft/winget-pkgs with the new MSI. It
-  # needs a version of the package there already, the WINGET_TOKEN secret
-  # (a classic PAT with public_repo and workflow scopes) and a fork of
-  # winget-pkgs owned by WINGET_FORK_USER, or by the repository owner when
-  # that variable is unset. Without the secret it skips, so a fork's
-  # release still succeeds. Prereleases (tags with a '-') are not published.
-  winget:
-    name: Publish to WinGet
-    needs: release
-    if: ${{ !contains(github.ref_name, '-') }}
-    runs-on: windows-latest
-    env:
-      WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
-    steps:
-      - name: Skip without a token
-        if: env.WINGET_TOKEN == ''
-        run: echo "::notice::WINGET_TOKEN is not set; not publishing to WinGet."
-
-      - uses: vedantmgoyal9/winget-releaser@v2
-        if: env.WINGET_TOKEN != ''
-        with:
-          identifier: jmelosegui.mosaico
-          installers-regex: '\.msi$'
-          release-tag: ${{ github.ref_name }}
-          token: ${{ secrets.WINGET_TOKEN }}
-          fork-user: ${{ vars.WINGET_FORK_USER || github.repository_owner }}
+  # The release is not sent to WinGet here: once its MSI has been installed
+  # and checked, the WinGet workflow (winget.yml) is run by hand.
 
   publish-install-script:
     name: Verify install script
