@@ -128,6 +128,72 @@ mosaico unpause
 The `toggle-pause` hotkey stays registered while paused so you can always
 resume from the keyboard without opening a terminal.
 
+## Launching Applications
+
+A `[[launch]]` table binds a shortcut to a program instead of an action:
+
+```toml
+# Start a new terminal every time.
+[[launch]]
+command = "wt.exe"
+key = "Enter"
+modifiers = ["alt"]
+
+# Bring an open Edge window into view, or start Edge when none is open.
+[[launch]]
+command = "msedge.exe"
+args = ["--new-window"]
+key = "B"
+modifiers = ["alt", "shift"]
+focus = true
+
+# Windows Terminal's windows belong to WindowsTerminal.exe, not wt.exe, so say
+# which windows count as already open.
+[[launch]]
+command = "wt.exe"
+key = "T"
+modifiers = ["alt", "shift"]
+focus = true
+match_path = "WindowsTerminal.exe"
+```
+
+| Field | Required | Meaning |
+| --- | --- | --- |
+| `command` | yes | The program to start, as you would type it in the Run box (`Win+R`): a name Windows finds on its own (on `PATH` or registered, like `msedge.exe`), a full path, or a URI such as `ms-settings:`. Environment variables like `%USERPROFILE%` are expanded. |
+| `args` | no | Arguments, one string each. Paths with spaces need no extra quotes. |
+| `key`, `modifiers` | yes | As in `[[keybinding]]`. |
+| `focus` | no | `true` brings an open window of the program into view instead of starting it. Default `false`. |
+| `match_path`, `match_class`, `match_title` | no | Which windows count as the program's, with the same meaning as in [window rules](window-rules.md). Only read with `focus = true`. |
+
+### A new instance, or the open window
+
+By default, every press starts the program again, and mosaico never looks for
+an open window. A program that allows only one instance decides itself what a
+second start does; many simply bring their window forward.
+
+With `focus = true`, a press brings an open window of the program into view and
+focuses it: its monitor switches to the window's workspace when that is out of
+view, as when you pick it from the taskbar, and monocle is left when another
+window fills the screen in front of it. Pressing again cycles through the
+program's windows. When none is open, the program starts. Only windows mosaico
+manages count, so splash screens and tool windows are skipped.
+
+Without any `match_*` field, a window counts when the name of its executable,
+without extension, is the name of `command`, ignoring case: `msedge.exe` matches
+the windows of `msedge.exe`. When the program you start is not the one that owns
+the windows, as with `wt.exe` and `WindowsTerminal.exe`, say which windows to
+look for with `match_path`.
+
+The program starts in your home folder. A command Windows cannot find is
+logged as an error rather than turned into a web search. There are no default
+launch bindings; the template has commented examples, and auto-merge leaves
+`[[launch]]` tables alone. A launch binding sharing a shortcut with an action
+or another launch binding is a conflict, reported by `mosaico doctor` and the
+settings app.
+
+You can also add, edit and remove launch bindings in the
+[settings app](settings.md#keybindings).
+
 ## Auto-merge
 
 On each daemon start, any default keybinding actions not present in your
