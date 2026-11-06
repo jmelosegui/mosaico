@@ -3,6 +3,7 @@
 use crate::Action;
 use crate::config::{LaunchBinding, Modifier, WindowMatch};
 use crate::id::wid;
+use crate::tiler::Launched;
 
 use super::fake_launcher::RecordingLauncher;
 use super::fake_platform::FakePlatform;
@@ -198,4 +199,22 @@ fn a_window_on_another_monitor_is_focused_there() {
     assert!(done.is_ok(), "{done:?}");
     assert_eq!(manager.tiler().focused_monitor(), 1);
     assert_eq!(manager.tiler().focused_window(), Some(wid(2)));
+}
+
+#[test]
+fn a_press_says_whether_it_focused_a_window_or_started_the_program() {
+    // Arrange -- the daemon logged "started" for a press that only
+    // focused an open window. Window 2 belongs to the program.
+    let platform = FakePlatform::new(1, &[(1, 0), (2, 0)]);
+    edge(&platform, 2);
+    let mut manager = start(&platform, None, &still());
+    let launcher = RecordingLauncher::default();
+
+    // Act
+    let focused = manager.launch(&focusing("edge"), &launcher);
+    let started = manager.launch(&focusing("wt"), &launcher);
+
+    // Assert
+    assert_eq!(focused.unwrap(), Launched::Focused);
+    assert_eq!(started.unwrap(), Launched::Started);
 }

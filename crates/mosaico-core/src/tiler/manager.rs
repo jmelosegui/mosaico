@@ -18,6 +18,7 @@ mod frames;
 mod inputs;
 #[path = "manager_launch.rs"]
 mod launch;
+pub use launch::Launched;
 
 /// Manages tiled windows across all connected monitors.
 ///
