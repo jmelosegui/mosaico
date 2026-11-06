@@ -4,8 +4,9 @@ Writes the winget manifests for a release's MSI and validates them.
 
 .DESCRIPTION
 The first version of a package in microsoft/winget-pkgs is submitted by
-hand; the release workflow's winget job then opens a pull request for each
-later version, starting from the latest one there. This script writes the
+hand; the WinGet workflow (winget.yml), run by hand for a release, then
+opens a pull request for each later version, starting from the latest one
+there. This script writes the
 three manifests of that first submission (version, installer and en-US
 locale) under target\winget\manifests\j\jmelosegui\mosaico\<version>,
 the layout winget-pkgs uses, and runs `winget validate` on them.
