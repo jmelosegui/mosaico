@@ -1,9 +1,9 @@
-//! The Applications section of the Keybindings page: shortcuts that start a
+//! The Applications tab of the Keybindings page: shortcuts that start a
 //! program.
 
 use eframe::egui::{Key, Modifiers};
 
-use crate::keybindings::{FILE, filter, press};
+use crate::keybindings::{FILE, press};
 use crate::support::*;
 
 const NOTEPAD: &str =
@@ -15,6 +15,7 @@ fn window_with(test: &str, file: &str) -> (Harness<'static, SettingsApp>, PathBu
     std::fs::write(&path, file).unwrap();
     let mut h = window(store, DaemonState::Stopped, &SignIn::default());
     open(&mut h, "Keybindings");
+    click(&mut h, Role::Tab, "Applications");
     (h, path)
 }
 
@@ -122,6 +123,7 @@ fn an_application_sharing_a_shortcut_with_an_action_is_flagged_and_not_saved() {
     // Arrange
     let file = format!("{FILE}{}", NOTEPAD.replace("\"N\"", "\"J\""));
     let (mut h, path) = window_with("apps-clash", &file);
+    click(&mut h, Role::Tab, "Actions");
 
     // Act
     click(&mut h, Role::Button, "Change Focus up");
@@ -130,23 +132,69 @@ fn an_application_sharing_a_shortcut_with_an_action_is_flagged_and_not_saved() {
 
     // Assert
     h.get_by_label_contains("Also bound to notepad.");
-    h.get_by_label_contains("Also bound to Focus down.");
     assert!(matches!(h.state().applied(), Some(Applied::Failed(_))));
     assert_eq!(std::fs::read_to_string(path).unwrap(), file);
+    click(&mut h, Role::Tab, "Applications");
+    h.get_by_label_contains("Also bound to Focus down.");
 }
 
 #[test]
-fn the_filter_finds_an_application_by_its_command() {
+fn the_tabs_keep_actions_and_applications_apart() {
+    // Arrange
     let file = format!("{FILE}{NOTEPAD}");
-    let (mut h, _) = window_with("apps-filter", &file);
-
-    filter(&mut h, "notep");
-
+    let (mut h, _) = window_with("apps-tabs", &file);
     h.get_by_role_and_label(Role::Button, "Edit notepad");
     assert!(
         h.query_by_role_and_label(Role::Button, "Change Focus up")
             .is_none()
     );
+
+    // Act
+    click(&mut h, Role::Tab, "Actions");
+
+    // Assert
+    h.get_by_role_and_label(Role::Button, "Change Focus up");
+    h.get_by_role_and_label(Role::TextInput, "Filter keybindings");
+    assert!(
+        h.query_by_role_and_label(Role::Button, "Edit notepad")
+            .is_none()
+    );
+}
+
+#[test]
+fn a_search_finds_an_application_by_its_command() {
+    // Arrange
+    let file = format!("{FILE}{NOTEPAD}");
+    let (mut h, _) = window_with("apps-search", &file);
+    click(&mut h, Role::Tab, "Actions");
+
+    // Act
+    search(&mut h, "notep");
+    h.run();
+
+    // Assert
+    h.get_by_role_and_label(Role::Button, "Edit notepad");
+    assert!(
+        h.query_by_role_and_label(Role::Button, "Change Focus up")
+            .is_none()
+    );
+}
+
+#[test]
+fn a_key_pressed_on_the_actions_tab_does_not_rebind_a_waiting_application() {
+    // Arrange
+    let file = format!("{FILE}{NOTEPAD}");
+    let (mut h, _) = window_with("apps-hidden-capture", &file);
+    click(&mut h, Role::Button, "Change shortcut of notepad");
+    click(&mut h, Role::Tab, "Actions");
+
+    // Act
+    press(&mut h, Modifiers::ALT, Key::T);
+
+    // Assert
+    h.get_by_label("No unsaved changes");
+    click(&mut h, Role::Tab, "Applications");
+    h.get_by_label("Press the new shortcut");
 }
 
 #[test]

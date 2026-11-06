@@ -1,26 +1,31 @@
-//! Drawing one row of the page, and what a click on it does.
+//! The Actions tab: drawing its rows, and what a click on one does.
 
-use eframe::egui::Ui;
+use eframe::egui::{RichText, Ui};
 
-use super::apps::Shown;
 use super::banner::{self, Choice};
 use super::row::{self, Click, Prompt, RowView};
-use super::{KeybindingsPage, PROMPT, Row, combo_text, labels};
+use super::{KeybindingsPage, PROMPT, Row, combo_text, header, labels};
 use crate::theme::Colors;
 use crate::widgets;
 
 impl KeybindingsPage {
-    /// Draws the keybindings matching both `query` and `filter`, a section
-    /// per group. A banner asking whether to take a shortcut is drawn
-    /// under its row, and what it says goes in `chosen`.
+    /// Draws the tab: the filter over the keybindings matching both
+    /// `query` and it, a section per group. A search of the window
+    /// replaces the filter. A banner asking whether to take a shortcut is
+    /// drawn under its row, and what it says goes in `chosen`. Returns
+    /// the row clicked, and how.
     pub(super) fn show_actions(
-        &self,
+        &mut self,
         ui: &mut Ui,
         c: &Colors,
         query: &str,
-        filter: &str,
         chosen: &mut Choice,
-    ) -> Shown {
+    ) -> Option<(Row, Click)> {
+        let searching = !query.trim().is_empty();
+        if !searching && header::draw(ui, c, &mut self.filter) {
+            self.restore_defaults();
+        }
+        let filter = if searching { "" } else { self.filter.as_str() };
         let mut clicked = None;
         let mut any = false;
         for group in labels::GROUPS {
@@ -49,10 +54,11 @@ impl KeybindingsPage {
                 }
             });
         }
-        Shown {
-            shown: any,
-            clicked,
+        if !any && !searching && self.doc.is_some() {
+            let text = format!("No keybindings match \u{201c}{}\u{201d}.", filter.trim());
+            ui.label(RichText::new(text).color(c.dim_text));
         }
+        clicked
     }
 
     pub(super) fn show_row(&self, ui: &mut Ui, c: &Colors, index: usize) -> Click {
