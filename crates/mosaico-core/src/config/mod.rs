@@ -59,7 +59,7 @@ pub use launch_args::{join_args, split_args};
 pub use mouse::MouseConfig;
 pub use palette::UiColors;
 pub use reload::{ConfigReload, ConfigReloader, ConfigWatch};
-pub use rule_action::{RuleAction, decide};
+pub use rule_action::{RuleAction, count_manage_rules, decide, manage_deprecation};
 pub use rules::{WindowRule, default_rules, matching_rule, validate_rules};
 pub use settings_app::{SETTINGS_WINDOW_MIN, SETTINGS_WINDOW_SIZE, SettingsAppConfig};
 pub use store::{ConfigStore, DefaultFile, KeybindingsDocument, RulesDocument, SettingsDocument};
