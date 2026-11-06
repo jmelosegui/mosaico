@@ -30,11 +30,22 @@ impl Keybinding {
     /// Returns [`Error::Config`](crate::Error::Config) when the key name
     /// is not one mosaico knows.
     pub fn combo(&self) -> Result<KeyCombo> {
-        Ok(KeyCombo {
-            modifiers: self.modifiers.iter().copied().collect(),
-            key: self.key.parse()?,
-        })
+        combo_of(&self.key, &self.modifiers)
     }
+}
+
+/// The key combination of the key named `key` with `modifiers`, as every
+/// kind of binding writes them.
+///
+/// # Errors
+///
+/// Returns [`Error::Config`](crate::Error::Config) when the key name is
+/// not one mosaico knows.
+pub(crate) fn combo_of(key: &str, modifiers: &[Modifier]) -> Result<KeyCombo> {
+    Ok(KeyCombo {
+        modifiers: modifiers.iter().copied().collect(),
+        key: key.parse()?,
+    })
 }
 
 /// Keyboard modifier keys.

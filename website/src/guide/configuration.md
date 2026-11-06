@@ -10,7 +10,7 @@ Run `mosaico init` to generate fully-commented template files.
 | File | Purpose | Hot-Reload |
 |------|---------|------------|
 | `config.toml` | Layout, borders, mouse, window transitions, theme, logging | Yes |
-| `keybindings.toml` | Keyboard shortcuts | No (restart required) |
+| `keybindings.toml` | Keyboard shortcuts and launch bindings | Yes |
 | `rules.toml` | Community window rules (auto-downloaded) | On startup |
 | `user-rules.toml` | Personal window rule overrides | Yes |
 | `bar.toml` | Status bar settings | Yes |
@@ -211,10 +211,10 @@ mosaico keeps the settings it has, and one that starts uses the defaults.
 
 ## Hot-Reload
 
-Changes to `config.toml`, `user-rules.toml`, and `bar.toml` are
-automatically detected and applied while the daemon is running. The daemon
-waits for the system to report a change in the config directory, then
-reloads each of these files whose modification time changed.
+Changes to `config.toml`, `user-rules.toml`, `bar.toml` and
+`keybindings.toml` are automatically detected and applied while the daemon
+is running. The daemon waits for the system to report a change in the config
+directory, then reloads each of these files whose modification time changed.
 
 - **config.toml** -- layout gap/ratio, hiding behaviour, border settings,
   mouse settings, window transitions and theme are reloaded. Windows are
@@ -231,11 +231,12 @@ reloads each of these files whose modification time changed.
   colors.
 - **rules.toml** -- community rules, not watched: updated only on daemon
   startup.
-- **keybindings.toml** -- **not** hot-reloaded. Changes require a daemon
-  restart (`mosaico stop && mosaico start`).
+- **keybindings.toml** -- every hotkey is registered again from the file,
+  launch bindings included. Paused hotkeys stay paused. New default
+  actions are appended to the file only at startup.
 
-Only valid configurations are applied. If a change to `config.toml` or
-`bar.toml` introduces a parse error, it is logged
+Only valid configurations are applied. If a change to `config.toml`,
+`bar.toml` or `keybindings.toml` introduces a parse error, it is logged
 (`config.toml does not load, keeping what is in use: ...`), the tray icon
 shows a notification saying so, and the current configuration is kept until
 the file changes again. A file another program holds open while it writes it

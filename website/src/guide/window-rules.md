@@ -57,6 +57,11 @@ Every rule needs an `action`. Rules written before `action` existed use
 means `action = "ignore"`. Both still work, but a rule cannot have both
 `action` and `manage`.
 
+`manage` is deprecated and a future version will stop reading it. While
+`user-rules.toml` still uses it, the daemon warns in its log and beside the
+tray icon when it starts, and `mosaico doctor` warns too. Changing a rule's
+action on the Rules page of the settings app rewrites it with `action`.
+
 | Action | What happens |
 |--------|--------------|
 | `tile` | The window is tiled into the layout |
@@ -122,7 +127,11 @@ action = "tile"
 Community rules are maintained at
 [github.com/jmelosegui/mosaico-rules](https://github.com/jmelosegui/mosaico-rules).
 They cover common exclusions like UWP apps, GPU overlays, system dialogs,
-and VPN clients.
+and VPN clients, and float dialogs and installers above the tiles.
+
+Mosaico reads `windows/rules-v2.toml`, which uses `action`. Versions
+before floating windows read `windows/rules.toml`, which keeps the older
+`manage` format for them and is no longer updated.
 
 If you find a window that should be excluded for all users, consider
 [contributing](https://github.com/jmelosegui/mosaico-rules/blob/main/CONTRIBUTING.md)

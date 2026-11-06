@@ -37,6 +37,25 @@ pub(super) fn carry_out(
     done
 }
 
+/// Carries out a press of the launch binding at `index`, tells how it
+/// went, then refreshes the bar.
+pub(super) fn launch(
+    index: usize,
+    manager: &mut TilingManager,
+    bar_mgr: &mut BarManager,
+    inputs: &Inputs,
+    hotkeys_paused: bool,
+    get_update: &dyn Fn() -> String,
+) {
+    let Some((binding, launcher)) = inputs.launch(index) else {
+        mosaico_core::log_warn!("No launch binding at position {index}");
+        return;
+    };
+    let outcome = manager.launch(binding, launcher);
+    inputs.report_launch(binding, &outcome);
+    bar_mgr.update(&manager.bar_states(&get_update(), hotkeys_paused));
+}
+
 fn toggle_pause(inputs: &mut Inputs, hotkeys_paused: &mut bool) {
     if *hotkeys_paused {
         inputs.unpause_hotkeys();

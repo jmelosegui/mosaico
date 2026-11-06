@@ -1,7 +1,7 @@
 //! Downloads community rules from the mosaico-rules GitHub repository.
 //!
 //! On daemon startup a background thread fetches the rules file for its
-//! platform from `raw.githubusercontent.com`, validates it as TOML, and
+//! platform and rules format from `raw.githubusercontent.com`, validates it, and
 //! caches it as the instance's `rules.toml`. If the download fails or
 //! the content is invalid, the existing cached file is kept.
 
@@ -16,6 +16,13 @@ use crate::{Error, Result};
 
 /// GitHub raw content host (no API rate limit for public repos).
 const RULES_HOST: &str = "raw.githubusercontent.com";
+
+/// The file of a rule set written in the rules format this version reads.
+///
+/// Versions before floating windows read `rules.toml` and reject a file
+/// with any rule they cannot parse, such as one using `action`, so that
+/// file keeps their format and this one may use every action.
+const RULES_FILE: &str = "rules-v2.toml";
 
 /// How long each step of the download may take.
 const TIMEOUT: Duration = Duration::from_secs(5);
@@ -35,7 +42,7 @@ const TIMEOUT: Duration = Duration::from_secs(5);
 /// [`Error::Config`] when it is not a rules file or has no rules, and
 /// with [`Error::Io`] when `cache` cannot be written.
 pub fn download(http: &dyn HttpClient, rule_set: &str, cache: &Path) -> Result<Vec<WindowRule>> {
-    let path = format!("/jmelosegui/mosaico-rules/main/{rule_set}/rules.toml");
+    let path = format!("/jmelosegui/mosaico-rules/main/{rule_set}/{RULES_FILE}");
     let body = http
         .get_text(RULES_HOST, &path, TIMEOUT)
         .inspect_err(|e| crate::log_info!("Community rules download failed: {e}"))?;

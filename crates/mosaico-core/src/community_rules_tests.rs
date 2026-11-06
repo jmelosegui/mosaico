@@ -7,8 +7,10 @@ use crate::http::fake::FakeHttp;
 
 use super::*;
 
-/// Where the rules of the `test-os` rule set are downloaded from.
-const RULES: &str = "/jmelosegui/mosaico-rules/main/test-os/rules.toml";
+/// Where the rules of the `test-os` rule set are downloaded from: the
+/// file of the rules format this version reads, not the `rules.toml`
+/// kept for older versions.
+const RULES: &str = "/jmelosegui/mosaico-rules/main/test-os/rules-v2.toml";
 
 /// What the cache holds before a download.
 const CACHED: &str = "[[rule]]\nmatch_class = \"Cached\"\nmanage = false\n";

@@ -2,9 +2,9 @@ use std::rc::Rc;
 use std::sync::mpsc;
 
 use mosaico_core::bar::BarManager;
-use mosaico_core::config::ConfigStore;
+use mosaico_core::config::{ConfigStore, manage_deprecation};
 use mosaico_core::tiler::{Enumerator, HiddenFile};
-use mosaico_core::tray::TrayPaths;
+use mosaico_core::tray::{TrayNotice, TrayPaths};
 use mosaico_core::update::Installer;
 use mosaico_core::{Instance, Result};
 
@@ -36,6 +36,7 @@ pub(super) fn daemon_loop(pipe_name: &str, store: &ConfigStore) -> Result<()> {
     mosaico_core::log::init(&config.logging);
 
     let keybindings = store.merge_missing_keybindings();
+    let launches = store.load_launches();
     let rules = store.load_merged_rules();
 
     mosaico_core::log_info!(
@@ -87,18 +88,19 @@ pub(super) fn daemon_loop(pipe_name: &str, store: &ConfigStore) -> Result<()> {
     // Start the window events, hotkeys, focus-follows-mouse and the tray
     // icon.
     let event_tx = tx.clone();
-    let action_tx = tx.clone();
+    let press_tx = tx.clone();
     let (event_channel_tx, event_channel_rx) = mpsc::channel();
-    let (action_channel_tx, action_channel_rx) = mpsc::channel();
+    let (press_channel_tx, press_channel_rx) = mpsc::channel();
     let (tray_channel_tx, tray_channel_rx) = mpsc::channel();
     let senders = Senders {
         events: event_channel_tx,
-        actions: action_channel_tx,
+        presses: press_channel_tx,
         tray: tray_channel_tx,
     };
     let mut inputs = Inputs::start(
         senders,
         keybindings,
+        launches,
         &config,
         store.clone(),
         tray_paths(store),
@@ -106,12 +108,13 @@ pub(super) fn daemon_loop(pipe_name: &str, store: &ConfigStore) -> Result<()> {
     if let Some(e) = inputs.sink_error() {
         mosaico_core::log_error!("Display and work area changes will not be noticed: {e}");
     }
+    warn_of_manage_rules(store, &inputs);
 
     // Bridge: forward window events into the unified channel.
     let event_bridge = daemon_threads::spawn_event_bridge(event_channel_rx, event_tx);
 
-    // Bridge: forward hotkey actions into the unified channel.
-    let action_bridge = daemon_threads::spawn_action_bridge(action_channel_rx, action_tx);
+    // Bridge: forward what hotkey presses ask for into the unified channel.
+    let press_bridge = daemon_threads::spawn_press_bridge(press_channel_rx, press_tx);
 
     // Bridge: forward what the user picks on the tray icon.
     let tray_bridge = daemon_threads::spawn_tray_bridge(tray_channel_rx, tx.clone());
@@ -147,7 +150,7 @@ pub(super) fn daemon_loop(pipe_name: &str, store: &ConfigStore) -> Result<()> {
     watcher_stop.store(true, std::sync::atomic::Ordering::Relaxed);
     drop(tx);
     let _ = event_bridge.join();
-    let _ = action_bridge.join();
+    let _ = press_bridge.join();
     let _ = tray_bridge.join();
     let _ = watcher_thread.join();
     let _ = reload_bridge.join();
@@ -155,6 +158,17 @@ pub(super) fn daemon_loop(pipe_name: &str, store: &ConfigStore) -> Result<()> {
     let _ = ipc_thread.join();
 
     Ok(())
+}
+
+/// Warns, in the log and beside the tray icon, when the user's rules
+/// still use `manage`, which a future version will stop reading.
+fn warn_of_manage_rules(store: &ConfigStore, inputs: &Inputs) {
+    let count = store.user_rules_using_manage();
+    if count == 0 {
+        return;
+    }
+    mosaico_core::log_warn!("{}", manage_deprecation("user-rules.toml", count));
+    inputs.notify(&TrayNotice::manage_deprecated(count));
 }
 
 /// What the tray icon opens: the settings app beside the running

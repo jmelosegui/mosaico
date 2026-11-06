@@ -143,7 +143,9 @@ order, it:
     `bar_mgr.update(&manager.bar_states(&get_update(), false))`
 11. Create `mpsc` channels for events and actions, and start the inputs: the
     window event source, the hotkey source and, when `focus_follows_mouse` is
-    on, the focus-follows-mouse thread
+    on, the focus-follows-mouse thread. Then warn, in the log and beside
+    the tray icon (`TrayNotice::manage_deprecated`), when `user-rules.toml`
+    still has rules that use the deprecated `manage`
 12. Start bridge threads to forward events and actions into `DaemonMsg`
 13. Start the IPC thread
 14. Start the config file watcher thread, and a reload bridge thread to
@@ -255,6 +257,11 @@ Tasks are dispatched like this:
   `retile` re-reads the work areas before retiling, and every other action
   goes to `TilingManager::handle_action_from()`, from `Origin::Focused`.
   Then the bar is updated, and a failure is logged
+- `DaemonMsg::Launch(index)` -- a press of the launch binding at `index`,
+  carried out by `launch()` in `daemon_loop_commands.rs` through
+  `TilingManager::launch()`. `Tray::report_launch()` logs what it did and,
+  when the program could not be started, shows a tray notice naming the
+  command and why, since nobody waits for the answer of a hotkey
 - `DaemonMsg::BarPointer(bar, event)` -- handed to `BarManager::pointer()`
   with the time; the action a click asks for, a label's or the one a
   widget's button is bound to, from `Origin::Bar(monitor)`, is carried out
@@ -386,9 +393,10 @@ files are not polled, and nothing waits for a burst of writes to settle.
    waits whether the daemon is stopping
 3. When the platform reports a change, compares each file's modification time
    with the last one seen, in the order `config.toml`, `user-rules.toml`,
-   `bar.toml`. A report with nothing changed does nothing
-4. A changed `config.toml` or `bar.toml` is loaded with the daemon's
-   `ConfigStore` (`try_load_config()` or `try_load_bar()`). Only a file that
+   `bar.toml`, `keybindings.toml`. A report with nothing changed does nothing
+4. A changed `config.toml`, `bar.toml` or `keybindings.toml` is loaded with
+   the daemon's `ConfigStore` (`try_load_config()`, `try_load_bar()`, or
+   `try_load_keybindings()` and `try_load_launches()`). Only a file that
    loads is sent as a `ConfigReload`; one that does not is logged and
    skipped, and is not read again until it changes again
 5. A changed `user-rules.toml` reloads the merged rules with
@@ -396,9 +404,10 @@ files are not polled, and nothing waits for a burst of writes to settle.
 6. The reload is forwarded via a bridge thread to `DaemonMsg::Reload`
 
 `rules.toml` is not watched: the daemon downloads the community rules at
-startup and sends their reload itself. Keybindings are **not** hot-reloaded
-because `RegisterHotKey` requires unregistering and re-registering on the
-hotkey thread. A daemon restart is required for keybinding changes.
+startup and sends their reload itself. A keybindings reload goes to the
+`HotkeyListener`, which stops the hotkey thread, giving back every hotkey,
+and starts a new one with the new keybindings and launch bindings, paused
+if the hotkeys were.
 
 If the config directory cannot be watched, for instance because it does not
 exist, the watcher logs `FindFirstChangeNotificationW failed, watcher

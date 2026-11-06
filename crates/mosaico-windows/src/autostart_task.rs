@@ -8,10 +8,7 @@
 //! identifier.
 
 use windows::Win32::Foundation::{ERROR_FILE_NOT_FOUND, VARIANT_FALSE};
-use windows::Win32::System::Com::{
-    CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED, CoCreateInstance, CoInitializeEx,
-    CoUninitialize,
-};
+use windows::Win32::System::Com::{CLSCTX_INPROC_SERVER, CoCreateInstance};
 use windows::Win32::System::TaskScheduler::{
     IExecAction, IRegisteredTask, ITaskFolder, ITaskService, TASK_CREATE_OR_UPDATE,
     TASK_LOGON_INTERACTIVE_TOKEN, TaskScheduler,
@@ -21,6 +18,7 @@ use windows::core::{BSTR, HRESULT, Interface};
 
 use mosaico_core::Result;
 
+use crate::apartment::Apartment;
 use crate::error::OrPlatform;
 
 /// What a registered logon task runs, and whether it is on.
@@ -168,36 +166,6 @@ fn root_folder() -> windows::core::Result<ITaskFolder> {
         let service: ITaskService = CoCreateInstance(&TaskScheduler, None, CLSCTX_INPROC_SERVER)?;
         service.Connect(&none, &none, &none, &none)?;
         service.GetFolder(&BSTR::from("\\"))
-    }
-}
-
-/// COM, entered on this thread for as long as it lives.
-struct Apartment {
-    /// Whether this entered COM, and so must leave it. It did not when
-    /// the thread is already in another kind of apartment, and COM works
-    /// there as it is.
-    entered: bool,
-}
-
-impl Apartment {
-    fn enter() -> Self {
-        // SAFETY: CoInitializeEx may be called on any thread. A thread
-        // already in COM gets S_FALSE, or RPC_E_CHANGED_MODE for another
-        // kind of apartment.
-        let result = unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED) };
-        Self {
-            entered: result.is_ok(),
-        }
-    }
-}
-
-impl Drop for Apartment {
-    fn drop(&mut self) {
-        if self.entered {
-            // SAFETY: Paired with the CoInitializeEx in `enter` that
-            // succeeded, on the same thread.
-            unsafe { CoUninitialize() };
-        }
     }
 }
 

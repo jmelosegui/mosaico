@@ -82,3 +82,21 @@ fn an_invalid_keybindings_file_is_left_alone_and_the_defaults_used() {
     assert_eq!(summary(&bindings), summary(&keybinding::defaults()));
     assert_eq!(contents(&store.keybindings_path()), "not = [valid");
 }
+
+#[test]
+fn launch_bindings_survive_the_merge() {
+    // Arrange
+    let store = temp_store("merge-keys-launch");
+    let original = "[[keybinding]]\naction = \"focus-down\"\nkey = \"Down\"\nmodifiers = [\"alt\"]\n\n\
+                    [[launch]]\ncommand = \"wt.exe\"\nkey = \"Enter\"\nmodifiers = [\"alt\"]\n";
+    std::fs::write(store.keybindings_path(), original).unwrap();
+
+    // Act
+    store.merge_missing_keybindings();
+
+    // Assert
+    let launches = store.load_launches();
+    assert_eq!(launches.len(), 1);
+    assert_eq!(launches[0].command, "wt.exe");
+    assert!(contents(&store.keybindings_path()).starts_with(original));
+}
