@@ -72,17 +72,3 @@ fn a_change_to_rules_toml_alone_reloads_nothing() {
     // downloaded them.
     assert!(reloads.is_empty(), "{reloads:?}");
 }
-
-#[test]
-fn a_change_to_keybindings_toml_reloads_nothing() {
-    // Arrange
-    let store = temp_store("reload-keybindings");
-    let mut reloader = ConfigReloader::new(store.clone());
-    write_at(&store.keybindings_path(), "", 1);
-
-    // Act
-    let reloads: Vec<_> = reloader.reload_changed().collect();
-
-    // Assert -- hotkeys are registered at startup only.
-    assert!(reloads.is_empty(), "{reloads:?}");
-}

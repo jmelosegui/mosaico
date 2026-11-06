@@ -208,3 +208,7 @@ mod tests;
 #[cfg(test)]
 #[path = "tests/rules_tests.rs"]
 mod rules_tests;
+
+#[cfg(test)]
+#[path = "tests/keybindings_tests.rs"]
+mod keybindings_tests;
