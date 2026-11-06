@@ -201,3 +201,6 @@ other floats.
 - [x] 26.12 Metric scenarios for toggling and switching with floating windows
 - [x] 26.13 Docs: window rules, keybindings, configuration, website guide
 - [x] 26.14 Manual verification on the live desktop
+- [x] 26.15 Community rules in `windows/rules-v2.toml` with `action`, floating
+      dialogs and installers; `rules.toml` frozen for older versions; the daemon
+      and `mosaico doctor` warn when `user-rules.toml` still uses `manage`

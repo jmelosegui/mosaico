@@ -2,9 +2,9 @@ use std::rc::Rc;
 use std::sync::mpsc;
 
 use mosaico_core::bar::BarManager;
-use mosaico_core::config::ConfigStore;
+use mosaico_core::config::{ConfigStore, manage_deprecation};
 use mosaico_core::tiler::{Enumerator, HiddenFile};
-use mosaico_core::tray::TrayPaths;
+use mosaico_core::tray::{TrayNotice, TrayPaths};
 use mosaico_core::update::Installer;
 use mosaico_core::{Instance, Result};
 
@@ -108,6 +108,7 @@ pub(super) fn daemon_loop(pipe_name: &str, store: &ConfigStore) -> Result<()> {
     if let Some(e) = inputs.sink_error() {
         mosaico_core::log_error!("Display and work area changes will not be noticed: {e}");
     }
+    warn_of_manage_rules(store, &inputs);
 
     // Bridge: forward window events into the unified channel.
     let event_bridge = daemon_threads::spawn_event_bridge(event_channel_rx, event_tx);
@@ -157,6 +158,17 @@ pub(super) fn daemon_loop(pipe_name: &str, store: &ConfigStore) -> Result<()> {
     let _ = ipc_thread.join();
 
     Ok(())
+}
+
+/// Warns, in the log and beside the tray icon, when the user's rules
+/// still use `manage`, which a future version will stop reading.
+fn warn_of_manage_rules(store: &ConfigStore, inputs: &Inputs) {
+    let count = store.user_rules_using_manage();
+    if count == 0 {
+        return;
+    }
+    mosaico_core::log_warn!("{}", manage_deprecation("user-rules.toml", count));
+    inputs.notify(&TrayNotice::manage_deprecated(count));
 }
 
 /// What the tray icon opens: the settings app beside the running

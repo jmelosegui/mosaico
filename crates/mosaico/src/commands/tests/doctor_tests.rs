@@ -141,3 +141,33 @@ fn doctor_reports_the_bar_clicks_right_after_the_bar_toml_check() {
     assert!(h.out().contains(&expected), "{}", h.out());
     assert_eq!(exit, Exit::Success);
 }
+
+#[test]
+fn user_rules_that_use_manage_get_a_warning_that_says_what_to_write() {
+    // Arrange
+    let h = Harness::new("doctor-manage-rules");
+    std::fs::create_dir_all(h.config.dir()).unwrap();
+    let rules = "[[rule]]\nmatch_class = \"A\"\nmanage = false\n";
+    std::fs::write(h.config.user_rules_path(), rules).unwrap();
+
+    // Act
+    let line = manage_rules_line(&h.config);
+    std::fs::write(
+        h.config.user_rules_path(),
+        rules.replace("manage = false", "action = \"ignore\""),
+    )
+    .unwrap();
+    let updated = manage_rules_line(&h.config);
+    let _ = std::fs::remove_dir_all(h.config.dir());
+
+    // Assert
+    let line = line.unwrap();
+    assert!(
+        line.starts_with(&format!(
+            "  {WARN} 1 rule(s) in user-rules.toml use `manage`"
+        )),
+        "{line}"
+    );
+    assert!(line.contains("`action = \"tile\"`"), "{line}");
+    assert_eq!(updated, None);
+}
