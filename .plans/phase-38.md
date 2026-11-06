@@ -1,6 +1,6 @@
 # Phase 38: Launch Applications from Keybindings
 
-**Status:** In Progress
+**Status:** Complete
 
 **Goal:** Let a key combination start an application, such as Alt+Shift+B for
 the browser or Alt+Enter for a terminal, and, when the user asks for it, bring
