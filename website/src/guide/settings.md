@@ -237,7 +237,7 @@ action, the command and the keys, so `alt+j` or `float` narrows the list.
 
 Applying changes only the keys you edited: comments, blank lines, the order
 and the line endings of `keybindings.toml` are kept. The daemon picks the new
-keys up as it does when you edit the file by hand.
+keys up at once, as it does when you edit the file by hand.
 
 The **Applications** tab lists the shortcuts that start a program
 (see [Launching Applications](keybindings.md#launching-applications)).

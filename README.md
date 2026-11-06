@@ -94,8 +94,8 @@ Configuration files live in `~/.config/mosaico/`:
 | `rules.toml` | Community window rules (auto-downloaded) |
 | `user-rules.toml` | Personal rule overrides; take priority over `rules.toml` |
 
-Changes to `config.toml`, `bar.toml`, and `user-rules.toml` are
-hot-reloaded automatically. Keybinding changes require a daemon restart.
+Changes to `config.toml`, `bar.toml`, `user-rules.toml` and
+`keybindings.toml` are hot-reloaded automatically.
 
 Run `mosaico init` to create the default configuration files. The daemon
 also writes any that are missing when it starts.

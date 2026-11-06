@@ -2,7 +2,7 @@ use std::sync::mpsc::Sender;
 
 use mosaico_core::config::{ConfigReload, ConfigReloader, ConfigStore, Keybinding, LaunchBinding};
 use mosaico_core::event::{EventSource, EventWatch, FocusFollowsMouse};
-use mosaico_core::hotkey::{HotkeySource, HotkeyWatch, Target};
+use mosaico_core::hotkey::{HotkeyListener, Target};
 use mosaico_core::tray::{Shortcuts, Tray, TrayCommand, TrayNotice, TrayPaths};
 use mosaico_core::{Config, Error, Result, WindowEvent};
 
@@ -29,14 +29,13 @@ pub(super) struct Senders {
 /// pointer and the tray icon, each on a thread of its own.
 pub(super) struct Inputs {
     events: EventWatch,
-    hotkeys: HotkeyWatch,
+    /// The hotkeys, with the launch bindings a [`Target::Launch`] counts
+    /// in.
+    hotkeys: HotkeyListener<WindowsHotkeySource>,
     focus_follows_mouse: FocusFollowsMouse,
     tray: Tray,
     tray_paths: TrayPaths,
     reloader: ConfigReloader,
-    /// The launch bindings the hotkeys were registered with, which a
-    /// [`Target::Launch`] counts in.
-    launches: Vec<LaunchBinding>,
     launcher: ShellLauncher,
 }
 
@@ -55,7 +54,8 @@ impl Inputs {
         tray_paths: TrayPaths,
     ) -> Result<Self> {
         let watch = WindowsEventSource.start(senders.events.clone())?;
-        let hotkeys = WindowsHotkeySource.start(keybindings, launches.clone(), senders.presses)?;
+        let hotkeys =
+            HotkeyListener::start(WindowsHotkeySource, keybindings, launches, senders.presses)?;
         let version = env!("CARGO_PKG_VERSION");
         let mut inputs = Self {
             events: watch,
@@ -64,7 +64,6 @@ impl Inputs {
             tray: Tray::new(WindowsTraySource, senders.tray, version),
             tray_paths,
             reloader: ConfigReloader::new(store),
-            launches,
             launcher: ShellLauncher::current(),
         };
         inputs.set_focus_follows_mouse(config.mouse.focus_follows_mouse);
@@ -75,9 +74,31 @@ impl Inputs {
     /// The launch binding a [`Target::Launch`] with `index` names, and
     /// what starts its program.
     pub(super) fn launch(&self, index: usize) -> Option<(&LaunchBinding, &ShellLauncher)> {
-        self.launches
-            .get(index)
+        self.hotkeys
+            .launch(index)
             .map(|binding| (binding, &self.launcher))
+    }
+
+    /// Registers `keybindings` and `launches` in place of the hotkeys in
+    /// use, as `keybindings.toml` now says. A pause carries over.
+    pub(super) fn reload_hotkeys(
+        &mut self,
+        keybindings: Vec<Keybinding>,
+        launches: Vec<LaunchBinding>,
+    ) {
+        let counts = (keybindings.len(), launches.len());
+        match self.hotkeys.restart(keybindings, launches) {
+            Ok(()) => mosaico_core::log_info!(
+                "Hotkeys reloaded: {} keybindings, {} launch bindings",
+                counts.0,
+                counts.1
+            ),
+            Err(e) => {
+                mosaico_core::log_error!("Could not reload the hotkeys: {e}");
+                let notice = TrayNotice::new("Hotkeys not reloaded", e.to_string());
+                self.tray.notify(&notice);
+            }
+        }
     }
 
     /// Why display and work area changes will not be noticed, when the

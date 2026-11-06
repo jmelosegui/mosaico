@@ -29,8 +29,8 @@ via global keyboard shortcuts.
   with multiple flavors each.
 - **Pause / unpause hotkeys** -- `Alt + Shift + P` releases every Mosaico
   shortcut so full-screen applications can claim the same combinations.
-- **Hot-reload** -- changes to `config.toml`, `bar.toml`, and
-  `user-rules.toml` are applied without restarting.
+- **Hot-reload** -- changes to `config.toml`, `bar.toml`,
+  `user-rules.toml` and `keybindings.toml` are applied without restarting.
 - **Window rules** -- community-maintained rules plus user overrides to
   exclude specific applications from tiling.
 

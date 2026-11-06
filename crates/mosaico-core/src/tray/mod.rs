@@ -150,7 +150,7 @@ impl TrayNotice {
     pub fn reloaded() -> Self {
         Self::new(
             "Config reloaded",
-            "Changes to keybindings take effect when mosaico restarts.",
+            "Every config file, keybindings included, is in use.",
         )
     }
 }

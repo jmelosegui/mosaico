@@ -7,7 +7,7 @@ mod test_support;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
-use super::{BarConfig, Config, ConfigStore, WindowRule};
+use super::{BarConfig, Config, ConfigStore, Keybinding, LaunchBinding, WindowRule};
 
 pub use run::ConfigWatch;
 
@@ -22,6 +22,14 @@ pub enum ConfigReload {
     Rules(Vec<WindowRule>),
     /// Bar configuration changed.
     Bar(Box<BarConfig>),
+    /// `keybindings.toml` changed: the keybindings it holds, and the
+    /// launch bindings that could be read, in the order of the file.
+    Keybindings {
+        /// The keybindings of the file.
+        bindings: Vec<Keybinding>,
+        /// The launch bindings of the file that could be read.
+        launches: Vec<LaunchBinding>,
+    },
     /// `file` changed but does not load, for `reason`, so what is in use
     /// stays. Reported so the user hears of it, not only the log.
     Invalid {
@@ -37,20 +45,20 @@ pub enum ConfigReload {
 ///
 /// What a change to each file does:
 ///
-/// - `config.toml` and `bar.toml` are loaded again and reloaded only when
-///   they load. A file that does not is reported as
+/// - `config.toml`, `bar.toml` and `keybindings.toml` are loaded again and
+///   reloaded only when they load. A file that does not is reported as
 ///   [`ConfigReload::Invalid`] and skipped, so the config in use stays
 ///   until the file is fixed. One that was deleted or cannot be read is
 ///   skipped without a report, since some editors delete a file before
 ///   they write it again or hold it while they write it, and the write
-///   that ends it is a change of its own.
+///   that ends it is a change of its own. A launch binding of
+///   `keybindings.toml` that cannot be read is logged and left out, as at
+///   startup, and the others are reloaded.
 /// - `user-rules.toml` reloads the whole rule set, user rules first. A
 ///   file that does not load counts as no user rules, as at startup.
 /// - `rules.toml` is not watched. It holds the community rules, which the
 ///   daemon downloads at startup and reloads itself, and the next download
 ///   overwrites hand edits anyway. Edit `user-rules.toml` instead.
-/// - `keybindings.toml` is not watched: hotkeys are registered once, at
-///   startup, so a change needs a restart.
 ///
 /// A file has changed when its modification time differs from the last
 /// one seen, including when the file appears or disappears. Content alone
@@ -62,7 +70,7 @@ pub struct ConfigReloader {
     store: ConfigStore,
     /// Each watched file with the modification time last seen, in the
     /// order they are checked.
-    files: [(Watched, Option<SystemTime>); 3],
+    files: [(Watched, Option<SystemTime>); 4],
 }
 
 /// A file that is reloaded when it changes.
@@ -71,17 +79,19 @@ enum Watched {
     Config,
     UserRules,
     Bar,
+    Keybindings,
 }
 
 impl Watched {
     /// Every watched file, in the order they are checked.
-    const ALL: [Self; 3] = [Self::Config, Self::UserRules, Self::Bar];
+    const ALL: [Self; 4] = [Self::Config, Self::UserRules, Self::Bar, Self::Keybindings];
 
     fn path(self, store: &ConfigStore) -> PathBuf {
         match self {
             Self::Config => store.config_path(),
             Self::UserRules => store.user_rules_path(),
             Self::Bar => store.bar_path(),
+            Self::Keybindings => store.keybindings_path(),
         }
     }
 
@@ -90,6 +100,7 @@ impl Watched {
             Self::Config => "config.toml",
             Self::UserRules => "user-rules.toml",
             Self::Bar => "bar.toml",
+            Self::Keybindings => "keybindings.toml",
         }
     }
 }
@@ -103,7 +114,8 @@ impl ConfigReloader {
     }
 
     /// Loads each watched file that changed since it was last seen, in the
-    /// order `config.toml`, `user-rules.toml`, `bar.toml`.
+    /// order `config.toml`, `user-rules.toml`, `bar.toml`,
+    /// `keybindings.toml`.
     ///
     /// Files are checked as the iterator reaches them, so a file it does
     /// not reach is still pending on the next call. A change counts as
@@ -114,8 +126,9 @@ impl ConfigReloader {
     }
 
     /// Loads every watched file now, changed or not, in the order
-    /// `config.toml`, `user-rules.toml`, `bar.toml`, as when the user asks
-    /// for the config to be reloaded. Each counts as seen as it is now.
+    /// `config.toml`, `user-rules.toml`, `bar.toml`, `keybindings.toml`, as
+    /// when the user asks for the config to be reloaded. Each counts as
+    /// seen as it is now.
     pub fn load_all(&mut self) -> Vec<ConfigReload> {
         for (file, seen) in &mut self.files {
             *seen = modified(&file.path(&self.store));
@@ -157,6 +170,7 @@ impl ConfigReloader {
                 .store
                 .try_load_bar()
                 .map(|bar| ConfigReload::Bar(Box::new(bar))),
+            Watched::Keybindings => self.load_keybindings(),
         };
         match loaded {
             Ok(reload) => {
@@ -176,6 +190,23 @@ impl ConfigReloader {
                 })
             }
         }
+    }
+
+    /// The keybindings and launch bindings of `keybindings.toml`, leaving
+    /// out, with a warning, each launch binding that cannot be read.
+    fn load_keybindings(&self) -> crate::Result<ConfigReload> {
+        let bindings = self.store.try_load_keybindings()?;
+        let launches = self
+            .store
+            .try_load_launches()?
+            .into_iter()
+            .filter_map(|launch| {
+                launch
+                    .inspect_err(|e| crate::log_warn!("keybindings.toml: {e}"))
+                    .ok()
+            })
+            .collect();
+        Ok(ConfigReload::Keybindings { bindings, launches })
     }
 }
 

@@ -516,10 +516,11 @@ examples. Existing files are not overwritten.
 
 ## Hot-Reload
 
-Changes to `config.toml`, `user-rules.toml`, and `bar.toml` are automatically
-detected and applied while the daemon is running. The config file watcher
+Changes to `config.toml`, `user-rules.toml`, `bar.toml` and
+`keybindings.toml` are automatically detected and applied while the daemon
+is running. The config file watcher
 (see [daemon.md](daemon.md)) waits for the platform to report a change in
-the config directory, then reloads each of the three files whose
+the config directory, then reloads each of the four files whose
 modification time changed. `ConfigReloader` and `ConfigWatch`
 (`mosaico_core::config`) make these decisions, so every platform reloads the
 same way.
@@ -568,11 +569,17 @@ same way.
   again, with the new `[mouse]` settings, so a press or wheel turns made on
   the old ones are dropped, and each `[[mouse.click]]` entry the new file
   has that a bar cannot run is logged.
-- **keybindings.toml**: **not** hot-reloaded. Hotkey changes require a daemon
-  restart because `RegisterHotKey` binds at the Win32 thread level.
+- **keybindings.toml**: sent as `ConfigReload::Keybindings` with the
+  keybindings and the launch bindings that could be read (one that cannot is
+  logged and left out, as at startup). The daemon hands them to
+  `HotkeyListener::restart` (`mosaico_core::hotkey`), which stops the
+  `HotkeySource`, so every hotkey is given back, starts it with the new
+  bindings, and pauses it again when the hotkeys were paused. A
+  `Target::Launch` then counts in the new launch bindings. Missing default
+  actions are appended to the file only at startup.
 
-Only valid configurations are applied. If a change to `config.toml` or
-`bar.toml` introduces a parse error, the watcher logs it
+Only valid configurations are applied. If a change to `config.toml`,
+`bar.toml` or `keybindings.toml` introduces a parse error, the watcher logs it
 (`config.toml invalid, skipping: ...`) and keeps the current config until the
 file changes again. `user-rules.toml` is different: a file that does not
 parse counts as no user rules, as it does at startup, so the community rules
