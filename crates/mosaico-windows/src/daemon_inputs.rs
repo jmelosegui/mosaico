@@ -1,14 +1,16 @@
 use std::sync::mpsc::Sender;
 
-use mosaico_core::config::{ConfigReload, ConfigReloader, ConfigStore, Keybinding};
+use mosaico_core::config::{ConfigReload, ConfigReloader, ConfigStore, Keybinding, LaunchBinding};
 use mosaico_core::event::{EventSource, EventWatch, FocusFollowsMouse};
-use mosaico_core::hotkey::{HotkeySource, HotkeyWatch};
+use mosaico_core::hotkey::{HotkeyListener, Target};
+use mosaico_core::tiler::Launched;
 use mosaico_core::tray::{Shortcuts, Tray, TrayCommand, TrayNotice, TrayPaths};
-use mosaico_core::{Action, Config, Error, Result, WindowEvent};
+use mosaico_core::{Config, Error, Result, WindowEvent};
 
 use crate::event_source::WindowsEventSource;
 use crate::files::WindowsFiles;
 use crate::hotkey_thread::WindowsHotkeySource;
+use crate::launcher::ShellLauncher;
 use crate::opener::ShellOpener;
 use crate::pointer::WindowsPointer;
 use crate::process::WindowsProcesses;
@@ -18,8 +20,8 @@ use crate::tray::WindowsTraySource;
 pub(super) struct Senders {
     /// Window events.
     pub(super) events: Sender<WindowEvent>,
-    /// The actions of hotkeys.
-    pub(super) actions: Sender<Action>,
+    /// What the presses of hotkeys ask for.
+    pub(super) presses: Sender<Target>,
     /// What the user picks on the tray icon.
     pub(super) tray: Sender<TrayCommand>,
 }
@@ -28,28 +30,33 @@ pub(super) struct Senders {
 /// pointer and the tray icon, each on a thread of its own.
 pub(super) struct Inputs {
     events: EventWatch,
-    hotkeys: HotkeyWatch,
+    /// The hotkeys, with the launch bindings a [`Target::Launch`] counts
+    /// in.
+    hotkeys: HotkeyListener<WindowsHotkeySource>,
     focus_follows_mouse: FocusFollowsMouse,
     tray: Tray,
     tray_paths: TrayPaths,
     reloader: ConfigReloader,
+    launcher: ShellLauncher,
 }
 
 impl Inputs {
-    /// Starts sending window events, the actions of `keybindings` and
-    /// what the user picks on the tray icon to `senders`, with
-    /// focus-follows-mouse and the icon as `config` says. The icon's
+    /// Starts sending window events, the presses of `keybindings` and
+    /// `launches` and what the user picks on the tray icon to `senders`,
+    /// with focus-follows-mouse and the icon as `config` says. The icon's
     /// menu opens what `tray_paths` names and reloads the files of
     /// `store`.
     pub(super) fn start(
         senders: Senders,
         keybindings: Vec<Keybinding>,
+        launches: Vec<LaunchBinding>,
         config: &Config,
         store: ConfigStore,
         tray_paths: TrayPaths,
     ) -> Result<Self> {
         let watch = WindowsEventSource.start(senders.events.clone())?;
-        let hotkeys = WindowsHotkeySource.start(keybindings, senders.actions)?;
+        let hotkeys =
+            HotkeyListener::start(WindowsHotkeySource, keybindings, launches, senders.presses)?;
         let version = env!("CARGO_PKG_VERSION");
         let mut inputs = Self {
             events: watch,
@@ -58,10 +65,41 @@ impl Inputs {
             tray: Tray::new(WindowsTraySource, senders.tray, version),
             tray_paths,
             reloader: ConfigReloader::new(store),
+            launcher: ShellLauncher::current(),
         };
         inputs.set_focus_follows_mouse(config.mouse.focus_follows_mouse);
         inputs.set_tray_enabled(config.tray.enabled);
         Ok(inputs)
+    }
+
+    /// The launch binding a [`Target::Launch`] with `index` names, and
+    /// what starts its program.
+    pub(super) fn launch(&self, index: usize) -> Option<(&LaunchBinding, &ShellLauncher)> {
+        self.hotkeys
+            .launch(index)
+            .map(|binding| (binding, &self.launcher))
+    }
+
+    /// Registers `keybindings` and `launches` in place of the hotkeys in
+    /// use, as `keybindings.toml` now says. A pause carries over.
+    pub(super) fn reload_hotkeys(
+        &mut self,
+        keybindings: Vec<Keybinding>,
+        launches: Vec<LaunchBinding>,
+    ) {
+        let counts = (keybindings.len(), launches.len());
+        match self.hotkeys.restart(keybindings, launches) {
+            Ok(()) => mosaico_core::log_info!(
+                "Hotkeys reloaded: {} keybindings, {} launch bindings",
+                counts.0,
+                counts.1
+            ),
+            Err(e) => {
+                mosaico_core::log_error!("Could not reload the hotkeys: {e}");
+                let notice = TrayNotice::new("Hotkeys not reloaded", e.to_string());
+                self.tray.notify(&notice);
+            }
+        }
     }
 
     /// Why display and work area changes will not be noticed, when the
@@ -104,6 +142,12 @@ impl Inputs {
     /// Shows `notice` beside the tray icon, when it is shown.
     pub(super) fn notify(&self, notice: &TrayNotice) {
         self.tray.notify(notice);
+    }
+
+    /// Tells what a press of `binding` did, as [`Tray::report_launch`]
+    /// does.
+    pub(super) fn report_launch(&self, binding: &LaunchBinding, outcome: &Result<Launched>) {
+        self.tray.report_launch(binding, outcome);
     }
 
     /// What the tray icon's menu opens, and how.

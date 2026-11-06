@@ -1,13 +1,13 @@
 //! Which hotkeys are registered when: at the start, while paused and at
 //! the end.
 
-use crate::config::Keybinding;
-use crate::{Action, Error};
+use crate::config::{Keybinding, LaunchBinding};
+use crate::{Action, Error, Result};
 
-use super::{HotkeyId, HotkeyRegistrar, KeyCombo, Rejected};
+use super::{HotkeyId, HotkeyRegistrar, KeyCombo, Rejected, Target};
 
-/// The hotkeys of the configured keybindings, and the rule for pausing
-/// them.
+/// The hotkeys of the configured keybindings and launch bindings, and the
+/// rule for pausing them.
 ///
 /// Pausing gives every hotkey back to the applications except the ones
 /// bound to `toggle-pause`, so the user can still unpause from the
@@ -23,7 +23,9 @@ pub struct Hotkeys<R: HotkeyRegistrar> {
 struct Hotkey {
     id: HotkeyId,
     combo: KeyCombo,
-    action: Action,
+    target: Target,
+    /// What the binding does, for the reasons it is rejected.
+    name: String,
     /// Whether the registrar holds it right now.
     registered: bool,
 }
@@ -31,63 +33,91 @@ struct Hotkey {
 impl Hotkey {
     /// Whether it stays registered while paused, to unpause with.
     fn survives_pause(&self) -> bool {
-        self.action == Action::TogglePause
+        self.target == Target::Action(Action::TogglePause)
     }
 
     fn rejected(&self, error: Error) -> Rejected {
-        Rejected::new(self.action, Some(self.combo), error)
+        Rejected::new(self.name.clone(), Some(self.combo), error)
     }
 }
 
 impl<R: HotkeyRegistrar> Hotkeys<R> {
-    /// Registers the hotkeys of `bindings` through `registrar`.
+    /// Registers the hotkeys of `bindings` and then of `launches` through
+    /// `registrar`.
     ///
     /// A binding whose key name is unknown, or whose combination cannot
     /// be registered, is left out and returned with the reason. The other
-    /// bindings work all the same.
-    pub fn register(registrar: R, bindings: &[Keybinding]) -> (Self, Vec<Rejected>) {
+    /// bindings work all the same, so of two bindings with the same
+    /// combination, the first one wins.
+    pub fn register(
+        registrar: R,
+        bindings: &[Keybinding],
+        launches: &[LaunchBinding],
+    ) -> (Self, Vec<Rejected>) {
         let mut hotkeys = Self {
             registrar,
             hotkeys: Vec::new(),
             paused: false,
         };
-        let rejected = bindings
+        let actions = bindings.iter().map(|binding| {
+            let target = Target::Action(binding.action);
+            (target, binding.action.to_string(), binding.combo())
+        });
+        let launches = launches
             .iter()
             .enumerate()
-            .filter_map(|(position, binding)| hotkeys.add(position, binding).err())
+            .map(|(index, launch)| (Target::Launch(index), launch.name(), launch.combo()));
+        let rejected = actions
+            .chain(launches)
+            .enumerate()
+            .filter_map(|(position, (target, name, combo))| {
+                hotkeys.add(position, target, name, combo).err()
+            })
             .collect();
         (hotkeys, rejected)
     }
 
-    /// Registers the binding at `position` in the configuration.
-    fn add(&mut self, position: usize, binding: &Keybinding) -> Result<(), Rejected> {
-        let action = binding.action;
-        let combo = binding
-            .combo()
-            .map_err(|error| Rejected::new(action, None, error))?;
-        let rejected = |error| Rejected::new(action, Some(combo), error);
-        let id = u16::try_from(position + 1)
-            .map(HotkeyId::from_raw)
-            .map_err(|_| rejected(Error::config(None, "too many keybindings to register")))?;
-        self.registrar.register(id, combo).map_err(rejected)?;
+    /// Registers the binding at `position` among all the bindings.
+    fn add(
+        &mut self,
+        position: usize,
+        target: Target,
+        name: String,
+        combo: Result<KeyCombo>,
+    ) -> std::result::Result<(), Rejected> {
+        let combo = match combo {
+            Ok(combo) => combo,
+            Err(error) => return Err(Rejected::new(name, None, error)),
+        };
+        let id = match u16::try_from(position + 1) {
+            Ok(raw) => HotkeyId::from_raw(raw),
+            Err(_) => {
+                let error = Error::config(None, "too many keybindings to register");
+                return Err(Rejected::new(name, Some(combo), error));
+            }
+        };
+        if let Err(error) = self.registrar.register(id, combo) {
+            return Err(Rejected::new(name, Some(combo), error));
+        }
         self.hotkeys.push(Hotkey {
             id,
             combo,
-            action,
+            target,
+            name,
             registered: true,
         });
         Ok(())
     }
 
-    /// The action to run for a press of the hotkey registered with `id`.
+    /// What to do for a press of the hotkey registered with `id`.
     ///
     /// `None` when `id` is not one of these hotkeys and, while paused, for
     /// the hotkeys the pause gave back, even for a press that was already
     /// on its way when the pause came. A hotkey that is still registered
     /// while paused, such as `toggle-pause`, keeps running its action.
-    pub fn triggered(&self, id: HotkeyId) -> Option<Action> {
+    pub fn triggered(&self, id: HotkeyId) -> Option<Target> {
         let hotkey = self.hotkeys.iter().find(|hotkey| hotkey.id == id)?;
-        (!self.paused || hotkey.registered).then_some(hotkey.action)
+        (!self.paused || hotkey.registered).then_some(hotkey.target)
     }
 
     /// Whether the hotkeys are paused.

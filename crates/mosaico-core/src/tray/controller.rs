@@ -2,6 +2,10 @@
 
 use std::sync::mpsc::Sender;
 
+use crate::Result;
+use crate::config::LaunchBinding;
+use crate::tiler::Launched;
+
 use super::{TrayCommand, TrayNotice, TraySource, TrayState, TrayWatch};
 
 /// The icon of a running daemon: shown while the config enables it, and
@@ -75,6 +79,20 @@ impl Tray {
             && let Err(e) = watch.notify(notice)
         {
             crate::log_warn!("Could not show a tray notification: {e}");
+        }
+    }
+
+    /// Tells what a press of `binding` did, which `outcome` says. Nobody
+    /// waits for the answer of a hotkey, so it is logged, and a program
+    /// that could not be started is also told beside the icon, when it is
+    /// shown.
+    pub fn report_launch(&self, binding: &LaunchBinding, outcome: &Result<Launched>) {
+        match outcome {
+            Ok(launched) => crate::log_info!("{}: {launched}", binding.name()),
+            Err(e) => {
+                crate::log_warn!("{}: {e}", binding.name());
+                self.notify(&TrayNotice::not_started(&binding.command, e));
+            }
         }
     }
 

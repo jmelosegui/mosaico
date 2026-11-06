@@ -41,6 +41,8 @@ mod empty_focus_tests;
 mod event_tests;
 #[path = "tests/fake_desktop.rs"]
 pub(super) mod fake_desktop;
+#[path = "tests/fake_launcher.rs"]
+mod fake_launcher;
 #[path = "tests/fake_platform.rs"]
 pub(super) mod fake_platform;
 #[path = "tests/fallback_tests.rs"]
@@ -69,6 +71,8 @@ mod manager_config_tests;
 mod manager_daemon_tests;
 #[path = "tests/manager_focus_tests.rs"]
 mod manager_focus_tests;
+#[path = "tests/manager_launch_tests.rs"]
+mod manager_launch_tests;
 #[path = "tests/manager_record_tests.rs"]
 mod manager_record_tests;
 #[path = "tests/manager_support.rs"]

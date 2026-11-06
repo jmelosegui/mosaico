@@ -1,13 +1,15 @@
-//! Where the actions of the hotkeys come from.
+//! Where the presses of the hotkeys come from.
 
 use std::sync::mpsc::Sender;
 
-use crate::config::Keybinding;
-use crate::{Action, Result};
+use crate::Result;
+use crate::config::{Keybinding, LaunchBinding};
 
-/// Registers the hotkeys of the keybindings and sends the action of each
-/// press, the way [`EventSource`](crate::event::EventSource) sends window
-/// events.
+use super::Target;
+
+/// Registers the hotkeys of the keybindings and launch bindings and sends
+/// what each press asks for, the way
+/// [`EventSource`](crate::event::EventSource) sends window events.
 ///
 /// # Contract for platform implementations
 ///
@@ -18,22 +20,28 @@ use crate::{Action, Result};
 /// - A binding that cannot be registered is logged with the reason and
 ///   left out, and the others work. `start` fails, and sends nothing,
 ///   only when the platform cannot watch hotkeys at all.
-/// - The action of every press that
+/// - The [`Target`] of every press that
 ///   [`Hotkeys::triggered`](super::Hotkeys::triggered) lets through is
-///   sent to `actions`, in the order of the presses.
+///   sent to `presses`, in the order of the presses. A
+///   [`Target::Launch`] counts in `launches` as given to `start`.
 /// - [`HotkeyWatch::pause`] and [`HotkeyWatch::unpause`] return without
 ///   waiting. The source pauses and unpauses in the order it was asked
 ///   to, and logs the hotkeys that [`Hotkeys::pause`](super::Hotkeys::pause)
 ///   and [`Hotkeys::unpause`](super::Hotkeys::unpause) report.
 /// - Once the watch has stopped, nothing more is sent, every hotkey has
-///   been given back and the source has dropped `actions`, so a loop over
+///   been given back and the source has dropped `presses`, so a loop over
 ///   the receiver ends. A receiver that went away is not an error:
-///   actions are dropped until the watch stops. `start` may be called
+///   presses are dropped until the watch stops. `start` may be called
 ///   again after a watch stopped.
 pub trait HotkeySource {
-    /// Registers `bindings`, starts sending the actions of their presses
-    /// to `actions`, and returns once they are registered.
-    fn start(&self, bindings: Vec<Keybinding>, actions: Sender<Action>) -> Result<HotkeyWatch>;
+    /// Registers `bindings` and `launches`, starts sending what their
+    /// presses ask for to `presses`, and returns once they are registered.
+    fn start(
+        &self,
+        bindings: Vec<Keybinding>,
+        launches: Vec<LaunchBinding>,
+        presses: Sender<Target>,
+    ) -> Result<HotkeyWatch>;
 }
 
 /// How a platform pauses, unpauses and stops the hotkeys it started.

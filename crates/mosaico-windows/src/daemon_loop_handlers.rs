@@ -95,6 +95,9 @@ pub(super) fn handle_reload(
             }
             bar_mgr.update(&manager.bar_states(&get_update(), hotkeys_paused));
         }
+        mosaico_core::config::ConfigReload::Keybindings { bindings, launches } => {
+            inputs.reload_hotkeys(bindings, launches);
+        }
         mosaico_core::config::ConfigReload::Invalid { file, reason } => {
             inputs.notify(&TrayNotice::invalid_config(file, &reason));
         }

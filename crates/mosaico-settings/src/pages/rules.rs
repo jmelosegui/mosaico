@@ -3,7 +3,7 @@
 
 mod community;
 mod editor;
-mod row;
+pub(super) mod row;
 mod state;
 
 use eframe::egui::{Align, Layout, Rect, RichText, Sense, Ui, vec2};

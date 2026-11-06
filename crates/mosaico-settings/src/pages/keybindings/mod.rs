@@ -1,6 +1,9 @@
-//! The Keybindings page: the hotkeys of `keybindings.toml`, each with
-//! the keys that trigger it.
+//! The Keybindings page: the hotkeys of `keybindings.toml`, in two tabs.
+//! Actions holds the actions of mosaico, each on the keys that trigger
+//! it; Applications holds the programs keys start.
 
+mod app_editor;
+mod apps;
 mod banner;
 mod capture;
 mod edits;
@@ -9,24 +12,40 @@ pub(super) mod labels;
 mod row;
 mod rows;
 
-use eframe::egui::{RichText, Ui};
-use mosaico_core::config::{ConfigStore, Keybinding, KeybindingsDocument, Modifier, keybinding};
+use eframe::egui::Ui;
+use mosaico_core::config::{
+    ConfigStore, Keybinding, KeybindingsDocument, LaunchBinding, Modifier, keybinding,
+};
 
+use self::app_editor::Editor;
 use self::banner::Choice;
-use self::capture::Pressed;
-use self::row::Click;
 use super::{FilePage, Page};
 use crate::theme::Colors;
 use crate::widgets;
 
 const PROMPT: &str = "Press the new shortcut";
 
+/// The tabs, in order.
+const TABS: [&str; 2] = ["Actions", "Applications"];
+const APPS: usize = 1;
+
+/// A row of the page: a keybinding or a launch binding, by its position
+/// among its kind in the file.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Row {
+    Action(usize),
+    Launch(usize),
+}
+
+/// A launch binding as the file holds it, or why it cannot be read.
+type Launch = Result<LaunchBinding, String>;
+
 /// A shortcut pressed that another binding already has.
 struct Pending {
     key: String,
     modifiers: Vec<Modifier>,
     /// The bindings that have it.
-    others: Vec<usize>,
+    others: Vec<Row>,
     /// The shortcut as the banner says it: `Alt Shift H`.
     shortcut: String,
     /// What the other bindings do.
@@ -45,9 +64,17 @@ pub struct KeybindingsPage {
     current: Vec<Keybinding>,
     /// For each binding, what else its combination is bound to.
     clashes: Vec<Option<String>>,
+    /// The launch bindings as the file holds them.
+    saved_launches: Vec<Launch>,
+    /// The launch bindings with the edits made so far.
+    launches: Vec<Launch>,
+    /// For each launch binding, what else its combination is bound to.
+    launch_clashes: Vec<Option<String>>,
+    /// The launch binding whose editor is open.
+    editing: Option<Editor>,
     defaults: Vec<Keybinding>,
-    /// The binding waiting for a key press.
-    capturing: Option<usize>,
+    /// The row waiting for a key press.
+    capturing: Option<Row>,
     /// Why the last key press was not taken.
     refused: Option<String>,
     /// A shortcut pressed that is bound already, waiting for the user to
@@ -55,6 +82,8 @@ pub struct KeybindingsPage {
     pending: Option<Pending>,
     /// What the filter field holds.
     filter: String,
+    /// The tab shown, an index into `TABS`.
+    tab: usize,
 }
 
 impl KeybindingsPage {
@@ -67,11 +96,16 @@ impl KeybindingsPage {
             saved: Vec::new(),
             current: Vec::new(),
             clashes: Vec::new(),
+            saved_launches: Vec::new(),
+            launches: Vec::new(),
+            launch_clashes: Vec::new(),
+            editing: None,
             defaults: keybinding::defaults(),
             capturing: None,
             refused: None,
             pending: None,
             filter: String::new(),
+            tab: 0,
         };
         page.load();
         page
@@ -81,12 +115,14 @@ impl KeybindingsPage {
         match self.store.open_keybindings() {
             Ok(doc) => {
                 self.saved = doc.bindings();
+                self.saved_launches = launches_of(&doc);
                 self.doc = Some(doc);
                 self.problem = None;
             }
             Err(e) => {
                 self.doc = None;
                 self.saved.clear();
+                self.saved_launches.clear();
                 self.problem = Some(e.to_string());
             }
         }
@@ -98,41 +134,63 @@ impl KeybindingsPage {
         let Some(doc) = &self.doc else {
             self.current.clear();
             self.clashes.clear();
+            self.launches.clear();
+            self.launch_clashes.clear();
             self.capturing = None;
+            self.editing = None;
             return;
         };
         self.current = doc.bindings();
+        self.launches = launches_of(doc);
         self.clashes = vec![None; self.current.len()];
+        self.launch_clashes = vec![None; self.launches.len()];
         for conflict in doc.conflicts() {
-            for &i in &conflict.bindings {
-                let others: Vec<_> = (conflict.bindings.iter().filter(|&&o| o != i))
-                    .filter_map(|&o| self.current.get(o))
-                    .map(|b| labels::label(b.action))
+            let rows = (conflict.bindings.iter().map(|&i| Row::Action(i)))
+                .chain(conflict.launches.iter().map(|&i| Row::Launch(i)));
+            let rows: Vec<Row> = rows.collect();
+            for &row in &rows {
+                let others: Vec<_> = (rows.iter().filter(|&&o| o != row))
+                    .map(|&o| self.owner(o))
                     .collect();
-                self.clashes[i] = Some(format!("Also bound to {}.", others.join(", ")));
+                let clash = Some(format!("Also bound to {}.", others.join(", ")));
+                match row {
+                    Row::Action(i) => self.clashes[i] = clash,
+                    Row::Launch(i) => self.launch_clashes[i] = clash,
+                }
             }
         }
-        if self.capturing.is_some_and(|i| i >= self.current.len()) {
+        let gone = |row| match row {
+            Row::Action(i) => i >= self.current.len(),
+            Row::Launch(i) => i >= self.launches.len(),
+        };
+        if self.capturing.is_some_and(gone) {
             self.capturing = None;
         }
-    }
-
-    fn take_key_press(&mut self, ui: &Ui) {
-        let Some(index) = self.capturing else { return };
-        let events = ui.input(|i| i.events.clone());
-        match capture::pressed(&events) {
-            None => {}
-            Some(Pressed::Cancel) => self.stop_capture(),
-            Some(Pressed::Refused(why)) => self.refused = Some(why.into()),
-            Some(Pressed::Combo { key, modifiers }) => self.bind(index, &key, &modifiers),
+        if self
+            .editing
+            .as_ref()
+            .is_some_and(|e| e.index >= self.launches.len())
+        {
+            self.editing = None;
         }
     }
 
-    fn stop_capture(&mut self) {
-        self.capturing = None;
-        self.refused = None;
-        self.pending = None;
+    /// What the binding of `row` does, as a clash names it.
+    fn owner(&self, row: Row) -> String {
+        match row {
+            Row::Action(i) => self.current.get(i).map(|b| labels::label(b.action)),
+            Row::Launch(i) => match self.launches.get(i) {
+                Some(Ok(launch)) => Some(apps::label(launch)),
+                _ => Some(format!("launch binding {}", i + 1)),
+            },
+        }
+        .unwrap_or_default()
     }
+}
+
+fn launches_of(doc: &KeybindingsDocument) -> Vec<Launch> {
+    let launches = doc.launches().into_iter();
+    launches.map(|l| l.map_err(|e| e.to_string())).collect()
 }
 
 /// The combination of `binding` as `Alt+Shift+J`, or what the file says
@@ -159,7 +217,7 @@ impl FilePage for KeybindingsPage {
         let dropped = (self.saved.iter())
             .filter(|was| !self.current.iter().any(|now| now.action == was.action))
             .count();
-        moved + dropped
+        moved + dropped + self.launch_changes()
     }
 
     fn problem(&self) -> Option<&str> {
@@ -167,62 +225,37 @@ impl FilePage for KeybindingsPage {
     }
 
     fn matches(&self, query: &str) -> usize {
-        (0..self.current.len())
-            .filter(|&i| self.row_matches(i, query))
-            .count()
+        let actions = (0..self.current.len()).filter(|&i| self.row_matches(i, query));
+        actions.count() + self.apps_matching(query)
     }
 
     fn show(&mut self, ui: &mut Ui, c: &Colors, query: &str) {
-        self.take_key_press(ui);
-        // A search of the window replaces the page's own filter.
+        // A search of the window shows both tabs, and replaces the filter.
         let searching = !query.trim().is_empty();
-        if !searching && header::draw(ui, c, &mut self.filter) {
-            self.restore_defaults();
+        if !searching {
+            widgets::tabs(ui, c, &TABS, &mut self.tab);
         }
-        let filter = if searching {
-            String::new()
-        } else {
-            self.filter.clone()
-        };
-        let mut clicked = None;
+        let apps = self.tab == APPS;
+        let shown = |row| searching || matches!(row, Row::Launch(_)) == apps;
+        // Only the tab showing the row waiting for a key takes the press.
+        if self.capturing.is_some_and(shown) {
+            self.take_key_press(ui);
+        }
         let mut chosen = Choice::Undecided;
-        let mut any = false;
-        for group in labels::GROUPS {
-            let mut shown: Vec<_> = (0..self.current.len())
-                .filter(|&i| labels::group(self.current[i].action) == group)
-                .filter(|&i| self.row_matches(i, query) && self.row_matches(i, &filter))
-                .collect();
-            shown.sort_by_key(|&i| labels::rank(self.current[i].action));
-            if shown.is_empty() {
-                continue;
-            }
-            any = true;
-            widgets::section(ui, c, group, |ui| {
-                for (n, &i) in shown.iter().enumerate() {
-                    if n > 0 {
-                        widgets::divider(ui, c);
-                    }
-                    let click = self.show_row(ui, c, i);
-                    if click != Click::Nothing {
-                        clicked = Some((i, click));
-                    }
-                    if let (Some(p), true) = (&self.pending, self.capturing == Some(i)) {
-                        chosen = banner::draw(ui, c, &p.shortcut, &p.owners);
-                    }
-                }
-            });
+        let mut clicked = None;
+        if searching || !apps {
+            clicked = self.show_actions(ui, c, query, &mut chosen);
         }
-        if !any && self.doc.is_some() {
-            let text = format!("No keybindings match \u{201c}{}\u{201d}.", filter.trim());
-            ui.label(RichText::new(text).color(c.dim_text));
+        if searching || apps {
+            clicked = clicked.or(self.show_apps(ui, c, query, &mut chosen));
         }
         match chosen {
             Choice::Undecided => {}
             Choice::Cancel => self.stop_capture(),
             Choice::Replace => self.replace(),
         }
-        if let Some((index, click)) = clicked {
-            self.click(index, click);
+        if let Some((row, click)) = clicked {
+            self.click(row, click);
         }
     }
 
@@ -240,15 +273,25 @@ impl FilePage for KeybindingsPage {
         }
         doc.save().map_err(|e| e.to_string())?;
         self.saved = doc.bindings();
+        self.saved_launches = launches_of(doc);
         Ok(())
     }
 
     fn revert(&mut self) {
         self.stop_capture();
+        self.editing = None;
         self.load();
     }
 
+    /// Follows the file while nothing is edited. An open editor stays
+    /// open, and starts over from the file when it changed under it.
     fn reload(&mut self) {
         self.load();
+        if let Some(editor) = &self.editing
+            && let Some(Ok(launch)) = self.launches.get(editor.index)
+            && editor.applied_to(launch) != *launch
+        {
+            self.editing = Some(Editor::of(editor.index, launch));
+        }
     }
 }

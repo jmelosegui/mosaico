@@ -2,16 +2,17 @@
 
 use std::fmt;
 
-use crate::{Action, Error};
+use crate::Error;
 
 use super::KeyCombo;
 
-/// A keybinding whose hotkey could not be registered, or could not be
-/// given back for a pause, and why.
+/// A binding whose hotkey could not be registered, or could not be given
+/// back for a pause, and why.
 #[derive(Debug)]
 pub struct Rejected {
-    /// The action it is bound to.
-    pub action: Action,
+    /// What the binding does, as the user knows it: its action, such as
+    /// `focus-down`, or `launch` and its command.
+    pub binding: String,
     /// Its key combination, unless the binding does not make one.
     pub combo: Option<KeyCombo>,
     /// What went wrong.
@@ -19,9 +20,9 @@ pub struct Rejected {
 }
 
 impl Rejected {
-    pub(super) fn new(action: Action, combo: Option<KeyCombo>, error: Error) -> Self {
+    pub(super) fn new(binding: String, combo: Option<KeyCombo>, error: Error) -> Self {
         Self {
-            action,
+            binding,
             combo,
             error,
         }
@@ -33,8 +34,8 @@ impl Rejected {
 impl fmt::Display for Rejected {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.combo {
-            Some(combo) => write!(f, "{combo} ({}): {}", self.action, self.error),
-            None => write!(f, "{}: {}", self.action, self.error),
+            Some(combo) => write!(f, "{combo} ({}): {}", self.binding, self.error),
+            None => write!(f, "{}: {}", self.binding, self.error),
         }
     }
 }

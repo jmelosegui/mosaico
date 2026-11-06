@@ -1,10 +1,10 @@
 use std::path::Path;
 
 use mosaico_core::config::schema::CONFIG_SETTINGS;
-use mosaico_core::config::{ConfigStore, ThemeCheck, ThemeConfig};
+use mosaico_core::config::{ConfigStore, ThemeCheck, ThemeConfig, manage_deprecation};
 
 use super::context::{Context, Exit, say};
-use super::{doctor_animations, doctor_bar, doctor_runtime, doctor_settings};
+use super::{doctor_animations, doctor_bar, doctor_launch, doctor_runtime, doctor_settings};
 
 /// ANSI escape helpers for doctor output.
 const OK: &str = "\x1b[32m[ok]\x1b[0m";
@@ -22,6 +22,7 @@ pub fn execute(cx: &mut Context) -> Exit {
     check_theme(&cx.config);
     check_keybindings_file(&cx.config);
     check_keybinding_keys(&cx.config);
+    doctor_launch::check_launch_bindings(&cx.config);
     check_rules_file(&cx.config);
     doctor_runtime::check_rules_cache_age(&cx.config);
     check_user_rules_file(&cx.config);
@@ -146,6 +147,16 @@ fn check_user_rules_file(store: &ConfigStore) {
     check_toml_file("user-rules.toml", &store.user_rules_path(), || {
         store.try_load_user_rules().map(|_| ())
     });
+    if let Some(line) = manage_rules_line(store) {
+        println!("{line}");
+    }
+}
+
+/// The warning for rules of `user-rules.toml` that still use `manage`,
+/// if any do.
+fn manage_rules_line(store: &ConfigStore) -> Option<String> {
+    let count = store.user_rules_using_manage();
+    (count > 0).then(|| format!("  {WARN} {}", manage_deprecation("user-rules.toml", count)))
 }
 
 #[cfg(test)]

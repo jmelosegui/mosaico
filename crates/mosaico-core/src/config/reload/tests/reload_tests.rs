@@ -131,6 +131,45 @@ fn an_invalid_bar_toml_keeps_the_bar_in_use() {
 }
 
 #[test]
+fn an_invalid_keybindings_toml_keeps_the_hotkeys_in_use() {
+    // Arrange
+    let store = temp_store("reload-keybindings-invalid");
+    let mut reloader = ConfigReloader::new(store.clone());
+    write_at(&store.keybindings_path(), INVALID, 1);
+
+    // Act
+    let reloads: Vec<_> = reloader.reload_changed().collect();
+
+    // Assert
+    match reloads.as_slice() {
+        [ConfigReload::Invalid { file, .. }] => assert_eq!(*file, "keybindings.toml"),
+        other => panic!("expected keybindings.toml reported invalid, got {other:?}"),
+    }
+}
+
+#[test]
+fn a_launch_binding_that_cannot_be_read_is_left_out_of_the_reload() {
+    // Arrange
+    let store = temp_store("reload-keybindings-bad-launch");
+    let mut reloader = ConfigReloader::new(store.clone());
+    let file = "[[launch]]\ncommand = \"wt\"\nkey = \"T\"\nmodifiers = [\"alt\"]\n\n\
+        [[launch]]\ncommand = \"notepad\"\nkey = 5\n";
+    write_at(&store.keybindings_path(), file, 1);
+
+    // Act
+    let reloads: Vec<_> = reloader.reload_changed().collect();
+
+    // Assert
+    match reloads.as_slice() {
+        [ConfigReload::Keybindings { launches, .. }] => {
+            let commands: Vec<_> = launches.iter().map(|l| l.command.as_str()).collect();
+            assert_eq!(commands, ["wt"]);
+        }
+        other => panic!("expected a keybindings reload, got {other:?}"),
+    }
+}
+
+#[test]
 fn load_all_loads_every_file_unchanged_or_not() {
     // Arrange
     let store = temp_store("reload-all");

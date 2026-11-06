@@ -4,6 +4,7 @@
 use eframe::egui::{Align, Color32, Frame, Layout, Margin, RichText, Sense, Stroke, Ui, vec2};
 
 use crate::icons::Icon;
+use crate::pages::rules::row::text_button;
 use crate::theme::{self, Colors};
 use crate::widgets;
 
@@ -22,6 +23,9 @@ pub struct RowView<'a> {
     pub clash: Option<&'a str>,
     /// What the row says while the binding is being changed.
     pub capturing: Option<Prompt<'a>>,
+    /// For an application, whether its editor is open; it then has
+    /// buttons to edit and remove it.
+    pub app: Option<bool>,
 }
 
 /// The line a row shows while it waits for a key press.
@@ -39,6 +43,9 @@ pub enum Click {
     Change,
     Cancel,
     Reset,
+    /// Open or close the editor of an application.
+    Details,
+    Remove,
 }
 
 /// Draws a row and reports what was clicked.
@@ -66,12 +73,17 @@ pub fn draw(ui: &mut Ui, c: &Colors, view: &RowView) -> Click {
 }
 
 fn controls(ui: &mut Ui, c: &Colors, view: &RowView) -> Click {
-    let mut click = Click::Nothing;
+    let mut click = app_controls(ui, c, view);
     let capturing = view.capturing.is_some();
-    let (icon_color, name) = if capturing {
-        (c.accent, format!("Cancel changing {}", view.label))
+    let what = if view.app.is_some() {
+        format!("shortcut of {}", view.label)
     } else {
-        (c.faint_text, format!("Change {}", view.label))
+        view.label.to_owned()
+    };
+    let (icon_color, name) = if capturing {
+        (c.accent, format!("Cancel changing {what}"))
+    } else {
+        (c.faint_text, format!("Change {what}"))
     };
     if widgets::icon_button(ui, c, Icon::Edit, &name, icon_color).clicked() {
         click = if capturing {
@@ -90,7 +102,13 @@ fn controls(ui: &mut Ui, c: &Colors, view: &RowView) -> Click {
             ui.label(text);
         }
         None => {
-            shortcut(ui, c, view, false);
+            if view.keys.is_empty() {
+                if text_button(ui, c, "Set shortcut", &format!("Set {what}")).clicked() {
+                    click = Click::Change;
+                }
+            } else {
+                shortcut(ui, c, view, false);
+            }
             if let Some(default) = view.default {
                 let name = format!("Reset {} to {default}", view.label);
                 if widgets::icon_button(ui, c, Icon::Reset, &name, c.accent).clicked() {
@@ -103,6 +121,23 @@ fn controls(ui: &mut Ui, c: &Colors, view: &RowView) -> Click {
         }
     }
     click
+}
+
+/// The buttons of an application, at the far end of its row.
+fn app_controls(ui: &mut Ui, c: &Colors, view: &RowView) -> Click {
+    let Some(open) = view.app else {
+        return Click::Nothing;
+    };
+    let name = format!("Remove {}", view.label);
+    if widgets::icon_button(ui, c, Icon::Trash, &name, c.faint_text).clicked() {
+        return Click::Remove;
+    }
+    let color = if open { c.accent } else { c.faint_text };
+    let name = format!("Edit {}", view.label);
+    if widgets::icon_button(ui, c, Icon::Chevron, &name, color).clicked() {
+        return Click::Details;
+    }
+    Click::Nothing
 }
 
 fn clash_note(ui: &mut Ui, c: &Colors, text: &str) {

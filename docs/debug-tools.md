@@ -191,7 +191,9 @@ colored status tags:
 5. **Keybinding key codes** -- loads all keybindings and checks each key
    name with `Keybinding::combo()`, the check the daemon uses; reports the
    total count of valid bindings or lists any unknown key names
-6. **rules.toml** -- validates syntax via `try_load_rules()`
+6. **rules.toml** -- validates syntax via `try_load_rules()`, then
+   `user-rules.toml`, and warns when its rules still use the deprecated
+   `manage`
 7. **bar.toml** -- validates syntax via `try_load_bar()`
 8. **Autostart** -- checks that what starts at login is the running mosaico
    executable with `start --quiet`: `[warn]` when nothing or another command

@@ -11,6 +11,7 @@ mod borders;
 mod close;
 mod general;
 mod keybindings;
+mod keybindings_apps;
 mod keybindings_taken;
 mod layout;
 mod mouse;

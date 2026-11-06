@@ -1,6 +1,6 @@
 use crate::action::Origin;
 use crate::config::{Config, WindowRule};
-use crate::{Action, WindowEvent};
+use crate::{Action, WindowEvent, WindowId};
 
 use super::Display;
 
@@ -11,6 +11,11 @@ pub enum Input {
     /// where it comes from, which decides the monitor it acts on and
     /// whether the pointer may move for it.
     Action(Action, Origin),
+    /// Focus a window the tiler manages and bring it into view, switching
+    /// its monitor to its workspace and stepping out of monocle when
+    /// either keeps it out of sight. For a launch binding that focuses an
+    /// open window of its application.
+    Raise(WindowId),
     /// A window event, already checked against
     /// [`Expectations`](super::Expectations) so it is not an echo of our
     /// own effects. Display and work area events are ignored here; send

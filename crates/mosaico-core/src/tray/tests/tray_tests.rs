@@ -90,3 +90,21 @@ fn an_invalid_config_notice_keeps_where_and_what_of_a_long_reason() {
          The settings in use stay until the file is fixed."
     );
 }
+
+#[test]
+fn a_not_started_notice_names_the_command_and_why_without_the_operation() {
+    // Arrange
+    let reason = "no program, file or URI named \"no-such-app\" was found";
+    let error = Error::platform("start an application", reason);
+
+    // Act
+    let notice = TrayNotice::not_started("no-such-app", &error);
+
+    // Assert
+    assert_eq!(notice.title, "no-such-app was not started");
+    assert_eq!(
+        notice.body,
+        "No program, file or URI named \"no-such-app\" was found.\n\
+         Check its command in Settings, Keybindings, Applications."
+    );
+}

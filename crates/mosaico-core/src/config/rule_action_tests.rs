@@ -95,3 +95,35 @@ fn a_window_without_a_title_bar_floats_only_when_a_rule_says_so() {
     assert_eq!(decide("Other", "", "", false, &float), RuleAction::Ignore);
     assert_eq!(decide("Other", "", "", true, &float), RuleAction::Tile);
 }
+
+#[test]
+fn rules_that_use_manage_are_counted() {
+    // Arrange
+    let toml = r#"
+[[rule]]
+match_class = "A"
+manage = false
+
+[[rule]]
+match_class = "B"
+action = "float"
+
+[[rule]]
+match_class = "C"
+manage = true
+"#;
+
+    // Act
+    let count = count_manage_rules(toml);
+
+    // Assert
+    assert_eq!(count, 2);
+}
+
+#[test]
+fn a_file_that_is_not_toml_or_has_no_rules_has_none_that_use_manage() {
+    // Act / Assert
+    assert_eq!(count_manage_rules("[[rule]\nmanage = "), 0);
+    assert_eq!(count_manage_rules("# No rules yet.\n"), 0);
+    assert_eq!(count_manage_rules("rule = 3\n"), 0);
+}
