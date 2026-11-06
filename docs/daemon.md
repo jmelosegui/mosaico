@@ -255,6 +255,11 @@ Tasks are dispatched like this:
   `retile` re-reads the work areas before retiling, and every other action
   goes to `TilingManager::handle_action_from()`, from `Origin::Focused`.
   Then the bar is updated, and a failure is logged
+- `DaemonMsg::Launch(index)` -- a press of the launch binding at `index`,
+  carried out by `launch()` in `daemon_loop_commands.rs` through
+  `TilingManager::launch()`. `Tray::report_launch()` logs what it did and,
+  when the program could not be started, shows a tray notice naming the
+  command and why, since nobody waits for the answer of a hotkey
 - `DaemonMsg::BarPointer(bar, event)` -- handed to `BarManager::pointer()`
   with the time; the action a click asks for, a label's or the one a
   widget's button is bound to, from `Origin::Bar(monitor)`, is carried out

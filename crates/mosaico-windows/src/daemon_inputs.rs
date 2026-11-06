@@ -3,6 +3,7 @@ use std::sync::mpsc::Sender;
 use mosaico_core::config::{ConfigReload, ConfigReloader, ConfigStore, Keybinding, LaunchBinding};
 use mosaico_core::event::{EventSource, EventWatch, FocusFollowsMouse};
 use mosaico_core::hotkey::{HotkeyListener, Target};
+use mosaico_core::tiler::Launched;
 use mosaico_core::tray::{Shortcuts, Tray, TrayCommand, TrayNotice, TrayPaths};
 use mosaico_core::{Config, Error, Result, WindowEvent};
 
@@ -141,6 +142,12 @@ impl Inputs {
     /// Shows `notice` beside the tray icon, when it is shown.
     pub(super) fn notify(&self, notice: &TrayNotice) {
         self.tray.notify(notice);
+    }
+
+    /// Tells what a press of `binding` did, as [`Tray::report_launch`]
+    /// does.
+    pub(super) fn report_launch(&self, binding: &LaunchBinding, outcome: &Result<Launched>) {
+        self.tray.report_launch(binding, outcome);
     }
 
     /// What the tray icon's menu opens, and how.
