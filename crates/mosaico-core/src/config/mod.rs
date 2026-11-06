@@ -11,6 +11,7 @@ mod hiding_behaviour;
 /// Keybinding definitions and defaults.
 pub mod keybinding;
 mod keybinding_conflicts;
+mod launch;
 /// What the mouse does: the pointer and focus, and dragging windows.
 pub mod limits;
 mod mouse;
@@ -51,7 +52,8 @@ pub use bar_widgets::{BarWidget, BarWidgets, BarZone};
 pub use color::Color;
 pub use hiding_behaviour::HidingBehaviour;
 pub use keybinding::{Keybinding, Modifier};
-pub use keybinding_conflicts::{Conflict, conflicts};
+pub use keybinding_conflicts::{Conflict, conflicts, conflicts_with_launches};
+pub use launch::{LaunchBinding, WindowMatch, parse_launches};
 pub use mouse::MouseConfig;
 pub use palette::UiColors;
 pub use reload::{ConfigReload, ConfigReloader, ConfigWatch};

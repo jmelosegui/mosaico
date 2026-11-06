@@ -221,14 +221,14 @@ Each task is one pull request, stacked on the one before.
 
 ### 38.3 Configuration
 
-- [ ] `LaunchBinding` and `WindowMatch`, parsed from `[[launch]]`, with tests
+- [x] `LaunchBinding` and `WindowMatch`, parsed from `[[launch]]`, with tests
       for every field, defaults, an empty command and an old file without the
       table
-- [ ] Rule matching shared between window rules and `WindowMatch`, plus the
+- [x] Rule matching shared between window rules and `WindowMatch`, plus the
       file-stem default
-- [ ] Conflicts across both tables; `mosaico doctor` checks launch keys and
+- [x] Conflicts across both tables; `mosaico doctor` checks launch keys and
       conflicts
-- [ ] Commented examples in the keybindings template; auto-merge keeps
+- [x] Commented examples in the keybindings template; auto-merge keeps
       `[[launch]]`
 
 ### 38.4 Hotkeys and daemon

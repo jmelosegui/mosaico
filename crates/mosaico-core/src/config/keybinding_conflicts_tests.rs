@@ -62,3 +62,41 @@ fn names_of_one_key_clash_and_unknown_keys_clash_with_nothing() {
     assert_eq!(found.len(), 1);
     assert_eq!(found[0].bindings, [0, 1]);
 }
+
+#[test]
+fn a_launch_binding_clashes_with_a_keybinding_and_with_another_launch() {
+    // Arrange
+    let bindings = [
+        bind(Action::Retile, "R", &[Alt]),
+        bind(Action::ToggleFloat, "B", &[Alt, Shift]),
+    ];
+    let launch = |key: &str, modifiers: &[Modifier]| LaunchBinding {
+        command: "app".into(),
+        args: Vec::new(),
+        key: key.into(),
+        modifiers: modifiers.to_vec(),
+        focus: false,
+        windows: Default::default(),
+    };
+    let launches = [
+        launch("Enter", &[Alt]),
+        launch("b", &[Shift, Alt]),
+        launch("Enter", &[Alt]),
+        launch("N", &[Alt]),
+    ];
+
+    // Act
+    let found = conflicts_with_launches(&bindings, &launches);
+
+    // Assert
+    assert_eq!(found.len(), 2);
+    assert_eq!(found[0].combo.to_string(), "Alt+Shift+B");
+    assert_eq!(
+        (found[0].bindings.as_slice(), found[0].launches.as_slice()),
+        (&[1][..], &[1][..])
+    );
+    assert_eq!(
+        (found[1].bindings.as_slice(), found[1].launches.as_slice()),
+        (&[][..], &[0, 2][..])
+    );
+}
