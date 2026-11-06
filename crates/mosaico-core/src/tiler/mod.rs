@@ -50,6 +50,7 @@ mod placement;
 mod plan;
 mod platform;
 mod queries;
+mod raise;
 mod reconnect;
 mod release;
 mod removal;
