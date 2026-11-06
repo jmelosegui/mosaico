@@ -177,7 +177,9 @@ Checks performed:
 5. **Keybinding keys** -- verifies each key name is one mosaico knows, with
    the check the daemon uses (`Keybinding::combo()` in core); reports the
    total count and any unknown key names
-6. **rules.toml** -- validates syntax via `try_load_rules()`
+6. **rules.toml** -- validates syntax via `try_load_rules()`, then
+   `user-rules.toml` via `try_load_user_rules()`, and warns when its rules
+   still use the deprecated `manage` (`ConfigStore::user_rules_using_manage()`)
 7. **bar.toml** -- validates syntax via `try_load_bar()`, then, on the next
    line, says how many click bindings the bar has, counted from the
    bindings core resolves for it (`WidgetClicks`), or that it takes no

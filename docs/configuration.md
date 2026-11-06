@@ -297,7 +297,10 @@ action, or one that does not exist, is left out, logged and listed by
 
 Decides which windows the tiler tiles, floats or ignores (`action = "tile"`,
 `"float"` or `"ignore"`; the older `manage = true` and `false` still mean
-`"tile"` and `"ignore"`):
+`"tile"` and `"ignore"`, but are deprecated: the daemon and `mosaico doctor`
+warn when `user-rules.toml` uses them, with the count from
+`ConfigStore::user_rules_using_manage()` and the message from
+`config::manage_deprecation()`):
 
 ```toml
 [[rule]]
@@ -464,9 +467,15 @@ by default.
 
 `default_rules()` is empty: the rules come from the community `rules.toml`,
 which the daemon downloads, and the user's `user-rules.toml`. The
-`rules.toml` that `mosaico init` writes until the first download leaves out
-the untitled `ApplicationFrameWindow` frames UWP apps leave behind, and GPG's
-`pinentry` prompt.
+`rules.toml` that `mosaico init` writes until the first download ignores
+the untitled `ApplicationFrameWindow` frames UWP apps leave behind, and floats
+GPG's `pinentry` prompt.
+
+The daemon downloads the community rules from `{rule_set}/rules-v2.toml` in
+the mosaico-rules repository (`RULES_FILE` in `mosaico_core::community_rules`),
+whose rules use `action`. The repository keeps `rules.toml` in the `manage`
+format for versions before floating windows, which reject a file with a rule
+they cannot read; it is no longer updated and will be removed.
 
 ### Evaluation
 
