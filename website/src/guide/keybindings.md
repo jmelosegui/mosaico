@@ -204,9 +204,10 @@ never touched.
 
 ## Reloading
 
-Keybinding changes are **not** hot-reloaded. You must restart the daemon
-for changes to take effect:
-
-```sh
-mosaico stop && mosaico start
-```
+Keybinding changes are hot-reloaded. When `keybindings.toml` changes, the
+daemon gives back every hotkey and registers the ones the file now holds,
+launch bindings included, so a shortcut saved in the settings app works at
+once. While the hotkeys are paused they stay paused. A file that does not
+load is reported beside the tray icon and the keys in use stay until it is
+fixed. New default actions are appended to the file only when the daemon
+starts.

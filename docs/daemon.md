@@ -386,9 +386,10 @@ files are not polled, and nothing waits for a burst of writes to settle.
    waits whether the daemon is stopping
 3. When the platform reports a change, compares each file's modification time
    with the last one seen, in the order `config.toml`, `user-rules.toml`,
-   `bar.toml`. A report with nothing changed does nothing
-4. A changed `config.toml` or `bar.toml` is loaded with the daemon's
-   `ConfigStore` (`try_load_config()` or `try_load_bar()`). Only a file that
+   `bar.toml`, `keybindings.toml`. A report with nothing changed does nothing
+4. A changed `config.toml`, `bar.toml` or `keybindings.toml` is loaded with
+   the daemon's `ConfigStore` (`try_load_config()`, `try_load_bar()`, or
+   `try_load_keybindings()` and `try_load_launches()`). Only a file that
    loads is sent as a `ConfigReload`; one that does not is logged and
    skipped, and is not read again until it changes again
 5. A changed `user-rules.toml` reloads the merged rules with
@@ -396,9 +397,10 @@ files are not polled, and nothing waits for a burst of writes to settle.
 6. The reload is forwarded via a bridge thread to `DaemonMsg::Reload`
 
 `rules.toml` is not watched: the daemon downloads the community rules at
-startup and sends their reload itself. Keybindings are **not** hot-reloaded
-because `RegisterHotKey` requires unregistering and re-registering on the
-hotkey thread. A daemon restart is required for keybinding changes.
+startup and sends their reload itself. A keybindings reload goes to the
+`HotkeyListener`, which stops the hotkey thread, giving back every hotkey,
+and starts a new one with the new keybindings and launch bindings, paused
+if the hotkeys were.
 
 If the config directory cannot be watched, for instance because it does not
 exist, the watcher logs `FindFirstChangeNotificationW failed, watcher

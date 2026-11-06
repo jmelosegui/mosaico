@@ -203,8 +203,8 @@ revisited in review.
 9. **Working folder is the home folder**, so a terminal opens there rather
    than in the daemon's folder.
 10. **Not in this phase:** a `mosaico launch` CLI command (the shell can start
-    programs already), launch from bar clicks, and hot-reloading keybindings,
-    which still need a daemon restart as before.
+    programs already) and launch from bar clicks. Hot-reloading keybindings
+    was here too, until the manual test showed its cost (decision 21).
 11. **Settings app support is in this phase,** so the feature is usable
     without editing TOML, as phase 37 set out.
 12. **A name the system cannot find is an error, not a web search.** The shell
@@ -238,6 +238,16 @@ revisited in review.
     sidebar entry. The filter and Restore defaults belong to Actions; a
     search of the window shows matches from both tabs, and a key press is
     taken only by a row waiting on the tab shown.
+21. **`keybindings.toml` is hot-reloaded.** An application added in the
+    settings app was saved, and its shortcut then did nothing, with nothing
+    saying a restart was needed. The daemon now reloads the file when it
+    changes: a `HotkeyListener` in core stops the hotkey source and starts
+    it with the new bindings, paused if the hotkeys were. Stopping first
+    frees the keys the new bindings may reuse. A press sent by the old
+    source just before it stopped is read against the new launch bindings;
+    that window is a few milliseconds and was not worth a generation number
+    on every press. Missing default actions are still appended only at
+    startup, so a reload never writes the file the settings app is saving.
 
 ## Tasks
 
@@ -286,6 +296,7 @@ Each task is one pull request, stacked on the one before.
 - [x] `KeybindingsDocument` methods for `[[launch]]`, keeping comments
 - [x] "Applications" section: add, edit, remove, conflicts, with app tests
 - [x] Actions and Applications as tabs of the Keybindings page
+- [x] `keybindings.toml` hot-reloaded, so a saved shortcut works at once
 
 ### 38.7 Documentation and verification
 
