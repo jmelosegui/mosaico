@@ -16,12 +16,12 @@ pub fn generate_rules() -> String {
 [[rule]]
 match_class = "ApplicationFrameWindow"
 match_title = ""
-manage = false
+action = "ignore"
 
-# GPG passphrase prompt — small modal dialog, should not be tiled.
+# GPG passphrase prompt — small modal dialog, floats above the tiles.
 [[rule]]
 match_title = "pinentry"
-manage = false
+action = "float"
 "#
     .to_string()
 }

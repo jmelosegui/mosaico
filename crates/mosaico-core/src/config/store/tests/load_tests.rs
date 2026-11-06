@@ -235,3 +235,20 @@ fn launch_bindings_load_without_the_bad_entries_or_the_keybindings() {
     assert_eq!(commands, ["wt.exe"]);
     assert!(missing.is_empty());
 }
+
+#[test]
+fn user_rules_that_use_manage_are_counted_and_a_missing_file_has_none() {
+    // Arrange
+    let store = temp_store("load-user-rules-manage");
+    let text = "[[rule]]\nmatch_class = \"A\"\nmanage = false\n\n\
+                [[rule]]\nmatch_class = \"B\"\naction = \"tile\"\n";
+    std::fs::write(store.user_rules_path(), text).unwrap();
+
+    // Act
+    let count = store.user_rules_using_manage();
+    let missing = temp_store("load-user-rules-manage-missing").user_rules_using_manage();
+
+    // Assert
+    assert_eq!(count, 1);
+    assert_eq!(missing, 0);
+}

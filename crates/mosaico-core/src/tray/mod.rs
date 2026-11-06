@@ -156,6 +156,15 @@ impl TrayNotice {
         )
     }
 
+    /// Tells that `count` rules of `user-rules.toml` still use `manage`,
+    /// which a future version will stop reading.
+    pub fn manage_deprecated(count: usize) -> Self {
+        Self::new(
+            "Update your window rules",
+            crate::config::manage_deprecation("user-rules.toml", count),
+        )
+    }
+
     /// Tells that the program `command` of a launch binding could not be
     /// started, because of `error`, and where to change it.
     pub fn not_started(command: &str, error: &Error) -> Self {

@@ -143,7 +143,9 @@ order, it:
     `bar_mgr.update(&manager.bar_states(&get_update(), false))`
 11. Create `mpsc` channels for events and actions, and start the inputs: the
     window event source, the hotkey source and, when `focus_follows_mouse` is
-    on, the focus-follows-mouse thread
+    on, the focus-follows-mouse thread. Then warn, in the log and beside
+    the tray icon (`TrayNotice::manage_deprecated`), when `user-rules.toml`
+    still has rules that use the deprecated `manage`
 12. Start bridge threads to forward events and actions into `DaemonMsg`
 13. Start the IPC thread
 14. Start the config file watcher thread, and a reload bridge thread to

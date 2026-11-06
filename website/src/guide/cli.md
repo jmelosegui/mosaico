@@ -65,7 +65,7 @@ Checks performed:
 5. Key names resolve to valid key codes
 6. `rules.toml` syntax validation
 7. Community rules cache age
-8. `user-rules.toml` syntax validation
+8. `user-rules.toml` syntax validation, and a warning when its rules still use the deprecated `manage`
 9. `bar.toml` syntax validation, its values checked as for `config.toml`, how many click bindings the bar has, and
    each one it ignores, with why
 10. Autostart status: warns when the startup entry starts another copy of

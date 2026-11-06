@@ -83,6 +83,31 @@ pub fn decide(
     }
 }
 
+/// How many rules of the rules file `content` say what they do with
+/// `manage` instead of `action`. Content that is not TOML has none.
+pub fn count_manage_rules(content: &str) -> usize {
+    let Ok(file) = content.parse::<toml::Table>() else {
+        return 0;
+    };
+    file.get("rule")
+        .and_then(toml::Value::as_array)
+        .map_or(0, |rules| {
+            rules
+                .iter()
+                .filter(|rule| rule.get("manage").is_some())
+                .count()
+        })
+}
+
+/// Tells that `count` rules of `file` still use `manage`, which a future
+/// version will stop reading, and what to write instead.
+pub fn manage_deprecation(file: &str, count: usize) -> String {
+    format!(
+        "{count} rule(s) in {file} use `manage`, which a future version will stop reading. \
+         Write `action = \"tile\"`, `\"float\"` or `\"ignore\"` instead."
+    )
+}
+
 #[cfg(test)]
 #[path = "rule_action_tests.rs"]
 mod tests;

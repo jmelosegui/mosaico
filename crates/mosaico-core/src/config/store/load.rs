@@ -3,7 +3,10 @@ use crate::config::bar::BarConfig;
 use crate::config::keybinding;
 use crate::config::report;
 use crate::config::rules::{KeybindingsFile, RulesFile, UserRulesFile};
-use crate::config::{Config, Keybinding, LaunchBinding, WindowRule, default_rules, parse_launches};
+use crate::config::{
+    Config, Keybinding, LaunchBinding, WindowRule, count_manage_rules, default_rules,
+    parse_launches,
+};
 
 use super::migrate::migrate_config_if_needed;
 use super::{ConfigStore, load_or_default, load_toml, parse_toml, read_file};
@@ -152,6 +155,13 @@ impl ConfigStore {
             || self.try_load_user_rules(),
             Vec::new,
         )
+    }
+
+    /// How many rules of `user-rules.toml` still use `manage` instead of
+    /// `action`. A missing or unreadable file has none.
+    pub fn user_rules_using_manage(&self) -> usize {
+        std::fs::read_to_string(self.user_rules_path())
+            .map_or(0, |content| count_manage_rules(&content))
     }
 
     /// Loads and merges both rule sets: user rules first, then community rules.
