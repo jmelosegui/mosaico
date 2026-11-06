@@ -17,6 +17,8 @@ pub(super) enum DaemonMsg {
     Frame(FrameToken),
     /// A user action from hotkeys or IPC.
     Action(Action),
+    /// A press of the launch binding at this position, from hotkeys.
+    Launch(usize),
     /// What the pointer did on a bar, from the bar's window procedure.
     BarPointer(BarId, PointerEvent),
     /// A CLI command with a callback to send the response.

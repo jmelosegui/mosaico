@@ -21,6 +21,8 @@ use super::{daemon_loop_bar, daemon_loop_handlers, daemon_loop_tray};
 pub(super) enum Task {
     /// A user action from hotkeys.
     Action(Action),
+    /// A press of the launch binding at this position.
+    Launch(usize),
     /// What the pointer did on a bar. It counts as input, like a key.
     BarPointer(BarId, PointerEvent),
     /// A CLI command with a callback to send the response.
@@ -44,6 +46,7 @@ pub(super) fn message(msg: DaemonMsg) -> Message<Task> {
         DaemonMsg::Event(event) => Message::Event(event),
         DaemonMsg::Frame(_token) => Message::Frame,
         DaemonMsg::Action(action) => Message::Task(Task::Action(action)),
+        DaemonMsg::Launch(index) => Message::Task(Task::Launch(index)),
         DaemonMsg::BarPointer(bar, event) => Message::Task(Task::BarPointer(bar, event)),
         DaemonMsg::Command(command, reply) => Message::Task(Task::Command(command, reply)),
         DaemonMsg::Tray(command) => Message::Task(Task::Tray(command)),
@@ -77,6 +80,16 @@ pub(super) fn run(
                 bar_mgr,
                 inputs,
                 hotkeys_paused,
+                get_update,
+            );
+        }
+        Task::Launch(index) => {
+            daemon_loop_commands::launch(
+                index,
+                manager,
+                bar_mgr,
+                inputs,
+                *hotkeys_paused,
                 get_update,
             );
         }

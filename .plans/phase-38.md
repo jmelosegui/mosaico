@@ -126,12 +126,18 @@ already caused a hang with msiexec.
 
 ### Daemon
 
-`daemon_loop_commands.rs` handles `Target::Launch(i)` beside `TogglePause`:
+The hotkey bridge turns `Target::Launch(i)` into a daemon message, and
+`daemon_loop_commands::launch` hands binding `i` and the platform's launcher
+to `TilingManager::launch(&LaunchBinding, &dyn Launcher)` in core, which
+decides:
 
-1. With `focus = true`, ask the tiling manager to focus a managed window that
-   matches (`TilingManager::focus_matching(&WindowMatch) -> bool`).
+1. With `focus = true`, focus a managed window that matches, if there is one.
+   With `focus` off, no window is looked at.
 2. Otherwise, or when nothing matched, call `Launcher::launch`. A failure is
    logged; it never stops the daemon.
+
+Keeping the decision in core lets it be tested with the fake platform and a
+recording launcher.
 
 The new window, once shown, is taken in by the existing new-window path and
 lands on the focused monitor's active workspace.
@@ -172,9 +178,12 @@ revisited in review.
 2. **`args` is an array of strings**, not one string. No quoting rules for
    users to learn, and nothing to get wrong with paths that hold spaces.
 3. **Start a new instance by default; `focus = true` per binding** opts into
-   focusing an open window. A terminal key usually wants a new window; a
-   browser key usually wants the open one. Neither default fits both, and a new
-   instance is what the user literally asked for.
+   focusing an open window. Without it, the daemon never looks for a matching
+   window: every press starts the program again, and an application that
+   allows only one instance decides itself what a second start does. A
+   terminal key usually wants a new window; a browser key usually wants the
+   open one. Neither default fits both, and a new instance is what the user
+   literally asked for.
 4. **Matching reuses window rule fields** (`match_path`, `match_class`,
    `match_title`) so there is nothing new to learn, with a default based on the
    command's file name so the common case needs no extra lines. The default
@@ -233,10 +242,10 @@ Each task is one pull request, stacked on the one before.
 
 ### 38.4 Hotkeys and daemon
 
-- [ ] `hotkey::Target`; registration, pause and rejections over both lists
-- [ ] A recording fake `Launcher` for the daemon's tests
-- [ ] Windows hotkey channel carries `Target`; the daemon starts the program
-- [ ] Metrics baselines blessed if they move
+- [x] `hotkey::Target`; registration, pause and rejections over both lists
+- [x] A recording fake `Launcher` for the daemon's tests
+- [x] Windows hotkey channel carries `Target`; the daemon starts the program
+- [x] Metrics baselines blessed if they move
 
 ### 38.5 Focus an open window
 
