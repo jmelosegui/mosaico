@@ -28,6 +28,12 @@ A fast, configurable tiling window manager for Windows, written in Rust.
 ### Windows
 
 ```powershell
+winget install jmelosegui.mosaico
+```
+
+Or with the install script, which installs the same MSI:
+
+```powershell
 irm https://raw.githubusercontent.com/jmelosegui/mosaico/main/docs/install.ps1 | iex
 ```
 

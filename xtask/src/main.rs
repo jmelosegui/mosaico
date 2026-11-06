@@ -4,14 +4,16 @@
 //!   records new ones. See [`xtask::metrics`].
 //! - `size` builds the release binaries, checks `mosaico` against its size
 //!   ceiling and reports the settings app's size. See [`xtask::size`].
+//! - `msi [--version X.Y.Z] [--no-build]` builds the Windows installer.
+//!   See [`xtask::msi`].
 
 use std::env;
 use std::path::Path;
 use std::process::ExitCode;
 
-use xtask::{metrics, size};
+use xtask::{metrics, msi, size};
 
-const USAGE: &str = "usage: cargo xtask metrics [--bless] | cargo xtask size";
+const USAGE: &str = "usage: cargo xtask metrics [--bless] | cargo xtask size | cargo xtask msi [--version X.Y.Z] [--no-build]";
 
 fn main() -> ExitCode {
     let args: Vec<String> = env::args().skip(1).collect();
@@ -27,6 +29,13 @@ fn main() -> ExitCode {
         ["metrics"] => metrics::run(root, false),
         ["metrics", "--bless"] => metrics::run(root, true),
         ["size"] => size::run(root),
+        ["msi", rest @ ..] => match msi::Options::parse(rest) {
+            Ok(options) => msi::run(root, &options),
+            Err(e) => {
+                eprintln!("{e}\n{USAGE}");
+                return ExitCode::from(2);
+            }
+        },
         _ => {
             eprintln!("{USAGE}");
             return ExitCode::from(2);

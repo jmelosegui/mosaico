@@ -11,6 +11,7 @@ mod doctor_launch;
 mod doctor_runtime;
 mod doctor_settings;
 pub mod init;
+pub mod installer_hook;
 pub mod pause;
 mod request;
 pub mod settings;
@@ -18,6 +19,7 @@ pub mod start;
 pub mod status;
 pub mod stop;
 pub mod update;
+mod update_package;
 
 #[cfg(test)]
 mod fake_desktop;

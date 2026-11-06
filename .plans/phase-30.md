@@ -1,70 +1,89 @@
-# Phase 30 — Windows Installer & Winget Distribution
+# Phase 30: Windows Installer & Winget Distribution
 
-## Goal
+## Overview
 
-Replace the current raw-binary distribution with a proper Windows
-installer (MSI) and publish to winget as the single distribution
-method. Users install, update, and uninstall mosaico exclusively
-through `winget` and standard Windows mechanisms (Add/Remove Programs).
+Releases ship two executables, `mosaico.exe` and `mosaico-settings.exe`.
+Copying them out of a zip leaves no uninstall path, no Start menu entry for
+the settings app, and an autostart entry and PATH change that outlive the
+binaries. Each release now also publishes a per-user MSI, which winget
+installs, upgrades and removes, and which the install script uses too. The
+zip stays as a portable download.
 
-## Motivation
+## Decisions
 
-The current install.ps1 copies a bare .exe into `%LOCALAPPDATA%\mosaico`
-and edits the user PATH. There is no uninstall path — the binary cannot
-delete itself while running, the autostart registration is left behind,
-and the config directory is orphaned. A proper installer solves all of
-this by delegating lifecycle management to the OS.
+- **MSI, not winget's zip/portable type.** A portable install cannot run
+  code around its file changes, so it cannot stop the daemon gracefully
+  (which puts hidden windows back), cannot move an open settings app
+  aside, and leaves the autostart entry behind on uninstall. The MSI runs
+  mosaico itself at each step, through hidden `installer-hook` commands.
+- **Per user, no elevation.** Installs into
+  `%LOCALAPPDATA%\Programs\mosaico`, records the folder as `InstallFolder`
+  under `HKCU\Software\mosaico`, adds the folder to the user PATH and adds
+  a **Mosaico Settings** Start menu shortcut.
+- **WiX 5** (dotnet tool), not 6, which needs its maintenance fee EULA
+  accepted. The package is `packaging/windows/mosaico.wxs`, built with
+  `cargo xtask msi`.
+- **UpgradeCode `BCE5918A-87F4-4D50-B087-CD5305C8ABE6` never changes.** It
+  ties versions together for major upgrades, and winget matches an
+  installed mosaico on it.
+- **Mosaico runs the hooks, not the MSI.** `MajorUpgrade` is scheduled
+  after `InstallInitialize`, and Restart Manager is disabled
+  (`MSIRESTARTMANAGERCONTROL=Disable`): WiX's CloseApplications runs too
+  late to close the settings app, and Restart Manager would end the
+  daemon without restoring windows.
+  - Before an upgrade or reinstall, from the old executable: stop the
+    daemon, leaving a restart note if it ran, and rename a running
+    settings app to `.exe.old`.
+  - After an install: start the daemon if the note is there.
+  - Before an uninstall: stop the daemon, delete `.exe.old` leftovers,
+    rename a running settings app aside, remove the autostart entry when
+    it runs this executable, and clear the note.
+- **`mosaico update` keeps working.** A copy in the MSI's folder downloads
+  the release's MSI and runs it (`REINSTALL=ALL` for `--force` on the same
+  version), so Installed apps shows the right version. Other copies
+  replace their own files as before.
+- **The zip stays.** Portable users and older `mosaico update` binaries
+  still use it; dropping it is a later decision.
 
-## Requirements
+## Platform boundary
 
-1. **MSI installer** — produce an MSI (via WiX) in the release workflow.
-2. **Install actions** — copy `mosaico.exe` to Program Files, add to
-   PATH, optionally enable autostart.
-3. **Uninstall actions** — stop the daemon, remove the binary, remove
-   the PATH entry, remove the autostart registration. Leave the config
-   directory (`~/.config/mosaico`) intact (standard convention).
-4. **Upgrade support** — in-place upgrade without losing config.
-5. **Winget manifest** — publish to the `microsoft/winget-pkgs`
-   community repository so `winget install mosaico` works.
-6. **Single distribution method** — winget is the only supported
-   install/update/uninstall path going forward.
+- `Installer` (core) gained `package_name`, `package_folder`,
+  `run_package` and `set_aside_if_running`, with defaults for platforms
+  without an installer package. `update::is_packaged` and
+  `update::download_package` are core logic; `RestartMarker` is the
+  restart note, kept in the instance's data directory.
+- `mosaico-windows` implements them with the MSI names, the
+  `InstallFolder` registry value, `msiexec` and a sharing-violation check.
 
-## Migration Strategy
+## Found along the way
 
-Transition existing users from the raw-binary install to winget:
-
-1. **`install.ps1` becomes a migration script** — detects the old
-   `%LOCALAPPDATA%\mosaico` install, cleans it up (stops daemon,
-   removes binary, PATH entry, autostart registration), then runs
-   `winget install mosaico`.
-2. **`mosaico update` triggers migration** — on first run after the
-   MSI release, detects the old install layout, cleans it up, and
-   invokes `winget upgrade mosaico`. After migration, `mosaico update`
-   is a thin wrapper around `winget upgrade mosaico`.
-3. **Drop raw .zip from releases** — once the MSI + winget pipeline is
-   stable, stop attaching the bare .zip to GitHub releases. Only the
-   MSI is published.
-
-## Research
-
-- **WiX v4** — Rust-friendly MSI authoring; `cargo-wix` crate can
-  generate the WiX source from Cargo metadata.
-- **Winget submission** — requires a manifest PR to
-  `microsoft/winget-pkgs` with SHA256 hash of the installer URL.
-  Can be automated with `wingetcreate` in the release workflow.
+Detached children (the daemon started by `mosaico start`, the settings
+app) inherited the launcher's standard output handles, so anything reading
+the launcher's output (`$x = mosaico start`, or the MSI's quiet exec)
+waited until the daemon exited. `process::spawn_detached` now clears the
+inherit flag on the launcher's standard handles first.
 
 ## Tasks
 
-1. Add `cargo-wix` or hand-written WiX XML to produce an MSI.
-2. Update the release workflow to build the MSI and attach it to the
-   GitHub release.
-3. Create a winget manifest and automate submission via `wingetcreate`
-   in the release workflow.
-4. Update `install.ps1` to detect old installs, clean up, and delegate
-   to `winget install mosaico`.
-5. Update `mosaico update` to detect old install layout, migrate, and
-   delegate to `winget upgrade mosaico`.
-6. After a few stable releases, remove the raw .zip from the release
-   workflow.
-7. Update docs / README with `winget install mosaico` as the canonical
-   install method.
+- [x] `packaging/windows/mosaico.wxs` and `cargo xtask msi`
+- [x] Core contracts for installer packages, `is_packaged`,
+      `download_package` and `RestartMarker`
+- [x] Windows implementation of the package methods
+- [x] `mosaico installer-hook before-upgrade|after-install|before-uninstall`
+- [x] `mosaico update` runs the MSI for an installed copy
+- [x] Fix detached children holding the launcher's output open
+- [x] Release workflow builds the MSI and attaches it with the zip
+- [x] CI builds the MSI and installs and uninstalls it
+- [x] WinGet workflow, run by hand once a release's MSI has been
+      installed and checked, that opens the winget-pkgs pull request
+      (`winget.yml`, `vedantmgoyal9/winget-releaser`, needs the
+      `WINGET_TOKEN` secret); a tag never publishes to WinGet
+- [x] `packaging/winget/new-manifests.ps1` for the first submission
+- [x] `install.ps1` installs the MSI and moves a zip install over to it
+- [x] Docs: README, installation guide, `mosaico update`
+- [ ] Tag the first release with an MSI
+- [ ] Submit the first version of `jmelosegui.mosaico` to winget-pkgs by
+      hand; later versions go through the WinGet workflow
+- [ ] Sign the MSI and executables (SmartScreen warns about unsigned
+      downloads)
+- [ ] Decide when to stop publishing the zip

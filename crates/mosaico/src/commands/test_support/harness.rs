@@ -2,6 +2,7 @@
 
 use mosaico_core::config::ConfigStore;
 use mosaico_core::pid::PidFile;
+use mosaico_core::update::RestartMarker;
 
 use crate::commands::context::{Context, Exit};
 use crate::commands::fake_desktop::FakeDesktop;
@@ -15,6 +16,7 @@ pub struct Harness {
     pub desktop: FakeDesktop,
     pub pid_file: PidFile,
     pub config: ConfigStore,
+    pub restart: RestartMarker,
     out: Vec<u8>,
     err: Vec<u8>,
 }
@@ -32,6 +34,7 @@ impl Harness {
             desktop: FakeDesktop::default(),
             pid_file: PidFile::new(dir.join("mosaico.pid")),
             config: ConfigStore::new(dir.join("config")),
+            restart: RestartMarker::new(dir.join("restart-after-install")),
             out: Vec::new(),
             err: Vec::new(),
         }
@@ -53,6 +56,7 @@ impl Harness {
             clock: &self.world,
             http: &self.world.releases,
             installer: &self.world.installer,
+            restart: self.restart.clone(),
             logo: &|_, version| self.world.logos.borrow_mut().push(version.to_owned()),
             out: &mut self.out,
             err: &mut self.err,

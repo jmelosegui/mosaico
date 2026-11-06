@@ -59,6 +59,137 @@ jobs:
       - name: CLI tests
         run: cargo test -p mosaico --test cli
 
+  installer:
+    name: Installer
+    # Builds the MSI the release workflow publishes, so a broken package
+    # definition fails here rather than on a release tag.
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install WiX
+        run: |
+          dotnet tool install --global wix --version 5.0.2
+          wix extension add --global WixToolset.Util.wixext/5.0.2
+
+      - name: Build the MSI
+        # An older package to upgrade from, then the one the release
+        # publishes. Both hold the same binaries; only their versions
+        # differ, which is all an upgrade looks at.
+        shell: pwsh
+        run: |
+          cargo xtask msi --version 0.0.1
+          Copy-Item target\release\mosaico-windows-amd64.msi old.msi
+          cargo xtask msi --no-build
+          Copy-Item target\release\mosaico-windows-amd64.msi new.msi
+
+      - name: Install, upgrade and uninstall with the daemon running
+        shell: pwsh
+        run: |
+          $dir = "$env:LOCALAPPDATA\Programs\mosaico"
+          $exe = "$dir\mosaico.exe"
+          $installer = New-Object -ComObject WindowsInstaller.Installer
+          $upgradeCode = "{BCE5918A-87F4-4D50-B087-CD5305C8ABE6}"
+          function Run-Msiexec($action, $msi, $log) {
+            $arguments = "$action `"$msi`" /qn /norestart /l*v `"$log`""
+            $p = Start-Process msiexec -ArgumentList $arguments -Wait -PassThru
+            if ($p.ExitCode -ne 0) { throw "msiexec $action $msi failed: $($p.ExitCode)" }
+          }
+          function Installed-Versions {
+            @($installer.RelatedProducts($upgradeCode) | ForEach-Object { $installer.ProductInfo($_, "VersionString") })
+          }
+          function Daemons {
+            @(Get-CimInstance Win32_Process -Filter "Name = 'mosaico.exe'" | Where-Object { $_.CommandLine -match '\sdaemon$' })
+          }
+          function Expect($condition, $message) { if (-not $condition) { throw $message } }
+
+          # Install the older version and start mosaico from it.
+          Run-Msiexec "/i" "old.msi" "install.log"
+          foreach ($file in "mosaico.exe", "mosaico-settings.exe") {
+            Expect (Test-Path "$dir\$file") "$file was not installed"
+          }
+          Expect ((Get-ItemProperty HKCU:\Software\mosaico).InstallFolder -eq "$dir\") "InstallFolder not recorded"
+          Expect ([Environment]::GetEnvironmentVariable("PATH", "User") -like "*$dir*") "not on the user PATH"
+          Expect ((Installed-Versions) -join "," -eq "0.0.1") "installed versions: $(Installed-Versions)"
+          & $exe start
+          & $exe autostart enable
+          Expect ((& $exe autostart status) -eq "Autostart is currently enabled.") "autostart: $(& $exe autostart status)"
+          $before = Daemons
+          Expect ($before.Count -eq 1) "expected one daemon before the upgrade, found $($before.Count)"
+
+          # Upgrade: the hooks stop the daemon and start it again from the
+          # new files, and it must outlive msiexec.
+          Run-Msiexec "/i" "new.msi" "upgrade.log"
+          $versions = Installed-Versions
+          Expect ($versions.Count -eq 1 -and $versions[0] -ne "0.0.1") "installed versions after the upgrade: $versions"
+          Start-Sleep -Seconds 5
+          $after = Daemons
+          Expect ($after.Count -eq 1) "expected one daemon after the upgrade, found $($after.Count)"
+          Expect ($after[0].ProcessId -ne $before[0].ProcessId) "the daemon was not restarted"
+          Expect ($after[0].ExecutablePath -eq $exe) "the daemon runs $($after[0].ExecutablePath)"
+          $status = & $exe status
+          Expect ($status -like "Mosaico * is running*") "status after the upgrade: $status"
+          Expect ((& $exe autostart status) -eq "Autostart is currently enabled.") "autostart after the upgrade: $(& $exe autostart status)"
+
+          # Uninstall while it runs: the daemon stops and nothing is left.
+          Run-Msiexec "/x" "new.msi" "uninstall.log"
+          Expect ((Daemons).Count -eq 0) "the daemon still runs after the uninstall"
+          Expect (-not (Get-ScheduledTask -TaskName "Mosaico autostart for *" -ErrorAction SilentlyContinue)) "the autostart task is still registered"
+          Expect ((Installed-Versions).Count -eq 0) "still installed: $(Installed-Versions)"
+          Expect (-not (Test-Path $dir)) "the install folder is still there"
+          Expect (-not (Test-Path HKCU:\Software\mosaico)) "the registry key is still there"
+          Expect ([Environment]::GetEnvironmentVariable("PATH", "User") -notlike "*$dir*") "still on the user PATH"
+
+      - name: Move a running zip install to the MSI with install.ps1
+        shell: pwsh
+        run: |
+          $legacy = "$env:LOCALAPPDATA\mosaico"
+          $dir = "$env:LOCALAPPDATA\Programs\mosaico"
+          function Daemons {
+            @(Get-CimInstance Win32_Process -Filter "Name = 'mosaico.exe'" | Where-Object { $_.CommandLine -match '\sdaemon$' })
+          }
+          function User-Path { @([Environment]::GetEnvironmentVariable("PATH", "User").Split(";") | ForEach-Object { $_.TrimEnd("\") }) }
+          function Expect($condition, $message) { if (-not $condition) { throw $message } }
+
+          # What the zip and the earlier install.ps1 left: the executables
+          # in the data folder, on the PATH, running and starting at logon.
+          New-Item -ItemType Directory -Force $legacy | Out-Null
+          Copy-Item target\release\mosaico.exe, target\release\mosaico-settings.exe $legacy
+          [Environment]::SetEnvironmentVariable("PATH", "$([Environment]::GetEnvironmentVariable('PATH', 'User'));$legacy", "User")
+          & "$legacy\mosaico.exe" start
+          & "$legacy\mosaico.exe" autostart enable
+          Expect ((Daemons).Count -eq 1) "the zip install's daemon did not start"
+
+          $env:MOSAICO_INSTALL_MSI = "new.msi"
+          try { & .\docs\install.ps1 } catch { Get-Content "$env:TEMP\mosaico-install.log" -Tail 80 -ErrorAction SilentlyContinue; throw }
+
+          $exe = "$dir\mosaico.exe"
+          $daemons = Daemons
+          Expect ($daemons.Count -eq 1) "expected one daemon after the move, found $($daemons.Count)"
+          Expect ($daemons[0].ExecutablePath -eq $exe) "the daemon runs $($daemons[0].ExecutablePath)"
+          Expect ((& $exe autostart status) -eq "Autostart is currently enabled.") "autostart after the move: $(& $exe autostart status)"
+          Expect (-not (Test-Path "$legacy\mosaico.exe")) "the zip install's mosaico.exe is still there"
+          Expect (-not (Test-Path "$legacy\mosaico-settings.exe")) "the zip install's settings app is still there"
+          Expect ((User-Path) -notcontains $legacy) "the zip install is still on the user PATH"
+          Expect ((User-Path) -contains $dir) "the installed folder is not on the user PATH"
+
+          $p = Start-Process msiexec -ArgumentList "/x `"new.msi`" /qn /norestart /l*v `"uninstall-moved.log`"" -Wait -PassThru
+          Expect ($p.ExitCode -eq 0) "the uninstall failed: $($p.ExitCode)"
+          Expect ((Daemons).Count -eq 0) "the daemon still runs after the uninstall"
+          Expect (-not (Get-ScheduledTask -TaskName "Mosaico autostart for *" -ErrorAction SilentlyContinue)) "the autostart task is still registered"
+
+      - name: Upload the installer logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-logs
+          path: "*.log"
+
   settings-portability:
     name: Settings app (${{ matrix.os }})
     # Only Windows ships, but the settings app and the core it edits

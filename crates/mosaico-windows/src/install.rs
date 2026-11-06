@@ -6,6 +6,12 @@
 //! new binary in its place. The old file stays locked while a process
 //! still runs from it, so deleting it can fail right after the update;
 //! the next daemon start deletes it through `remove_leftovers`.
+//!
+//! The release is also an MSI package, whose methods are in
+//! `install_package.rs`.
+
+#[path = "install_package.rs"]
+mod package;
 
 use std::fs;
 use std::io;
@@ -51,6 +57,30 @@ impl Installer for RenameInstaller {
         let mosaico = remove_backup(exe);
         let settings = remove_backup(&settings);
         mosaico.and(settings)
+    }
+
+    /// The MSI for the CPU this binary was built for:
+    /// `mosaico-windows-amd64.msi` for x86-64, `mosaico-windows-arm64.msi`
+    /// for ARM64.
+    fn package_name(&self) -> Result<&str> {
+        package::package_for(std::env::consts::ARCH)
+    }
+
+    /// The `InstallFolder` the MSI recorded under
+    /// `HKEY_CURRENT_USER\Software\mosaico`.
+    fn package_folder(&self) -> Option<PathBuf> {
+        package::package_folder()
+    }
+
+    /// Saves the MSI in the temporary directory and starts
+    /// `msiexec /i <msi> /passive` on it.
+    fn run_package(&self, package: &[u8], reinstall: bool) -> Result<()> {
+        package::run_package(self.package_name()?, package, reinstall)
+    }
+
+    /// Renames a running `exe` to `.exe.old`, as `replace` does.
+    fn set_aside_if_running(&self, exe: &Path) -> Result<bool> {
+        package::set_aside_if_running(exe)
     }
 }
 
