@@ -37,9 +37,8 @@ pub(super) fn carry_out(
     done
 }
 
-/// Carries out a press of the launch binding at `index`, then refreshes
-/// the bar. A program that cannot be started is logged; nobody waits for
-/// the answer of a hotkey.
+/// Carries out a press of the launch binding at `index`, tells how it
+/// went, then refreshes the bar.
 pub(super) fn launch(
     index: usize,
     manager: &mut TilingManager,
@@ -52,10 +51,8 @@ pub(super) fn launch(
         mosaico_core::log_warn!("No launch binding at position {index}");
         return;
     };
-    match manager.launch(binding, launcher) {
-        Ok(launched) => mosaico_core::log_info!("{}: {launched}", binding.name()),
-        Err(e) => mosaico_core::log_warn!("{}: {e}", binding.name()),
-    }
+    let outcome = manager.launch(binding, launcher);
+    inputs.report_launch(binding, &outcome);
     bar_mgr.update(&manager.bar_states(&get_update(), hotkeys_paused));
 }
 
