@@ -159,24 +159,34 @@ pub fn add_button(ui: &mut Ui, c: &Colors, label: &str) -> Response {
 
 /// A small button outlined in the line color, as Done.
 pub fn outlined_button(ui: &mut Ui, c: &Colors, label: &str) -> Response {
+    named_outlined_button(ui, c, label, label)
+}
+
+/// [`outlined_button`] showing `text`, read out as `label`.
+pub fn named_outlined_button(ui: &mut Ui, c: &Colors, text: &str, label: &str) -> Response {
     let look = Look {
         fill: c.control,
         hover: c.hover,
         line: Some(c.line),
         text: c.text,
     };
-    small_button(ui, &look, None, label, label)
+    small_button(ui, &look, None, text, label)
 }
 
-/// "Override" in the accent color, read out as `label`.
-fn override_button(ui: &mut Ui, c: &Colors, label: &str) -> Response {
+/// `text` in the accent color with no outline, read out as `label`.
+pub fn text_button(ui: &mut Ui, c: &Colors, text: &str, label: &str) -> Response {
     let look = Look {
         fill: Color32::TRANSPARENT,
         hover: c.hover,
         line: None,
         text: c.accent,
     };
-    small_button(ui, &look, None, "Override", label)
+    small_button(ui, &look, None, text, label)
+}
+
+/// "Override" in the accent color, read out as `label`.
+fn override_button(ui: &mut Ui, c: &Colors, label: &str) -> Response {
+    text_button(ui, c, "Override", label)
 }
 
 /// How a small button is painted.
