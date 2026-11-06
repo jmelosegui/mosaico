@@ -1,5 +1,6 @@
-//! The Keybindings page: the hotkeys of `keybindings.toml`, each with
-//! the keys that trigger it, and the applications keys start.
+//! The Keybindings page: the hotkeys of `keybindings.toml`, in two tabs.
+//! Actions holds the actions of mosaico, each on the keys that trigger
+//! it; Applications holds the programs keys start.
 
 mod app_editor;
 mod apps;
@@ -11,7 +12,7 @@ pub(super) mod labels;
 mod row;
 mod rows;
 
-use eframe::egui::{RichText, Ui};
+use eframe::egui::Ui;
 use mosaico_core::config::{
     ConfigStore, Keybinding, KeybindingsDocument, LaunchBinding, Modifier, keybinding,
 };
@@ -20,8 +21,13 @@ use self::app_editor::Editor;
 use self::banner::Choice;
 use super::{FilePage, Page};
 use crate::theme::Colors;
+use crate::widgets;
 
 const PROMPT: &str = "Press the new shortcut";
+
+/// The tabs, in order.
+const TABS: [&str; 2] = ["Actions", "Applications"];
+const APPS: usize = 1;
 
 /// A row of the page: a keybinding or a launch binding, by its position
 /// among its kind in the file.
@@ -76,6 +82,8 @@ pub struct KeybindingsPage {
     pending: Option<Pending>,
     /// What the filter field holds.
     filter: String,
+    /// The tab shown, an index into `TABS`.
+    tab: usize,
 }
 
 impl KeybindingsPage {
@@ -97,6 +105,7 @@ impl KeybindingsPage {
             refused: None,
             pending: None,
             filter: String::new(),
+            tab: 0,
         };
         page.load();
         page
@@ -217,33 +226,28 @@ impl FilePage for KeybindingsPage {
 
     fn matches(&self, query: &str) -> usize {
         let actions = (0..self.current.len()).filter(|&i| self.row_matches(i, query));
-        actions.count() + self.apps_matching(query, "")
+        actions.count() + self.apps_matching(query)
     }
 
     fn show(&mut self, ui: &mut Ui, c: &Colors, query: &str) {
-        self.take_key_press(ui);
-        // A search of the window replaces the page's own filter.
+        // A search of the window shows both tabs, and replaces the filter.
         let searching = !query.trim().is_empty();
-        if !searching && header::draw(ui, c, &mut self.filter) {
-            self.restore_defaults();
+        if !searching {
+            widgets::tabs(ui, c, &TABS, &mut self.tab);
         }
-        let filter = if searching {
-            String::new()
-        } else {
-            self.filter.clone()
-        };
+        let apps = self.tab == APPS;
+        let shown = |row| searching || matches!(row, Row::Launch(_)) == apps;
+        // Only the tab showing the row waiting for a key takes the press.
+        if self.capturing.is_some_and(shown) {
+            self.take_key_press(ui);
+        }
         let mut chosen = Choice::Undecided;
-        let actions = self.show_actions(ui, c, query, &filter, &mut chosen);
-        let mut any = actions.shown;
-        let mut clicked = actions.clicked;
-        if self.doc.is_some() {
-            let apps = self.show_apps(ui, c, query, &filter, &mut chosen);
-            any |= apps.shown;
-            clicked = clicked.or(apps.clicked);
+        let mut clicked = None;
+        if searching || !apps {
+            clicked = self.show_actions(ui, c, query, &mut chosen);
         }
-        if !any && self.doc.is_some() {
-            let text = format!("No keybindings match \u{201c}{}\u{201d}.", filter.trim());
-            ui.label(RichText::new(text).color(c.dim_text));
+        if searching || apps {
+            clicked = clicked.or(self.show_apps(ui, c, query, &mut chosen));
         }
         match chosen {
             Choice::Undecided => {}

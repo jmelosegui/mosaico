@@ -212,11 +212,14 @@ pages are not affected.
 
 ![The Keybindings page](../images/settings/keybindings.png)
 
-Edits `keybindings.toml`. The hotkeys are grouped as Focus, Move, Workspaces,
-Windows and layout, and Mosaico. Each row shows the action, its id in
-`keybindings.toml` and its shortcut as keycaps. **Filter by action or key**
-narrows the list, and **Restore defaults** puts every action back on its default
-shortcut, adding the ones the file lost.
+Edits `keybindings.toml`, in two tabs: **Actions** for the actions of mosaico
+and **Applications** for the programs a shortcut starts.
+
+On **Actions**, the hotkeys are grouped as Focus, Move, Workspaces, Windows and
+layout, and Mosaico. The actions are fixed; only their shortcuts change. Each
+row shows the action, its id in `keybindings.toml` and its shortcut as keycaps.
+**Filter by action or key** narrows the list, and **Restore defaults** puts
+every action back on its default shortcut, adding the ones the file lost.
 
 Click the pencil on a row, then press the new shortcut. Hold at least one of
 Ctrl, Alt or Shift (function keys can stand alone). The first key you press is
@@ -228,14 +231,15 @@ row says so and offers **Cancel** or **Replace**. Replace gives the shortcut to
 this row and removes the other binding until you restore it or revert. If two
 bindings in the file share a combination, in any order or case of its
 modifiers, both rows are marked **Conflict** and name each other. **Apply**
-will not save until one of them is changed. Search matches the action and the
-keys, so `alt+j` or `float` narrows the list.
+will not save until one of them is changed. Searching the window shows the
+matching actions and applications together, without the tabs; it matches the
+action, the command and the keys, so `alt+j` or `float` narrows the list.
 
 Applying changes only the keys you edited: comments, blank lines, the order
 and the line endings of `keybindings.toml` are kept. The daemon picks the new
 keys up as it does when you edit the file by hand.
 
-Under the actions, **Applications** lists the shortcuts that start a program
+The **Applications** tab lists the shortcuts that start a program
 (see [Launching Applications](keybindings.md#launching-applications)).
 **Add application** adds one and opens its editor: the command, the arguments
 on one line (separated by spaces, with double quotes around an argument that

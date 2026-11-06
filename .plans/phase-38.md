@@ -158,8 +158,10 @@ lands on the focused monitor's active workspace.
 
 ### Settings app
 
-The Keybindings page gets an "Applications" section under the action rows:
-one row per `[[launch]]` table with the shortcut capture, command, arguments
+The Keybindings page splits into two tabs, the way the Bar page does:
+**Actions**, the fixed actions of mosaico whose shortcuts alone change, and
+**Applications**, one row per `[[launch]]` table with the shortcut capture,
+command, arguments
 (one text field, split on spaces with quotes respected), the focus checkbox
 and match path, plus Add and Remove. `KeybindingsDocument` gains positional
 methods for `[[launch]]` (`launches`, `add_launch`, `set_launch`,
@@ -229,6 +231,13 @@ revisited in review.
 19. **An open editor survives the window rereading the file.** The window
     follows the file every two seconds while nothing is edited; the editor
     stays open and starts over from the file only when it changed under it.
+20. **Applications get a tab of the Keybindings page** (the maintainer's
+    call, replacing a section under the actions). Actions are fixed and only
+    their keys change; applications are added and removed, so they get a
+    view of their own, with a tab as on the Bar page rather than another
+    sidebar entry. The filter and Restore defaults belong to Actions; a
+    search of the window shows matches from both tabs, and a key press is
+    taken only by a row waiting on the tab shown.
 
 ## Tasks
 
@@ -276,6 +285,7 @@ Each task is one pull request, stacked on the one before.
 
 - [x] `KeybindingsDocument` methods for `[[launch]]`, keeping comments
 - [x] "Applications" section: add, edit, remove, conflicts, with app tests
+- [x] Actions and Applications as tabs of the Keybindings page
 
 ### 38.7 Documentation and verification
 

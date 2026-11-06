@@ -191,8 +191,8 @@ launch bindings; the template has commented examples, and auto-merge leaves
 or another launch binding is a conflict, reported by `mosaico doctor` and the
 settings app.
 
-You can also add, edit and remove launch bindings in the
-[settings app](settings.md#keybindings).
+You can also add, edit and remove launch bindings on the **Applications** tab
+of the Keybindings page in the [settings app](settings.md#keybindings).
 
 ## Auto-merge
 

@@ -1,4 +1,4 @@
-//! The Applications section of the Keybindings page: the `[[launch]]`
+//! The Applications tab of the Keybindings page: the `[[launch]]`
 //! bindings, each starting a program from a shortcut, or bringing an open
 //! window of it into view.
 
@@ -15,12 +15,6 @@ use crate::theme::{self, Colors};
 use crate::widgets;
 
 const EMPTY: &str = "No applications yet. Add one to start it with a shortcut.";
-
-/// What the section showed, and what was clicked in it.
-pub(super) struct Shown {
-    pub shown: bool,
-    pub clicked: Option<(Row, Click)>,
-}
 
 /// What names an application: its command, or a placeholder while it has
 /// none.
@@ -53,10 +47,10 @@ impl KeybindingsPage {
             .count()
     }
 
-    /// How many applications match both `query` and `filter`.
-    pub(super) fn apps_matching(&self, query: &str, filter: &str) -> usize {
+    /// How many applications match `query`.
+    pub(super) fn apps_matching(&self, query: &str) -> usize {
         (0..self.launches.len())
-            .filter(|&i| self.app_matches(i, query) && self.app_matches(i, filter))
+            .filter(|&i| self.app_matches(i, query))
             .count()
     }
 
@@ -69,26 +63,23 @@ impl KeybindingsPage {
         texts.iter().any(|t| t.to_lowercase().contains(&query))
     }
 
-    /// Draws the section, unless a search or the filter leaves nothing in
-    /// it. A banner asking whether to take a shortcut is drawn under its
-    /// row, and what it says goes in `chosen`.
+    /// Draws the tab: the applications matching `query`, all of them when
+    /// it is empty, and nothing when a search finds none. A banner asking
+    /// whether to take a shortcut is drawn under its row, and what it says
+    /// goes in `chosen`. Returns the row clicked, and how.
     pub(super) fn show_apps(
         &mut self,
         ui: &mut Ui,
         c: &Colors,
         query: &str,
-        filter: &str,
         chosen: &mut Choice,
-    ) -> Shown {
-        let narrowed = !query.trim().is_empty() || !filter.trim().is_empty();
+    ) -> Option<(Row, Click)> {
+        self.doc.as_ref()?;
         let shown: Vec<usize> = (0..self.launches.len())
-            .filter(|&i| self.app_matches(i, query) && self.app_matches(i, filter))
+            .filter(|&i| self.app_matches(i, query))
             .collect();
-        if narrowed && shown.is_empty() {
-            return Shown {
-                shown: false,
-                clicked: None,
-            };
+        if !query.trim().is_empty() && shown.is_empty() {
+            return None;
         }
         let mut add = false;
         widgets::heading(ui, c, "Applications", |ui| {
@@ -124,10 +115,7 @@ impl KeybindingsPage {
             self.add_app();
             ui.ctx().request_repaint();
         }
-        Shown {
-            shown: true,
-            clicked,
-        }
+        clicked
     }
 
     fn show_app(&self, ui: &mut Ui, c: &Colors, index: usize) -> Click {
