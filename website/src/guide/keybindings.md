@@ -185,7 +185,9 @@ the windows, as with `wt.exe` and `WindowsTerminal.exe`, say which windows to
 look for with `match_path`.
 
 The program starts in your home folder. A command Windows cannot find is
-logged as an error rather than turned into a web search. There are no default
+not turned into a web search: mosaico shows a notification beside its tray
+icon naming the command and why it did not start, and logs the error. Without
+the tray icon, the error is only logged. There are no default
 launch bindings; the template has commented examples, and auto-merge leaves
 `[[launch]]` tables alone. A launch binding sharing a shortcut with an action
 or another launch binding is a conflict, reported by `mosaico doctor` and the

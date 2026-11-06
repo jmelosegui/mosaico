@@ -11,6 +11,8 @@ pub use controller::Tray;
 pub use shortcuts::{Shortcuts, TrayPaths};
 pub use source::{TrayControl, TraySource, TrayWatch};
 
+use crate::Error;
+
 /// What the user asks for through the icon.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TrayCommand {
@@ -151,6 +153,24 @@ impl TrayNotice {
         Self::new(
             "Config reloaded",
             "Every config file, keybindings included, is in use.",
+        )
+    }
+
+    /// Tells that the program `command` of a launch binding could not be
+    /// started, because of `error`, and where to change it.
+    pub fn not_started(command: &str, error: &Error) -> Self {
+        let reason = match error {
+            Error::Platform { source, .. } => source.to_string(),
+            other => other.to_string(),
+        };
+        let mut chars = reason.trim_end_matches('.').chars();
+        let reason: String = chars
+            .next()
+            .map(|first| first.to_uppercase().chain(chars).collect())
+            .unwrap_or_default();
+        Self::new(
+            format!("{command} was not started"),
+            format!("{reason}.\nCheck its command in Settings, Keybindings, Applications."),
         )
     }
 }

@@ -134,7 +134,8 @@ decides:
 1. With `focus = true`, focus a managed window that matches, if there is one.
    With `focus` off, no window is looked at.
 2. Otherwise, or when nothing matched, call `Launcher::launch`. A failure is
-   logged; it never stops the daemon.
+   logged and shown beside the tray icon (decision 24); it never stops the
+   daemon.
 
 Keeping the decision in core lets it be tested with the fake platform and a
 recording launcher.
@@ -257,6 +258,15 @@ revisited in review.
 23. **The windows' path is asked for only when focusing.** Nothing else
     uses it, so it sits under the focus checkbox and appears when that is
     ticked. A path already in the file is kept while it is hidden.
+24. **A program that cannot be started is told beside the tray icon.** A
+    press of a launch key has nobody waiting for its answer, and logging is
+    off by default, so a failure that was only logged left the user with a
+    key that did nothing. `Tray::report_launch` in core logs every outcome
+    and, on a failure, shows a notice naming the command and the reason.
+    A program that starts, or a window focused, shows nothing: the window
+    is the answer. Without the tray icon the failure is only logged; a
+    message box was rejected, as it would take focus from the window the
+    user was in.
 
 ## Tasks
 
@@ -292,6 +302,7 @@ Each task is one pull request, stacked on the one before.
 - [x] `hotkey::Target`; registration, pause and rejections over both lists
 - [x] A recording fake `Launcher` for the daemon's tests
 - [x] Windows hotkey channel carries `Target`; the daemon starts the program
+- [x] A program that cannot be started shows a tray notice, not only a log line
 - [x] Metrics baselines blessed if they move
 
 ### 38.5 Focus an open window

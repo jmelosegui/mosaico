@@ -83,11 +83,16 @@ impl Tray {
     }
 
     /// Tells what a press of `binding` did, which `outcome` says. Nobody
-    /// waits for the answer of a hotkey, so it is logged.
+    /// waits for the answer of a hotkey, so it is logged, and a program
+    /// that could not be started is also told beside the icon, when it is
+    /// shown.
     pub fn report_launch(&self, binding: &LaunchBinding, outcome: &Result<Launched>) {
         match outcome {
             Ok(launched) => crate::log_info!("{}: {launched}", binding.name()),
-            Err(e) => crate::log_warn!("{}: {e}", binding.name()),
+            Err(e) => {
+                crate::log_warn!("{}: {e}", binding.name());
+                self.notify(&TrayNotice::not_started(&binding.command, e));
+            }
         }
     }
 
