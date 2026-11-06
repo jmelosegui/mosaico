@@ -4,6 +4,7 @@
 use eframe::egui::{Align, Color32, Frame, Layout, Margin, RichText, Sense, Stroke, Ui, vec2};
 
 use crate::icons::Icon;
+use crate::pages::rules::row::text_button;
 use crate::theme::{self, Colors};
 use crate::widgets;
 
@@ -101,7 +102,13 @@ fn controls(ui: &mut Ui, c: &Colors, view: &RowView) -> Click {
             ui.label(text);
         }
         None => {
-            shortcut(ui, c, view, false);
+            if view.keys.is_empty() {
+                if text_button(ui, c, "Set shortcut", &format!("Set {what}")).clicked() {
+                    click = Click::Change;
+                }
+            } else {
+                shortcut(ui, c, view, false);
+            }
             if let Some(default) = view.default {
                 let name = format!("Reset {} to {default}", view.label);
                 if widgets::icon_button(ui, c, Icon::Reset, &name, c.accent).clicked() {

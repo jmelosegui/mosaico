@@ -5,7 +5,7 @@
 use eframe::egui::{Align, Frame, Layout, Margin, RichText, Ui};
 use mosaico_core::config::{LaunchBinding, WindowMatch, join_args};
 
-use super::app_editor::{self, Editor};
+use super::app_editor::{self, Editor, EditorClick, Shortcut};
 use super::banner::{self, Choice};
 use super::row::{self, Click, RowView};
 use super::{KeybindingsPage, Row};
@@ -99,7 +99,19 @@ impl KeybindingsPage {
                 if let (Some(p), true) = (&self.pending, self.capturing == Some(Row::Launch(i))) {
                     *chosen = banner::draw(ui, c, &p.shortcut, &p.owners);
                 }
-                done |= self.show_editor(ui, c, i);
+                match self.show_editor(ui, c, i) {
+                    EditorClick::Nothing => {}
+                    EditorClick::Done => done = true,
+                    EditorClick::Shortcut => {
+                        let row = Row::Launch(i);
+                        let click = if self.capturing == Some(row) {
+                            Click::Cancel
+                        } else {
+                            Click::Change
+                        };
+                        clicked = Some((row, click));
+                    }
+                }
             }
             if shown.is_empty() {
                 Frame::new()
@@ -124,15 +136,7 @@ impl KeybindingsPage {
             Err(problem) => return broken(ui, c, index, problem),
         };
         let row = Row::Launch(index);
-        let combo = match &self.pending {
-            Some(p) if self.capturing == Some(row) => p.shortcut.replace(' ', "+"),
-            _ => combo_text(launch),
-        };
-        let keys: Vec<String> = combo
-            .split('+')
-            .filter(|k| !k.is_empty())
-            .map(str::to_owned)
-            .collect();
+        let keys = self.keys(index, launch);
         let name = label(launch);
         let args = join_args(&launch.args);
         let view = RowView {
@@ -148,19 +152,37 @@ impl KeybindingsPage {
         row::draw(ui, c, &view)
     }
 
+    /// The keys of the application at `index`, as `["Alt", "T"]`: the
+    /// shortcut waiting for an answer while its row asks about one.
+    fn keys(&self, index: usize, launch: &LaunchBinding) -> Vec<String> {
+        let combo = match &self.pending {
+            Some(p) if self.capturing == Some(Row::Launch(index)) => p.shortcut.replace(' ', "+"),
+            _ => combo_text(launch),
+        };
+        combo
+            .split('+')
+            .filter(|k| !k.is_empty())
+            .map(str::to_owned)
+            .collect()
+    }
+
     /// Draws the editor of the application at `index` when it is open,
-    /// and writes what was typed into the file. Returns whether Done was
-    /// clicked.
-    fn show_editor(&mut self, ui: &mut Ui, c: &Colors, index: usize) -> bool {
+    /// and writes what was typed into the file. Returns what was clicked.
+    fn show_editor(&mut self, ui: &mut Ui, c: &Colors, index: usize) -> EditorClick {
         let Some(Ok(current)) = self.launches.get(index).cloned() else {
-            return false;
+            return EditorClick::Nothing;
         };
         let was = self.saved_launches.get(index).cloned().and_then(Result::ok);
+        let keys = self.keys(index, &current);
+        let shortcut = Shortcut {
+            keys: &keys,
+            capturing: self.capturing == Some(Row::Launch(index)),
+        };
         let Some(editor) = self.editing.as_mut().filter(|e| e.index == index) else {
-            return false;
+            return EditorClick::Nothing;
         };
         let name = format!("application {}", index + 1);
-        let done = app_editor::show(ui, c, &name, editor, was.as_ref());
+        let click = app_editor::show(ui, c, &name, &shortcut, editor, was.as_ref());
         let edited = editor.applied_to(&current);
         if edited != current
             && let Some(doc) = &mut self.doc
@@ -168,7 +190,7 @@ impl KeybindingsPage {
         {
             self.refresh();
         }
-        done
+        click
     }
 
     /// Opens the editor of the application of `row`, or closes it when it

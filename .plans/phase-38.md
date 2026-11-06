@@ -248,6 +248,15 @@ revisited in review.
     that window is a few milliseconds and was not worth a generation number
     on every press. Missing default actions are still appended only at
     startup, so a reload never writes the file the settings app is saving.
+22. **The editor shows the shortcut and says what each field is for.** A
+    maintainer adding an application found no way to set its shortcut: only
+    the row's unlabelled pencil captured it. The editor now starts with the
+    shortcut and a **Record** button, a row without one shows **Set
+    shortcut**, and every field has a line of help under it. Capture still
+    starts only from a click (decision 16).
+23. **The windows' path is asked for only when focusing.** Nothing else
+    uses it, so it sits under the focus checkbox and appears when that is
+    ticked. A path already in the file is kept while it is hidden.
 
 ## Tasks
 
@@ -297,6 +306,7 @@ Each task is one pull request, stacked on the one before.
 - [x] "Applications" section: add, edit, remove, conflicts, with app tests
 - [x] Actions and Applications as tabs of the Keybindings page
 - [x] `keybindings.toml` hot-reloaded, so a saved shortcut works at once
+- [x] Application editor: shortcut line, Set shortcut, help, path only when focusing
 
 ### 38.7 Documentation and verification
 

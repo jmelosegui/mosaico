@@ -241,14 +241,17 @@ keys up at once, as it does when you edit the file by hand.
 
 The **Applications** tab lists the shortcuts that start a program
 (see [Launching Applications](keybindings.md#launching-applications)).
-**Add application** adds one and opens its editor: the command, the arguments
-on one line (separated by spaces, with double quotes around an argument that
-holds spaces), the path its windows end with, and whether a press focuses an
-open window of it instead of starting another, which is off by default. Click
-the pencil to capture its shortcut, the arrow to open or close its editor, and
-the bin to remove it. **Apply** refuses an application with no command or no
-shortcut. Conflicts and Replace work across actions and applications alike;
-**Restore defaults** leaves applications alone.
+**Add application** adds one and opens its editor. Its first line shows the
+shortcut, with **Record** to capture it; a row with no shortcut also offers
+**Set shortcut** where its keycaps would be. Under it are the command and the
+arguments on one line (separated by spaces, with double quotes around an
+argument that holds spaces), each with a line of help, and whether a press
+focuses an open window of it instead of starting another, which is off by
+default. Only when that is ticked does the editor ask for the path its windows
+end with. Click the pencil to capture its shortcut, the arrow to open or close
+its editor, and the bin to remove it. **Apply** refuses an application with no
+command or no shortcut. Conflicts and Replace work across actions and
+applications alike; **Restore defaults** leaves applications alone.
 
 ## Rules
 

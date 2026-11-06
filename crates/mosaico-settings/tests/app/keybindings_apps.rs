@@ -55,6 +55,50 @@ fn an_added_application_is_saved_with_its_shortcut() {
 }
 
 #[test]
+fn a_new_application_records_its_shortcut_from_its_editor() {
+    // Arrange
+    let (mut h, path) = window_with("apps-record", FILE);
+    click(&mut h, Role::Button, "Add application");
+    type_into(&mut h, "Command of application 1", "notepad");
+
+    // Act
+    click(&mut h, Role::Button, "Record the shortcut of application 1");
+    press(&mut h, Modifiers::ALT, Key::T);
+    click(&mut h, Role::Button, "Apply");
+
+    // Assert
+    let saved = std::fs::read_to_string(&path).unwrap();
+    assert!(
+        saved.contains("command = \"notepad\"\nkey = \"T\"\nmodifiers = [\"alt\"]"),
+        "{saved}"
+    );
+}
+
+#[test]
+fn an_application_without_a_shortcut_offers_to_set_one_on_its_row() {
+    // Arrange
+    let (mut h, path) = window_with("apps-set", FILE);
+    click(&mut h, Role::Button, "Add application");
+    type_into(&mut h, "Command of application 1", "notepad");
+
+    // Act
+    click(&mut h, Role::Button, "Set shortcut of notepad");
+    press(&mut h, Modifiers::ALT, Key::T);
+    click(&mut h, Role::Button, "Apply");
+
+    // Assert
+    let saved = std::fs::read_to_string(&path).unwrap();
+    assert!(
+        saved.contains("command = \"notepad\"\nkey = \"T\"\nmodifiers = [\"alt\"]"),
+        "{saved}"
+    );
+    assert!(
+        h.query_by_role_and_label(Role::Button, "Set shortcut of notepad")
+            .is_none()
+    );
+}
+
+#[test]
 fn an_application_without_a_shortcut_is_not_saved() {
     // Arrange
     let (mut h, path) = window_with("apps-no-key", FILE);
@@ -99,6 +143,30 @@ fn editing_an_application_keeps_the_comments_of_the_file() {
         h.query_by_role_and_label(Role::TextInput, "Arguments of application 1")
             .is_none()
     );
+}
+
+#[test]
+fn the_path_of_an_application_s_windows_is_asked_only_when_it_focuses_one() {
+    // Arrange
+    let file = format!("{FILE}{NOTEPAD}");
+    let (mut h, path) = window_with("apps-path", &file);
+    click(&mut h, Role::Button, "Edit notepad");
+    let field = "Its windows' path ends with of application 1";
+    assert!(h.query_by_role_and_label(Role::TextInput, field).is_none());
+
+    // Act
+    click(
+        &mut h,
+        Role::CheckBox,
+        "Focus an open window of it instead of starting another",
+    );
+    type_into(&mut h, field, "notepad2.exe");
+    click(&mut h, Role::Button, "Apply");
+
+    // Assert
+    let saved = std::fs::read_to_string(&path).unwrap();
+    assert!(saved.contains("focus = true"), "{saved}");
+    assert!(saved.contains("match_path = \"notepad2.exe\""), "{saved}");
 }
 
 #[test]
