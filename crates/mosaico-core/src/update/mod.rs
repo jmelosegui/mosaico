@@ -8,8 +8,12 @@
 
 mod download;
 mod install;
+mod package;
 mod release;
+mod restart;
 
-pub use download::{Binaries, download_binaries};
+pub use download::{Binaries, download_binaries, download_package};
 pub use install::Installer;
+pub use package::is_packaged;
 pub use release::{is_newer_tag, latest_tag, newer_release};
+pub use restart::RestartMarker;

@@ -51,6 +51,25 @@ pub fn download_binaries(
     })
 }
 
+/// Downloads the installer package of the release tagged `tag` for the
+/// platform of `installer`, as its contents.
+///
+/// # Errors
+///
+/// Fails with [`Error::Unsupported`](crate::Error::Unsupported), before
+/// downloading anything, when the platform has no installer package, and
+/// with [`Error::Network`](crate::Error::Network) when the package cannot
+/// be downloaded, for example because the release has none.
+pub fn download_package(
+    http: &dyn HttpClient,
+    installer: &dyn Installer,
+    tag: &str,
+) -> Result<Vec<u8>> {
+    let package = installer.package_name()?;
+    let path = format!("/jmelosegui/mosaico/releases/download/{tag}/{package}");
+    http.get_bytes(DOWNLOAD_HOST, &path, DOWNLOAD_TIMEOUT)
+}
+
 /// Takes the file named `binary` out of the zip `archive`.
 fn extract(archive: &[u8], binary: &str) -> Result<Vec<u8>> {
     let mut archive = zip::ZipArchive::new(Cursor::new(archive))

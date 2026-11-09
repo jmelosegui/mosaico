@@ -79,7 +79,7 @@ pub fn check(cx: &Context) -> mosaico_core::Result<AutostartStatus> {
 }
 
 /// The mosaico executable this command runs from.
-fn running_exe(cx: &Context) -> mosaico_core::Result<PathBuf> {
+pub(super) fn running_exe(cx: &Context) -> mosaico_core::Result<PathBuf> {
     (cx.current_exe)().map_err(|e| Error::platform("find the mosaico executable", e))
 }
 

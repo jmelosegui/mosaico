@@ -44,6 +44,13 @@ impl Installer for TestPlatform {
     fn remove_leftovers(&self, _exe: &Path) -> crate::Result<()> {
         unreachable!("downloading installs nothing")
     }
+
+    fn package_name(&self) -> crate::Result<&str> {
+        match self {
+            Updates => Ok("mosaico-test-os.pkg"),
+            CannotUpdate => Err(Error::Unsupported("installer package")),
+        }
+    }
 }
 
 /// A zip archive holding `files`, as names and contents.
@@ -223,6 +230,39 @@ fn a_platform_that_cannot_update_itself_downloads_nothing() {
 
     // Act
     let error = download_binaries(&http, &CannotUpdate, "v1.2.3").unwrap_err();
+
+    // Assert
+    assert!(matches!(error, Error::Unsupported(_)), "{error:?}");
+    assert!(http.requests().is_empty(), "{:?}", http.requests());
+}
+
+#[test]
+fn the_package_is_this_platforms_package_of_the_release() {
+    // Arrange
+    let package = "/jmelosegui/mosaico/releases/download/v1.2.3/mosaico-test-os.pkg";
+    let http = FakeHttp::default().answer("github.com", package, b"package".to_vec());
+
+    // Act
+    let downloaded = download_package(&http, &Updates, "v1.2.3").unwrap();
+
+    // Assert
+    assert_eq!(downloaded, b"package");
+    assert_eq!(
+        http.requests(),
+        [(
+            format!("https://github.com{package}"),
+            Duration::from_secs(60)
+        )]
+    );
+}
+
+#[test]
+fn a_platform_without_a_package_downloads_nothing() {
+    // Arrange
+    let http = FakeHttp::default();
+
+    // Act
+    let error = download_package(&http, &CannotUpdate, "v1.2.3").unwrap_err();
 
     // Assert
     assert!(matches!(error, Error::Unsupported(_)), "{error:?}");

@@ -73,6 +73,12 @@ enum Commands {
     /// Run the daemon (internal — not for direct use)
     #[command(hide = true)]
     Daemon,
+    /// Run a step of the installer package (internal — not for direct use)
+    #[command(hide = true)]
+    InstallerHook {
+        #[arg(value_enum)]
+        hook: commands::installer_hook::Hook,
+    },
 }
 
 #[derive(Subcommand)]
@@ -150,6 +156,7 @@ fn run(cx: &mut Context, command: Commands) -> Exit {
         Commands::Banner => commands::banner::execute(cx),
         Commands::Settings => commands::settings::execute(cx),
         Commands::Update { force } => commands::update::execute(cx, force),
+        Commands::InstallerHook { hook } => commands::installer_hook::execute(cx, hook),
         Commands::Action { action } => commands::action::execute(cx, action.action()),
         Commands::Debug {
             command: DebugCommands::List,

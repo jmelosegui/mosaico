@@ -3,7 +3,9 @@
 //! Checks GitHub for a newer version, stops the daemon if running,
 //! downloads this platform's release archive, has the platform replace
 //! the settings app and the running binary with the ones in it, and
-//! restarts the daemon if it was running before the update.
+//! restarts the daemon if it was running before the update. A mosaico
+//! installed by the platform's installer package is updated by running
+//! the release's package instead, see `update_package.rs`.
 
 use std::fmt::Display;
 
@@ -39,26 +41,34 @@ pub fn execute(cx: &mut Context, force: bool) -> Exit {
         say!(cx, " reinstalling v{local}.");
     }
 
-    // 2. Make sure this platform can install it before stopping anything.
+    // 2. A mosaico the platform's installer package installed is updated
+    // by that package, which stops and restarts the daemon itself.
+    if let Ok(exe) = (cx.current_exe)()
+        && update::is_packaged(cx.installer, cx.files, &exe)
+    {
+        return super::update_package::execute(cx, &tag, !is_update);
+    }
+
+    // 3. Make sure this platform can install it before stopping anything.
     if let Err(e) = cx.installer.asset_name() {
         return fail(cx, e, false);
     }
 
-    // 3. Stop daemon if running.
+    // 4. Stop daemon if running.
     let daemon_was_running = cx.daemon.is_running();
     if daemon_was_running {
         say!(cx, "Stopping daemon...");
         super::stop::execute(cx);
     }
 
-    // 4. Download this platform's release and take the binaries out of it.
+    // 5. Download this platform's release and take the binaries out of it.
     say!(cx, "Downloading {tag}...");
     let binaries = match update::download_binaries(cx.http, cx.installer, &tag) {
         Ok(binaries) => binaries,
         Err(e) => return fail(cx, e, daemon_was_running),
     };
 
-    // 5. Replace the settings app, then the running binary, so a failure
+    // 6. Replace the settings app, then the running binary, so a failure
     // leaves the old mosaico in place.
     let current_exe = match (cx.current_exe)() {
         Ok(p) => p,
@@ -84,7 +94,7 @@ pub fn execute(cx: &mut Context, force: bool) -> Exit {
         say!(cx, "Reinstalled v{local}.");
     }
 
-    // 6. Restart daemon if it was running, as the version just installed.
+    // 7. Restart daemon if it was running, as the version just installed.
     if daemon_was_running {
         say!(cx, "Restarting daemon...");
         let installed = tag.strip_prefix('v').unwrap_or(&tag);

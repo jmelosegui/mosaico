@@ -1,0 +1,57 @@
+name: Publish to WinGet
+
+# Run by hand, from the Actions tab or with
+# `gh workflow run winget.yml -f tag=v1.2.3`, once a release's MSI has been
+# installed and checked. A tag only builds and publishes the GitHub release.
+#
+# Opens a pull request at microsoft/winget-pkgs with the release's MSI. It
+# needs a version of the package there already (the first one is submitted
+# by hand with packaging/winget/new-manifests.ps1), the WINGET_TOKEN secret
+# (a classic PAT with public_repo and workflow scopes) and a fork of
+# winget-pkgs owned by WINGET_FORK_USER, or by the repository owner when
+# that variable is unset.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to publish, such as v1.2.3
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  winget:
+    name: Publish to WinGet
+    runs-on: windows-latest
+    steps:
+      - name: Check the token and the release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          if [ -z "$WINGET_TOKEN" ]; then
+            echo "::error::Set the WINGET_TOKEN secret to publish to WinGet."
+            exit 1
+          fi
+          case "$TAG" in
+            *-*) echo "::error::$TAG is a prerelease; WinGet gets stable releases only."; exit 1 ;;
+          esac
+          release=$(gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json isDraft,isPrerelease,assets \
+            --jq '"\(.isDraft) \(.isPrerelease) \([.assets[].name | select(endswith(".msi"))] | length)"') \
+            || { echo "::error::There is no release $TAG."; exit 1; }
+          set -- $release
+          [ "$1" = false ] || { echo "::error::$TAG is a draft."; exit 1; }
+          [ "$2" = false ] || { echo "::error::$TAG is a prerelease; WinGet gets stable releases only."; exit 1; }
+          [ "$3" -gt 0 ] || { echo "::error::$TAG has no MSI."; exit 1; }
+
+      - uses: vedantmgoyal9/winget-releaser@v2
+        with:
+          identifier: jmelosegui.mosaico
+          installers-regex: '\.msi$'
+          release-tag: ${{ inputs.tag }}
+          token: ${{ secrets.WINGET_TOKEN }}
+          fork-user: ${{ vars.WINGET_FORK_USER || github.repository_owner }}
