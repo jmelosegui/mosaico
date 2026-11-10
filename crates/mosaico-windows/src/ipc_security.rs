@@ -24,8 +24,8 @@ use windows::Win32::Security::Authorization::{
     SE_KERNEL_OBJECT,
 };
 use windows::Win32::Security::{
-    LABEL_SECURITY_INFORMATION, OWNER_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR,
-    SECURITY_ATTRIBUTES,
+    GetSecurityDescriptorOwner, LABEL_SECURITY_INFORMATION, OWNER_SECURITY_INFORMATION,
+    PSECURITY_DESCRIPTOR, PSID, SECURITY_ATTRIBUTES,
 };
 use windows::core::{BOOL, HSTRING, PWSTR};
 
@@ -94,7 +94,22 @@ impl PipeSecurity {
     /// Whether this is the descriptor of a pipe the daemon of `user`
     /// created: owned by `user` and labelled medium or above.
     fn trusted_by(&self, user: &str) -> io::Result<bool> {
-        Ok(trusts(&self.text()?, user))
+        Ok(trusts(self.owner()?.as_deref(), &self.text()?, user))
+    }
+
+    /// The owner's SID, or `None` without one. Read from the descriptor
+    /// itself, because its text names some accounts, such as the built-in
+    /// Administrator, by an alias instead of their SID.
+    fn owner(&self) -> io::Result<Option<String>> {
+        let mut owner = PSID::default();
+        let mut defaulted = BOOL(0);
+        // SAFETY: Reads the owner of a valid descriptor; `owner` points
+        // into the descriptor, which outlives its use below.
+        unsafe { GetSecurityDescriptorOwner(self.descriptor, &mut owner, &mut defaulted) }?;
+        if owner.is_invalid() {
+            return Ok(None);
+        }
+        token::sid_text(owner).map(Some)
     }
 
     /// The owner and label, in the security descriptor definition
@@ -159,22 +174,11 @@ pub(crate) fn check_server(file: &impl AsRawHandle) -> Result<(), IpcError> {
     }
 }
 
-/// Whether a pipe whose owner and label read `text` is one the daemon of
-/// `user` created: owned by `user` and labelled medium or above. A pipe
-/// with no label counts as medium, as the system treats it.
-fn trusts(text: &str, user: &str) -> bool {
-    owner(text) == Some(user) && label(text).is_none_or(|level| level >= MEDIUM_INTEGRITY)
-}
-
-/// The owner in a descriptor's text, as written there.
-fn owner(text: &str) -> Option<&str> {
-    let rest = &text[text.find("O:")? + 2..];
-    let end = ["G:", "D:", "S:"]
-        .iter()
-        .filter_map(|part| rest.find(part))
-        .min()
-        .unwrap_or(rest.len());
-    Some(&rest[..end])
+/// Whether a pipe owned by `owner`, whose label reads `text`, is one the
+/// daemon of `user` created: owned by `user` and labelled medium or
+/// above. A pipe with no label counts as medium, as the system treats it.
+fn trusts(owner: Option<&str>, text: &str, user: &str) -> bool {
+    owner == Some(user) && label(text).is_none_or(|level| level >= MEDIUM_INTEGRITY)
 }
 
 /// The integrity level of the mandatory label in a descriptor's text, or

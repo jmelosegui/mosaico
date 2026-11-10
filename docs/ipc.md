@@ -226,8 +226,10 @@ SECURITY_IDENTIFICATION`, so the server can tell who the client is but cannot
 impersonate it. It then reads the pipe's owner and label (`GetSecurityInfo`)
 and refuses, with `IpcError::Untrusted`, a pipe owned by another account or
 labelled below medium. A pipe with no label counts as medium, as the system
-treats it. A label exactly at the daemon's level is not required: an elevated
-CLI still reaches an unelevated daemon.
+treats it. The owner is compared as a SID (`GetSecurityDescriptorOwner`),
+never as descriptor text, which names some accounts by an alias: the built-in
+Administrator is `LA` there. A label exactly at the daemon's level is not
+required: an elevated CLI still reaches an unelevated daemon.
 
 This keeps out other users, other machines and less trusted processes of the
 user. A process of the same user at the same integrity can still create an

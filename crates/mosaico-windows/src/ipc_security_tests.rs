@@ -65,16 +65,16 @@ fn the_descriptor_lets_in_only_the_user_and_the_system_at_the_daemons_level() {
 fn a_pipe_the_user_owns_at_medium_or_above_is_trusted() {
     // Arrange
     let cases = [
-        format!("O:{USER}S:(ML;;NWNR;;;ME)"),
-        format!("O:{USER}S:(ML;;NWNR;;;HI)"),
-        format!("O:{USER}G:{USER}S:(ML;;NW;;;S-1-16-8192)"),
+        "S:(ML;;NWNR;;;ME)",
+        "S:(ML;;NWNR;;;HI)",
+        "S:(ML;;NW;;;S-1-16-8192)",
         // No label is medium, as the system reads it.
-        format!("O:{USER}"),
+        "",
     ];
 
     // Act / Assert
     for text in cases {
-        assert!(trusts(&text, USER), "{text}");
+        assert!(trusts(Some(USER), text, USER), "{text}");
     }
 }
 
@@ -82,17 +82,18 @@ fn a_pipe_the_user_owns_at_medium_or_above_is_trusted() {
 fn a_pipe_of_another_owner_or_below_medium_is_not_trusted() {
     // Arrange
     let cases = [
-        "O:S-1-5-21-1-2-3-1002S:(ML;;NWNR;;;ME)".to_string(),
-        "O:BAS:(ML;;NWNR;;;HI)".to_string(),
-        format!("O:{USER}S:(ML;;NW;;;LW)"),
-        format!("O:{USER}S:(ML;;NW;;;S-1-16-0)"),
-        format!("O:{USER}S:(ML;;NW;;;garbage)"),
-        "S:(ML;;NW;;;ME)".to_string(),
+        (Some("S-1-5-21-1-2-3-1002"), "S:(ML;;NWNR;;;ME)"),
+        // The Administrators group.
+        (Some("S-1-5-32-544"), "S:(ML;;NWNR;;;HI)"),
+        (Some(USER), "S:(ML;;NW;;;LW)"),
+        (Some(USER), "S:(ML;;NW;;;S-1-16-0)"),
+        (Some(USER), "S:(ML;;NW;;;garbage)"),
+        (None, "S:(ML;;NW;;;ME)"),
     ];
 
     // Act / Assert
-    for text in cases {
-        assert!(!trusts(&text, USER), "{text}");
+    for (owner, text) in cases {
+        assert!(!trusts(owner, text, USER), "{owner:?} {text}");
     }
 }
 
@@ -123,15 +124,13 @@ fn the_daemons_pipe_is_owned_by_the_user_and_labelled_at_its_level() {
 
     // Act
     let instance = server.create_instance().unwrap();
-    let text = PipeSecurity::of(HANDLE(instance.as_raw_handle()))
-        .unwrap()
-        .text()
-        .unwrap();
+    let security = PipeSecurity::of(HANDLE(instance.as_raw_handle())).unwrap();
 
     // Assert
     let user = token::current_user().unwrap();
     let level = integrity(&token::current_integrity().unwrap()).unwrap();
-    assert_eq!(owner(&text), Some(user.as_str()), "{text}");
+    let text = security.text().unwrap();
+    assert_eq!(security.owner().unwrap(), Some(user), "{text}");
     assert_eq!(label(&text), Some(level), "{text}");
 }
 

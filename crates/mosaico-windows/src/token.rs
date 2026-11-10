@@ -5,7 +5,7 @@
 use windows::Win32::Foundation::{CloseHandle, HANDLE, HLOCAL, LocalFree};
 use windows::Win32::Security::Authorization::ConvertSidToStringSidW;
 use windows::Win32::Security::{
-    GetTokenInformation, SID_AND_ATTRIBUTES, TOKEN_INFORMATION_CLASS, TOKEN_QUERY,
+    GetTokenInformation, PSID, SID_AND_ATTRIBUTES, TOKEN_INFORMATION_CLASS, TOKEN_QUERY,
     TokenIntegrityLevel, TokenUser,
 };
 use windows::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
@@ -71,12 +71,19 @@ fn token_sid(
     // SID_AND_ATTRIBUTES (TOKEN_USER and TOKEN_MANDATORY_LABEL are one
     // each) whose SID points into `buffer`, which outlives it.
     let sid = unsafe { (*buffer.as_ptr().cast::<SID_AND_ATTRIBUTES>()).Sid };
+    sid_text(sid).or_platform(operation)
+}
+
+/// `sid`, a valid SID, as text like `S-1-5-21-…-500`: always the SID
+/// itself, never an alias such as `LA` that a security descriptor's text
+/// uses for some accounts.
+pub(crate) fn sid_text(sid: PSID) -> std::io::Result<String> {
     let mut text = PWSTR::null();
     // SAFETY: `sid` is a valid SID. The text it writes is freed below.
-    unsafe { ConvertSidToStringSidW(sid, &mut text) }.or_platform(operation)?;
+    unsafe { ConvertSidToStringSidW(sid, &mut text) }?;
     // SAFETY: `text` is the null-terminated string written above.
     let sid = unsafe { text.to_string() };
     // SAFETY: Frees the string ConvertSidToStringSidW allocated, once.
     unsafe { LocalFree(Some(HLOCAL(text.0.cast()))) };
-    sid.or_platform(operation)
+    sid.map_err(std::io::Error::other)
 }
