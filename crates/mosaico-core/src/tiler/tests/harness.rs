@@ -12,7 +12,7 @@ use crate::action::Origin;
 use crate::id::wid;
 use crate::{Action, Rect, WindowEvent, WindowId, Workspace};
 
-use super::super::{Effect, Input, Settings, Tiler, Timing};
+use super::super::{Effect, Input, Reach, Settings, Tiler, Timing};
 use super::{FakeDesktop, FakeWindow, displays};
 
 /// A tiler on a fake desktop that applies its own effects.
@@ -66,6 +66,16 @@ impl Harness {
         let effects = self.tiler.step(input, &self.desktop, self.now);
         self.apply(effects);
         &self.effects
+    }
+
+    /// Lays every monitor out again, as reading the work areas again does,
+    /// with no bar, keeping the splits where they are.
+    pub(in crate::tiler) fn relayout(&mut self) -> &[Effect] {
+        let monitors = displays(self.tiler.monitors().len());
+        self.step(Input::WorkAreas {
+            monitors,
+            reach: Reach::none(),
+        })
     }
 
     pub(in crate::tiler) fn action(&mut self, action: Action) -> &[Effect] {

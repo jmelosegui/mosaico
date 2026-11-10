@@ -57,6 +57,10 @@ show_border = 2
 border_renders = 0
 calls = 0
 
+[bar_switch_to_external]
+border_renders = 0
+calls = 0
+
 [bar_switch_to_builtin]
 border_renders = 4
 calls = 12

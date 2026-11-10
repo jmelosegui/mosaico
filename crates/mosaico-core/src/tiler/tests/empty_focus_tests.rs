@@ -12,10 +12,12 @@ use std::time::{Duration, Instant};
 /// arrangement from the reproduction: the user pressed alt+l then alt+8.
 fn parked_on_empty() -> (Vec<MonitorState>, EmptyFocusClaim, Instant) {
     let mut left = make_monitor(0);
+    left.bounds = Rect::new(0, 0, 3840, 2160);
     left.work_area = Rect::new(0, 0, 3840, 2024);
     left.workspaces[0].add(wid(0x40F78));
 
     let mut right = make_monitor(1);
+    right.bounds = Rect::new(3840, 0, 3840, 2160);
     right.work_area = Rect::new(3840, 0, 3840, 2024);
     right.active_workspace = 7;
 
@@ -153,11 +155,20 @@ fn the_pointer_is_placed_on_the_monitor_whose_work_area_holds_it() {
 }
 
 #[test]
-fn a_pointer_outside_every_work_area_is_placed_nowhere() {
+fn a_pointer_on_a_bar_outside_the_work_area_is_on_that_bars_monitor() {
     // Arrange
     let (monitors, _, _) = parked_on_empty();
 
-    // Act / Assert -- below both work areas, for example over a taskbar
-    // that the work area excludes.
+    // Act / Assert -- over the taskbar at the bottom of the right monitor,
+    // which the work area leaves out.
+    assert_eq!(monitor_at_point(&monitors, 5000, 2100), Some(1));
+}
+
+#[test]
+fn a_pointer_outside_every_monitor_is_placed_nowhere() {
+    // Arrange
+    let (monitors, _, _) = parked_on_empty();
+
+    // Act / Assert
     assert_eq!(monitor_at_point(&monitors, 100, 9000), None);
 }

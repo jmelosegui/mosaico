@@ -60,7 +60,7 @@ pub(super) fn daemon_loop(pipe_name: &str, store: &ConfigStore) -> Result<()> {
         ..api::Daemon::default()
     };
     let mut bars = BarHost::new(
-        provider.choice(),
+        &config.bar,
         daemon_loop_bar::make_builtin(tx.clone(), store.clone()),
         daemon,
         config.theme.resolve(),

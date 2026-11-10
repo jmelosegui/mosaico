@@ -1,5 +1,5 @@
 //! What `mosaico doctor` says about the bar: which one shows mosaico,
-//! then, for the built-in one, whether `bar.toml` loads, the bindings of
+//! the space tiles keep clear of on each monitor, then, for the built-in one, whether `bar.toml` loads, the bindings of
 //! clicks on the bar's widgets, and the `[[mouse.click]]` entries the bar
 //! leaves out, and why.
 
@@ -26,6 +26,7 @@ pub fn check_bar(cx: &mut Context) {
     for line in provider_lines(&provider) {
         say!(cx, "{line}");
     }
+    super::doctor_bar_space::check_space(cx, provider.choice());
     if !provider.choice().is_builtin() {
         return;
     }

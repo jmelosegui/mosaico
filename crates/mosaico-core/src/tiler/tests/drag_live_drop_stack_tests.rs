@@ -5,8 +5,6 @@
 
 use crate::LayoutKind;
 use crate::Rect;
-use crate::tiler::Input;
-use crate::tiler::Reach;
 use crate::tiler::drag::support::{center, drop_at, grab, report_at, swapping};
 use crate::tiler::tests::Harness;
 
@@ -20,7 +18,7 @@ fn onto(kind: LayoutKind, ids: &[u64]) -> Harness {
     windows.extend(ids.iter().map(|&id| (id, 1)));
     let mut h = Harness::with_settings(swapping(), 2, &windows);
     h.tiler.monitors[1].active_ws_mut().set_layout_kind(kind);
-    h.step(Input::Reach(Reach::none()));
+    h.relayout();
     h
 }
 
@@ -49,7 +47,7 @@ fn a_vertical_stack_there_makes_room_as_the_drop_lays_it_out() {
     h.tiler.monitors[1]
         .active_ws_mut()
         .set_heights(1, &[0.25, 0.75]);
-    h.step(Input::Reach(Reach::none()));
+    h.relayout();
 
     // Act -- over window 5.
     let (live, dropped) = made_room_and_dropped(&mut h, 5);

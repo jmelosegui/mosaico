@@ -20,6 +20,11 @@ pub const DURATION_MAX_MS: i32 = 1000;
 /// The sizes, in megabytes, a log file may grow to before it is rotated.
 pub const LOG_FILE_MB: (u64, u64) = (1, 1024);
 
+/// The most space, in pixels at 100%, the settings window offers to keep
+/// on one edge for another program's bar. An edge past a quarter of a
+/// monitor is refused on that monitor whatever the file says.
+pub const BAR_RESERVE_MAX: i32 = 1000;
+
 /// The heights, in pixels, the bar may have.
 pub const BAR_HEIGHT: (i32, i32) = (16, 96);
 

@@ -733,13 +733,14 @@ needs 36.4 and 36.6; 36.8 and 36.9 need 36.7.
 
 ### 36.4 Reach from four edges
 
-- [ ] `Reach` on all four edges, combined with the system's work area by
-      taking the further, only moved monitors retiled
-- [ ] `[bar.reserve]` and its per-monitor tables, in scaled pixels
-- [ ] The hand-over on a switch: the old reach kept until the new provider
+- [x] `Reach` on all four edges, combined with the system's work area by
+      taking the further; any change in reach retiles only the monitors
+      whose space moved
+- [x] `[bar.reserve]` and its per-monitor tables, in scaled pixels
+- [x] The hand-over on a switch: the old reach kept until the new provider
       reserves, or 5 s
-- [ ] `monitor_at_point` on each monitor's full bounds
-- [ ] doctor: what the system and mosaico keep per monitor and edge
+- [x] `monitor_at_point` on each monitor's full bounds
+- [x] doctor: what the system and mosaico keep per monitor and edge
 
 ### 36.5 The refresh due time
 

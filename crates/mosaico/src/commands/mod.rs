@@ -7,6 +7,7 @@ pub mod debug;
 pub mod doctor;
 mod doctor_animations;
 mod doctor_bar;
+mod doctor_bar_space;
 mod doctor_launch;
 mod doctor_runtime;
 mod doctor_settings;

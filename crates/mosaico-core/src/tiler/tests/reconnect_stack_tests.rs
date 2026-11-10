@@ -5,8 +5,6 @@
 //! column.
 
 use crate::id::wid;
-use crate::tiler::Input;
-use crate::tiler::Reach;
 use crate::tiler::tests::Harness;
 use crate::{LayoutKind, Rect, WindowEvent};
 
@@ -23,7 +21,7 @@ fn stacked_on_second(kind: LayoutKind, resized: &[(usize, &[f64])]) -> Harness {
     for &(index, shares) in resized {
         ws.set_heights(index, shares);
     }
-    h.step(Input::Reach(Reach::none()));
+    h.relayout();
     h
 }
 
@@ -93,7 +91,7 @@ fn a_window_back_in_the_other_column_evens_both_columns_as_a_close_at_home_does(
         let ws = h.tiler.monitors[1].active_ws_mut();
         ws.set_layout_kind(LayoutKind::ThreeColumn);
         ws.set_heights(1, &[349.0, 664.0, 35.0]);
-        h.step(Input::Reach(Reach::none()));
+        h.relayout();
         h
     };
     let (mut home, mut away) = (stacked(), stacked());

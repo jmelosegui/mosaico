@@ -3,6 +3,7 @@ mod animations;
 /// Status bar configuration.
 pub mod bar;
 /// `[bar]` in `config.toml`: which bar shows mosaico.
+mod bar_reserve;
 mod bar_section;
 /// Which widgets the bar shows, where, and in what order.
 mod bar_widgets;
@@ -51,6 +52,7 @@ use serde::{Deserialize, Serialize};
 
 pub use animations::AnimationConfig;
 pub use bar::{BarColors, BarConfig, BarMouseConfig, BarScroll, ClickBinding, WidgetConfig};
+pub use bar_reserve::{BarReserve, ReserveEdges};
 pub use bar_section::{BarChoice, BarSection, ProviderCheck};
 pub use bar_widgets::{BarWidget, BarWidgets, BarZone};
 pub use color::Color;
@@ -112,6 +114,7 @@ impl Config {
         self.borders.width = self.borders.width.clamp(0, limits::BORDER_WIDTH_MAX);
         let duration = self.animations.duration;
         self.animations.duration = duration.clamp(0, limits::DURATION_MAX_MS);
+        self.bar.reserve.validate();
     }
 
     /// Resolves border colors: empty -> theme default, named -> theme hex.

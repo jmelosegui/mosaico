@@ -89,7 +89,7 @@ impl<P: Platform> TilingManager<P> {
     }
 
     /// Keeps tiles clear of how far the bar reaches into each monitor,
-    /// then retiles.
+    /// then retiles the monitors whose tiling area that moved.
     pub fn set_reach(&mut self, reach: Reach) {
         self.step(Input::Reach(reach));
     }

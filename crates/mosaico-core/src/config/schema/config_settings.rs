@@ -3,7 +3,7 @@
 use super::{SettingDescriptor, SettingKind, SettingValue, default_at};
 use crate::config::Config;
 use crate::config::limits::{
-    BORDER_WIDTH_MAX, DURATION_MAX_MS, GAP_MAX, LOG_FILE_MB, RATIO_MAX, RATIO_MIN,
+    BAR_RESERVE_MAX, BORDER_WIDTH_MAX, DURATION_MAX_MS, GAP_MAX, LOG_FILE_MB, RATIO_MAX, RATIO_MIN,
 };
 
 const LAYOUTS: &[(&str, &str)] = &[
@@ -61,6 +61,10 @@ const fn workspace_layout(key: &'static str, label: &'static str) -> SettingDesc
         "The layout of this workspace. The default layout applies when none is picked.",
         SettingKind::Choice(WORKSPACE_LAYOUTS),
     )
+}
+
+const fn reserve(key: &'static str, label: &'static str, help: &'static str) -> SettingDescriptor {
+    setting(key, label, help, pixels(BAR_RESERVE_MAX))
 }
 
 const fn pixels(max: i32) -> SettingKind {
@@ -228,6 +232,26 @@ pub const CONFIG_SETTINGS: &[SettingDescriptor] = &[
         "Bar",
         "The bar that shows your workspaces. Tiles keep clear of it.",
         SettingKind::Choice(BAR_PROVIDERS),
+    ),
+    reserve(
+        "bar.reserve.top",
+        "Top",
+        "Space kept down from the top of every monitor, in pixels at 100% scale.",
+    ),
+    reserve(
+        "bar.reserve.bottom",
+        "Bottom",
+        "Space kept up from the bottom of every monitor, in pixels at 100% scale.",
+    ),
+    reserve(
+        "bar.reserve.left",
+        "Left",
+        "Space kept in from the left of every monitor, in pixels at 100% scale.",
+    ),
+    reserve(
+        "bar.reserve.right",
+        "Right",
+        "Space kept in from the right of every monitor, in pixels at 100% scale.",
     ),
     setting(
         "logging.enabled",

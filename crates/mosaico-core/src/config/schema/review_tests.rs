@@ -61,3 +61,22 @@ fn a_key_no_setting_has_is_unknown_and_lists_are_left_to_the_loader() {
 fn a_file_that_does_not_parse_has_no_problems_here() {
     assert_eq!(review("gap = = 1", CONFIG_SETTINGS), []);
 }
+
+#[test]
+fn an_edge_of_a_monitor_of_the_reserve_is_checked_as_the_same_edge_of_every_monitor() {
+    // Act
+    let problems = review(
+        "[bar.reserve.monitor.1]\ntop = 30\nbottom = -4\nmiddle = 2\n",
+        CONFIG_SETTINGS,
+    );
+
+    // Assert
+    let text: Vec<String> = problems.iter().map(ToString::to_string).collect();
+    assert_eq!(
+        text,
+        [
+            "Bottom (bar.reserve.bottom) is -4; it takes 0 to 1000 px",
+            "bar.reserve.monitor.1.middle is not a setting mosaico knows",
+        ]
+    );
+}

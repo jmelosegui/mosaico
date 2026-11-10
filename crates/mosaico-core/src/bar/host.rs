@@ -6,10 +6,11 @@ use std::time::Instant;
 
 use crate::action::Origin;
 use crate::api;
-use crate::config::{BarChoice, BarConfig, Theme};
-use crate::tiler::{Display, Platform, Reach, TilingManager};
+use crate::config::{BarChoice, BarConfig, BarReserve, BarSection, Theme};
+use crate::tiler::{Display, MonitorPlace, Platform, Reach, TilingManager};
 use crate::{Action, Result};
 
+use super::handover::{HANDOVER, Handover, reach_of};
 use super::{ApiBar, BarId, BarProvider, NoBar, PointerEvent};
 
 /// Makes mosaico's own bar in a theme, with `bar.toml` read afresh.
@@ -33,20 +34,27 @@ pub struct BarHost {
     placed: bool,
     /// How far the bars reached when the tiles last moved for them.
     reach: Reach,
+    /// `[bar.reserve]`, which a bar that cannot say how far it reaches
+    /// keeps.
+    reserve: BarReserve,
+    /// The space the previous bar kept, held after a switch until the new
+    /// one says how far it reaches.
+    handover: Option<Handover>,
 }
 
 impl BarHost {
-    /// Runs the provider `choice` names for a daemon described by
+    /// Runs the provider `section` picks for a daemon described by
     /// `daemon`, in `theme`. `make_builtin` is only called when mosaico's
     /// own bar is picked, now or later. `daemon`'s provider is set to the
     /// name the provider goes by.
     pub fn new(
-        choice: BarChoice,
+        section: &BarSection,
         mut make_builtin: MakeBuiltin,
         daemon: api::Daemon,
         theme: Theme,
     ) -> Self {
-        let provider = provider_for(choice, &mut make_builtin, theme);
+        let choice = section.choice();
+        let provider = provider_for(choice, &mut make_builtin, theme, &section.reserve);
         let daemon = api::Daemon {
             provider: provider.name().to_string(),
             ..daemon
@@ -60,6 +68,8 @@ impl BarHost {
             api_theme: api::Theme::of(theme),
             placed: false,
             reach: Reach::default(),
+            reserve: section.reserve.clone(),
+            handover: None,
         }
     }
 
@@ -68,7 +78,7 @@ impl BarHost {
     pub fn start<P: Platform>(&mut self, manager: &mut TilingManager<P>) {
         let places = manager.places();
         self.provider.place(&places);
-        self.reach = self.provider.reach(&places);
+        self.reach = reach_of(self.provider.as_ref(), &mut self.handover, &places);
         manager.set_reach(self.reach.clone());
         self.placed = true;
         self.show(manager);
@@ -80,10 +90,15 @@ impl BarHost {
         self.shown(manager);
     }
 
-    /// Once a second: shows the bars the state if it changed, or else has
-    /// them draw again what changes on its own, such as a clock, so they
-    /// draw once either way.
-    pub fn tick<P: Platform>(&mut self, manager: &mut TilingManager<P>) {
+    /// Once a second, at `now`: lets go of the previous bar's space once
+    /// its hold is over, then shows the bars the state if it changed, or
+    /// else has them draw again what changes on its own, such as a clock,
+    /// so they draw once either way.
+    pub fn tick<P: Platform>(&mut self, manager: &mut TilingManager<P>, now: Instant) {
+        if self.handover.as_ref().is_some_and(|held| held.over(now)) {
+            self.handover = None;
+            self.keep_clear(manager, &manager.places());
+        }
         if !self.shown(manager) {
             self.provider.refresh();
         }
@@ -115,7 +130,7 @@ impl BarHost {
     ) {
         let places = manager.places_for(&displays);
         self.provider.place(&places);
-        self.reach = self.provider.reach(&places);
+        self.reach = reach_of(self.provider.as_ref(), &mut self.handover, &places);
         manager.handle_display_change(displays, self.reach.clone());
         self.placed = true;
     }
@@ -125,10 +140,11 @@ impl BarHost {
     /// [`TilingManager::reset_work_areas`] for when the read fails.
     pub fn reset_work_areas<P: Platform>(&mut self, manager: &mut TilingManager<P>) -> Result<()> {
         let provider = &mut self.provider;
+        let handover = &mut self.handover;
         let mut reached = None;
         let read = manager.reset_work_areas(|places| {
             provider.place(places);
-            let reach = provider.reach(places);
+            let reach = reach_of(provider.as_ref(), handover, places);
             reached = Some(reach.clone());
             reach
         });
@@ -199,45 +215,72 @@ impl BarHost {
         self.choice
     }
 
-    /// Runs the provider `choice` names, and tells whether that changed
-    /// the bar. The bars running are taken off screen first, then the new
-    /// ones are placed, the tiles keep clear of them, moving only where
-    /// they reach further or less far, and they are shown the state.
+    /// Runs the provider `section` picks with its `[bar.reserve]`, and
+    /// tells whether that changed the bar. The bars running are taken off
+    /// screen first, then the new ones are placed, the tiles keep clear of
+    /// them, moving only where they reach further or less far, and they are
+    /// shown the state.
+    ///
+    /// A bar that only says how far it reaches once it connects gets the
+    /// space the previous bar kept for [`HANDOVER`] from `now`, or until it
+    /// reaches into the monitor. A change to the reserve alone moves the
+    /// tiles where the space kept changed, and is not a change of bar.
     pub fn choose<P: Platform>(
         &mut self,
         manager: &mut TilingManager<P>,
-        choice: BarChoice,
+        section: &BarSection,
+        now: Instant,
     ) -> bool {
-        if choice == self.choice {
+        let choice = section.choice();
+        if choice == self.choice && section.reserve == self.reserve {
             return false;
         }
+        self.reserve = section.reserve.clone();
         let places = manager.places();
+        if choice == self.choice {
+            self.provider.set_reserve(&self.reserve);
+            self.keep_clear(manager, &places);
+            return false;
+        }
         self.provider.stop();
-        self.provider = provider_for(choice, &mut self.make_builtin, self.theme);
+        self.provider = provider_for(choice, &mut self.make_builtin, self.theme, &self.reserve);
         self.choice = choice;
         self.daemon.provider = self.provider.name().to_string();
         self.provider.place(&places);
-        let reach = self.provider.reach(&places);
-        // A bar that keeps the same space moves no window.
-        if reach != self.reach {
-            self.reach = reach;
-            manager.set_reach(self.reach.clone());
-        }
+        let until = now + HANDOVER;
+        self.handover = (self.provider.connects_later())
+            .then(|| Handover::begin(&self.reach, &self.provider.reach(&places), until))
+            .flatten();
+        self.keep_clear(manager, &places);
         self.placed = true;
         self.show(manager);
         true
     }
+
+    /// Keeps the tiles clear of how far the bars reach into `places` now,
+    /// moving them only when that changed.
+    fn keep_clear<P: Platform>(&mut self, manager: &mut TilingManager<P>, places: &[MonitorPlace]) {
+        let reach = reach_of(self.provider.as_ref(), &mut self.handover, places);
+        if reach != self.reach {
+            self.reach = reach;
+            manager.set_reach(self.reach.clone());
+        }
+    }
 }
 
-/// The provider `choice` names, `make_builtin` making mosaico's own.
+/// The provider `choice` names, `make_builtin` making mosaico's own,
+/// told `reserve`.
 fn provider_for(
     choice: BarChoice,
     make_builtin: &mut MakeBuiltin,
     theme: Theme,
+    reserve: &BarReserve,
 ) -> Box<dyn BarProvider> {
-    match choice {
+    let mut provider: Box<dyn BarProvider> = match choice {
         BarChoice::Mosaico => make_builtin(theme),
-        BarChoice::External => Box::new(ApiBar),
+        BarChoice::External => Box::new(ApiBar::default()),
         BarChoice::Off => Box::new(NoBar),
-    }
+    };
+    provider.set_reserve(reserve);
+    provider
 }

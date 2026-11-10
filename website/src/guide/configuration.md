@@ -78,6 +78,9 @@ enabled = true     # Show the mosaico icon in the notification area
 [bar]
 provider = "mosaico"  # The bar that shows your workspaces: "mosaico", "external" or "none"
 
+[bar.reserve]          # Space kept for another program's bar, under "external"
+top = 0                # Pixels at 100%; also bottom, left and right
+
 [logging]
 enabled = false    # Enable file logging
 level = "info"     # Log level: debug, info, warn, error
@@ -92,8 +95,9 @@ The `[bar]` section picks the bar that shows your workspaces, which tiles
 keep clear of: `"mosaico"` (the default) for mosaico's own bar, styled in
 `bar.toml`; `"external"` for a bar another program draws, where mosaico
 draws none and keeps tiles to the space Windows leaves free; or `"none"` for
-no bar at all. Under `"external"` and `"none"`, `bar.toml` is not read. See
-[Status Bar](status-bar.md#which-bar).
+no bar at all. Under `"external"` and `"none"`, `bar.toml` is not read.
+Under `"external"`, `[bar.reserve]` keeps space on any edge for a bar that
+does not keep its own. See [Status Bar](status-bar.md#which-bar).
 
 The `[animations]` section sets up window transitions, which are on by
 default. See [Window Transitions](animations.md) for what moves, the easings

@@ -24,7 +24,7 @@ impl SettingsApp {
             let file = (self.file_read(page))
                 .then(|| self.files.matches(page, &self.query))
                 .flatten();
-            pages::count(page, &self.query) + file.unwrap_or(0)
+            pages::count(page, &self.query, &self.draft.edit) + file.unwrap_or(0)
         })
     }
 

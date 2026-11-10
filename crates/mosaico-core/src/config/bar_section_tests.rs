@@ -5,6 +5,7 @@ fn a_provider_is_compared_without_regard_to_case() {
     // Arrange
     let section = BarSection {
         provider: " External ".to_string(),
+        ..BarSection::default()
     };
 
     // Act
@@ -20,6 +21,7 @@ fn an_unknown_provider_is_read_as_external_and_said_so() {
     // Arrange
     let section = BarSection {
         provider: "zeebar".to_string(),
+        ..BarSection::default()
     };
 
     // Act
@@ -107,4 +109,34 @@ fn an_unreadable_table_is_external_and_said_so() {
     assert_eq!(check.choice(), BarChoice::External);
     assert_eq!(BarSection::unreadable().choice(), BarChoice::External);
     assert!(check.warning().is_some());
+}
+
+#[test]
+fn the_reserve_and_its_monitor_tables_are_read() {
+    // Arrange
+    let content = "[bar]\nprovider = \"external\"\n[bar.reserve]\ntop = 30\n\
+                   [bar.reserve.monitor.1]\nbottom = 40\n";
+
+    // Act
+    let section = read_bar_section(content).unwrap_or_default();
+
+    // Assert
+    assert_eq!(section.reserve.top, 30);
+    assert_eq!(section.reserve.for_monitor(1, "m-b").bottom, 40);
+    assert_eq!(section.reserve.for_monitor(1, "m-b").top, 0);
+}
+
+#[test]
+fn a_reserve_that_cannot_be_read_keeps_the_provider() {
+    // Arrange
+    let content = "[bar]\nprovider = \"none\"\n[bar.reserve]\ntop = \"tall\"\n";
+
+    // Act
+    let section = read_bar_section(content);
+
+    // Assert
+    assert_eq!(
+        section.map(|s| (s.choice(), s.reserve)),
+        Some((BarChoice::Off, BarReserve::default()))
+    );
 }

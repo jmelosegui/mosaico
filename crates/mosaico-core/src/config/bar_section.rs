@@ -5,6 +5,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use super::BarReserve;
+
 /// The bar that shows mosaico, as `[bar] provider` names it.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum BarChoice {
@@ -52,12 +54,15 @@ pub struct BarSection {
     /// The bar's name as written, so a value mosaico does not know is
     /// kept and reported rather than lost. See [`check`](Self::check).
     pub provider: String,
+    /// Space kept for a bar another program draws, see [`BarReserve`].
+    pub reserve: BarReserve,
 }
 
 impl Default for BarSection {
     fn default() -> Self {
         Self {
             provider: BarChoice::Mosaico.name().to_string(),
+            reserve: BarReserve::default(),
         }
     }
 }
@@ -83,6 +88,7 @@ impl BarSection {
     pub(crate) fn unreadable() -> Self {
         Self {
             provider: BarChoice::External.name().to_string(),
+            reserve: BarReserve::default(),
         }
     }
 }
@@ -134,16 +140,24 @@ impl ProviderCheck {
 /// A file that is valid TOML gives its table, whatever the other tables
 /// hold. One that is not gives the lines under `[bar]` and its
 /// subtables, read alone. A file without the table has the default.
+/// A `[bar.reserve]` that cannot be read keeps nothing rather than lose
+/// the provider, so a typo in it does not change the bar.
 /// Returns `None` when the table is there but cannot be read.
 pub(crate) fn read_bar_section(content: &str) -> Option<BarSection> {
     let table = match content.parse::<toml::Table>() {
         Ok(table) => table,
         Err(_) => bar_lines(content)?.parse::<toml::Table>().ok()?,
     };
-    match table.get("bar") {
-        Some(bar) => bar.clone().try_into().ok(),
-        None => Some(BarSection::default()),
-    }
+    let Some(bar) = table.get("bar") else {
+        return Some(BarSection::default());
+    };
+    let mut section: BarSection = bar.clone().try_into().ok().or_else(|| {
+        let mut bar = bar.as_table()?.clone();
+        bar.remove("reserve")?;
+        toml::Value::Table(bar).try_into().ok()
+    })?;
+    section.reserve.validate();
+    Some(section)
 }
 
 /// The lines of `content` under the `[bar]` header and those of its

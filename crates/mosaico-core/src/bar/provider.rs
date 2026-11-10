@@ -5,10 +5,10 @@ use std::time::Instant;
 use crate::Action;
 use crate::action::Origin;
 use crate::api::State;
-use crate::config::BarConfig;
+use crate::config::{BarConfig, BarReserve};
 use crate::tiler::{MonitorPlace, Reach};
 
-use super::{BarId, PointerEvent};
+use super::{BarId, PointerEvent, reserve_reach};
 
 /// A bar mosaico shows its state on, and keeps tiles clear of: the
 /// built-in one, a bar another program draws, or none.
@@ -23,8 +23,9 @@ use super::{BarId, PointerEvent};
 ///   and again whenever the monitors or their work areas change. A
 ///   provider that draws makes or moves its bars there.
 /// - [`reach`](Self::reach) is how far the bars reach into each monitor
-///   as they are placed now. It must not change between two calls to
-///   `place` unless the bar's own config changed, since the tiler only
+///   as they are placed now, measured from the monitor's edges. It must not
+///   change between two calls to `place` unless the bar's own config or
+///   [`set_reserve`](Self::set_reserve) changed it, since the tiler only
 ///   asks for it then.
 /// - [`show`](Self::show) is only called with a state that differs from
 ///   the one shown last, or after `place`. A provider keeps the last state
@@ -82,6 +83,19 @@ pub trait BarProvider {
     /// it. Call [`reach`](Self::reach) again after this.
     fn reload(&mut self, _config: BarConfig) {}
 
+    /// Takes in `[bar.reserve]`, the space to keep for a bar that cannot
+    /// say how far it reaches. A provider that knows its own reach ignores
+    /// it. Call [`reach`](Self::reach) again after this.
+    fn set_reserve(&mut self, _reserve: &BarReserve) {}
+
+    /// Whether the bars may only say how far they reach some time after
+    /// they are placed, as another program's bar does once it connects.
+    /// The daemon then holds the space the previous bar kept for a moment
+    /// after a switch, so tiles do not move into it and back.
+    fn connects_later(&self) -> bool {
+        false
+    }
+
     /// Takes the bars off screen as the daemon stops or switches to
     /// another provider.
     fn stop(&mut self);
@@ -112,10 +126,12 @@ impl BarProvider for NoBar {
 }
 
 /// A bar another program draws, which reads the state through the bar
-/// API. Until it says how far it reaches, tiles keep to the work areas
-/// the system gives.
+/// API. Tiles keep clear of `[bar.reserve]`, whether the program runs or
+/// not, beside the work areas the system gives.
 #[derive(Debug, Default)]
-pub struct ApiBar;
+pub struct ApiBar {
+    reserve: BarReserve,
+}
 
 impl BarProvider for ApiBar {
     fn name(&self) -> &str {
@@ -124,14 +140,22 @@ impl BarProvider for ApiBar {
 
     fn place(&mut self, _places: &[MonitorPlace]) {}
 
-    fn reach(&self, _places: &[MonitorPlace]) -> Reach {
-        Reach::none()
+    fn reach(&self, places: &[MonitorPlace]) -> Reach {
+        reserve_reach(&self.reserve, places)
     }
 
     fn show(&mut self, _state: &State) {}
 
     fn wants_state(&self) -> bool {
         false
+    }
+
+    fn set_reserve(&mut self, reserve: &BarReserve) {
+        self.reserve = reserve.clone();
+    }
+
+    fn connects_later(&self) -> bool {
+        true
     }
 
     fn stop(&mut self) {}

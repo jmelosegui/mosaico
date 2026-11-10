@@ -3,12 +3,13 @@
 
 use std::cell::Cell;
 use std::rc::Rc;
+use std::time::Instant;
 
 use crate::api;
 use crate::bar::{BarHost, BarProvider};
 use crate::config::{BarChoice, Theme};
 
-use super::bar_host_tests::{Recorder, Told, host};
+use super::bar_host_tests::{Recorder, Told, host, host_on, picked};
 use super::fake_platform::{Call, FakePlatform};
 use super::manager_support::{start, still};
 
@@ -23,9 +24,9 @@ fn another_bar_is_placed_only_once_the_old_bars_are_off_screen() {
     recorder.take();
 
     // Act -- the built-in bar is made again from the same recorder.
-    let off = bars.choose(&mut manager, BarChoice::Off);
+    let off = bars.choose(&mut manager, &picked(BarChoice::Off), Instant::now());
     let stopped = recorder.take();
-    let on = bars.choose(&mut manager, BarChoice::Mosaico);
+    let on = bars.choose(&mut manager, &picked(BarChoice::Mosaico), Instant::now());
 
     // Assert
     assert!(off && on);
@@ -48,7 +49,7 @@ fn picking_the_bar_that_runs_changes_nothing() {
     recorder.take();
 
     // Act
-    let changed = bars.choose(&mut manager, BarChoice::Mosaico);
+    let changed = bars.choose(&mut manager, &picked(BarChoice::Mosaico), Instant::now());
 
     // Assert
     assert!(!changed);
@@ -66,12 +67,17 @@ fn the_built_in_bar_is_made_only_once_it_is_picked() {
         count.set(count.get() + 1);
         Box::new(Recorder::default()) as Box<dyn BarProvider>
     });
-    let mut bars = BarHost::new(BarChoice::External, make, api::Daemon::default(), mocha());
+    let mut bars = BarHost::new(
+        &picked(BarChoice::External),
+        make,
+        api::Daemon::default(),
+        mocha(),
+    );
     bars.start(&mut manager);
     let before = made.get();
 
     // Act
-    bars.choose(&mut manager, BarChoice::Mosaico);
+    bars.choose(&mut manager, &picked(BarChoice::Mosaico), Instant::now());
 
     // Assert
     assert_eq!((before, made.get()), (0, 1));
@@ -83,13 +89,12 @@ fn a_switch_between_bars_that_keep_the_same_space_asks_nothing_of_the_platform()
     // Arrange
     let platform = FakePlatform::new(1, &[(1, 0), (2, 0)]);
     let mut manager = start(&platform, None, &still());
-    let mut bars = host(&Recorder::default());
+    let mut bars = host_on(&Recorder::default(), BarChoice::External);
     bars.start(&mut manager);
-    bars.choose(&mut manager, BarChoice::External);
     platform.take_calls();
 
     // Act
-    bars.choose(&mut manager, BarChoice::Off);
+    bars.choose(&mut manager, &picked(BarChoice::Off), Instant::now());
 
     // Assert -- not even a border is drawn again.
     let calls = platform.take_calls();
@@ -106,7 +111,7 @@ fn no_bar_gives_the_tiles_the_built_in_bars_space_at_once() {
     platform.take_calls();
 
     // Act
-    bars.choose(&mut manager, BarChoice::Off);
+    bars.choose(&mut manager, &picked(BarChoice::Off), Instant::now());
 
     // Assert
     assert_eq!(manager.tiler().monitors()[0].work_area().y, 0);
@@ -126,7 +131,7 @@ fn no_state_is_built_for_a_bar_that_wants_none_until_it_does() {
 
     // Act
     bars.start(&mut manager);
-    bars.tick(&mut manager);
+    bars.tick(&mut manager, Instant::now());
     let built = manager.last_bar_state().monitors.len();
     recorder.1.set(false);
     bars.show(&mut manager);

@@ -4,9 +4,8 @@
 
 use crate::config::WorkspaceMode;
 use crate::id::wid;
-use crate::tiler::Reach;
+use crate::tiler::Effect;
 use crate::tiler::tests::{Harness, MON_H, MON_W};
-use crate::tiler::{Effect, Input};
 use crate::{Action, Rect, WindowEvent};
 
 use super::super::support::{
@@ -129,7 +128,7 @@ fn a_window_dropped_on_another_monitor_gets_a_split_of_its_own_there() {
     let windows = [(1, 0), (2, 0), (3, 1), (4, 1), (5, 1)];
     let mut h = Harness::with_settings(swapping(), 2, &windows);
     h.tiler.monitors[1].active_ws_mut().set_split_ratio(1, 0.25);
-    h.step(Input::Reach(Reach::none()));
+    h.relayout();
     let over = center(h.rect_of(4));
     grab(&mut h, 1);
 

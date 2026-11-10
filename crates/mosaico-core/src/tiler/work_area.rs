@@ -2,7 +2,7 @@
 
 use crate::Rect;
 
-use super::{Display, MonitorState, Plan, Reach, Tiler};
+use super::{Display, Edges, MonitorState, Plan, Reach, Side, Tiler};
 
 impl Tiler {
     /// Keeps each monitor's tiling area clear of how far the bar reaches
@@ -16,12 +16,15 @@ impl Tiler {
     }
 
     /// Reserves the bar like [`reserve_bar`](Self::reserve_bar), but only
-    /// retiles when that moves a monitor's tiling area.
+    /// retiles the monitors whose tiling area that moves, so a bar that
+    /// changes its space on one monitor leaves the others alone.
     pub(super) fn reserve_bar_if_moved(&mut self, plan: &mut Plan, reach: &Reach) {
         let before: Vec<Rect> = self.monitors.iter().map(|m| m.work_area).collect();
         apply_reach(&mut self.monitors, reach);
-        if self.monitors.iter().map(|m| m.work_area).ne(before) {
-            self.retile_all(plan);
+        for (i, was) in before.into_iter().enumerate() {
+            if self.monitors[i].work_area != was {
+                self.apply_layout_on(plan, i);
+            }
         }
     }
 
@@ -59,23 +62,32 @@ pub(super) fn sync_os_work_areas(monitors: &mut [MonitorState], displays: &[Disp
 }
 
 /// Sets each monitor's tiling area to its OS work area kept clear of how
-/// far the bar reaches down from the monitor's top edge. Whichever of the
-/// two reaches further wins, so a bar the system already keeps windows
-/// away from is never counted twice.
+/// far the bar reaches in from each of the monitor's edges. On each edge
+/// whichever of the two reaches further wins, so a bar the system already
+/// keeps windows away from is never counted twice.
 pub(super) fn apply_reach(monitors: &mut [MonitorState], reach: &Reach) {
     for mon in monitors {
-        let line = mon.bounds.y + reach.top(&mon.stable_id);
-        let below = (line - mon.os_work_area.y).max(0);
-        mon.work_area = below_bar(&mon.os_work_area, below);
+        let edges = reach.edges(&mon.stable_id);
+        mon.work_area = kept_clear(&mon.os_work_area, &mon.bounds, edges);
     }
 }
 
-/// Returns `area` with `bar_height` pixels removed from the top.
-pub(super) fn below_bar(area: &Rect, bar_height: i32) -> Rect {
-    Rect::new(
-        area.x,
-        area.y + bar_height,
-        area.width,
-        area.height - bar_height,
-    )
+/// `os`, the work area of a monitor covering `bounds`, with each edge
+/// moved in to where `edges` reach from the monitor's edge, when that is
+/// further in. An edge `edges` does not reach from stays where the system
+/// put it.
+fn kept_clear(os: &Rect, bounds: &Rect, edges: Edges) -> Rect {
+    let line = |side: Side, from: i32, sign: i32| match edges.get(side) {
+        0 => None,
+        pixels => Some(from + sign * pixels),
+    };
+    let top = line(Side::Top, bounds.y, 1).map_or(os.y, |y| y.max(os.y));
+    let left = line(Side::Left, bounds.x, 1).map_or(os.x, |x| x.max(os.x));
+    let os_bottom = os.y + os.height;
+    let bottom =
+        (line(Side::Bottom, bounds.y + bounds.height, -1)).map_or(os_bottom, |y| y.min(os_bottom));
+    let os_right = os.x + os.width;
+    let right =
+        (line(Side::Right, bounds.x + bounds.width, -1)).map_or(os_right, |x| x.min(os_right));
+    Rect::new(left, top, (right - left).max(0), (bottom - top).max(0))
 }

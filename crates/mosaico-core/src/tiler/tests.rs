@@ -19,6 +19,8 @@ mod adopt_order_kept_tests;
 mod adopt_order_support;
 #[path = "tests/adopt_order_tests.rs"]
 mod adopt_order_tests;
+#[path = "tests/bar_host_reserve_tests.rs"]
+mod bar_host_reserve_tests;
 #[path = "tests/bar_host_switch_tests.rs"]
 mod bar_host_switch_tests;
 #[path = "tests/bar_host_tests.rs"]

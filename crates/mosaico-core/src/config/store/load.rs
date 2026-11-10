@@ -79,7 +79,7 @@ impl ConfigStore {
 
     /// The `[bar]` table [`bar_provider`](Self::bar_provider) reads, or
     /// the one an unreadable table stands for.
-    fn bar_section(&self) -> BarSection {
+    pub fn bar_section(&self) -> BarSection {
         self.read_bar_section()
             .unwrap_or_else(BarSection::unreadable)
     }

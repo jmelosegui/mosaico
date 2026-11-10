@@ -19,7 +19,7 @@ pub use notice::{not_read, problem};
 pub use search::{Row, count};
 
 use eframe::egui::{RichText, Ui};
-use mosaico_core::config::ConfigStore;
+use mosaico_core::config::{BarChoice, ConfigStore};
 
 use crate::icons::Icon;
 use mosaico_core::config::schema;
@@ -201,9 +201,23 @@ impl Entry {
 /// A titled group of rows.
 pub type Section = (&'static str, &'static [Entry]);
 
+/// The title of the section of the space kept for another program's bar.
+const RESERVE: &str = "Space kept for another bar";
+
+/// Whether the section titled `title` applies under `settings`: the
+/// space kept for another program's bar only matters while that bar is
+/// picked, so it is not shown under any other.
+fn applies(title: &str, settings: &Settings) -> bool {
+    title != RESERVE || settings.bar() == BarChoice::External
+}
+
 /// The line of help a section has under its title, if any.
 fn intro(title: &str) -> Option<&'static str> {
     match title {
+        RESERVE => Some(
+            "For another program's bar that does not tell mosaico its size, kept while the bar \
+             is \"external\", whether it runs or not. Each monitor's scale multiplies it.",
+        ),
         "Colors" => Some(
             "A theme color follows the theme when you switch flavors. A hex color stays fixed.",
         ),
@@ -232,6 +246,9 @@ fn sections(
     settings: &mut Settings,
 ) {
     for (title, entries) in sections {
+        if !applies(title, settings) {
+            continue;
+        }
         let shown: Vec<_> = entries
             .iter()
             .map(|entry| (entry, entry.row()))

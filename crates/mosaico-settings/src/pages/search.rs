@@ -1,6 +1,7 @@
 //! What a search of the window matches: a row's label, help and key.
 
 use super::Page;
+use crate::model::Settings;
 
 /// A setting's label and help, and the key it has in its file, which
 /// search matches.
@@ -36,11 +37,13 @@ impl Row {
     }
 }
 
-/// How many rows of a page of `config.toml` settings match `query`.
-pub fn count(page: Page, query: &str) -> usize {
+/// How many rows of a page of `config.toml` settings match `query`, of
+/// the sections that apply under `settings`.
+pub fn count(page: Page, query: &str, settings: &Settings) -> usize {
     page.sections().map_or(0, |sections| {
         sections
             .iter()
+            .filter(|(title, _)| super::applies(title, settings))
             .flat_map(|(_, entries)| entries.iter())
             .filter(|entry| entry.row().matches(query))
             .count()
@@ -50,6 +53,7 @@ pub fn count(page: Page, query: &str) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use mosaico_core::config::schema::SettingValue;
 
     #[test]
     fn a_row_matches_its_key() {
@@ -62,8 +66,26 @@ mod tests {
 
     #[test]
     fn counts_the_rows_of_a_page_that_match() {
-        assert!(count(Page::Layout, "gap") > 0);
-        assert_eq!(count(Page::Layout, "zzz"), 0);
-        assert_eq!(count(Page::Bar, "gap"), 0);
+        let settings = Settings::defaults();
+
+        assert!(count(Page::Layout, "gap", &settings) > 0);
+        assert_eq!(count(Page::Layout, "zzz", &settings), 0);
+        assert_eq!(count(Page::Bar, "gap", &settings), 0);
+    }
+
+    #[test]
+    fn the_space_kept_for_another_bar_is_only_found_while_that_bar_is_picked() {
+        // Arrange
+        let mosaico = Settings::defaults();
+        let mut external = Settings::defaults();
+        external.set("bar.provider", SettingValue::Text("external".into()));
+
+        // Act
+        let under_mosaico = count(Page::Bar, "reserve", &mosaico);
+        let under_external = count(Page::Bar, "reserve", &external);
+
+        // Assert
+        assert_eq!(under_mosaico, 0);
+        assert_eq!(under_external, 4);
     }
 }

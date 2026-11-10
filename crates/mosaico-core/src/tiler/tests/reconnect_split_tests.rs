@@ -25,13 +25,13 @@ pub(super) fn connect(h: &mut Harness, count: usize) {
 }
 
 /// Moves the splits of the BSP chain on monitor `mon` of `h` to `ratios`,
-/// and lays it out again, as the bar read again does, which keeps them.
+/// and lays it out again, as the work areas read again do, which keeps them.
 pub(super) fn move_splits(h: &mut Harness, mon: usize, ratios: &[f64]) {
     let ws = h.tiler.monitors[mon].active_ws_mut();
     for (split, &ratio) in ratios.iter().enumerate() {
         ws.set_split_ratio(split, ratio);
     }
-    h.step(Input::Reach(Reach::none()));
+    h.relayout();
 }
 
 /// Windows `ids` tiled in BSP on the second of two monitors, with the

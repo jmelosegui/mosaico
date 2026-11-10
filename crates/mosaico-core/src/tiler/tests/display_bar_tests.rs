@@ -3,6 +3,8 @@
 
 use super::*;
 use crate::Rect;
+use crate::id::wid;
+use crate::tiler::Effect;
 use crate::tiler::Input;
 use crate::tiler::tests::{Harness, displays};
 
@@ -81,4 +83,28 @@ fn a_display_change_that_changes_nothing_moves_nothing() {
 
     // Assert
     assert!(effects.is_empty(), "{effects:?}");
+}
+
+#[test]
+fn a_bar_that_moves_on_one_monitor_in_a_display_change_leaves_the_other_alone() {
+    // Arrange -- window 1 on monitor 0, window 2 on monitor 1, no bars.
+    let mut h = tiled_with(NO_BARS);
+    let only_second = Reach::bar_on(&h.tiler.places(), BARS, &[1]);
+
+    // Act
+    let effects = h
+        .step(Input::Displays {
+            monitors: displays(2),
+            reach: only_second,
+        })
+        .to_vec();
+
+    // Assert -- only the monitor whose space moved is laid out again.
+    let placed = |id| {
+        effects
+            .iter()
+            .any(|e| matches!(*e, Effect::Place { window, .. } if window == wid(id)))
+    };
+    assert!(placed(2), "{effects:?}");
+    assert!(!placed(1), "{effects:?}");
 }

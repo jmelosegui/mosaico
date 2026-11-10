@@ -23,8 +23,12 @@ The contract has two halves:
 | `crates/mosaico-core/src/tiler/api_state.rs` | The tiler's monitors, focus and workspace settings as the API shows them |
 | `crates/mosaico-core/src/tiler/manager_api.rs` | `TilingManager::bar_state()` -- the state, built again only when it may have changed |
 | `crates/mosaico-core/src/tiler/reach.rs` | `MonitorPlace`, `Reach` -- where a bar is placed, and how far it reaches |
+| `crates/mosaico-core/src/tiler/edges.rs` | `Edges`, `Side` -- how far something reaches in from each edge of a monitor |
 | `crates/mosaico-core/src/bar/provider.rs` | `BarProvider`, `ApiBar`, `NoBar` |
 | `crates/mosaico-core/src/config/bar_section.rs` | `[bar] provider` in `config.toml`: `BarChoice`, `BarSection`, `ProviderCheck` |
+| `crates/mosaico-core/src/config/bar_reserve.rs` | `[bar.reserve]`: `BarReserve`, `ReserveEdges` |
+| `crates/mosaico-core/src/bar/reserve.rs` | `ReservedSpace`, `reserve_reach()` -- what `[bar.reserve]` keeps on each monitor |
+| `crates/mosaico-core/src/bar/handover.rs` | `Handover`, `HANDOVER` -- the old bar's space, held while another program's bar starts |
 | `crates/mosaico-core/src/bar/host.rs` | `BarHost` -- the daemon's one bar, and the order the contract asks for |
 | `crates/mosaico-core/src/bar/builtin.rs` | `BuiltinBar` -- the built-in bar as a provider |
 | `docs/bar-api/state.json`, `update.json` | An example state and update |
@@ -133,6 +137,8 @@ pub trait BarProvider {
     fn due(&self) -> Option<Instant> { None }
     fn take_due(&mut self, now: Instant) -> Vec<(Action, Origin)> { Vec::new() }
     fn reload(&mut self, config: BarConfig) {}
+    fn set_reserve(&mut self, reserve: &BarReserve) {}
+    fn connects_later(&self) -> bool { false }
     fn stop(&mut self);
 }
 ```
@@ -159,6 +165,12 @@ thread:
   mosaico's renderer: what the pointer did on it, and the actions it hands
   over on its own, such as a workspace switch once the wheel went quiet.
 - `reload` takes a new `bar.toml`; a provider that does not draw ignores it.
+- `set_reserve` takes `[bar.reserve]` before `place`, at startup and on
+  each reload that changes it. A provider whose bar cannot say how far it
+  reaches keeps that space in `reach`; the others ignore it.
+- `connects_later` says the bar is drawn by a program that may not be up
+  yet, so on a switch the space the old bar kept is held until it is (see
+  [The Handover](#the-handover)).
 - `stop` takes the bars off screen.
 - Nothing may block: a provider talking to another program queues what it
   sends and drops it when that program falls behind.
@@ -173,11 +185,11 @@ runs, and is tested in core (`tiler/tests/bar_host_tests.rs`):
 |------|------|--------------|
 | `start` | Startup | Place, keep the tiles clear of the reach, show |
 | `show` | After each action, batch of window events and reload | Show the state when it changed, or when the bars were placed since |
-| `tick` | Once a second | `show`, or else `refresh` |
+| `tick` | Once a second | End a handover whose time is up, then `show`, or else `refresh` |
 | `display_changed` | A display change settled | Place on the monitors as they will be, then have the tiler rebuild them clear of the reach, in one step |
 | `reset_work_areas` | The system's work areas changed, or `retile` | Read the work areas, place on them, keep clear of the reach, in one retile |
 | `reload` | `bar.toml` changed | The provider takes the config, then `reset_work_areas` |
-| `choose` | `[bar] provider` changed on a reload | Stop the old provider, make and place the new one, retile only when it reaches further or less far, then show it the state; nothing when the choice is the same |
+| `choose` | `[bar] provider` or `[bar.reserve]` changed on a reload | Stop the old provider, make and place the new one, hold the old space if it connects later, retile only the monitors whose space kept changed, then show it the state. Under the same provider a new reserve retiles only the monitors it changed; nothing when neither changed |
 | `set_theme`, `set_paused`, `set_update` | The theme, pause state or update notice changed | Shown from the next `show` |
 
 `daemon.provider` is the name the provider goes by. `BarHost` is given the
@@ -195,8 +207,9 @@ tiler leaves a window where it already is.
   changed size, work area or scale, and reaches its height down from the
   top of the work area on the monitors `bar.toml` picks.
 - `ApiBar` (`"external"`): a bar another program draws. mosaico draws
-  nothing and keeps tiles to the system's work areas. It wants no state
-  until a program reads it through the API.
+  nothing and keeps tiles clear of what the system keeps and of
+  `[bar.reserve]`, scaled to each monitor (`ReservedSpace::on()`). It wants
+  no state until a program reads it through the API, and connects later.
 - `NoBar` (`"none"`): nothing is shown and nothing kept clear, and no state
   is built.
 
@@ -219,9 +232,27 @@ keep clear of:
 - A reach is measured from the monitor's edge, not from the system's work
   area, and tiles keep clear of whichever of the two reaches further, so a
   bar never needs to know what the system keeps.
-- Only the top edge is used today. A monitor with no entry has nothing kept
-  clear.
+- Each monitor has an `Edges`: how far the bar reaches in from its top,
+  bottom, left and right. A monitor with no entry has nothing kept clear.
+- `Reach::furthest()` keeps, per monitor and edge, the further of two
+  reaches, as the handover does.
 
 `Reach::bar_on(places, height, indices)` is the reach of a bar `height`
 pixels tall at the top of the work area, on the monitors at `indices`, or
 on every one when `indices` is empty.
+
+### The Handover
+
+A bar drawn by another program starts after mosaico switches to it, and
+says how far it reaches only once it runs. Until then, the space the old
+bar kept would be given to tiles, and taken back a moment later. So when
+`choose` switches to a provider that `connects_later`, `BarHost` holds
+the old reach (`Handover`) on every monitor and edge the new one keeps
+nothing at, for at most `HANDOVER` (5 seconds):
+
+- tiles keep clear of the further of the held reach and the new one;
+- a monitor the new bar reaches into is released at once;
+- once the time is up, `tick` drops what is left and retiles once.
+
+A switch from mosaico's bar to `"external"` therefore moves no window
+while the other bar starts, and at most one retile once the hold ends.

@@ -613,7 +613,7 @@ provider = "mosaico"   # "mosaico" (default), "external" or "none"
 | Provider | Draws | Keeps tiles clear of | Reads `bar.toml` |
 |----------|-------|----------------------|------------------|
 | `mosaico` | The built-in bar described here | Its height, on the monitors it is on | Yes |
-| `external` | Nothing: another program draws its bar | The space the system leaves free | No |
+| `external` | Nothing: another program draws its bar | The space the system leaves free, and `[bar.reserve]` | No |
 | `none` | Nothing | Nothing | No |
 
 The settings app offers the same choice on its Bar page, and shows the
@@ -626,6 +626,15 @@ placed and the windows retile once (see
 mosaico looks first. A name mosaico does not know is read as `external`,
 and `mosaico start` and `mosaico doctor` say so. The contract each provider
 follows is in [bar-api.md](bar-api.md).
+
+Another program's bar may not keep its own space from the system. Then
+`[bar.reserve]` keeps it, on any edge and per monitor, scaled to each
+monitor (see [configuration.md](configuration.md#configtoml)), and the
+settings app offers the four edges on its Bar page. When mosaico's bar
+gives way to another, the space it kept is held for a few seconds, so
+windows do not fill the gap and jump back once the other bar is up.
+`mosaico doctor` lists, per monitor, what the system and the bar keep on
+each edge.
 
 ## Configuration
 

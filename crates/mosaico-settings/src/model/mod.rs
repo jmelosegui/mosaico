@@ -28,7 +28,11 @@ impl Settings {
                 // and a name it does not know is another program's bar.
                 "bar.provider" => doc.get(key).map(|written| {
                     let provider = written.as_text().unwrap_or_default().to_owned();
-                    let choice = BarSection { provider }.choice();
+                    let section = BarSection {
+                        provider,
+                        ..BarSection::default()
+                    };
+                    let choice = section.choice();
                     SettingValue::Text(choice.name().into())
                 }),
                 _ => None,

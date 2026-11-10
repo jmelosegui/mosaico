@@ -124,7 +124,7 @@ fn a_whole_monitor_back_after_a_drag_and_an_open_is_back_to_the_pixel() {
     let mut h = Harness::with_settings(settings, 2, &windows);
     let ws = h.tiler.monitors[1].active_ws_mut();
     ws.set_layout_kind(LayoutKind::VerticalStack);
-    h.step(Input::Reach(Reach::none()));
+    h.relayout();
     drag_to(&mut h, 4, false, 1080);
     h.open(8, 1);
     let before: Vec<Rect> = (2..=8).map(|id| h.rect_of(id)).collect();

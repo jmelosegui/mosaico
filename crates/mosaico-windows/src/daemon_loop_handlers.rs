@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use mosaico_core::WindowEvent;
 use mosaico_core::bar::BarHost;
 use mosaico_core::config::ConfigReload;
@@ -47,7 +49,7 @@ pub(super) fn handle_reload(
             bars.set_theme(cfg.theme.resolve());
             manager.reload_config(&cfg);
             let provider = cfg.bar.check();
-            if bars.choose(manager, provider.choice()) {
+            if bars.choose(manager, &cfg.bar, Instant::now()) {
                 mosaico_core::log_info!("Bar: now {}", provider.choice().name());
                 if let Some(warning) = provider.warning() {
                     mosaico_core::log_warn!("{warning}");
@@ -79,5 +81,5 @@ pub(super) fn handle_reload(
 /// clock.
 pub(super) fn handle_tick(manager: &mut TilingManager, bars: &mut BarHost, update: &str) {
     bars.set_update(update);
-    bars.tick(manager);
+    bars.tick(manager, Instant::now());
 }

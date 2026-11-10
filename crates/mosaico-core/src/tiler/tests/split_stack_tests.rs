@@ -8,7 +8,6 @@
 use crate::config::Config;
 use crate::id::wid;
 use crate::tiler::Input;
-use crate::tiler::Reach;
 use crate::tiler::tests::Harness;
 use crate::{Action, Direction, LayoutKind, WindowEvent};
 
@@ -25,13 +24,13 @@ pub(super) fn in_layout(kind: LayoutKind, count: u64) -> Harness {
 }
 
 /// Gives the column the window at `index` is in, on the first monitor of
-/// `h`, the heights `shares`, and lays it out again, as the bar read again
-/// does.
+/// `h`, the heights `shares`, and lays it out again, as the work areas read again
+/// do.
 pub(super) fn resize(h: &mut Harness, index: usize, shares: &[f64]) {
     h.tiler.monitors[0]
         .active_ws_mut()
         .set_heights(index, shares);
-    h.step(Input::Reach(Reach::none()));
+    h.relayout();
 }
 
 /// The heights of the column the window at `index` of `kind` is in, on the

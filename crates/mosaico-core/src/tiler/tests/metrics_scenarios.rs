@@ -87,6 +87,7 @@ pub(super) const SCENARIOS: &[Scenario] = &[
     ("bar_switch_to_none", bar_switch::to_none),
     ("bar_switch_to_builtin", bar_switch::to_builtin),
     ("bar_switch_same_space", bar_switch::same_space),
+    ("bar_switch_to_external", bar_switch::to_external),
     ("monitor_disconnect", display::disconnect),
     ("monitor_reconnect", display::reconnect),
     ("float_on_and_off", floating::on_and_off),

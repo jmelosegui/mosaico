@@ -75,18 +75,14 @@ pub(super) enum ClaimVerdict {
     Ignore,
 }
 
-/// Returns the monitor whose work area contains the point, or the strip
-/// above it that the bar is reserved in.
+/// Returns the monitor that covers the point, bars and the system's own
+/// bars included.
 ///
 /// Used to locate the pointer, so a focus event can be attributed to a
 /// person clicking rather than to the OS restoring focus. A person who
-/// just clicked a bar is pointing at that bar's monitor.
+/// just clicked a bar, on any edge, is pointing at that bar's monitor.
 pub(super) fn monitor_at_point(monitors: &[MonitorState], x: i32, y: i32) -> Option<usize> {
-    monitors.iter().position(|mon| {
-        let (area, os) = (mon.work_area, mon.os_work_area);
-        let strip = Rect::new(os.x, os.y, os.width, area.y - os.y);
-        holds(&area, x, y) || holds(&strip, x, y)
-    })
+    monitors.iter().position(|mon| holds(&mon.bounds, x, y))
 }
 
 /// Whether `area` contains the point.

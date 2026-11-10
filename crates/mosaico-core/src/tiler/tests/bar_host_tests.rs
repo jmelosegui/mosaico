@@ -4,10 +4,11 @@
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
+use std::time::Instant;
 
 use crate::api;
 use crate::bar::{BarHost, BarProvider};
-use crate::config::{BarChoice, CatppuccinFlavor, Theme};
+use crate::config::{BarChoice, BarSection, CatppuccinFlavor, Theme};
 use crate::tiler::MonitorPlace;
 
 use super::fake_platform::FakePlatform;
@@ -83,12 +84,20 @@ pub(super) fn host(recorder: &Recorder) -> BarHost {
     host_on(recorder, BarChoice::Mosaico)
 }
 
+/// The `[bar]` table that picks `choice` and keeps no space.
+pub(super) fn picked(choice: BarChoice) -> BarSection {
+    BarSection {
+        provider: choice.name().to_string(),
+        ..BarSection::default()
+    }
+}
+
 /// A host on `choice`, whose built-in bar, once picked, is `recorder`.
 pub(super) fn host_on(recorder: &Recorder, choice: BarChoice) -> BarHost {
     let mocha = Theme::Catppuccin(CatppuccinFlavor::Mocha);
     let recorder = recorder.clone();
     let make = Box::new(move |_| Box::new(recorder.clone()) as Box<dyn BarProvider>);
-    BarHost::new(choice, make, api::Daemon::default(), mocha)
+    BarHost::new(&picked(choice), make, api::Daemon::default(), mocha)
 }
 
 #[test]
@@ -240,9 +249,9 @@ fn a_tick_draws_the_bars_once() {
     recorder.take();
 
     // Act -- one tick with nothing new, one with an update notice.
-    bars.tick(&mut manager);
+    bars.tick(&mut manager, Instant::now());
     bars.set_update("v9.0.0 available");
-    bars.tick(&mut manager);
+    bars.tick(&mut manager, Instant::now());
 
     // Assert
     let told = recorder.take();

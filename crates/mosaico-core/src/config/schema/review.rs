@@ -96,11 +96,27 @@ fn walk(
         let Some(value) = SettingValue::from_toml(value) else {
             continue;
         };
-        match settings.iter().find(|s| s.key == key) {
+        match settings.iter().find(|s| s.key == shared_key(&key)) {
             Some(setting) => problems.extend(problem(setting, value)),
             None => problems.push(SettingProblem::Unknown { key }),
         }
     }
+}
+
+/// The key whose values `key` takes: an edge of a monitor's own table in
+/// `[bar.reserve.monitor.<name>]` takes those of the same edge of
+/// `[bar.reserve]`.
+fn shared_key(key: &str) -> &str {
+    (key.strip_prefix("bar.reserve.monitor."))
+        .and_then(|rest| rest.split_once('.'))
+        .and_then(|(_, edge)| match edge {
+            "top" => Some("bar.reserve.top"),
+            "bottom" => Some("bar.reserve.bottom"),
+            "left" => Some("bar.reserve.left"),
+            "right" => Some("bar.reserve.right"),
+            _ => None,
+        })
+        .unwrap_or(key)
 }
 
 fn problem(setting: &'static SettingDescriptor, value: SettingValue) -> Option<SettingProblem> {

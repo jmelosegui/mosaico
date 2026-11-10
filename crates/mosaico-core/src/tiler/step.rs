@@ -49,7 +49,7 @@ impl Tiler {
             Input::WorkAreas { monitors, reach } => {
                 self.reset_work_areas(&mut plan, &monitors, &reach)
             }
-            Input::Reach(reach) => self.reserve_bar(&mut plan, &reach),
+            Input::Reach(reach) => self.reserve_bar_if_moved(&mut plan, &reach),
             Input::Config(config) => self.reload_config(&mut plan, &config),
             Input::Rules(rules) => self.reload_rules(&mut plan, rules),
             Input::RefreshBorders => self.update_border(&mut plan),

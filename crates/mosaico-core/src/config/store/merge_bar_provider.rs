@@ -14,12 +14,16 @@ pub(super) const BAR_PROVIDER_HINT_SNIPPET: &str = r##"
 # clear of it. Recognized keys:
 #   provider   "mosaico" (default): mosaico's own bar, styled in bar.toml.
 #              "external": a bar another program draws; bar.toml is not
-#              read and tiles keep to the space the system leaves free.
+#              read and tiles keep clear of the space the bar asks for.
 #              "none": no bar, and no space kept for one.
+#   [bar.reserve] top, bottom, left, right: space kept for an "external"
+#              bar that cannot ask, in pixels at 100% scale.
 #
 # Example, to use another program's bar:
 #   [bar]
 #   provider = "external"
+#   [bar.reserve]
+#   top = 32
 "##;
 
 /// Appends a comment block about picking the bar to the config at `path`,

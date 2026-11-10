@@ -45,7 +45,8 @@ pub enum Input {
         /// How far the bar reaches into each monitor.
         reach: Reach,
     },
-    /// The bar changed how far it reaches into the monitors.
+    /// The bar changed how far it reaches into the monitors. Only the
+    /// monitors whose tiling area that moves are laid out again.
     Reach(Reach),
     /// The configuration file changed.
     Config(Box<Config>),

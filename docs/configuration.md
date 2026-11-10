@@ -150,6 +150,12 @@ flavor = "mocha"     # catppuccin: mocha | macchiato | frappe | latte
 [bar]
 provider = "mosaico"  # The bar that shows mosaico: "mosaico", "external" or "none"
 
+[bar.reserve]       # Space kept for another program's bar ("external" only)
+top = 0            # Pixels at 100% kept down from the top edge
+bottom = 0         # ... up from the bottom edge
+left = 0           # ... in from the left edge
+right = 0          # ... in from the right edge
+
 [logging]
 enabled = false    # Enable file logging
 level = "info"     # Log level: debug, info, warn, error
@@ -173,6 +179,29 @@ the built-in bar never draws over a bar the user picked, and the daemon's
 log, `mosaico start` and `mosaico doctor` say so. The section lives here
 rather than in `bar.toml` because it decides whether `bar.toml` is read at
 all. See [status-bar.md](status-bar.md#providers).
+
+`[bar.reserve]` keeps space clear of tiles for another program's bar
+while `provider` is `"external"`, whether that bar runs or not. Each edge
+is in pixels at 100% scale (0 to 1000, default 0) and is multiplied by
+each monitor's scale, so one value fits monitors of mixed scale. It is
+measured from the edge of the monitor, not from the system's taskbar: on
+each edge, tiles keep clear of whichever reaches further. A monitor can
+keep space of its own, in place of the edges above, in a table named by
+its position from the left, from 0, or by the id `mosaico doctor` shows:
+
+```toml
+[bar.reserve]
+top = 32
+
+[bar.reserve.monitor.1]   # the second monitor from the left
+bottom = 40
+```
+
+An edge that would take more than a quarter of a monitor keeps nothing
+there, and a table that names no connected monitor keeps nothing at all;
+`mosaico doctor` flags both. Under `"mosaico"` the built-in bar keeps the
+space it draws in, and under `"none"` nothing is kept, so neither reads
+`[bar.reserve]`.
 
 The `[mouse]` section ties the pointer to focus. `follows_focus` (default
 `true`) moves the pointer to the center of the window that takes focus when
@@ -438,6 +467,7 @@ A missing file is never created. Files that exist change in two ways:
 - `ratio`: clamped to `[0.1, 0.9]`
 - `border width`: clamped to `[0, 32]`
 - `[animations] duration`: clamped to `[0, 1000]` milliseconds
+- `[bar.reserve]` edges, global and per monitor: clamped to `[0, 1000]`
 - `corner_style`: must be `"square"`, `"small"`, or `"round"`
 - `[animations] easing`: must be one of the names above or a
   `cubic-bezier(...)` with four numbers within `[0, 1]`. Like an unknown
@@ -466,9 +496,11 @@ fields.
 mistake elsewhere in `config.toml` does not change the bar. A file that is
 TOML gives its table whatever the other tables hold; one that is not gives
 the lines under `[bar]` and its subtables, read alone. A missing file, or
-one without the table, picks the built-in bar. A table that cannot be read
-even then is `ProviderCheck::Unreadable`, read as `"external"`, so the
-built-in bar never draws over a bar the user may have picked. The config
+one without the table, picks the built-in bar. A `[bar.reserve]` that cannot
+be read is dropped on its own, so a mistake there keeps the provider. A
+table that cannot be read even then is `ProviderCheck::Unreadable`, read
+as `"external"`, so the built-in bar never draws over a bar the user may
+have picked. The config
 the daemon falls back to when the file does not load keeps this `[bar]`.
 
 ## Window Rules
@@ -592,6 +624,11 @@ same way.
   areas worked out again and the monitors retiled once, so tiles take the
   space a bar gave up, or keep clear of a new one. Between two bars that
   keep the same space, nothing is retiled and no border is drawn again.
+  On a switch to `"external"`, the space the old bar kept is held for up
+  to 5 seconds (`HANDOVER`) on every edge the new bar does not reach,
+  so windows do not jump into the gap and back while the other program's
+  bar starts. A new `[bar.reserve]` under the same bar moves only the
+  monitors whose space changed.
   Per-workspace layout overrides (`[workspaces.layouts]` and
   `layout.default`) are applied at startup only;
   reloading does not override the active layout chosen via `cycle-layout`

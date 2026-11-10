@@ -7,7 +7,6 @@
 use crate::config::Config;
 use crate::id::wid;
 use crate::tiler::Input;
-use crate::tiler::Reach;
 use crate::tiler::tests::Harness;
 use crate::{Action, Direction, Rect, WindowEvent};
 
@@ -18,14 +17,14 @@ fn move_splits(h: &mut Harness, ratios: &[f64]) {
 }
 
 /// Moves the splits of the layout on screen on monitor `mon` of `h` to
-/// `ratios`, in order, and lays the monitors out again, as the bar read
-/// again does, which keeps them.
+/// `ratios`, in order, and lays the monitors out again, as the work areas read
+/// again do, which keeps them.
 pub(super) fn move_splits_on(h: &mut Harness, mon: usize, ratios: &[f64]) {
     let ws = h.tiler.monitors[mon].active_ws_mut();
     for (split, &ratio) in ratios.iter().enumerate() {
         ws.set_split_ratio(split, ratio);
     }
-    h.step(Input::Reach(Reach::none()));
+    h.relayout();
 }
 
 /// Where windows `ids` of `h` are.

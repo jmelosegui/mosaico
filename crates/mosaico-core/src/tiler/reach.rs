@@ -1,10 +1,11 @@
 //! How far the bar reaches into each monitor, and the monitors as a bar
 //! needs to know them to say so.
 
+use crate::monitor::assign_stable_ids;
 use crate::{Rect, StableMonitorId};
 
 use super::display_rebuild::{pair_monitors, stable_ids};
-use super::{Display, Tiler};
+use super::{Display, Edges, Side, Tiler};
 
 impl Tiler {
     /// The connected monitors, left to right, as a bar needs to know them.
@@ -57,18 +58,37 @@ pub struct MonitorPlace {
     pub scale: f64,
 }
 
+impl MonitorPlace {
+    /// `displays`, left to right, as a daemon starting now would list
+    /// them, for a program that has no tiler to ask, such as a check of the
+    /// config.
+    pub fn list(displays: &[Display]) -> Vec<Self> {
+        let keys: Vec<_> = displays.iter().map(|display| &display.key).collect();
+        let ids = assign_stable_ids(&keys, &vec![None; keys.len()]);
+        (displays.iter().zip(ids).enumerate())
+            .map(|(index, (display, id))| Self {
+                id,
+                index,
+                bounds: display.bounds,
+                work_area: display.work_area,
+                scale: display.scale,
+            })
+            .collect()
+    }
+}
+
 /// How far the active bar reaches into each monitor, which tiles keep
 /// clear of.
 ///
 /// Monitors are named by [`StableMonitorId`], so a reach means the same
 /// display after a display change. A reach is measured from the monitor's
-/// edge, not from the system's work area, and tiles keep clear of whichever
-/// of the two reaches further, so a bar never needs to know what the
-/// system keeps. Only the top edge is used. A monitor with no entry has
-/// nothing kept clear.
+/// edge, not from the system's work area, and on each edge tiles keep
+/// clear of whichever of the two reaches further, so a bar never needs to
+/// know what the system keeps. A monitor with no entry has nothing kept
+/// clear.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Reach {
-    tops: Vec<(StableMonitorId, i32)>,
+    monitors: Vec<(StableMonitorId, Edges)>,
 }
 
 impl Reach {
@@ -91,21 +111,53 @@ impl Reach {
         reach
     }
 
-    /// Has the bar reach `pixels` down from the top edge of monitor `id`,
-    /// in place of what it reached there. Negative counts as 0.
-    pub fn set_top(&mut self, id: StableMonitorId, pixels: i32) {
-        let pixels = pixels.max(0);
-        match self.tops.iter_mut().find(|(at, _)| *at == id) {
-            Some((_, top)) => *top = pixels,
-            None => self.tops.push((id, pixels)),
+    /// Has the bar reach `edges` into monitor `id`, in place of what it
+    /// reached there.
+    pub fn set(&mut self, id: StableMonitorId, edges: Edges) {
+        match self.monitors.iter_mut().find(|(at, _)| *at == id) {
+            Some((_, at)) => *at = edges,
+            None => self.monitors.push((id, edges)),
         }
+    }
+
+    /// Has the bar reach `pixels` down from the top edge of monitor `id`,
+    /// in place of what it reached there, keeping the other edges.
+    /// Negative counts as 0.
+    pub fn set_top(&mut self, id: StableMonitorId, pixels: i32) {
+        let mut edges = self.edges(&id);
+        edges.set(Side::Top, pixels);
+        self.set(id, edges);
+    }
+
+    /// How far the bar reaches into monitor `id` from each edge.
+    pub fn edges(&self, id: &StableMonitorId) -> Edges {
+        (self.monitors.iter())
+            .find(|(at, _)| at == id)
+            .map_or_else(Edges::default, |&(_, edges)| edges)
     }
 
     /// How far the bar reaches down from the top edge of monitor `id`.
     pub fn top(&self, id: &StableMonitorId) -> i32 {
-        (self.tops.iter())
-            .find(|(at, _)| at == id)
-            .map_or(0, |&(_, top)| top)
+        self.edges(id).get(Side::Top)
+    }
+
+    /// Whether it reaches into no monitor.
+    pub fn is_none(&self) -> bool {
+        self.monitors.iter().all(|(_, edges)| edges.is_none())
+    }
+
+    /// Every monitor it reaches into, with how far.
+    pub fn monitors(&self) -> impl Iterator<Item = (&StableMonitorId, Edges)> {
+        self.monitors.iter().map(|(id, edges)| (id, *edges))
+    }
+
+    /// On each edge of each monitor, whichever of the two reaches further.
+    pub fn furthest(&self, other: &Self) -> Self {
+        let mut reach = self.clone();
+        for (id, edges) in other.monitors() {
+            reach.set(id.clone(), reach.edges(id).furthest(edges));
+        }
+        reach
     }
 }
 

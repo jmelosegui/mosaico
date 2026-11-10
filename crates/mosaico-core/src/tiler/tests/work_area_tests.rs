@@ -1,8 +1,9 @@
-use super::super::work_area::{apply_reach, below_bar, sync_os_work_areas};
+use super::super::work_area::{apply_reach, sync_os_work_areas};
 use super::super::*;
 use super::{MON_H, MON_W, make_monitors, simulate_display_change};
 use crate::MonitorId;
 use crate::id::wid;
+use crate::tiler::Edges;
 use crate::{MonitorKey, Rect};
 
 const BAR: i32 = 44;
@@ -30,18 +31,6 @@ fn os_monitor(id: usize, x: i32) -> Display {
         device: String::new(),
         scale: 1.0,
     }
-}
-
-#[test]
-fn below_bar_removes_bar_from_top() {
-    // Arrange
-    let area = Rect::new(2560, 0, 2560, 1392);
-
-    // Act
-    let result = below_bar(&area, BAR);
-
-    // Assert
-    assert_eq!(result, Rect::new(2560, 44, 2560, 1348));
 }
 
 #[test]
@@ -175,4 +164,39 @@ fn a_reach_past_what_the_system_keeps_clear_takes_the_rest() {
 
     // Assert
     assert_eq!(monitors[0].work_area, Rect::new(0, 70, MON_W, MON_H - 70));
+}
+
+#[test]
+fn a_reach_from_every_edge_keeps_the_tiles_clear_of_each() {
+    // Arrange -- a taskbar of 48 at the bottom that the system keeps, and
+    // a bar reaching 30 from the top, 20 from the bottom and a sidebar of
+    // 200 on the left.
+    let mut monitors = make_monitors(1);
+    monitors[0].os_work_area = Rect::new(0, 0, MON_W, MON_H - 48);
+    let mut reach = Reach::none();
+    reach.set(monitors[0].stable_id.clone(), Edges::new(30, 20, 200, 0));
+
+    // Act
+    apply_reach(&mut monitors, &reach);
+
+    // Assert -- the taskbar reaches further than the bar at the bottom.
+    let area = Rect::new(200, 30, MON_W - 200, MON_H - 48 - 30);
+    assert_eq!(monitors[0].work_area, area);
+}
+
+#[test]
+fn a_reach_from_the_right_and_bottom_is_measured_from_the_monitors_far_edges() {
+    // Arrange -- the second monitor, to the right of the first.
+    let mut monitors = make_monitors(2);
+    let bounds = Rect::new(MON_W, 0, MON_W, MON_H);
+    (monitors[1].bounds, monitors[1].os_work_area) = (bounds, bounds);
+    let mut reach = Reach::none();
+    reach.set(monitors[1].stable_id.clone(), Edges::new(0, 40, 0, 300));
+
+    // Act
+    apply_reach(&mut monitors, &reach);
+
+    // Assert
+    let area = Rect::new(bounds.x, 0, bounds.width - 300, bounds.height - 40);
+    assert_eq!(monitors[1].work_area, area);
 }

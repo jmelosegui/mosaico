@@ -16,13 +16,40 @@ provider = "external"   # "mosaico" (default), "external" or "none"
 | Provider | What you get |
 |----------|--------------|
 | `mosaico` | mosaico's own bar, set up in `bar.toml`. Tiles keep clear of it. |
-| `external` | No bar from mosaico. Another program draws its bar, and tiles keep to the space Windows leaves free. |
+| `external` | No bar from mosaico. Another program draws its bar, and tiles keep to the space Windows leaves free and to `[bar.reserve]`. |
 | `none` | No bar, and no space kept for one. |
 
 `bar.toml` is only read under `mosaico`. The change takes effect when you save,
 with no restart. The Bar page of the [Settings Window](settings.md#bar) offers
 the same choice. A name mosaico does not know counts as `external`, and
 `mosaico start` and `mosaico doctor` tell you so.
+
+### Space for Another Bar
+
+Some bars do not keep their own space from Windows, so windows would tile
+under them. Under `external`, `[bar.reserve]` keeps that space clear, on any
+edge, in pixels at 100% scale. Each monitor's scale multiplies it, and a
+monitor can keep space of its own, named by its position from the left,
+from 0, or by the id `mosaico doctor` shows:
+
+```toml
+[bar]
+provider = "external"
+
+[bar.reserve]
+top = 32
+
+[bar.reserve.monitor.1]   # the second monitor from the left
+bottom = 40
+```
+
+The space is measured from the edge of the monitor, so a bar over the
+taskbar needs no sum: tiles keep clear of whichever reaches further. An
+edge that would take more than a quarter of a monitor keeps nothing, and
+`mosaico doctor` says so, along with what the system and the bar keep on
+each monitor. When you switch from mosaico's bar to another program's, the
+space mosaico's bar kept is held for a few seconds while the other bar
+starts, so windows do not jump into the gap and back.
 
 ## Configuration
 

@@ -32,7 +32,7 @@ impl SettingsApp {
     /// file, if anything is: those of `config.toml`, then those of the
     /// page's own file while it is read.
     pub(super) fn body(&mut self, ui: &mut Ui, c: &Colors, page: Page, query: &str) {
-        if pages::count(page, query) > 0 {
+        if pages::count(page, query, &self.draft.edit) > 0 {
             self.settings(ui, c, page, query);
         }
         if !self.file_read(page) {

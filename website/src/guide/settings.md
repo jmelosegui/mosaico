@@ -170,7 +170,9 @@ At the top, **Bar** picks the bar that shows your workspaces: the Mosaico bar,
 another program's bar, or no bar (`[bar] provider` in `config.toml`, see
 [Status Bar](status-bar.md#which-bar)). The rest of the page edits `bar.toml`
 and is shown only while the Mosaico bar is picked; under any other bar a note
-says `bar.toml` is not read.
+says `bar.toml` is not read. **Space kept for another bar** sets
+`[bar.reserve]`: the pixels kept clear on each edge while the bar is another
+program's (see [Status Bar](status-bar.md#space-for-another-bar)).
 
 `bar.toml` is a different file from `config.toml`. Apply saves
 it after `config.toml`, and the running bar picks the change up by itself.
