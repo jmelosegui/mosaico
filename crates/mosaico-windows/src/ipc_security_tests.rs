@@ -97,6 +97,25 @@ fn a_pipe_of_another_owner_or_below_medium_is_not_trusted() {
 }
 
 #[test]
+fn a_pipe_owned_by_the_machines_administrator_account_is_trusted_by_it() {
+    // Arrange -- the built-in Administrator, whom CI runs as. A descriptor's
+    // text names this account by an alias rather than by its SID.
+    let user = token::current_user().unwrap();
+    let administrator = format!("{}-500", &user[..user.rfind('-').unwrap()]);
+    let security = PipeSecurity::from_text(&format!("O:{administrator}S:(ML;;NWNR;;;HI)")).unwrap();
+
+    // Act
+    let trusted = security.trusted_by(&administrator);
+
+    // Assert
+    assert!(
+        matches!(trusted, Ok(true)),
+        "{trusted:?} for {:?}",
+        security.text()
+    );
+}
+
+#[test]
 fn the_daemons_pipe_is_owned_by_the_user_and_labelled_at_its_level() {
     // Arrange
     let name = test_pipe("owner");
