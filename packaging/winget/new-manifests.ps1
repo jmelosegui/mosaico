@@ -31,7 +31,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 $Identifier = "jmelosegui.mosaico"
-$ManifestVersion = "1.12.0"
+$ManifestVersion = "1.28.0"
 $Tag = "v$Version"
 $Url = "https://github.com/jmelosegui/mosaico/releases/download/$Tag/mosaico-windows-amd64.msi"
 
