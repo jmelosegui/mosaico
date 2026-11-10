@@ -51,6 +51,12 @@ enum Commands {
         #[command(subcommand)]
         action: ActionCommands,
     },
+    /// Print the state bars are shown, once
+    Query(commands::query::QueryArgs),
+    /// Follow the state bars are shown, a line for each change
+    Subscribe(commands::subscribe::SubscribeArgs),
+    /// Run an action as a click on a bar runs it
+    Run(commands::run::RunArgs),
     /// Show the animated mosaico banner
     Banner,
     /// Debugging and inspection tools
@@ -132,6 +138,9 @@ fn main() {
             );
             Exit::Success
         }
+        Commands::Query(args) => platform::bar_api(|io| commands::query::execute(io, args)),
+        Commands::Subscribe(args) => platform::bar_api(|io| commands::subscribe::execute(io, args)),
+        Commands::Run(args) => platform::bar_api(|io| commands::run::execute(io, args)),
         command => platform::run(|cx| run(cx, command)),
     };
     std::process::exit(exit.code());
@@ -169,6 +178,9 @@ fn run(cx: &mut Context, command: Commands) -> Exit {
         } => commands::debug::state::execute(cx),
         // Handled in `main` without a context.
         Commands::Daemon
+        | Commands::Query(_)
+        | Commands::Subscribe(_)
+        | Commands::Run(_)
         | Commands::Debug {
             command: DebugCommands::Events,
         } => Exit::Success,

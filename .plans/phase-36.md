@@ -766,17 +766,17 @@ needs 36.4 and 36.6; 36.8 and 36.9 need 36.7.
 
 ### 36.7 The commands and space through the API
 
-- [ ] The client contract and its Windows pipe client
-- [ ] `mosaico query`, `mosaico subscribe` (with `--wait` replaying, the
-      `--requests` keepalive, `--reserve`) and `mosaico run`
-- [ ] `ParentWatch` and its Windows implementation
+- [x] The client contract and its Windows pipe client
+- [x] `mosaico query`, `mosaico subscribe` (with `--wait` replaying and the
+      `--requests` keepalive) and `mosaico run`
+- [x] `ParentWatch` and its Windows implementation
 - [ ] `reserve` and `release`, bound to the provider by `hello`'s `bar`, the
       grace, the refusals, monitors followed by id, the provider's sessions told
-      at a switch
+      at a switch; `subscribe --reserve`, replayed by `--wait`
 - [ ] Windows of a reserving session's process left untiled
 - [ ] doctor: the sessions, their bars and what each reserves; the settings
       app's list of them
-- [ ] `cli.md` and the guide's CLI page; tests with the fake `World`
+- [x] `cli.md` and the guide's CLI page; tests with fakes
 - [ ] The desktop suite `tests/external_bar.rs`
 
 ### 36.8 Zebar

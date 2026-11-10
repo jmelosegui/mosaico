@@ -30,6 +30,8 @@ pub enum Exit {
     Success,
     /// It could not; the reason was written to the error stream.
     Failure,
+    /// The daemon speaks no version of the bar API this build speaks.
+    Mismatch,
 }
 
 impl Exit {
@@ -38,6 +40,7 @@ impl Exit {
         match self {
             Self::Success => 0,
             Self::Failure => 1,
+            Self::Mismatch => 3,
         }
     }
 }

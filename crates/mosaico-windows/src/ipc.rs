@@ -3,7 +3,8 @@
 //! Only the byte streams live here. Framing, versioning and the accept
 //! loop are in [`mosaico_core::ipc`] and [`mosaico_core::api`]. This file
 //! holds the CLI client's end; the daemon's is in `ipc_server.rs`, and
-//! the bar API's in `ipc_api.rs` and `ipc_api_io.rs`.
+//! the bar API's in `ipc_api.rs`, `ipc_api_io.rs` and, for clients,
+//! `ipc_api_client.rs`.
 
 use std::fs::File;
 use std::io::{self, Read, Write};
@@ -23,6 +24,7 @@ use windows::Win32::System::Pipes::WaitNamedPipeW;
 use windows::core::HSTRING;
 
 pub use api::ApiPipeListener;
+pub use api_client::ApiPipeClient;
 pub use api_io::{ApiPipeConnection, ApiPipeReader, ApiPipeWriter};
 pub use server::{PipeConnection, PipeServer};
 
@@ -31,6 +33,8 @@ use watchdog::with_deadline;
 
 #[path = "ipc_api.rs"]
 mod api;
+#[path = "ipc_api_client.rs"]
+mod api_client;
 #[path = "ipc_api_io.rs"]
 mod api_io;
 #[path = "ipc_security.rs"]
@@ -71,25 +75,6 @@ impl PipeClient {
             name: HSTRING::from(name),
         }
     }
-
-    fn open(&self) -> windows::core::Result<HANDLE> {
-        // At the identification level, the server can learn who the
-        // client is but never act as it, so a pipe that turns out not to
-        // be the daemon's gets nothing from the connection.
-        let flags = FILE_FLAGS_AND_ATTRIBUTES(SECURITY_SQOS_PRESENT.0 | SECURITY_IDENTIFICATION.0);
-        // SAFETY: CreateFileW opens an existing named pipe as a client.
-        unsafe {
-            CreateFileW(
-                &self.name,
-                GENERIC_READ_WRITE,
-                FILE_SHARE_NONE,
-                None,
-                OPEN_EXISTING,
-                flags,
-                None,
-            )
-        }
-    }
 }
 
 impl IpcClient for PipeClient {
@@ -113,25 +98,7 @@ impl IpcClient for PipeClient {
     }
 
     fn connect(&self) -> Result<PipeStream, IpcError> {
-        let handle = match self.open() {
-            Ok(handle) => handle,
-            Err(e) if e.code() == ERROR_FILE_NOT_FOUND.to_hresult() => {
-                return Err(IpcError::NotRunning);
-            }
-            // The only instance is serving another client. Wait for it
-            // to free up, then try once more. A daemon that keeps every
-            // instance busy that long is not answering anyone.
-            Err(e) if e.code() == ERROR_PIPE_BUSY.to_hresult() => {
-                // SAFETY: WaitNamedPipeW blocks for at most BUSY_WAIT_MS.
-                if !unsafe { WaitNamedPipeW(&self.name, BUSY_WAIT_MS) }.as_bool() {
-                    // SAFETY: GetLastError reads the error of the call just above.
-                    let error = unsafe { GetLastError() };
-                    return Err(busy_wait_failure(error));
-                }
-                self.open().map_err(|e| IpcError::Io(io::Error::from(e)))?
-            }
-            Err(e) => return Err(IpcError::Io(io::Error::from(e))),
-        };
+        let handle = open_client(&self.name, FILE_FLAGS_AND_ATTRIBUTES(0))?;
         // SAFETY: the handle was just opened and nothing else owns it, so
         // the File takes sole ownership and closes it when dropped.
         let file = unsafe { File::from_raw_handle(handle.0) };
@@ -176,6 +143,47 @@ impl IpcStream for PipeStream {
     }
 }
 
+/// Opens the client end of pipe `name`, with `flags` besides the
+/// identification level, waiting a while when every instance is busy.
+fn open_client(name: &HSTRING, flags: FILE_FLAGS_AND_ATTRIBUTES) -> Result<HANDLE, IpcError> {
+    match open_once(name, flags) {
+        Ok(handle) => Ok(handle),
+        Err(e) if e.code() == ERROR_FILE_NOT_FOUND.to_hresult() => Err(IpcError::NotRunning),
+        // The only instance is serving another client. Wait for it to
+        // free up, then try once more. A daemon that keeps every instance
+        // busy that long is not answering anyone.
+        Err(e) if e.code() == ERROR_PIPE_BUSY.to_hresult() => {
+            // SAFETY: WaitNamedPipeW blocks for at most BUSY_WAIT_MS.
+            if !unsafe { WaitNamedPipeW(name, BUSY_WAIT_MS) }.as_bool() {
+                // SAFETY: GetLastError reads the error of the call just above.
+                let error = unsafe { GetLastError() };
+                return Err(busy_wait_failure(error));
+            }
+            open_once(name, flags).map_err(|e| IpcError::Io(io::Error::from(e)))
+        }
+        Err(e) => Err(IpcError::Io(io::Error::from(e))),
+    }
+}
+
+fn open_once(name: &HSTRING, flags: FILE_FLAGS_AND_ATTRIBUTES) -> windows::core::Result<HANDLE> {
+    // At the identification level, the server can learn who the client is
+    // but never act as it, so a pipe that turns out not to be the daemon's
+    // gets nothing from the connection.
+    let flags = flags.0 | SECURITY_SQOS_PRESENT.0 | SECURITY_IDENTIFICATION.0;
+    // SAFETY: CreateFileW opens an existing named pipe as a client.
+    unsafe {
+        CreateFileW(
+            name,
+            GENERIC_READ_WRITE,
+            FILE_SHARE_NONE,
+            None,
+            OPEN_EXISTING,
+            FILE_FLAGS_AND_ATTRIBUTES(flags),
+            None,
+        )
+    }
+}
+
 /// What a failed wait for a busy pipe means for the client.
 ///
 /// The pipe going away during the wait means the daemon exited, not
@@ -188,6 +196,9 @@ fn busy_wait_failure(error: WIN32_ERROR) -> IpcError {
     }
 }
 
+#[cfg(test)]
+#[path = "ipc_api_client_tests.rs"]
+mod api_client_tests;
 #[cfg(test)]
 #[path = "ipc_busy_tests.rs"]
 mod busy_tests;

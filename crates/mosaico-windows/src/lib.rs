@@ -103,6 +103,9 @@ mod monitor_edid;
 /// Stable monitor identity from the display configuration.
 mod monitor_identity;
 
+/// Hearing when the process that started this one exits.
+pub mod parent_watch;
+
 /// Starting, checking and ending processes.
 pub mod process;
 

@@ -15,6 +15,7 @@ use mosaico_core::tiler::{Enumerator, Platform};
 use mosaico_core::update::RestartMarker;
 
 use crate::commands::banner;
+use crate::commands::bar_api::BarIo;
 use crate::commands::context::{Context, Exit, SystemClock};
 
 /// Finds the daemon instance of this process from its environment and
@@ -74,6 +75,35 @@ pub fn run(command: impl FnOnce(&mut Context) -> Exit) -> Exit {
         err: &mut err,
     };
     command(&mut cx)
+}
+
+/// Runs a bar API command with the instance's bar API, standard input
+/// and output, and a watch on the process that started this one.
+#[cfg(target_os = "windows")]
+pub fn bar_api(command: impl FnOnce(&mut BarIo) -> Exit) -> Exit {
+    use std::io::BufRead;
+    use std::sync::Arc;
+
+    use mosaico_core::api::client::OpenInput;
+    use mosaico_core::system::ParentWatch;
+    use mosaico_windows::ipc::{ApiPipeClient, api_pipe_name};
+    use mosaico_windows::parent_watch::WindowsParentWatch;
+
+    let api = ApiPipeClient::new(&api_pipe_name(instance()));
+    // Standard input's lock is already buffered.
+    let input =
+        || -> OpenInput { Box::new(|| Box::new(std::io::stdin().lock()) as Box<dyn BufRead>) };
+    let parent = || -> Option<Arc<dyn ParentWatch>> { Some(Arc::new(WindowsParentWatch::new())) };
+    let mut out = std::io::stdout();
+    let mut err = std::io::stderr();
+    let mut io = BarIo {
+        api: &api,
+        input: &input,
+        parent: &parent,
+        out: &mut out,
+        err: &mut err,
+    };
+    command(&mut io)
 }
 
 /// What the daemon of this instance starts and stops with: the real

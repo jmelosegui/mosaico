@@ -155,6 +155,13 @@ fn the_bar_messages_read_and_write_back_the_same() {
 }
 
 #[test]
+fn a_client_message_built_from_its_parts_is_the_one_serialized() {
+    for message in client_examples() {
+        assert_eq!(message.to_json(), serde_json::to_value(&message).unwrap());
+    }
+}
+
+#[test]
 fn the_daemon_messages_read_and_write_back_the_same() {
     round_trip("daemon.jsonl", |line| {
         let message: DaemonMessage = serde_json::from_str(line).unwrap();
@@ -207,4 +214,29 @@ fn a_bar_reads_an_error_code_it_does_not_know() {
         panic!("an error");
     };
     assert_eq!(error.code, ErrorCode::Other);
+}
+
+#[test]
+fn an_error_read_without_the_deserializer_reads_as_with_it() {
+    // Arrange
+    let mut sent: Vec<ApiError> = (ErrorCode::NAMED.iter())
+        .map(|(code, _)| ApiError::new(*code, "why"))
+        .collect();
+    sent.push(ApiError {
+        api: Some(vec![2, 3]),
+        ..ApiError::new(ErrorCode::UnsupportedApi, "no version in common")
+    });
+    let unknown = json!({"code": "later", "message": "?"});
+
+    // Act
+    let read: Vec<ApiError> = (sent.iter())
+        .map(|error| ApiError::from_json(&serde_json::to_value(error).unwrap()))
+        .collect();
+
+    // Assert
+    assert_eq!(read, sent);
+    assert_eq!(ApiError::from_json(&unknown).code, ErrorCode::Other);
+    for (code, name) in ErrorCode::NAMED {
+        assert_eq!(serde_json::to_value(code).unwrap(), json!(name));
+    }
 }

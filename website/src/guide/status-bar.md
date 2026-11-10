@@ -19,6 +19,10 @@ provider = "external"   # "mosaico" (default), "external" or "none"
 | `external` | No bar from mosaico. Another program draws its bar, and tiles keep to the space Windows leaves free and to `[bar.reserve]`. |
 | `none` | No bar, and no space kept for one. |
 
+Another program's bar can read mosaico with
+[`mosaico subscribe`](cli.md#mosaico-subscribe) and act with
+[`mosaico run`](cli.md#mosaico-run-action).
+
 `bar.toml` is only read under `mosaico`. The change takes effect when you save,
 with no restart. The Bar page of the [Settings Window](settings.md#bar) offers
 the same choice. A name mosaico does not know counts as `external`, and

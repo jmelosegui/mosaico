@@ -1,7 +1,7 @@
 //! What a bar sends the daemon on a session.
 
 use serde::{Deserialize, Serialize};
-use serde_json::{Map, Value};
+use serde_json::{Map, Value, json};
 
 use crate::StableMonitorId;
 
@@ -126,6 +126,24 @@ impl ClientMessage {
             error,
         })?;
         Ok(Self::Request { id, request })
+    }
+
+    /// The message as the line a client sends: what serializing it gives,
+    /// built from its parts, as the derived form of an untagged message
+    /// with a flattened field costs a client much more code.
+    pub fn to_json(&self) -> Value {
+        let built = match self {
+            Self::Hello { hello } => {
+                serde_json::to_value(hello).map(|hello| json!({"hello": hello}))
+            }
+            Self::Request { id, request } => serde_json::to_value(request).map(|mut line| {
+                line["id"] = json!(id);
+                line
+            }),
+        };
+        // Neither part has a map with keys that are not strings, the one
+        // thing that fails to serialize into a value.
+        built.unwrap_or_default()
     }
 }
 

@@ -1,6 +1,7 @@
 pub mod action;
 pub mod autostart;
 pub mod banner;
+pub mod bar_api;
 pub mod context;
 pub mod daemon;
 pub mod debug;
@@ -14,11 +15,14 @@ mod doctor_settings;
 pub mod init;
 pub mod installer_hook;
 pub mod pause;
+pub mod query;
 mod request;
+pub mod run;
 pub mod settings;
 pub mod start;
 pub mod status;
 pub mod stop;
+pub mod subscribe;
 pub mod update;
 mod update_package;
 

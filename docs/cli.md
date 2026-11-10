@@ -30,6 +30,10 @@ dedicated handler module under `crates/mosaico/src/commands/`.
 | `crates/mosaico/src/commands/pause.rs` | `mosaico pause` / `mosaico unpause` handler |
 | `crates/mosaico/src/commands/banner.rs` | Shared ASCII logo used by `start` and `doctor`, and the `mosaico banner` handler |
 | `crates/mosaico/src/commands/update.rs` | `mosaico update` handler |
+| `crates/mosaico/src/commands/query.rs` | `mosaico query` handler |
+| `crates/mosaico/src/commands/subscribe.rs` | `mosaico subscribe` handler |
+| `crates/mosaico/src/commands/run.rs` | `mosaico run` handler |
+| `crates/mosaico/src/commands/bar_api.rs` | `BarIo`, what `query`, `subscribe` and `run` use, and `finish()`, which turns how they ended into a message and an exit |
 | `crates/mosaico/src/commands/debug/list.rs` | `mosaico debug list` handler |
 | `crates/mosaico/src/commands/debug/events.rs` | `mosaico debug events` handler |
 | `crates/mosaico/src/commands/debug/move_window.rs` | `mosaico debug move` handler |
@@ -53,8 +57,17 @@ replaces), file checks that never wait on the network
 instance's `PidFile`, a clock, the HTTP client that looks up and downloads
 releases (`mosaico_core::http::HttpClient`), how this platform's release is
 packaged and installed (`mosaico_core::update::Installer`), the logo, and
-the output and error streams. They return an `Exit` (`Success` or
-`Failure`), and only `main` calls `std::process::exit`.
+the output and error streams. They return an `Exit` (`Success`,
+`Failure`, or `Mismatch` when the daemon speaks no version of the bar API
+this build does), and only `main` calls `std::process::exit`.
+
+`query`, `subscribe` and `run` speak the bar API rather than the CLI's
+protocol, so they take a `commands::bar_api::BarIo` instead: the bar API
+(`mosaico_core::api::client::ApiClient`), standard input, a
+`mosaico_core::system::ParentWatch` on the program that started the command,
+made only when `subscribe` asks for it, and the output and error streams.
+`platform::bar_api()` builds it. The work is core's
+(`mosaico_core::api::client`; see [bar-api.md](bar-api.md#the-command-line)).
 
 `crates/mosaico/src/platform.rs` builds the real context, and the `Startup`
 that the `daemon` subcommand hands to `mosaico_core::lifecycle::run()`; it is
@@ -83,8 +96,8 @@ source, Ctrl+C and window titles from `platform::event_source()`,
 
 - `Cli` -- top-level `clap::Parser` struct
 - `Commands` -- enum of all subcommands: `Init`, `Start`, `Stop`, `Status`,
-  `Doctor`, `Autostart`, `Update`, `Action`, `Banner`, `Pause`, `Unpause`,
-  `Debug`, `Daemon`
+  `Doctor`, `Autostart`, `Update`, `Action`, `Query`, `Subscribe`, `Run`,
+  `Banner`, `Pause`, `Unpause`, `Debug`, `Daemon`
 - `ActionCommands` -- enum: `Focus { direction }`, `Move { direction }`,
   `Retile`, `ToggleMonocle`, `CloseFocused`, `CycleLayout`,
   `GoToWorkspace { n }`, `GoToWorkspaceNext`, `GoToWorkspacePrev`,
@@ -339,6 +352,30 @@ mosaico unpause
 
 Plays the animated logo that `start` and `doctor` show, on its own, and
 exits with status 0.
+
+### `mosaico query [TOPIC...] [--monitor ID] [--field PATH]`
+
+Prints the state bars are shown, once, as JSON: the topics named
+(`daemon`, `theme`, `monitors`, `focus`), or all of them. `--monitor` keeps
+one monitor, by id or by index from the left; `--field` prints one value as
+text, such as `focus.window.title`.
+
+### `mosaico subscribe [--bar NAME] [--topics LIST] [--monitor ID] [--full | --field PATH] [--wait] [--requests]`
+
+Follows the state bars are shown, a line for each change, for bars that read
+a command's output. Prints the daemon's messages as sent, the whole state
+with `--full`, or one value with `--field`. `--requests` sends the JSON
+requests read on standard input. `--wait` waits for the daemon and survives
+its restarts. It also ends when the program that started it exits.
+
+### `mosaico run <action> [--monitor ID]`
+
+Runs one action, as `bar.toml` names it (`goto-workspace-3`), on a monitor
+or on the focused one, for bars that run a command on a click.
+
+These three exit with 0 when done, 1 when refused or no daemon runs, and 3
+when the daemon speaks no version of the bar API this build does. The full
+behaviour is in [bar-api.md](bar-api.md#the-command-line).
 
 ### `mosaico daemon` (hidden)
 

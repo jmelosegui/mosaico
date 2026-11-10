@@ -188,6 +188,71 @@ toggle pause from the keyboard by binding the `toggle-pause` action — the
 toggle hotkey remains registered while paused so you can resume without opening
 a terminal. See [Keyboard Bindings](keybindings.md#pause--unpause) for setup.
 
+## `mosaico query`
+
+Prints what mosaico shows a bar, once, as JSON: the daemon, the theme, each
+monitor with its workspaces, and the focused window. Useful for scripts and
+for bars that read a command's output.
+
+```sh
+mosaico query                                 # Everything
+mosaico query monitors focus                  # Only these topics
+mosaico query --monitor 1                     # Only the second monitor from the left
+mosaico query --field focus.window.title      # One value, as plain text
+mosaico query --field monitors.0.active_workspace
+```
+
+`--monitor` takes a monitor's position from the left, from 0, or the id
+`mosaico doctor` shows. A `--field` path joins keys and list positions with
+dots. Text is printed on one line, with backslashes and line breaks written
+as `\\`, `\n` and `\r`; a missing value prints an empty line.
+
+## `mosaico subscribe`
+
+Like `query`, but keeps running and prints a line each time something
+changes, so a bar never has to poll.
+
+```sh
+mosaico subscribe                                        # Every message, as JSON
+mosaico subscribe --topics monitors,focus --full         # The whole state on each change
+mosaico subscribe --field focus.window.title --wait      # One value, across restarts
+mosaico subscribe --bar mybar --monitor 0 --requests     # Also send requests from stdin
+```
+
+| Option | What it does |
+|--------|--------------|
+| `--bar NAME` | Names your bar to mosaico |
+| `--topics LIST` | Only these topics, comma separated |
+| `--monitor ID` | Only this monitor, and the one actions run on |
+| `--full` | Prints `{"rev":N,"state":{...}}` on each change |
+| `--field PATH` | Prints one value, as text, when it changes |
+| `--wait` | Waits for mosaico to start, and reconnects when it restarts |
+| `--requests` | Sends each JSON line read on standard input, such as `{"id":1,"run":{"action":"goto-workspace-2"}}`, and prints the answers. Send `{"id":2,"ping":{}}` every few seconds: it stops after 15 seconds without input, and once the input ends and every request is answered |
+
+It stops when mosaico stops (unless `--wait`), and when the program that
+started it exits, so it never outlives your bar. With `--wait`, losing mosaico
+prints `{"disconnected":{"reason":"stopping"}}`, and requests that were not
+answered get a `disconnected` error.
+
+## `mosaico run <action>`
+
+Runs one action, as a click on a bar does, and waits for mosaico to answer.
+
+```sh
+mosaico run goto-workspace-3              # On the focused monitor
+mosaico run goto-workspace-3 --monitor 1  # On the second monitor from the left
+mosaico run toggle-monocle
+```
+
+Actions are named as in `bar.toml`'s click bindings. Actions on the focused
+window, such as `close-focused`, are refused: a click on a bar should not
+close the window you were working in.
+
+`query`, `subscribe` and `run` exit with 0 when done, 1 when mosaico is not
+running or refused, and 3 when this `mosaico` and the running one have no bar
+API version in common; use the `mosaico` of the running release then. They
+keep working across releases that share a version.
+
 ## `mosaico banner`
 
 Plays the animated Mosaico logo that `mosaico start` shows.

@@ -13,7 +13,7 @@ use crate::api::{ApiConnection, ApiListener, ApiReader, ApiWriter, Stopper};
 use crate::ipc::IpcError;
 
 /// One direction of a connection.
-struct Chan {
+pub(crate) struct Chan {
     state: Mutex<ChanState>,
     changed: Condvar,
 }
@@ -36,7 +36,7 @@ impl Chan {
         })
     }
 
-    fn read(&self, buf: &mut [u8], deadline: Option<Instant>) -> io::Result<usize> {
+    pub(crate) fn read(&self, buf: &mut [u8], deadline: Option<Instant>) -> io::Result<usize> {
         let mut state = self.state.lock().unwrap();
         loop {
             if !state.bytes.is_empty() {
@@ -54,7 +54,7 @@ impl Chan {
         }
     }
 
-    fn write(&self, buf: &[u8], deadline: Option<Instant>) -> io::Result<usize> {
+    pub(crate) fn write(&self, buf: &[u8], deadline: Option<Instant>) -> io::Result<usize> {
         let mut state = self.state.lock().unwrap();
         loop {
             if state.closed {
@@ -71,7 +71,7 @@ impl Chan {
         }
     }
 
-    fn close(&self) {
+    pub(crate) fn close(&self) {
         self.state.lock().unwrap().closed = true;
         self.changed.notify_all();
     }
@@ -220,6 +220,12 @@ impl FakeBar {
     /// Goes away.
     pub fn leave(&self) {
         self.to_daemon.close();
+    }
+
+    /// Its two directions, toward the daemon and from it, for a client
+    /// that reads and writes them itself.
+    pub fn into_ends(self) -> (Arc<Chan>, Arc<Chan>) {
+        (self.to_daemon, self.from_daemon)
     }
 }
 

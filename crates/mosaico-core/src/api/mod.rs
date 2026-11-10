@@ -9,6 +9,7 @@
 //! only add: a bar ignores fields it does not know, and a field it misses
 //! reads as its default.
 
+pub mod client;
 mod connection;
 mod diff;
 mod hub;
@@ -59,6 +60,10 @@ mod protocol_tests;
 #[cfg(test)]
 #[path = "tests/fake_pipe.rs"]
 pub(crate) mod fake_pipe;
+
+#[cfg(test)]
+#[path = "tests/fake_client.rs"]
+pub(crate) mod fake_client;
 
 #[cfg(test)]
 #[path = "tests/session_world.rs"]

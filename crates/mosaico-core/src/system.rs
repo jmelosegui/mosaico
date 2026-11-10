@@ -2,7 +2,8 @@
 //! each process, starting and stopping processes, keeping a second daemon
 //! or settings window from starting, hearing about Ctrl+C, opening
 //! folders and files, starting applications the user named, listing
-//! installed fonts, and registering for start on login.
+//! installed fonts, registering for start on login, and hearing when the
+//! process that started this one exits.
 
 mod autostart;
 mod autostart_status;
@@ -11,6 +12,7 @@ mod font_catalog;
 mod interrupt;
 mod launcher;
 mod opener;
+mod parent_watch;
 mod setup;
 mod single_instance;
 mod single_window;
@@ -26,6 +28,7 @@ pub use font_catalog::{FontCatalog, font_choices};
 pub use interrupt::Interrupts;
 pub use launcher::Launcher;
 pub use opener::Opener;
+pub use parent_watch::ParentWatch;
 pub use setup::ProcessSetup;
 pub use single_instance::{InstanceLock, SingleInstance};
 pub use single_window::{SingleWindow, Summoned};

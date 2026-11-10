@@ -126,6 +126,24 @@ pub struct ApiError {
 }
 
 impl ApiError {
+    /// The error `value` carries, read without the deserializer, so a
+    /// client that keeps messages as JSON need not carry its code. A code
+    /// this build does not know reads as [`ErrorCode::Other`].
+    pub fn from_json(value: &serde_json::Value) -> Self {
+        let code = value["code"]
+            .as_str()
+            .map_or(ErrorCode::Other, ErrorCode::named);
+        let api = value["api"].as_array().map(|api| {
+            let versions = api.iter().filter_map(serde_json::Value::as_u64);
+            versions.filter_map(|v| u32::try_from(v).ok()).collect()
+        });
+        Self {
+            code,
+            message: value["message"].as_str().unwrap_or_default().to_string(),
+            api,
+        }
+    }
+
     /// An error with `code` and `message`.
     pub fn new(code: ErrorCode, message: impl Into<String>) -> Self {
         Self {
@@ -166,6 +184,28 @@ pub enum ErrorCode {
     /// A code this build does not know.
     #[serde(other)]
     Other,
+}
+
+impl ErrorCode {
+    /// Every code but `Other`, with its name on the wire.
+    pub const NAMED: [(Self, &'static str); 10] = [
+        (Self::Busy, "busy"),
+        (Self::UnsupportedApi, "unsupported-api"),
+        (Self::Malformed, "malformed"),
+        (Self::TooLarge, "too-large"),
+        (Self::UnknownRequest, "unknown-request"),
+        (Self::NotAllowed, "not-allowed"),
+        (Self::NoMonitor, "no-monitor"),
+        (Self::UnknownAction, "unknown-action"),
+        (Self::Failed, "failed"),
+        (Self::Stopping, "stopping"),
+    ];
+
+    /// The code `name` names on the wire, or `Other`.
+    pub fn named(name: &str) -> Self {
+        let found = Self::NAMED.iter().find(|(_, named)| *named == name);
+        found.map_or(Self::Other, |(code, _)| *code)
+    }
 }
 
 /// The end of a session.

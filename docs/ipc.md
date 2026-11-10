@@ -35,6 +35,7 @@ The protocol lives in core and the platform only supplies byte streams:
 | `crates/mosaico-windows/src/ipc_security.rs` | Who may open the pipe, and the client's check that it is the daemon's |
 | `crates/mosaico-windows/src/daemon_ipc.rs` | Runs `serve()` on the daemon's IPC thread |
 | `crates/mosaico-windows/src/ipc_api.rs` | `ApiPipeListener` -- the bar API pipe |
+| `crates/mosaico-windows/src/ipc_api_client.rs` | `ApiPipeClient` -- the end of the bar API pipe `mosaico query`, `subscribe` and `run` open |
 | `crates/mosaico-windows/src/ipc_api_io.rs` | `ApiPipeConnection`, `ApiPipeReader`, `ApiPipeWriter` -- overlapped reads and writes on one bar's connection |
 
 ## Framing
@@ -281,6 +282,12 @@ request:
   users and other machines stay out, and the first instance is still created
   with `FILE_FLAG_FIRST_PIPE_INSTANCE`.
 
+`ApiPipeClient`, the end `mosaico query`, `subscribe` and `run` open,
+waits for a busy pipe as `PipeClient` does (both go through
+`open_client()`), opens it overlapped, refuses a pipe the daemon's user
+does not own as `PipeClient` does, and splits it into a reader and a
+writer like the daemon's end.
+
 ## Testing
 
 Framing, request decoding, error replies and the accept loop are tested in
@@ -294,4 +301,6 @@ label of the daemon's pipe, that the daemon will not join a pipe created
 before it, and that a client refuses a low-integrity pipe. `ipc_api_tests.rs`
 runs the bar API pipe for real: a whole session with `bye` readable after
 the daemon closes, the listener stopping when told, the write deadline, and a
-read returning when the other half shuts down.
+read returning when the other half shuts down. `ipc_api_client_tests.rs`
+runs `query` through `ApiPipeClient` against a real pipe, and checks that no
+pipe reads as no daemon running.

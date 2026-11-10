@@ -44,6 +44,8 @@ The contract has three parts:
 | `crates/mosaico-core/src/api/hub.rs`, `outbox.rs` | `Hub` -- the latest state, the sessions and what each is owed |
 | `crates/mosaico-core/src/api/writer.rs` | `SessionWriter` -- sends a session its replies and the state |
 | `crates/mosaico-core/src/api/loop_request.rs` | `LoopRequest`, `Reply` -- what a session asks of the daemon loop |
+| `crates/mosaico-core/src/api/client/` | `ApiClient`, `query()`, `run()`, `subscribe()` -- the bar's end of a session, as `mosaico query`, `subscribe` and `run` speak it; `JsonState`, `FieldPath`, `MonitorRef`, `Outcome` |
+| `crates/mosaico-core/src/system/parent_watch.rs` | `ParentWatch` -- whether the program that started a command still runs |
 | `docs/bar-api/client.jsonl`, `daemon.jsonl` | One example of each message, as sent |
 | `docs/bar-api/client-message.schema.json`, `daemon-message.schema.json` | Their JSON schemas |
 
@@ -412,3 +414,68 @@ The sessions are tested against an in-memory pipe in
 `crates/mosaico-core/src/api/tests/`. `metrics_tests.rs` counts the
 messages and bytes a bar is sent in each scenario, checked against
 `metrics/api.toml` by `cargo xtask metrics`.
+
+## The Command Line
+
+A bar that reads a command's output, or runs a command on a click, uses
+`mosaico query`, `mosaico subscribe` and `mosaico run` instead of the pipe.
+They open a session like any other bar, not a CLI request, so they keep
+working with a daemon of another release that speaks a version in common.
+How to use them is in the guide's [CLI page](../website/src/guide/cli.md);
+this is what they do.
+
+- `query [TOPIC...]` prints the first snapshot as JSON and exits. Only the
+  topics named are printed, though every session follows `daemon`.
+- `run ACTION` sends `{"id":1,"run":...}` and exits once it is answered. It
+  waits at most 10 seconds for each message.
+- `subscribe` prints each message as the daemon sent it, one per line.
+  - `--full` prints `{"rev":59,"state":{...}}`, the topics asked for with
+    every update applied, on subscribing and whenever it changes, then
+    every other message but `welcome`. The daemon still sends only
+    differences; the command keeps the state.
+  - `--requests` sends each line read on standard input as a request and
+    prints the replies, whatever the output. A line read before the
+    session's snapshot waits for it, and a `run` that names no monitor is
+    then given `--monitor`'s. A line that is not JSON is answered
+    `{"error":{"code":"malformed","message":"not JSON"}}`. With nothing read
+    for 15 seconds the command ends, so a bar sends `{"id":N,"ping":{}}`
+    every 5 seconds, and a bar that stops without ending the command loses
+    its session.
+  - `--wait` waits for a daemon that is not running, trying every half
+    second, and connects again when it goes away, asking for the topics of
+    the last `subscribe` it sent. On losing the daemon it prints
+    `{"disconnected":{"reason":"stopping"}}` (the reason `bye` gave, or
+    `lost`), except under `--field`, then the new `welcome` and snapshot.
+    A request waiting for an answer, or sent while there is no daemon, is
+    answered `{"id":N,"error":{"code":"disconnected","message":"..."}}`.
+    `disconnected` is the command's own code; the daemon never sends it.
+  - It ends on `bye` or a lost session (without `--wait`), when standard
+    input ends and every request sent is answered (with `--requests`, so
+    `echo '{"id":1,...}' | mosaico subscribe --requests` prints the
+    answer), when a write to standard output fails,
+    and when the program that started it exits, so a bar that dies takes
+    its command with it.
+- `--monitor ID` takes a monitor's id, or its index from the left when it
+  is all digits. It leaves only that monitor in `monitors`, and in
+  `removed.monitors` of each update, and `run` and `--requests` act on it.
+  `run` turns an index into the id from `monitors`, and is refused with
+  `no-monitor` when no monitor is at that index.
+- `--field PATH` prints one value as a line of text: keys and list indexes
+  joined by dots, such as `monitors.0.active_workspace`. A string is
+  printed with backslashes, line feeds and carriage returns escaped as `\\`, `\n` and
+  `\r`; a number or a boolean as written; a list or an object as compact
+  JSON; a null or a missing value as an empty line.
+
+| Exit | When |
+| --- | --- |
+| 0 | Done, or ended by `bye`, its input, its output or its parent |
+| 1 | Refused, no daemon running, or the session lost (without `--wait`) |
+| 2 | A usage error |
+| 3 | No bar API version in common; it names the versions each side speaks |
+
+A platform provides two things. `ApiClient` connects to the daemon's bar
+API endpoint, as a reader and a writer that do not wait for each other, and
+reports `NotRunning` when no daemon listens. `ParentWatch` names the
+program that started the command and waits for it to exit; a platform that
+cannot tell waits forever rather than end a command early. The client is
+tested in core against the in-memory pipe and a real `Hub`.
