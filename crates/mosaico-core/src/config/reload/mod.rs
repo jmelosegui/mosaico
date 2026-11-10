@@ -241,5 +241,9 @@ mod tests;
 mod rules_tests;
 
 #[cfg(test)]
+#[path = "tests/save_tests.rs"]
+mod save_tests;
+
+#[cfg(test)]
 #[path = "tests/keybindings_tests.rs"]
 mod keybindings_tests;
