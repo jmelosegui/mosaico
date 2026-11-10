@@ -17,10 +17,10 @@ for a dry run. Copy the folder into a fork of winget-pkgs at the same path
 to submit it, or pass it to `wingetcreate submit`.
 
 .EXAMPLE
-pwsh packaging\winget\new-manifests.ps1 -Version 0.13.0
+pwsh packaging\winget\new-manifests.ps1 -Version 0.13.1
 
 .EXAMPLE
-pwsh packaging\winget\new-manifests.ps1 -Version 0.13.0 -MsiPath target\release\mosaico-windows-amd64.msi
+pwsh packaging\winget\new-manifests.ps1 -Version 0.13.1 -MsiPath target\release\mosaico-windows-amd64.msi
 #>
 param(
     [Parameter(Mandatory)] [string] $Version,
