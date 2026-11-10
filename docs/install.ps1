@@ -30,6 +30,21 @@ function Stop-MosaicoIn {
         Stop-Process -Force
 }
 
+# Runs mosaico and shows its output. Through the pipe PowerShell decodes
+# that output with the console's code page, which garbles mosaico's UTF-8
+# (the banner's logo) unless it is UTF-8 for the call. The user's code
+# page is put back after: under `iex` this is their session.
+function Show-Mosaico {
+    param($Exe, [string[]]$Arguments)
+    $Previous = [Console]::OutputEncoding
+    try {
+        [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
+        & $Exe @Arguments | Out-Host
+    } finally {
+        [Console]::OutputEncoding = $Previous
+    }
+}
+
 function Remove-FromUserPath {
     param($Dir)
     $UserPath = [Environment]::GetEnvironmentVariable("Path", "User")
@@ -73,7 +88,7 @@ function Install-Msi {
     $Process = Start-Process msiexec.exe -ArgumentList $Arguments -Wait -PassThru
     # 3010: installed, a restart is required to finish.
     if ($Process.ExitCode -notin 0, 3010) {
-        if ($LegacyRunning) { & $Legacy start | Out-Host }
+        if ($LegacyRunning) { Show-Mosaico $Legacy start }
         Write-Err "The installer failed with code $($Process.ExitCode). Its log is $Log"
     }
 
@@ -88,7 +103,7 @@ function Install-Msi {
             Remove-Item -Force -ErrorAction SilentlyContinue
         Remove-FromUserPath $LegacyDir
         if ($LegacyAutostart) { & $Mosaico autostart enable | Out-Null }
-        if ($LegacyRunning) { & $Mosaico start | Out-Host }
+        if ($LegacyRunning) { Show-Mosaico $Mosaico start }
     }
 
     # This session's PATH: the installer only updated the user's, which

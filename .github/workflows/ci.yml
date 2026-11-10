@@ -165,8 +165,18 @@ jobs:
           & "$legacy\mosaico.exe" autostart enable
           Expect ((Daemons).Count -eq 1) "the zip install's daemon did not start"
 
+          # An English Windows console's code page, not UTF-8: install.ps1
+          # runs in the user's session, which keeps whichever it has.
+          [Console]::OutputEncoding = [Text.Encoding]::GetEncoding(437)
           $env:MOSAICO_INSTALL_MSI = "new.msi"
-          try { & .\docs\install.ps1 } catch { Get-Content "$env:TEMP\mosaico-install.log" -Tail 80 -ErrorAction SilentlyContinue; throw }
+          Start-Transcript install-transcript.log | Out-Null
+          try { & .\docs\install.ps1 } catch { Get-Content "$env:TEMP\mosaico-install.log" -Tail 80 -ErrorAction SilentlyContinue; throw } finally { Stop-Transcript | Out-Null }
+
+          # The daemon it starts again prints the banner, logo included.
+          $transcript = Get-Content install-transcript.log -Raw -Encoding utf8
+          Expect ($transcript -like "*Welcome to*") "install.ps1 did not show the banner"
+          Expect ($transcript.Contains([string][char]0x2588)) "the banner's logo was garbled: $(($transcript -split "`n" | Select-String 'Welcome to' -Context 0,2) -join "`n")"
+          Expect ([Console]::OutputEncoding.CodePage -eq 437) "install.ps1 left the console's encoding at $([Console]::OutputEncoding.WebName)"
 
           $exe = "$dir\mosaico.exe"
           $daemons = Daemons
