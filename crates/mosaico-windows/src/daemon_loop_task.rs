@@ -4,8 +4,8 @@
 
 use mosaico_core::Action;
 use mosaico_core::action::Origin;
-use mosaico_core::bar::{BarId, BarManager, PointerEvent};
-use mosaico_core::config::{ConfigReload, Theme};
+use mosaico_core::bar::{BarHost, BarId, PointerEvent};
+use mosaico_core::config::ConfigReload;
 use mosaico_core::daemon::Message;
 use mosaico_core::ipc::Command;
 use mosaico_core::tray::TrayCommand;
@@ -62,8 +62,7 @@ pub(super) fn message(msg: DaemonMsg) -> Message<Task> {
 pub(super) fn run(
     task: Task,
     manager: &mut TilingManager,
-    bar_mgr: &mut BarManager,
-    current_theme: &mut Theme,
+    bars: &mut BarHost,
     inputs: &mut Inputs,
     hotkeys_paused: &mut bool,
     get_update: &dyn Fn() -> String,
@@ -73,72 +72,32 @@ pub(super) fn run(
             // Nobody waits for the answer of a hotkey, and `carry_out` has
             // logged a failure already.
             let origin = Origin::Focused;
-            let _ = carry_out(
-                action,
-                origin,
-                manager,
-                bar_mgr,
-                inputs,
-                hotkeys_paused,
-                get_update,
-            );
+            let _ = carry_out(action, origin, manager, bars, inputs, hotkeys_paused);
         }
         Task::Launch(index) => {
-            daemon_loop_commands::launch(
-                index,
-                manager,
-                bar_mgr,
-                inputs,
-                *hotkeys_paused,
-                get_update,
-            );
+            daemon_loop_commands::launch(index, manager, bars, inputs);
         }
         Task::BarPointer(bar, event) => {
-            daemon_loop_bar::handle_pointer(
-                bar,
-                event,
-                manager,
-                bar_mgr,
-                inputs,
-                hotkeys_paused,
-                get_update,
-            );
+            daemon_loop_bar::handle_pointer(bar, event, manager, bars, inputs, hotkeys_paused);
         }
         Task::Command(command, reply_tx) => {
             if let Some(response) = daemon_loop_commands::handle_command(
                 &command,
                 manager,
-                bar_mgr,
+                bars,
                 inputs,
                 hotkeys_paused,
-                get_update,
             ) {
                 let _ = reply_tx.send(response);
                 return matches!(command, Command::Stop);
             }
         }
         Task::Tray(command) => {
-            return daemon_loop_tray::handle(
-                command,
-                manager,
-                bar_mgr,
-                current_theme,
-                inputs,
-                hotkeys_paused,
-                get_update,
-            );
+            return daemon_loop_tray::handle(command, manager, bars, inputs, hotkeys_paused);
         }
-        Task::Reload(reload) => daemon_loop_handlers::handle_reload(
-            *reload,
-            manager,
-            bar_mgr,
-            current_theme,
-            inputs,
-            *hotkeys_paused,
-            get_update,
-        ),
+        Task::Reload(reload) => daemon_loop_handlers::handle_reload(*reload, manager, bars, inputs),
         Task::Tick => {
-            daemon_loop_handlers::handle_tick(manager, bar_mgr, *hotkeys_paused, get_update);
+            daemon_loop_handlers::handle_tick(manager, bars, &get_update());
         }
         Task::IpcFailed => return true,
     }

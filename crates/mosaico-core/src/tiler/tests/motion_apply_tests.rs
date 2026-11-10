@@ -1,5 +1,6 @@
 //! Which placements become motions as they are applied.
 
+use crate::tiler::Reach;
 use crate::tiler::tests::fake_platform::Call;
 use crate::tiler::tests::manager_support::still;
 use crate::{Action, Rect};
@@ -91,7 +92,8 @@ fn a_window_that_hardly_moves_is_placed_at_once() {
     let before = [1, 2].map(|id| platform.window(id).rect);
 
     // Act
-    manager.adjust_work_areas_for_bar(4, &[]);
+    let reach = Reach::bar_on(&manager.places(), 4, &[]);
+    manager.set_reach(reach);
 
     // Assert
     let lower = |r: Rect| Rect::new(r.x, r.y + 4, r.width, r.height - 4);

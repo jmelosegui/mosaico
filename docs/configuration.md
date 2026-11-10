@@ -572,9 +572,10 @@ same way.
 - **rules.toml**: **not** watched. The daemon downloads the community rules
   at startup and reloads them itself once they are saved, and the next
   download overwrites hand edits. Put your own rules in `user-rules.toml`.
-- **bar.toml**: the `BarManager` is recreated with `reload()`, colors are
-  re-resolved against the current theme, work areas are reset and re-adjusted
-  for the new bar height, and all monitors are retiled. The bars are made
+- **bar.toml**: the built-in bar takes it (`BarHost::reload()`): its bars
+  are made again with the new config in the current theme, then the work
+  areas are read again, the bars placed on them, and all monitors retiled
+  once to keep clear of the new bar height. The bars are made
   again, with the new `[mouse]` settings, so a press or wheel turns made on
   the old ones are dropped, and each `[[mouse.click]]` entry the new file
   has that a bar cannot run is logged.

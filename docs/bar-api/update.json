@@ -1,0 +1,16 @@
+{
+  "focus": {
+    "monitor": "m-3fa2c1",
+    "workspace": 1,
+    "window": {
+      "id": 1180,
+      "title": "Windows PowerShell",
+      "program": "WindowsTerminal.exe"
+    }
+  },
+  "removed": {
+    "monitors": [
+      "m-08b7e4"
+    ]
+  }
+}

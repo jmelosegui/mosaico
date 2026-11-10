@@ -8,7 +8,7 @@ use crate::WindowId;
 
 use super::display_monocle::join_monocle;
 use super::display_rebuild::rebuild_monitors;
-use super::{BarReservation, Display, Effect, Plan, Tiler};
+use super::{Display, Effect, Plan, Reach, Tiler};
 
 impl Tiler {
     /// Rebuilds the monitor state after the set of monitors changed.
@@ -23,7 +23,7 @@ impl Tiler {
         &mut self,
         plan: &mut Plan,
         displays: Vec<Display>,
-        bar: &BarReservation,
+        reach: &Reach,
     ) {
         if displays.is_empty() {
             return;
@@ -33,12 +33,17 @@ impl Tiler {
         // bars may still have changed with it, when one could not be made
         // again or was made for the first time, so their space follows.
         let unchanged = displays.len() == self.monitors.len()
-            && displays
-                .iter()
-                .zip(&self.monitors)
-                .all(|(new, old)| new.id == old.id && new.work_area == old.os_work_area);
+            && displays.iter().zip(&self.monitors).all(|(new, old)| {
+                new.id == old.id
+                    && new.work_area == old.os_work_area
+                    && new.bounds == old.bounds
+                    && new.scale == old.scale
+            });
         if unchanged {
-            self.reserve_bar_if_moved(plan, bar);
+            for (new, old) in displays.iter().zip(&mut self.monitors) {
+                old.sync(new);
+            }
+            self.reserve_bar_if_moved(plan, reach);
             return;
         }
 
@@ -135,7 +140,7 @@ impl Tiler {
             self.hidden_how.show(plan, window, how);
         }
 
-        self.reserve_bar(plan, bar);
+        self.reserve_bar(plan, reach);
 
         for &window in &shown {
             self.hidden_how.show(plan, window, how);

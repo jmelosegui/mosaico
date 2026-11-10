@@ -7,8 +7,9 @@
 
 use crate::config::Config;
 use crate::id::wid;
+use crate::tiler::Input;
+use crate::tiler::Reach;
 use crate::tiler::tests::Harness;
-use crate::tiler::{BarReservation, Input};
 use crate::{Action, Direction, LayoutKind, WindowEvent};
 
 use super::split_tests::rects;
@@ -30,7 +31,7 @@ pub(super) fn resize(h: &mut Harness, index: usize, shares: &[f64]) {
     h.tiler.monitors[0]
         .active_ws_mut()
         .set_heights(index, shares);
-    h.step(Input::Bar(BarReservation::default()));
+    h.step(Input::Reach(Reach::none()));
 }
 
 /// The heights of the column the window at `index` of `kind` is in, on the

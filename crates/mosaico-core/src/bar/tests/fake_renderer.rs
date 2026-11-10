@@ -11,7 +11,7 @@ use super::failed;
 
 /// What happened to a [`FakeRenderer`]'s bars, in order.
 #[derive(Debug, Clone, PartialEq)]
-pub(in crate::bar) enum BarEvent {
+pub(crate) enum BarEvent {
     /// A bar was made for this area.
     Created(Rect),
     /// The bar for `area` was drawn with `content`, on `background`.
@@ -66,7 +66,7 @@ impl FakeRenderer {
     }
 
     /// What happened since the last call.
-    pub(in crate::bar) fn take(&self) -> Vec<BarEvent> {
+    pub(crate) fn take(&self) -> Vec<BarEvent> {
         std::mem::take(&mut self.events.borrow_mut())
     }
 

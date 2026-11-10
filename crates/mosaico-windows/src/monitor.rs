@@ -7,6 +7,7 @@ use windows::Win32::Graphics::Gdi::{
     EnumDisplayMonitors, GetMonitorInfoW, HDC, HMONITOR, MONITOR_DEFAULTTOPRIMARY, MONITORINFO,
     MONITORINFOEXW, MonitorFromWindow,
 };
+use windows::Win32::UI::HiDpi::{GetDpiForMonitor, MDT_EFFECTIVE_DPI};
 use windows::core::BOOL;
 
 use crate::monitor_identity;
@@ -40,9 +41,11 @@ fn monitor_id(monitor: HMONITOR) -> MonitorId {
 /// A monitor as seen by `EnumDisplayMonitors`, before its key is known.
 struct RawMonitor {
     id: MonitorId,
+    bounds: Rect,
     work_area: Rect,
     primary: bool,
     gdi_name: String,
+    scale: f64,
 }
 
 /// Enumerates all connected monitors, in the order `EnumDisplayMonitors`
@@ -74,11 +77,19 @@ pub(crate) fn enumerate_monitors() -> Result<Vec<Display>> {
     let mut identities = monitor_identity::display_identities();
     Ok(raw
         .into_iter()
-        .map(|m| Display {
-            id: m.id,
-            key: identities.remove(&m.gdi_name).unwrap_or_default(),
-            work_area: m.work_area,
-            primary: m.primary,
+        .map(|m| {
+            let identity = identities.remove(&m.gdi_name);
+            let (key, name) = identity.map_or_else(Default::default, |i| (i.key, i.name));
+            Display {
+                id: m.id,
+                key,
+                bounds: m.bounds,
+                work_area: m.work_area,
+                primary: m.primary,
+                name,
+                device: m.gdi_name,
+                scale: m.scale,
+            }
         })
         .collect())
 }
@@ -106,7 +117,8 @@ pub(crate) fn rect_from_win32(r: &RECT) -> Rect {
     Rect::new(r.left, r.top, r.right - r.left, r.bottom - r.top)
 }
 
-/// Queries the work area, primary flag and GDI device name of a monitor.
+/// Queries the bounds, work area, primary flag, GDI device name and scale
+/// of a monitor.
 fn query_monitor(monitor: HMONITOR) -> Result<RawMonitor> {
     let mut info = MONITORINFOEXW {
         monitorInfo: MONITORINFO {
@@ -135,8 +147,31 @@ fn query_monitor(monitor: HMONITOR) -> Result<RawMonitor> {
 
     Ok(RawMonitor {
         id: monitor_id(monitor),
+        bounds: rect_from_win32(&info.monitorInfo.rcMonitor),
         work_area: rect_from_win32(&info.monitorInfo.rcWork),
         primary: info.monitorInfo.dwFlags & MONITORINFOF_PRIMARY != 0,
         gdi_name: String::from_utf16_lossy(&info.szDevice[..name_len]),
+        scale: scale_from_dpi(effective_dpi(monitor)),
     })
 }
+
+/// The effective DPI of a monitor, None when it cannot be read.
+fn effective_dpi(monitor: HMONITOR) -> Option<u32> {
+    let (mut x, mut y) = (0, 0);
+    // SAFETY: GetDpiForMonitor writes two integers on the stack.
+    unsafe { GetDpiForMonitor(monitor, MDT_EFFECTIVE_DPI, &mut x, &mut y).ok()? };
+    Some(x)
+}
+
+/// The scale factor for a DPI, 1.0 at the standard 96 and 1.0 when the
+/// DPI is unknown.
+fn scale_from_dpi(dpi: Option<u32>) -> f64 {
+    match dpi {
+        Some(dpi) if dpi > 0 => f64::from(dpi) / 96.0,
+        _ => 1.0,
+    }
+}
+
+#[cfg(test)]
+#[path = "monitor_tests.rs"]
+mod tests;

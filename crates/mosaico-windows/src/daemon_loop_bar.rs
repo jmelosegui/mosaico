@@ -4,7 +4,7 @@
 use std::sync::mpsc::Sender;
 use std::time::Instant;
 
-use mosaico_core::bar::{BarId, BarManager, PointerEvent, PointerSink};
+use mosaico_core::bar::{BarHost, BarId, PointerEvent, PointerSink};
 
 use crate::tiling::TilingManager;
 
@@ -31,21 +31,12 @@ pub(super) fn handle_pointer(
     bar: BarId,
     event: PointerEvent,
     manager: &mut TilingManager,
-    bar_mgr: &mut BarManager,
+    bars: &mut BarHost,
     inputs: &mut Inputs,
     hotkeys_paused: &mut bool,
-    get_update: &dyn Fn() -> String,
 ) {
-    if let Some((action, origin)) = bar_mgr.pointer(bar, event, Instant::now()) {
-        let _ = carry_out(
-            action,
-            origin,
-            manager,
-            bar_mgr,
-            inputs,
-            hotkeys_paused,
-            get_update,
-        );
+    if let Some((action, origin)) = bars.pointer(bar, event, Instant::now()) {
+        let _ = carry_out(action, origin, manager, bars, inputs, hotkeys_paused);
     }
 }
 
@@ -53,20 +44,11 @@ pub(super) fn handle_pointer(
 /// has gone quiet over.
 pub(super) fn apply_wheel(
     manager: &mut TilingManager,
-    bar_mgr: &mut BarManager,
+    bars: &mut BarHost,
     inputs: &mut Inputs,
     hotkeys_paused: &mut bool,
-    get_update: &dyn Fn() -> String,
 ) {
-    for (action, origin) in bar_mgr.take_wheel(Instant::now()) {
-        let _ = carry_out(
-            action,
-            origin,
-            manager,
-            bar_mgr,
-            inputs,
-            hotkeys_paused,
-            get_update,
-        );
+    for (action, origin) in bars.take_due(Instant::now()) {
+        let _ = carry_out(action, origin, manager, bars, inputs, hotkeys_paused);
     }
 }

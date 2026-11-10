@@ -455,12 +455,16 @@ The `TilingManager` supports hot-reloading of configuration:
   window against them again, letting go of the ones they no longer manage. A
   window hidden on another workspace is judged by the rules alone and shown
   again as it is let go (see [configuration.md](configuration.md#hot-reload))
-- `adjust_work_areas_for_bar(height, indices)` -- shrinks work areas on
-  monitors that display a bar (offsets `y` and `height` by the bar height)
-- `reset_and_adjust_work_areas(height, indices)` -- resets to original work
-  areas and re-applies bar adjustment (used on bar config reload)
-- `bar_states()` -- returns per-monitor `BarState` from `Tiler::bar_states()`:
-  workspace count, active workspace, layout, monocle and the focused window
+- `set_reach(reach)` -- keeps the tiles clear of how far the bar reaches
+  into each monitor (`Reach`, by `StableMonitorId`, from the monitor's top
+  edge); tiles keep clear of whichever reaches further, the bar or what the
+  system keeps, and every monitor is retiled
+- `reset_work_areas(bar)` -- reads the work areas again, hands the monitors
+  as they are now (`MonitorPlace`) to `bar`, which places the bar and says
+  how far it reaches, and retiles once (used on a work area change and a
+  bar config reload, see [bar-api.md](bar-api.md))
+- `bar_state(daemon, theme)` -- the bar API's state (`api::State`) when it
+  changed since the last call, see [bar-api.md](bar-api.md)
 - `restore_all_windows()` -- shows all windows across every workspace and
   monitor, once the windows still moving have been placed at their targets
   (see [Placements That Animate](#placements-that-animate)); called on

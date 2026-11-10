@@ -1,0 +1,369 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Update",
+  "description": "What changed between two states: each topic that changed, in full, and\neach monitor that changed or came, in full, by id.\n\nApplying one is replacing objects by id, so a bar keeps no model of its\nown: `older.apply(older.diff(&newer))` is `newer`.",
+  "type": "object",
+  "properties": {
+    "daemon": {
+      "description": "The daemon, when it changed.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Daemon"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "focus": {
+      "description": "Where the user works, when it changed.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Focus"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "monitors": {
+      "description": "Each monitor that changed or was connected, in full.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Monitor"
+      }
+    },
+    "removed": {
+      "description": "What is gone.",
+      "$ref": "#/$defs/Removed"
+    },
+    "theme": {
+      "description": "The theme, when it changed.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Theme"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "Daemon": {
+      "description": "The daemon and what it was told.",
+      "type": "object",
+      "properties": {
+        "api": {
+          "description": "The API version the state is shaped by.",
+          "type": "integer",
+          "format": "uint32",
+          "default": 0,
+          "minimum": 0
+        },
+        "instance": {
+          "description": "The instance's name, or `None` for the default instance.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "paused": {
+          "description": "Whether the hotkeys are paused.",
+          "type": "boolean",
+          "default": false
+        },
+        "provider": {
+          "description": "The bar the user picked, as `[bar] provider` names it.",
+          "type": "string",
+          "default": ""
+        },
+        "update": {
+          "description": "Notice of a newer version, such as `\"v0.15.0 available\"`, or\n`None` when there is none.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "version": {
+          "description": "mosaico's version, such as `\"0.14.0\"`.",
+          "type": "string",
+          "default": ""
+        },
+        "workspace_mode": {
+          "description": "How a workspace switch applies across monitors: `\"per-monitor\"` or\n`\"global\"`.",
+          "type": "string",
+          "default": ""
+        },
+        "wrap": {
+          "description": "Whether stepping through the workspaces goes round from the last\nto the first.",
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "Focus": {
+      "description": "Where the user is working.",
+      "type": "object",
+      "properties": {
+        "monitor": {
+          "description": "The monitor the user is working on.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "window": {
+          "description": "The focused window, if any.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FocusedWindow"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "workspace": {
+          "description": "The number of the workspace on screen there.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "default": null,
+          "minimum": 0
+        }
+      }
+    },
+    "FocusedWindow": {
+      "description": "The focused window.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Its id, for the session.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "program": {
+          "description": "The file name of the program that owns it, or empty.",
+          "type": "string",
+          "default": ""
+        },
+        "title": {
+          "description": "Its title, cut at [`MAX_TITLE_CHARS`](super::MAX_TITLE_CHARS).\nShow it as text, never as markup.",
+          "type": "string",
+          "default": ""
+        }
+      },
+      "required": [
+        "id"
+      ]
+    },
+    "Monitor": {
+      "description": "One connected monitor.",
+      "type": "object",
+      "properties": {
+        "active_workspace": {
+          "description": "Number of the workspace on screen, from 1.",
+          "type": "integer",
+          "format": "uint32",
+          "default": 0,
+          "minimum": 0
+        },
+        "bounds": {
+          "description": "The whole monitor, in the desktop's pixels.",
+          "$ref": "#/$defs/Rect",
+          "default": {
+            "height": 0,
+            "width": 0,
+            "x": 0,
+            "y": 0
+          }
+        },
+        "device": {
+          "description": "The name other programs know the display by.",
+          "type": "string",
+          "default": ""
+        },
+        "id": {
+          "description": "The id the monitor keeps through display changes and reconnects.",
+          "type": "string",
+          "default": ""
+        },
+        "index": {
+          "description": "Position from the left, from 0, as `bar.toml`'s `monitors` counts.",
+          "type": "integer",
+          "format": "uint32",
+          "default": 0,
+          "minimum": 0
+        },
+        "maximized": {
+          "description": "Whether a maximized or fullscreen window covers the monitor.",
+          "type": "boolean",
+          "default": false
+        },
+        "name": {
+          "description": "What the system calls the display, such as `\"DELL U2720Q\"`.",
+          "type": "string",
+          "default": ""
+        },
+        "scale": {
+          "description": "Scale factor, 1.0 at 100%.",
+          "type": "number",
+          "format": "double",
+          "default": 0.0
+        },
+        "tiling_area": {
+          "description": "Where mosaico tiles: the work area, kept clear of the bar.",
+          "$ref": "#/$defs/Rect",
+          "default": {
+            "height": 0,
+            "width": 0,
+            "x": 0,
+            "y": 0
+          }
+        },
+        "work_area": {
+          "description": "What the system leaves for windows.",
+          "$ref": "#/$defs/Rect",
+          "default": {
+            "height": 0,
+            "width": 0,
+            "x": 0,
+            "y": 0
+          }
+        },
+        "workspaces": {
+          "description": "The monitor's workspaces, in number order.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Workspace"
+          }
+        }
+      }
+    },
+    "Rect": {
+      "description": "A rectangle in the desktop's pixels.",
+      "type": "object",
+      "properties": {
+        "height": {
+          "description": "Height.",
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        },
+        "width": {
+          "description": "Width.",
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        },
+        "x": {
+          "description": "Left edge.",
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        },
+        "y": {
+          "description": "Top edge.",
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        }
+      }
+    },
+    "Removed": {
+      "description": "What an [`Update`] takes away.",
+      "type": "object",
+      "properties": {
+        "monitors": {
+          "description": "The ids of the monitors disconnected.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "Theme": {
+      "description": "The theme bars are drawn in.",
+      "type": "object",
+      "properties": {
+        "colors": {
+          "description": "Its colors by name, such as `\"blue\": \"#89b4fa\"`.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {}
+        },
+        "flavor": {
+          "description": "Its flavor, such as `\"mocha\"`.",
+          "type": "string",
+          "default": ""
+        },
+        "name": {
+          "description": "The theme's family, such as `\"catppuccin\"`.",
+          "type": "string",
+          "default": ""
+        }
+      }
+    },
+    "Workspace": {
+      "description": "One workspace of a monitor.",
+      "type": "object",
+      "properties": {
+        "focused": {
+          "description": "The one of them focused last, if any.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "default": null,
+          "minimum": 0
+        },
+        "layout": {
+          "description": "Its layout, such as `\"bsp\"`, `\"vertical-stack\"` or\n`\"three-column\"`. A bar shows a layout it does not know as is.",
+          "type": "string",
+          "default": ""
+        },
+        "monocle": {
+          "description": "Whether it shows one window over the whole area.",
+          "type": "boolean",
+          "default": false
+        },
+        "name": {
+          "description": "What to call it. The number for now.",
+          "type": "string",
+          "default": ""
+        },
+        "number": {
+          "description": "Number, from 1, as actions number workspaces.",
+          "type": "integer",
+          "format": "uint32",
+          "default": 0,
+          "minimum": 0
+        },
+        "windows": {
+          "description": "Its windows, in layout order.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0
+          }
+        }
+      }
+    }
+  }
+}

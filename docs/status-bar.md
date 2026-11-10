@@ -24,19 +24,23 @@ the pointer does.
 | `crates/mosaico-core/src/config/widget_kind.rs` | `WidgetKind` -- a widget's type, named as `type` names it |
 | `crates/mosaico-core/src/bar/clicks.rs` | `WidgetClicks` -- what a click on each kind of widget runs; how each entry is checked, and the entries it leaves out, `RejectedClick` and `ClickProblem` (`clicks_rejected.rs`) |
 | `crates/mosaico-core/src/bar/manager.rs` | `BarManager` -- which monitors get a bar, and refreshing them; making them (`manager_bars.rs`), what it keeps of each (`manager_slot.rs`) and the pointer on them (`manager_pointer.rs`) |
+| `crates/mosaico-core/src/bar/builtin.rs` | `BuiltinBar` -- the built-in bar as a `BarProvider`, drawn from the bar API's state, see [bar-api.md](bar-api.md) |
+| `crates/mosaico-core/src/bar/provider.rs`, `host.rs` | `BarProvider`, `NoBar` -- the contract every bar follows; `BarHost` -- the daemon's one bar, and the order the contract asks for |
 | `crates/mosaico-core/src/bar/content.rs` | `BarContent`, `BarItem` -- what each bar shows, in drawing order; the items of a side (`content_items.rs`) and what each is to the pointer (`content_regions.rs`) |
 | `crates/mosaico-core/src/bar/pointer.rs` | `BarId`, `Button`, `PointerEvent`, `PointerSink` -- what a platform reports, and where |
 | `crates/mosaico-core/src/bar/region.rs` | `ItemRegion`, `BarTarget`, `WidgetRef`, `BarSide`, `hit()` -- where a bar drew its items, and which one the pointer is over |
 | `crates/mosaico-core/src/bar/press.rs` | `Press` -- a press and a release on the same item is a click |
 | `crates/mosaico-core/src/bar/wheel.rs` | `WheelSteps`, `WHEEL_QUIET` -- wheel turns added up until the wheel goes quiet |
 | `crates/mosaico-core/src/bar/widget_text.rs` | Each widget's text, and when it shows |
-| `crates/mosaico-core/src/bar/state.rs` | `BarState` -- what a monitor's bar shows of the tiler and daemon |
+| `crates/mosaico-core/src/bar/state.rs` | `BarState` -- what a monitor's bar shows of the tiler and daemon; `BarState::from_state()` -- read from the bar API's state |
 | `crates/mosaico-core/src/bar/readings.rs` | `SystemReadings` -- CPU, memory, media and time for one refresh |
 | `crates/mosaico-core/src/bar/system_info.rs` | `SystemInfo` -- the machine readings a platform reports |
 | `crates/mosaico-core/src/bar/renderer.rs` | `BarRenderer`, `BarSurface` -- what a platform implements to draw bars |
 | `crates/mosaico-core/src/bar/cpu.rs` | `CpuTracker` -- CPU usage from processor time counters |
 | `crates/mosaico-core/src/bar/time.rs` | `LocalTime` and the clock's format strings |
-| `crates/mosaico-core/src/tiler/bar_states.rs` | `Tiler::bar_states()` -- one `BarState` per monitor; `Tiler::mark_maximized()` -- the bars over a maximized or fullscreen window; the windows on screen that start or stop filling their monitor (`bar_filling.rs`) |
+| `crates/mosaico-core/src/tiler/api_state.rs` | `Tiler::api_monitors()`, `api_focus()` -- the bar API's monitors and focus; `Tiler::maximized_monitors()` -- the monitors with a maximized or fullscreen window under the bar; the windows on screen that start or stop filling their monitor (`bar_filling.rs`) |
+| `crates/mosaico-core/src/tiler/manager_api.rs` | `TilingManager::bar_state()` -- the bar API's state, built again only when a step may have changed it |
+| `crates/mosaico-core/src/tiler/reach.rs` | `MonitorPlace`, `Reach` -- the monitors a bar is placed on, and how far it reaches into them |
 | `crates/mosaico-windows/src/bar/mod.rs` | `Win32BarRenderer` |
 | `crates/mosaico-windows/src/bar/window.rs` | `Bar` -- per-monitor overlay window, its class and window procedure |
 | `crates/mosaico-windows/src/bar/surface.rs` | `Bar` as a `BarSurface`: draw, hide, click-through |
@@ -52,6 +56,9 @@ the pointer does.
 
 ### Key Types
 
+- `BuiltinBar` -- the built-in bar as a `BarProvider`: it reads mosaico
+  only through the bar API's `State`, as any other bar does, theme
+  included, and draws through a `BarManager`
 - `BarManager` -- decides which monitors get a bar, the space it reserves
   and what each one shows; owns the config, the resolved colors and the
   CPU tracker, and draws through a `BarRenderer`
@@ -287,10 +294,13 @@ tell, and the widget stays hidden until a non-blocking query is added.
 - `maximized` -- whether a maximized or fullscreen window is under the bar,
   which then lets the pointer through
 
-`Tiler::bar_states()` builds one per monitor on each render cycle, and
-`TilingManager::bar_states()` passes it the update text and pause state, and
+`BuiltinBar::show()` reads one per monitor from the bar API's state
+(`BarState::from_state()`), which `TilingManager::bar_state()` builds with
+the update notice and pause state the daemon hands to its `BarHost`, and
 marks the monitors with a maximized or fullscreen window
-(`Tiler::mark_maximized()`, see [Click-Through](#click-through)).
+(`Tiler::maximized_monitors()`, see [Click-Through](#click-through)). The
+built-in bar draws from nothing else, so a bar another program draws can
+show all it shows (see [bar-api.md](bar-api.md)).
 
 The system widgets read `SystemReadings` instead, which `BarManager` takes
 once per refresh for all bars, and not at all while no monitor has a bar:
@@ -334,8 +344,9 @@ its side is added back on the next start; to hide a widget, set
 - `bar_monitor_indices()` -- returns which monitor indices have bars
 - `resolve_colors(theme)` -- re-resolves every color on theme change, the
   `[colors]` table and each widget's `color`
-- `rebuild_for_monitors(monitor_rects, theme)` -- replaces the bars after a
-  display change
+- `rebuild_for_monitors(monitor_rects, theme)` -- replaces the bars when
+  they are placed on monitors that came, went, moved or changed size, work
+  area or scale (`BuiltinBar::place()` leaves them be otherwise)
 - `reload(config)` -- recreates bars with new config, returns new height,
   and logs each `[[mouse.click]]` entry the new config has that it leaves out
 - `hide_all()` -- hides all bars on shutdown
@@ -347,7 +358,8 @@ A monitor whose bar cannot be made goes without one, and the failure is
 logged. The manager keeps the config as loaded (`raw_config`) apart from
 the resolved one, so a theme change resolves every color again from what
 `bar.toml` says: a color given by name follows the new theme, and an empty
-one takes the new theme's default. The daemon creates the manager with
+one takes the new theme's default. `BuiltinBar` creates the manager with
+no monitors, and places it when `BarHost` starts it; the daemon gives it
 `Win32BarRenderer` and `Win32SystemInfo`.
 
 ## Pointer Input
@@ -482,7 +494,7 @@ defaults (`ClickBinding::defaults()`), merged by `WidgetClicks`:
 
 A bar lets the pointer through to the windows under it, as it always did,
 while `[mouse] enabled = false`, and while a maximized or fullscreen window
-is under it. `TilingManager::bar_states()` marks the monitor from
+is under it. `TilingManager::bar_state()` marks the monitor from
 `Desktop::windows_on_screen()`: the windows shown, not minimized and not
 kept out of view, managed or not, which leaves out the desktop itself, the
 shell's surfaces such as the taskbar, windows the pointer goes through, and
@@ -498,8 +510,9 @@ monitor's bar click-through for as long as it shows.
 
 Maximizing, restoring and going fullscreen only report that the window
 moved. The tiler notes each window on screen that starts or stops filling
-its monitor that way (`TilingManager::take_bars_changed()`), and the daemon
-draws the bars again at once. Anything else that changes what is under a bar
+its monitor that way (`Tiler::take_bars_changed()`), which marks the bar
+API's state as changed, and the daemon draws the bars again at once.
+Anything else that changes what is under a bar
 without an event of its own shows at the next refresh, a second later at
 most.
 
@@ -554,24 +567,32 @@ button is up and the pointer is back where it was.
 
 ## Work Area Reservation
 
-The daemon subtracts the bar height from each monitor's work area before
-passing it to the `TilingManager`. This ensures BSP layout computation
-accounts for the bar space.
+The built-in bar says how far it reaches into each monitor
+(`BuiltinBar::reach()`: its height, from the top of the system's work
+area, on the monitors `monitors` picks), and the tiler keeps the tiles
+clear of it, so layouts account for the bar space. `BarHost` asks for it
+whenever the bars are placed, in the same step the tiler takes the new
+monitors or work areas in, so windows move once:
 
-- `adjust_work_areas_for_bar(bar_height, bar_monitors)` -- offsets
-  `work_area.y` and `work_area.height` for selected monitors
-- `reset_and_adjust_work_areas(bar_height, bar_monitors)` -- resets to
-  OS values first to prevent offset accumulation on config reload
+- at startup (`BarHost::start()`)
+- on a display change (`BarHost::display_changed()`)
+- when the system's work areas change, and on a `bar.toml` reload, which
+  read the work areas again first, so a reach never adds up across reloads
+  (`BarHost::reset_work_areas()`)
+
+See [bar-api.md](bar-api.md#reach) for `Reach` itself.
 
 ## Refresh Strategy
 
-- **Tiling state changes**: bars re-render on every action, workspace
-  switch and window event, but for a window's report that it moved, which
-  only re-renders them when a window on screen went in or out of maximized
-  or fullscreen
+- **Tiling state changes**: bars re-render when the bar API's state
+  changed, checked on every action, workspace switch and batch of window
+  events; a window's report that it moved changes it only when a window on
+  screen went in or out of maximized or fullscreen
 - **System widgets**: a 1-second `DaemonMsg::Tick` triggers clock, RAM,
-  CPU, and date refresh
-- **Config reload**: `ConfigReload::Bar` recreates bars, resets work areas
+  CPU, and date refresh (`BarProvider::refresh()`), unless the state
+  changed, which redraws them anyway, so a bar is drawn once per tick
+- **Config reload**: `ConfigReload::Bar` recreates bars, reads the work
+  areas again and places the bars on them
 
 ## Per-Monitor Filtering
 

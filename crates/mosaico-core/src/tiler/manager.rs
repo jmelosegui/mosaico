@@ -10,8 +10,8 @@ use crate::{Action, HidingSupport, Result, WindowEvent};
 use super::applier::Applier;
 use super::{HiddenFile, Input, Platform, Settings, Tiler};
 
-#[path = "manager_bars.rs"]
-mod bars;
+#[path = "manager_api.rs"]
+mod api_cache;
 #[path = "manager_frames.rs"]
 mod frames;
 #[path = "manager_inputs.rs"]
@@ -30,6 +30,8 @@ pub struct TilingManager<P> {
     tiler: Tiler,
     applier: Applier,
     platform: P,
+    /// What the bars were last shown, and what may have changed since.
+    api: api_cache::ApiCache,
 }
 
 impl<P: Platform> TilingManager<P> {
@@ -74,6 +76,7 @@ impl<P: Platform> TilingManager<P> {
             tiler,
             applier,
             platform,
+            api: api_cache::ApiCache::default(),
         };
         manager.applier.apply(effects, &mut manager.platform, now);
         Ok(manager)
@@ -84,9 +87,13 @@ impl<P: Platform> TilingManager<P> {
         // While transitions are off, the platform forgets the windows it no
         // longer needs to post to before the tiler reads the desktop.
         self.applier.settle_while_off(&self.platform);
+        self.api.note(&input);
         let desktop = self.applier.view(&self.platform, now);
         let effects = self.tiler.step(input, &desktop, now);
         self.applier.apply(effects, &mut self.platform, now);
+        if self.tiler.take_bars_changed() {
+            self.api.touch();
+        }
     }
 
     /// Executes a user-triggered action from a hotkey or the CLI.
@@ -107,6 +114,9 @@ impl<P: Platform> TilingManager<P> {
             self.applier.forget(window);
         }
         let now = self.platform.now();
+        if let WindowEvent::TitleChanged { window } = *event {
+            self.api.title_changed(window);
+        }
         let focused = self.tiler.focused_window();
         if let Some(reason) = self.applier.echo(event, focused, &mut self.platform, now) {
             crate::log_debug!("{} suppressed ({})", event, reason);

@@ -63,7 +63,7 @@ fn a_window_put_behind_the_monocle_window_leaves_each_border_after_its_window() 
     let effects = h
         .step(Input::Displays {
             monitors: displays(1),
-            bar: BarReservation::default(),
+            reach: Reach::none(),
         })
         .to_vec();
 

@@ -8,7 +8,7 @@ use crate::{Error, Result};
 use super::{CpuTimes, LocalTime, NowPlaying, SystemInfo};
 
 pub(crate) use bar::NoPointer;
-pub(super) use renderer::BarEvent;
+pub(crate) use renderer::BarEvent;
 pub(crate) use renderer::FakeRenderer;
 
 #[path = "fake_bar.rs"]

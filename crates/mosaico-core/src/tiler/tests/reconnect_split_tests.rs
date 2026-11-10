@@ -4,15 +4,19 @@
 //! windows that fill it.
 
 use crate::id::wid;
+use crate::tiler::Reach;
 use crate::tiler::tests::fake_desktop::FakeWindow;
 use crate::tiler::tests::{Harness, displays};
-use crate::tiler::{BarReservation, Display, Input};
+use crate::tiler::{Display, Input};
 use crate::{LayoutKind, Rect, WindowEvent};
 
 /// The monitors of `h` are now `monitors`.
 pub(super) fn show(h: &mut Harness, monitors: Vec<Display>) {
-    let bar = BarReservation::default();
-    h.step(Input::Displays { monitors, bar });
+    let bar = Reach::none();
+    h.step(Input::Displays {
+        monitors,
+        reach: bar,
+    });
 }
 
 /// Connects the first `count` monitors of [`displays`].
@@ -27,7 +31,7 @@ pub(super) fn move_splits(h: &mut Harness, mon: usize, ratios: &[f64]) {
     for (split, &ratio) in ratios.iter().enumerate() {
         ws.set_split_ratio(split, ratio);
     }
-    h.step(Input::Bar(BarReservation::default()));
+    h.step(Input::Reach(Reach::none()));
 }
 
 /// Windows `ids` tiled in BSP on the second of two monitors, with the
@@ -97,8 +101,7 @@ fn a_monitor_that_comes_back_gets_its_splits_and_its_bar_the_window_that_fills_i
     // Act -- it disconnects and comes back, and then window 9 is restored.
     connect(&mut h, 1);
     connect(&mut h, 2);
-    let mut states = h.tiler.bar_states("", false);
-    h.tiler.mark_maximized(&mut states, &h.desktop);
+    let states = h.bars();
     h.tiler.take_bars_changed();
     h.window(9).maximized = false;
     h.event(WindowEvent::LocationChanged { window: wid(9) });

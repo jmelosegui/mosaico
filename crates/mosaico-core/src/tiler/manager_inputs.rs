@@ -4,7 +4,7 @@
 use crate::Result;
 use crate::config::{Config, WindowRule};
 
-use super::super::{BarReservation, Display, Input, Platform};
+use super::super::{Display, Input, MonitorPlace, Platform, Reach};
 use super::TilingManager;
 
 impl<P: Platform> TilingManager<P> {
@@ -77,52 +77,56 @@ impl<P: Platform> TilingManager<P> {
     ///
     /// `new_monitors` are left to right, as
     /// [`Enumerator::monitors`](crate::tiler::Enumerator::monitors)
-    /// lists them.
-    pub fn handle_display_change(
-        &mut self,
-        new_monitors: Vec<Display>,
-        bar_height: i32,
-        bar_monitor_indices: &[usize],
-    ) {
+    /// lists them. `reach` names them by the ids
+    /// [`places_for`](Self::places_for) gives them.
+    pub fn handle_display_change(&mut self, new_monitors: Vec<Display>, reach: Reach) {
         self.step(Input::Displays {
             monitors: new_monitors,
-            bar: bar(bar_height, bar_monitor_indices),
+            reach,
         });
         let now = self.platform.now();
         self.applier.display_changed(&mut self.platform, now);
     }
 
-    /// Reserves the bar height at the top of each bar monitor, then
-    /// retiles. An empty `bar_monitors` means all monitors.
-    pub fn adjust_work_areas_for_bar(&mut self, bar_height: i32, bar_monitors: &[usize]) {
-        self.step(Input::Bar(bar(bar_height, bar_monitors)));
+    /// Keeps tiles clear of how far the bar reaches into each monitor,
+    /// then retiles.
+    pub fn set_reach(&mut self, reach: Reach) {
+        self.step(Input::Reach(reach));
     }
 
-    /// Re-reads the OS work areas, then re-reserves the bar and retiles.
+    /// Re-reads the OS work areas, then keeps tiles clear of what `bar`
+    /// says it reaches and retiles, once.
     ///
-    /// When the monitors cannot be read, it still re-reserves the bar and
-    /// retiles with the work areas it last saw, and returns why.
-    pub fn reset_and_adjust_work_areas(
-        &mut self,
-        bar_height: i32,
-        bar_monitors: &[usize],
-    ) -> Result<()> {
+    /// `bar` is given the monitors with the work areas just read, so a bar
+    /// can move there and say how far it reaches from them. When the
+    /// monitors cannot be read, `bar` is given them as last seen, the
+    /// tiles are kept clear of its reach on those work areas, and the
+    /// reason is returned.
+    pub fn reset_work_areas(&mut self, bar: impl FnOnce(&[MonitorPlace]) -> Reach) -> Result<()> {
         // No monitors leaves every work area as it was.
         let (monitors, read) = match self.platform.enumerator().monitors() {
             Ok(monitors) => (monitors, Ok(())),
             Err(e) => (Vec::new(), Err(e)),
         };
-        self.step(Input::WorkAreas {
-            monitors,
-            bar: bar(bar_height, bar_monitors),
-        });
+        let places = if monitors.is_empty() {
+            self.places()
+        } else {
+            self.places_for(&monitors)
+        };
+        let reach = bar(&places);
+        self.step(Input::WorkAreas { monitors, reach });
         read
     }
-}
 
-fn bar(height: i32, monitors: &[usize]) -> BarReservation {
-    BarReservation {
-        height,
-        monitors: monitors.to_vec(),
+    /// The connected monitors, left to right, as a bar needs to know them.
+    pub fn places(&self) -> Vec<MonitorPlace> {
+        self.tiler.places()
+    }
+
+    /// The monitors as [`places`](Self::places) will list them once
+    /// `displays` are taken in by
+    /// [`handle_display_change`](Self::handle_display_change).
+    pub fn places_for(&self, displays: &[Display]) -> Vec<MonitorPlace> {
+        self.tiler.places_for(displays)
     }
 }

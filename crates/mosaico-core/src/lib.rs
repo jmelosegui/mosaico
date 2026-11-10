@@ -4,6 +4,7 @@
 
 /// User-triggerable actions (focus, move, workspace switch).
 pub mod action;
+pub mod api;
 /// What the status bar shows, and the contracts that put it on screen.
 pub mod bar;
 /// Downloading the community window rules.
@@ -80,7 +81,9 @@ pub use id::{MonitorId, WindowId};
 pub use instance::Instance;
 pub use ipc::{Command, Response};
 pub use layout::{BspLayout, Layout, LayoutKind, MinSize, ThreeColumnLayout, VerticalStackLayout};
-pub use monitor::{EdidIdentity, Monitor, MonitorKey, match_monitors, pnp_manufacturer};
+pub use monitor::{
+    EdidIdentity, Monitor, MonitorKey, StableMonitorId, match_monitors, pnp_manufacturer,
+};
 pub use rect::Rect;
 pub use window::WindowControl;
 pub use workspace::Workspace;

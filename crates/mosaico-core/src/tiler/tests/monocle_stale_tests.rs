@@ -15,7 +15,7 @@ use super::*;
 fn connect(h: &mut Harness, count: usize) {
     h.step(Input::Displays {
         monitors: displays(count),
-        bar: BarReservation::default(),
+        reach: Reach::none(),
     });
 }
 
@@ -30,7 +30,7 @@ fn connect_all_but(h: &mut Harness, count: usize, away: &[usize]) {
         .collect();
     h.step(Input::Displays {
         monitors,
-        bar: BarReservation::default(),
+        reach: Reach::none(),
     });
 }
 

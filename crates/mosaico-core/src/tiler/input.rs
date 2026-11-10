@@ -2,7 +2,7 @@ use crate::action::Origin;
 use crate::config::{Config, WindowRule};
 use crate::{Action, WindowEvent, WindowId};
 
-use super::Display;
+use super::{Display, Reach};
 
 /// Something the tiler reacts to.
 #[derive(Debug, Clone)]
@@ -29,8 +29,10 @@ pub enum Input {
         /// Every monitor now connected, left to right as
         /// [`Enumerator::monitors`](super::Enumerator::monitors) lists them.
         monitors: Vec<Display>,
-        /// Space to keep free for the bar.
-        bar: BarReservation,
+        /// How far the bar reaches into each of them, by the ids they
+        /// get, as [`Tiler::places_for`](super::Tiler::places_for) has
+        /// them.
+        reach: Reach,
     },
     /// The monitors are the same, but their work areas may have moved,
     /// for example because the taskbar was shown or hidden.
@@ -40,11 +42,11 @@ pub enum Input {
         /// them: a monitor that matches by neither key nor session id is
         /// matched by its position.
         monitors: Vec<Display>,
-        /// Space to keep free for the bar.
-        bar: BarReservation,
+        /// How far the bar reaches into each monitor.
+        reach: Reach,
     },
-    /// The bar changed size or moved to other monitors.
-    Bar(BarReservation),
+    /// The bar changed how far it reaches into the monitors.
+    Reach(Reach),
     /// The configuration file changed.
     Config(Box<Config>),
     /// The window rules changed.
@@ -57,13 +59,4 @@ pub enum Input {
     /// The tiler is stopping. Shows every window it hid and gives every
     /// window its normal frame back.
     Shutdown,
-}
-
-/// Space reserved at the top of monitors for the bar.
-#[derive(Debug, Clone, Default, PartialEq)]
-pub struct BarReservation {
-    /// Bar height in pixels, or 0 for no bar.
-    pub height: i32,
-    /// Indices of the monitors that show a bar. Empty means all.
-    pub monitors: Vec<usize>,
 }

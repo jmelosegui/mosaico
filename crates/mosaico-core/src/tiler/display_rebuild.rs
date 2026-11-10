@@ -1,6 +1,7 @@
 //! Pure monitor-list rebuild for display changes.
 
-use crate::{LayoutKind, Monitor, MonitorKey, match_monitors};
+use crate::monitor::assign_stable_ids;
+use crate::{LayoutKind, Monitor, MonitorKey, StableMonitorId, match_monitors};
 
 use crate::WindowId;
 
@@ -41,6 +42,7 @@ pub(super) fn rebuild_monitors(
     memory: &mut ReconnectMemory,
 ) -> Rebuilt {
     let pairs = pair_monitors(&old, new);
+    let ids = stable_ids(&old, new, &pairs, memory);
     let renames: Vec<(MonitorKey, MonitorKey)> = pairs
         .iter()
         .zip(new)
@@ -52,21 +54,22 @@ pub(super) fn rebuild_monitors(
     let mut states: Vec<MonitorState> = new
         .iter()
         .zip(&pairs)
+        .zip(ids)
         .enumerate()
-        .map(|(ni, (info, pair))| {
-            let mut state = MonitorState::new(info, layouts);
+        .map(|(ni, ((info, pair), id))| {
+            let mut state = MonitorState::new(info, layouts, id);
             if let Some(oi) = pair {
                 let prev = &mut old[*oi];
                 state.workspaces = std::mem::take(&mut prev.workspaces);
                 state.active_workspace = prev.active_workspace;
-            } else if let Some((parked_key, workspaces, active)) = memory.unpark(info.key()) {
+            } else if let Some((parked_key, parked)) = memory.unpark(info.key()) {
                 crate::log_info!(
                     "Monitor {} reconnected (parked as {})",
                     info.key(),
                     parked_key
                 );
-                state.workspaces = workspaces;
-                state.active_workspace = active;
+                state.workspaces = parked.workspaces;
+                state.active_workspace = parked.active_workspace;
                 returned.push((ni, parked_key));
             } else {
                 crate::log_info!("New monitor {}", info.key());
@@ -111,6 +114,28 @@ pub(super) fn rebuild_monitors(
         host,
         went_home,
     }
+}
+
+/// The id each of `new` gets in [`rebuild_monitors`], worked out without
+/// changing anything: the id of the old monitor it is paired with by
+/// `pairs`, or the one it was parked with, or one from its key, made
+/// unique among them all.
+pub(super) fn stable_ids(
+    old: &[MonitorState],
+    new: &[Display],
+    pairs: &[Option<usize>],
+    memory: &ReconnectMemory,
+) -> Vec<StableMonitorId> {
+    let inherited: Vec<Option<StableMonitorId>> = new
+        .iter()
+        .zip(pairs)
+        .map(|(info, pair)| match pair {
+            Some(oi) => Some(old[*oi].stable_id.clone()),
+            None => memory.parked_id(info.key()),
+        })
+        .collect();
+    let keys: Vec<&MonitorKey> = new.iter().map(|d| d.key()).collect();
+    assign_stable_ids(&keys, &inherited)
 }
 
 /// Pairs each new monitor with the old monitor it is, if any.

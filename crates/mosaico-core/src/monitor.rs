@@ -121,9 +121,11 @@ pub trait Monitor {
 
 mod edid;
 mod matching;
+mod stable_id;
 
 pub use edid::pnp_manufacturer;
 pub use matching::match_monitors;
+pub use stable_id::{StableMonitorId, assign_stable_ids};
 
 #[cfg(test)]
 mod tests;

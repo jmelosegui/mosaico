@@ -23,7 +23,7 @@ fn settings(mode: WorkspaceMode, how: HidingBehaviour) -> Settings {
 fn connect(h: &mut Harness, count: usize) {
     h.step(Input::Displays {
         monitors: displays(count),
-        bar: BarReservation::default(),
+        reach: Reach::none(),
     });
 }
 
@@ -88,7 +88,7 @@ fn a_window_activated_after_the_monocle_window_still_waits_behind_it() {
     monitors.remove(1);
     h.step(Input::Displays {
         monitors,
-        bar: BarReservation::default(),
+        reach: Reach::none(),
     });
 
     // Assert -- #132: window 2 used to keep the second monitor's place.

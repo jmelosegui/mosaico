@@ -7,7 +7,7 @@ use super::tests::{bar, left, right, start};
 use crate::bar::BarManager;
 use crate::bar::fakes::{FakeRenderer, FakeSystem};
 use crate::config::BarConfig;
-use crate::tiler::{BarReservation, Display, Input, Settings, Tiler};
+use crate::tiler::{Display, Input, Reach, Settings, Tiler};
 use crate::{MonitorId, MonitorKey, Rect};
 
 #[path = "no_windows.rs"]
@@ -24,17 +24,22 @@ fn tiling_areas(bars: &BarManager, areas: &[Rect]) -> Vec<Rect> {
         .map(|(i, &work_area)| Display {
             id: MonitorId::from_raw(i as u64),
             key: MonitorKey::default(),
+            bounds: work_area,
             work_area,
             primary: i == 0,
+            name: String::new(),
+            device: String::new(),
+            scale: 1.0,
         })
         .collect();
     let now = Instant::now();
     let (mut tiler, _) = Tiler::new(Settings::default(), &displays, &[], &NoWindows, now);
-    let reservation = BarReservation {
-        height: bars.bar_height(),
-        monitors: bars.bar_monitor_indices().to_vec(),
-    };
-    tiler.step(Input::Bar(reservation), &NoWindows, now);
+    let reach = Reach::bar_on(
+        &tiler.places(),
+        bars.bar_height(),
+        bars.bar_monitor_indices(),
+    );
+    tiler.step(Input::Reach(reach), &NoWindows, now);
     tiler.monitors().iter().map(|m| m.work_area()).collect()
 }
 

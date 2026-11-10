@@ -9,7 +9,7 @@ single `mpsc` channel.
 
 The daemon uses a multi-thread architecture:
 
-1. **Main thread** -- runs `TilingManager` + `BarManager` logic, processes
+1. **Main thread** -- runs `TilingManager` + `BarHost` logic, processes
    all messages
 2. **Window event thread** -- owns the `SetWinEventHook` hooks and the hidden
    window for display and work-area broadcasts, and runs the `GetMessageW`
@@ -57,7 +57,8 @@ community rules.
 | `crates/mosaico-windows/src/message_thread.rs` | `MessageThread` -- a thread with a message queue, stopped with `WM_QUIT` |
 | `crates/mosaico-core/src/config/reload/` | `ConfigReloader`, `ConfigReload`, `ConfigWatch` -- which config files reload and how, and the watch loop |
 | `crates/mosaico-windows/src/directory_watcher.rs` | `WindowsDirectoryWatcher` -- change notifications on the config directory |
-| `crates/mosaico-core/src/bar/manager.rs` | `BarManager` -- manages the status bars across monitors, see [status-bar.md](status-bar.md) |
+| `crates/mosaico-core/src/bar/host.rs` | `BarHost` -- the bar provider the daemon runs, and the order it is placed, asked how far it reaches and shown the state in, see [bar-api.md](bar-api.md) |
+| `crates/mosaico-core/src/bar/manager.rs` | `BarManager` -- the built-in bar's bars across monitors, see [status-bar.md](status-bar.md) |
 
 ### Key Types
 
@@ -130,33 +131,34 @@ order, it:
 4. Resolve the current theme from `config.theme`
 5. Create the unified daemon channel
 6. Load `bar.toml`, adding the default widgets it lacks and a comment
-   block about its `[mouse]` section, and create `BarManager` with
-   `Win32BarRenderer`, `Win32SystemInfo`, a `ChannelSink` on the daemon
-   channel, the monitor rects and the theme
+   block about its `[mouse]` section, and create the built-in bar
+   (`BuiltinBar`) with `Win32BarRenderer`, `Win32SystemInfo`, a
+   `ChannelSink` on the daemon channel and the theme; it has no bar on
+   screen until it is placed. A `BarHost` runs it, with the daemon's
+   version, API version and instance name
 7. Create the core `TilingManager` on `Win32Platform`, with the config, the
    rules and the instance's hidden-window record
-8. Adjust work areas for bar height on monitors that display a bar, and draw
-   the borders
+8. Start the bar (`BarHost::start()`): place it on the monitors, keep the
+   tiles clear of how far it reaches into them, and show it the state;
+   then draw the borders
 9. Start the version check and the community rules download, each on a
    thread of its own
-10. Perform initial bar render with
-    `bar_mgr.update(&manager.bar_states(&get_update(), false))`
-11. Create `mpsc` channels for events and actions, and start the inputs: the
+10. Create `mpsc` channels for events and actions, and start the inputs: the
     window event source, the hotkey source and, when `focus_follows_mouse` is
     on, the focus-follows-mouse thread. Then warn, in the log and beside
     the tray icon (`TrayNotice::manage_deprecated`), when `user-rules.toml`
     still has rules that use the deprecated `manage`
-12. Start bridge threads to forward events and actions into `DaemonMsg`
-13. Start the IPC thread
-14. Start the config file watcher thread, and a reload bridge thread to
+11. Start bridge threads to forward events and actions into `DaemonMsg`
+12. Start the IPC thread
+13. Start the config file watcher thread, and a reload bridge thread to
     forward `ConfigReload` into `DaemonMsg`
-15. Start the tick thread (1-second interval for bar refresh)
-16. Start the frame pacer, which sends `DaemonMsg::Frame` while the loop
+14. Start the tick thread (1-second interval for bar refresh)
+15. Start the frame pacer, which sends `DaemonMsg::Frame` while the loop
     wants frames (`daemon_frames.rs`). A pacer that cannot start is logged as
     a warning that transitions are off for the session, and the daemon runs
     without it: `TilingManager::turn_off_transitions()` has every placement
     snap
-17. Enter the main receive loop
+16. Enter the main receive loop
 
 ## Main Loop
 
@@ -168,7 +170,7 @@ them, as `DaemonMsg::BarPointer` messages on the daemon channel, so a click
 can wait up to `PUMP_INTERVAL`, and can run after a key pressed just after
 it. Each time it is about to wait, it asks
 `mosaico_core::daemon::Scheduler` how long it may wait, giving it when the
-wheel's turns on a bar are due (`BarManager::wheel_due()`). When
+wheel's turns on a bar are due (`BarHost::due()`). When
 the wait ends, it hands what ended it (the messages that were queued, or a
 timeout) to the scheduler with the current time, and runs the steps it gets
 back, in order:
@@ -205,20 +207,21 @@ back, in order:
    arrived with it, so hotkeys, commands and the pointer on the bars stay
    responsive while windows flood the queue. What the pointer does on a bar
    is input, like a key; hovering is not reported at all.
-4. **Handle the batch's window events** in order, then refresh the bar once.
+4. **Handle the batch's window events** in order, then show the bar the
+   state once (`BarHost::show()`), which draws only when it changed.
    Each window keeps only its last `LocationChanged` and its last
    `TitleChanged` of the batch, which can turn hundreds of events into a
    handful. The start and the end of a drag, `MoveStarted` and `Moved` of
    any window, are barriers: a change is only collapsed with those on the
    same side of both, so where a window is while it is dragged stays
-   between the two. A `LocationChanged` alone refreshes the bar only when
+   between the two. A `LocationChanged` alone changes the state only when
    the tiler saw a window on screen go in or out of maximized or
-   fullscreen (`TilingManager::take_bars_changed()`), which decides whether
-   the bar lets the pointer through: maximizing and restoring report
-   nothing else.
+   fullscreen (`Tiler::take_bars_changed()`), which decides whether the
+   bar lets the pointer through: maximizing and restoring report nothing
+   else.
 5. **Apply the wheel** (`daemon_loop_bar::apply_wheel()`): once the wheel
    has been quiet over a bar for `bar::WHEEL_QUIET` (120 ms), carry out the
-   workspace switches its turns add up to, which `BarManager::take_wheel()`
+   workspace switches its turns add up to, which `BarHost::take_due()`
    says. It comes after the tasks and events of the wake, so a turn or a
    click that came with them counts first, and before the frame step. Like
    input, it ends the wait, so the time the switch takes never counts as
@@ -262,7 +265,7 @@ Tasks are dispatched like this:
   `TilingManager::launch()`. `Tray::report_launch()` logs what it did and,
   when the program could not be started, shows a tray notice naming the
   command and why, since nobody waits for the answer of a hotkey
-- `DaemonMsg::BarPointer(bar, event)` -- handed to `BarManager::pointer()`
+- `DaemonMsg::BarPointer(bar, event)` -- handed to `BarHost::pointer()`
   with the time; the action a click asks for, a label's or the one a
   widget's button is bound to, from `Origin::Bar(monitor)`, is carried out
   by `carry_out()` the same way, `toggle-pause` included, and a wheel turn
@@ -276,19 +279,22 @@ Tasks are dispatched like this:
   `UnpauseHotkeys` (pause or resume the hotkeys and update the bar)
 - `DaemonMsg::Reload(ConfigReload::Config(cfg))` -- resolves the new theme,
   calls `TilingManager::reload_config()`, starts or stops focus-follows-mouse,
-  re-resolves bar colors, updates bar
+  hands the theme to the bar (`BarHost::set_theme()`), shows the bar
 - `DaemonMsg::Reload(ConfigReload::Rules(rules))` -- calls
   `TilingManager::reload_rules()` to replace window rules
-- `DaemonMsg::Reload(ConfigReload::Bar(bar_cfg))` -- reloads the bar with
-  `bar_mgr.reload()`, re-resolves colors, resets and adjusts work areas for
-  the new bar height, then retiles and updates
-- `DaemonMsg::Tick` -- calls `bar_mgr.update()` to refresh time-based
-  widgets (clock, CPU, RAM)
+- `DaemonMsg::Reload(ConfigReload::Bar(bar_cfg))` -- `BarHost::reload()`:
+  the bar takes the new `bar.toml`, then the work areas are read again, the
+  bar placed on them and the tiles kept clear of it, in one retile; then
+  the bar is shown the state
+- `DaemonMsg::Tick` -- hands the update notice to the bar, then
+  `BarHost::tick()` shows it the state if it changed, or else has it draw
+  again what changes on its own (clock, CPU, RAM), so it draws once
 - `DaemonMsg::IpcFailed` -- stops the loop
 
 Window events (`DaemonMsg::Event`) go to `TilingManager::handle_event()` in
-step 4, except a work area change, which resets and adjusts the work areas
-for the bar, and a display change, which the scheduler takes out of the
+step 4, except a work area change, which reads the work areas again and
+places the bar on them (`BarHost::reset_work_areas()`), and a display
+change, which the scheduler takes out of the
 batch for step 2. Display frames (`DaemonMsg::Frame`) fold into the frame
 step of step 6. The loop wakes as soon as any message arrives.
 
@@ -474,7 +480,7 @@ Shutdown is triggered by:
     a transition, or stopped by a display change, at its target, behind any
     frame on its way to it, then shows all hidden workspace windows so they
     are not left invisible after exit
-  - `BarManager::hide_all()` -- hides all status bar overlay windows
+  - `BarHost::stop()` -- takes the bars off screen
   - `Inputs::stop()` posts `WM_QUIT` to the window event thread, which
     destroys its hidden window and removes its hooks, then to the hotkey
     thread, where dropping `Hotkeys` unregisters the hotkeys still
@@ -517,14 +523,17 @@ and class.
   `mosaico_core::daemon` and takes the time as a parameter, so ordering,
   dedup, display settling and flushing are tested without a desktop or a
   real clock.
-- The `BarManager` is updated after every action, whether from a hotkey or a
+- The bar is shown the state after every action, whether from a hotkey or a
   command, after a reload of `config.toml` or `bar.toml`, and once per batch
   of window events, so that the workspace indicators, the layout and the
-  focused window stay current. A reload of the rules leaves the bar alone,
-  as do a batch of position reports and drag starts alone and a frame step,
-  which change nothing on it.
-- Theme tracking (`current_theme`) lives in the daemon loop so that both
-  config reloads and bar reloads can re-resolve named colors.
+  focused window stay current. `TilingManager::bar_state()` builds the state
+  again only when a step may have changed it, and hands it over only when it
+  did, so a reload of the rules, a batch of position reports and drag starts
+  alone and a frame step draw nothing.
+- The daemon holds no bar of its own, only a `BarHost`, which runs whichever
+  `BarProvider` is picked and owns the order the contract asks for (see
+  [bar-api.md](bar-api.md)). The theme and the daemon's own facts (paused,
+  update notice) are handed to it, and reach the bar through the state.
 - Thread-local `EVENTS` is the only way to pass data from a Win32
   callback to Rust code since the callback signature is fixed by the OS.
 - Window events, hotkeys and focus-follows-mouse each have a thread of their

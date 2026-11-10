@@ -5,6 +5,7 @@
 
 use crate::config::{HidingBehaviour, WorkspaceMode};
 use crate::id::wid;
+use crate::tiler::Reach;
 use crate::tiler::tests::displays;
 use crate::tiler::tests::fake_platform::Call;
 use crate::tiler::tests::manager_support::start;
@@ -55,7 +56,7 @@ fn hidden_on_its_way(how: HidingBehaviour, slow: bool, maximized: bool) -> (Fake
 /// it. Gives where the rebuild placed window 1 last, and whether it showed
 /// it before that.
 fn brought_back(platform: &FakePlatform, manager: &mut Manager) -> (Option<Rect>, Option<bool>) {
-    manager.handle_display_change(displays(1), 0, &[]);
+    manager.handle_display_change(displays(1), Reach::none());
     let calls = platform.take_calls();
     platform.edit(1, |w| w.hung = false);
     platform.catch_up(1);

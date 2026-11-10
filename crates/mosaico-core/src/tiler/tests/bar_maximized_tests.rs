@@ -4,7 +4,7 @@
 use std::time::Duration;
 
 use crate::Rect;
-use crate::bar::BarState;
+use crate::tiler::tests::bar_support::manager_bars;
 use crate::tiler::tests::fake_platform::FakePlatform;
 use crate::tiler::tests::manager_support::{animated, start, still};
 use crate::tiler::tests::{Harness, MON_H, MON_W};
@@ -12,9 +12,7 @@ use crate::{Action, Direction};
 
 /// Which monitors of `h` have a maximized window under their bar.
 pub(super) fn marked(h: &Harness) -> Vec<bool> {
-    let mut states: Vec<BarState> = h.tiler.bar_states("", false);
-    h.tiler.mark_maximized(&mut states, &h.desktop);
-    states.iter().map(|s| s.maximized).collect()
+    h.bars().iter().map(|s| s.maximized).collect()
 }
 
 #[test]
@@ -106,7 +104,7 @@ fn the_managers_bar_states_mark_a_maximized_window() {
     platform.edit(2, |w| w.maximized = true);
 
     // Act
-    let states = manager.bar_states("", false);
+    let states = manager_bars(&mut manager, &Default::default());
 
     // Assert
     let marks: Vec<bool> = states.iter().map(|s| s.maximized).collect();
@@ -128,7 +126,7 @@ fn a_window_a_minimize_is_on_its_way_to_does_not_count() {
     manager.handle_action(&Action::MinimizeFocused);
 
     // Act
-    let states = manager.bar_states("", false);
+    let states = manager_bars(&mut manager, &Default::default());
 
     // Assert -- the desktop still has it shown, until the minimize lands.
     assert!(!platform.window(1).minimized);

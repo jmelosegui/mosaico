@@ -57,7 +57,7 @@ fn a_display_change_while_a_window_is_dragged_leaves_its_drop_as_before() {
     move_to(&mut h, 1, over);
     h.step(Input::Displays {
         monitors: displays(1),
-        bar: Default::default(),
+        reach: Default::default(),
     });
 
     // Act

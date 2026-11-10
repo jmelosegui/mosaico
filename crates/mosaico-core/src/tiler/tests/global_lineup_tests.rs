@@ -31,7 +31,7 @@ fn settings(how: HidingBehaviour, mode: WorkspaceMode) -> Settings {
 fn connect(h: &mut Harness, count: usize) {
     h.step(Input::Displays {
         monitors: displays(count),
-        bar: BarReservation::default(),
+        reach: Reach::none(),
     });
 }
 
@@ -43,7 +43,7 @@ fn replace_monitor_1(h: &mut Harness) {
     monitors[1].id = MonitorId::from_raw(7);
     h.step(Input::Displays {
         monitors,
-        bar: BarReservation::default(),
+        reach: Reach::none(),
     });
 }
 
@@ -272,7 +272,7 @@ fn dock_with_the_lid_closed(how: HidingBehaviour) -> Harness {
     monitors[1].id = MonitorId::from_raw(6);
     h.step(Input::Displays {
         monitors,
-        bar: BarReservation::default(),
+        reach: Reach::none(),
     });
     h
 }

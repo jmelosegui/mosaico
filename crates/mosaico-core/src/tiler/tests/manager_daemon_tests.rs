@@ -8,6 +8,7 @@ use crate::Direction;
 use crate::config::Config;
 use crate::event::{DragStart, Grab};
 
+use super::bar_support::manager_bars;
 use super::fake_platform::{Call, FakePlatform};
 use super::manager_support::{start, tiled};
 use super::*;
@@ -68,9 +69,11 @@ fn the_bar_keeps_its_room_on_every_monitor_through_a_display_change() {
 
     // Act -- a bar 30 high goes on every monitor, then a second monitor
     // is connected.
-    manager.adjust_work_areas_for_bar(30, &[]);
+    let reach = Reach::bar_on(&manager.places(), 30, &[]);
+    manager.set_reach(reach);
     let reserved = manager.tiler().monitors()[0].work_area();
-    manager.handle_display_change(displays(2), 30, &[]);
+    let reach = Reach::bar_on(&manager.places_for(&displays(2)), 30, &[]);
+    manager.handle_display_change(displays(2), reach);
 
     // Assert -- every monitor keeps the top 30 for the bar.
     assert_eq!(reserved, Rect::new(0, 30, MON_W, MON_H - 30));
@@ -106,10 +109,15 @@ fn what_is_held_back_is_timed_by_the_platforms_clock() {
 fn every_bar_shows_the_update_notice_and_whether_hotkeys_are_paused() {
     // Arrange
     let platform = FakePlatform::new(2, &[(1, 0)]);
-    let manager = start(&platform, None, &Config::with_gap(8));
+    let mut manager = start(&platform, None, &Config::with_gap(8));
+    let daemon = crate::api::Daemon {
+        update: Some("v0.10.0 available".into()),
+        paused: true,
+        ..Default::default()
+    };
 
     // Act
-    let states = manager.bar_states("v0.10.0 available", true);
+    let states = manager_bars(&mut manager, &daemon);
 
     // Assert
     assert_eq!(states.len(), 2);

@@ -88,7 +88,7 @@ fn a_hidden_window_moved_to_another_hidden_workspace_is_recorded_as_hidden() {
 
     // Act -- monitor 1 goes away, so windows 1 and 3 move to the
     // primary's workspaces 1 and 2, which are both hidden.
-    manager.handle_display_change(displays(1), 0, &[]);
+    manager.handle_display_change(displays(1), Reach::none());
 
     // Assert -- window 1 is still recorded as hidden, not as minimized.
     let hides: Vec<Call> = platform

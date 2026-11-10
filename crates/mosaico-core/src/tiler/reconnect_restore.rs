@@ -2,12 +2,12 @@
 //! connected again.
 
 use crate::layout::OwnSplits;
-use crate::{MonitorKey, Workspace, match_monitors};
+use crate::{MonitorKey, StableMonitorId, Workspace, match_monitors};
 
 use crate::WindowId;
 
 use super::super::MonitorState;
-use super::{Displaced, ReconnectMemory};
+use super::{Displaced, ParkedMonitor, ReconnectMemory};
 
 impl ReconnectMemory {
     /// Takes the parked state of a monitor that is connected again.
@@ -16,16 +16,24 @@ impl ReconnectMemory {
     /// so a monitor that comes back reporting less than it did (no serial
     /// or device path yet) still finds its state. Returns the key it was
     /// parked under, which is what its displaced windows refer to.
-    pub(crate) fn unpark(
-        &mut self,
-        key: &MonitorKey,
-    ) -> Option<(MonitorKey, Vec<Workspace>, usize)> {
+    pub(crate) fn unpark(&mut self, key: &MonitorKey) -> Option<(MonitorKey, ParkedMonitor)> {
+        let parked_key = self.parked_key(key)?;
+        let parked = self.parked.remove(&parked_key)?;
+        Some((parked_key, parked))
+    }
+
+    /// The id a monitor with `key` gets back from when it was parked, if
+    /// it was, found as [`unpark`](Self::unpark) finds it, without taking
+    /// anything.
+    pub(crate) fn parked_id(&self, key: &MonitorKey) -> Option<StableMonitorId> {
+        let parked_key = self.parked_key(key)?;
+        self.parked.get(&parked_key).map(|p| p.stable_id.clone())
+    }
+
+    fn parked_key(&self, key: &MonitorKey) -> Option<MonitorKey> {
         let parked: Vec<MonitorKey> = self.parked.keys().cloned().collect();
         let found = match_monitors(&parked, std::slice::from_ref(key))[0]?;
-        let parked_key = parked[found].clone();
-        self.parked
-            .remove(&parked_key)
-            .map(|p| (parked_key, p.workspaces, p.active_workspace))
+        Some(parked[found].clone())
     }
 
     /// Sends windows whose home is `home` back to `monitors[home_idx]`,

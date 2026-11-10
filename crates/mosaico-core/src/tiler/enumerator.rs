@@ -66,6 +66,13 @@ pub trait Enumerator {
     ///   [`MonitorKey`](crate::MonitorKey) contract.
     /// - Work areas leave out taskbars, docks and panels, and use the
     ///   same desktop coordinates as window bounds.
+    /// - Bounds cover the whole monitor in the same coordinates, so they
+    ///   contain the work area.
+    /// - `name` is the name the system shows the user for the display and
+    ///   `device` the name other programs use for its output. Each is
+    ///   empty when unknown; never invent one.
+    /// - `scale` is the display's scale factor, 1.0 at 100%, and 1.0 when
+    ///   the platform cannot tell.
     /// - A monitor whose details cannot be read is left out. Fails only
     ///   when the list cannot be read at all. A platform that cannot list
     ///   monitors returns [`Error::Unsupported`](crate::Error::Unsupported).

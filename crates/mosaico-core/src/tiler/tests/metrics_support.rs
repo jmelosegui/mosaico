@@ -1,6 +1,7 @@
 //! Running a metrics scenario and catching what it asks of the platform.
 
 use crate::Direction;
+use crate::api;
 use crate::config::Config;
 
 use super::fake_platform::{Call, FakePlatform};
@@ -15,6 +16,8 @@ pub(super) struct Measured {
     pub(super) calls: Vec<Call>,
     /// How many borders were drawn from scratch rather than moved.
     pub(super) renders: usize,
+    /// The desktop queries that read the most, by name.
+    pub(super) queries: Vec<&'static str>,
 }
 
 /// Windows `1..=count` on monitor 0.
@@ -53,15 +56,24 @@ pub(super) fn taken(platform: &FakePlatform) -> Measured {
     Measured {
         calls: platform.take_calls(),
         renders: platform.take_renders().len(),
+        queries: platform.take_queries(),
     }
+}
+
+/// Has `manager` build the bar API's state, as the daemon does after
+/// every batch of input to show the bars, so what that reads is counted.
+pub(super) fn shown(manager: &mut Manager) {
+    manager.bar_state(&api::Daemon::default(), &api::Theme::default());
 }
 
 /// Forgets what arranging took, runs `change` and lets input go quiet.
 pub(super) fn on(arranged: (FakePlatform, Manager), change: impl FnOnce(&mut Manager)) -> Measured {
     let (platform, mut manager) = arranged;
+    shown(&mut manager);
     taken(&platform);
     change(&mut manager);
     manager.flush_pending();
+    shown(&mut manager);
     taken(&platform)
 }
 
@@ -70,6 +82,7 @@ pub(super) fn act(actions: &[Action]) -> Measured {
     on(four(), |manager| {
         for action in actions {
             manager.handle_action(action);
+            shown(manager);
         }
     })
 }
@@ -81,6 +94,7 @@ pub(super) fn animate(actions: &[Action]) -> Measured {
     on_settled(four_with(&animated()), |manager| {
         for action in actions {
             manager.handle_action(action);
+            shown(manager);
         }
     })
 }

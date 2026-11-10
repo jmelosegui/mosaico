@@ -6,6 +6,7 @@
 use crate::config::{HidingBehaviour, WorkspaceMode};
 use crate::frames::ASYNC_GRACE;
 use crate::id::wid;
+use crate::tiler::Reach;
 use crate::tiler::tests::displays;
 use crate::tiler::tests::fake_platform::Call;
 use crate::tiler::tests::manager_support::{start, still};
@@ -39,7 +40,7 @@ fn a_step_past_the_grace_with_transitions_off_decides_as_from_startup() {
     platform.take_calls();
 
     // Act -- monitor 1 goes away, which brings window 1 back into view.
-    manager.handle_display_change(displays(1), 0, &[]);
+    manager.handle_display_change(displays(1), Reach::none());
 
     // Assert -- the windows are forgotten first, so window 1 is placed,
     // then shown, as it is from startup.

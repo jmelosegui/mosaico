@@ -30,9 +30,15 @@ and monitors using vim-style H/J/K/L motions.
 ### Key Types
 
 - `Display` -- a connected monitor (from `mosaico-core`): `id: MonitorId`
-  (the HMONITOR on Windows), `key: MonitorKey`, `work_area: Rect`,
-  `primary: bool`. Implements `mosaico_core::Monitor`
+  (the HMONITOR on Windows), `key: MonitorKey`, `bounds: Rect` (the whole
+  monitor), `work_area: Rect`, `primary: bool`, `name` (what the user sees,
+  the friendly name on Windows), `device` (the output's name other programs
+  know it by, `\\.\DISPLAY1` on Windows) and `scale` (1.0 at 100%, from the
+  effective DPI on Windows). A platform leaves `name` and `device` empty and
+  `scale` at 1.0 when it cannot tell. Implements `mosaico_core::Monitor`
 - `MonitorKey` -- stable identity of a physical display (from `mosaico-core`)
+- `StableMonitorId` -- the id the tiler gives each monitor, see
+  [Stable Monitor Ids](#stable-monitor-ids)
 - `SpatialTarget` (enum) -- `Neighbor(window)` or `AdjacentMonitor(idx)`
 - `Direction` (enum) -- `Left`, `Right`, `Up`, `Down` (from `mosaico-core`)
 
@@ -130,6 +136,24 @@ another by position, so an office monitor that sits where the home monitor
 was does not inherit the home monitor's workspaces.
 
 `mosaico debug list` prints each monitor's key.
+
+### Stable Monitor Ids
+
+A `MonitorKey` can have every field `None`, and two keys can match without
+being equal, so it is no name to give a monitor to other programs. The
+tiler gives each monitor a `StableMonitorId` instead
+(`mosaico-core/src/monitor/stable_id.rs`), which the bar API names monitors
+by (see [bar-api.md](bar-api.md)):
+
+- A monitor gets one when the tiler first sees it, worked out from its key
+  (`assign_stable_ids()`), so the same display usually gets the same id on
+  the next start too.
+- A monitor that stays connected through a display change keeps its id.
+  One that disconnects is parked with its id and its workspaces, and gets
+  both back when it reconnects, even on another port.
+- Two connected monitors never share an id: a clash gets `-2`, `-3` and so
+  on, in order.
+- The id is opaque text: compare it, never read meaning into it.
 
 ## Disconnect and Reconnect
 

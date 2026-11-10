@@ -2,23 +2,24 @@
 
 use crate::Rect;
 
-use super::{BarReservation, Display, MonitorState, Plan, Tiler};
+use super::{Display, MonitorState, Plan, Reach, Tiler};
 
 impl Tiler {
-    /// Reserves the bar at the top of each bar monitor, then retiles.
+    /// Keeps each monitor's tiling area clear of how far the bar reaches
+    /// into it, then retiles.
     ///
     /// The tiling area is always derived from the OS work area, so doing
     /// this repeatedly never stacks the offset.
-    pub(super) fn reserve_bar(&mut self, plan: &mut Plan, bar: &BarReservation) {
-        apply_bar_reservation(&mut self.monitors, bar.height, &bar.monitors);
+    pub(super) fn reserve_bar(&mut self, plan: &mut Plan, reach: &Reach) {
+        apply_reach(&mut self.monitors, reach);
         self.retile_all(plan);
     }
 
     /// Reserves the bar like [`reserve_bar`](Self::reserve_bar), but only
     /// retiles when that moves a monitor's tiling area.
-    pub(super) fn reserve_bar_if_moved(&mut self, plan: &mut Plan, bar: &BarReservation) {
+    pub(super) fn reserve_bar_if_moved(&mut self, plan: &mut Plan, reach: &Reach) {
         let before: Vec<Rect> = self.monitors.iter().map(|m| m.work_area).collect();
-        apply_bar_reservation(&mut self.monitors, bar.height, &bar.monitors);
+        apply_reach(&mut self.monitors, reach);
         if self.monitors.iter().map(|m| m.work_area).ne(before) {
             self.retile_all(plan);
         }
@@ -29,10 +30,10 @@ impl Tiler {
         &mut self,
         plan: &mut Plan,
         displays: &[Display],
-        bar: &BarReservation,
+        reach: &Reach,
     ) {
         sync_os_work_areas(&mut self.monitors, displays);
-        self.reserve_bar(plan, bar);
+        self.reserve_bar(plan, reach);
     }
 }
 
@@ -52,23 +53,20 @@ pub(super) fn sync_os_work_areas(monitors: &mut [MonitorState], displays: &[Disp
             .or_else(|| displays.iter().find(|m| m.id == mon.id))
             .or_else(|| same_count.then(|| &displays[i]));
         if let Some(os) = os {
-            mon.id = os.id;
-            mon.os_work_area = os.work_area;
+            mon.sync(os);
         }
     }
 }
 
-/// Sets each monitor's tiling area to its OS work area minus the bar.
-/// An empty `bar_monitors` means every monitor has a bar.
-pub(super) fn apply_bar_reservation(
-    monitors: &mut [MonitorState],
-    bar_height: i32,
-    bar_monitors: &[usize],
-) {
-    for (i, mon) in monitors.iter_mut().enumerate() {
-        let has_bar = bar_monitors.is_empty() || bar_monitors.contains(&i);
-        let reserved = if has_bar { bar_height } else { 0 };
-        mon.work_area = below_bar(&mon.os_work_area, reserved);
+/// Sets each monitor's tiling area to its OS work area kept clear of how
+/// far the bar reaches down from the monitor's top edge. Whichever of the
+/// two reaches further wins, so a bar the system already keeps windows
+/// away from is never counted twice.
+pub(super) fn apply_reach(monitors: &mut [MonitorState], reach: &Reach) {
+    for mon in monitors {
+        let line = mon.bounds.y + reach.top(&mon.stable_id);
+        let below = (line - mon.os_work_area.y).max(0);
+        mon.work_area = below_bar(&mon.os_work_area, below);
     }
 }
 

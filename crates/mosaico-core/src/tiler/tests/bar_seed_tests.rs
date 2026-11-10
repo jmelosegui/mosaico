@@ -6,9 +6,10 @@ use std::time::Instant;
 
 use crate::WindowEvent;
 use crate::id::wid;
+use crate::tiler::Reach;
 use crate::tiler::tests::fake_desktop::{FakeDesktop, FakeWindow};
 use crate::tiler::tests::{Harness, displays};
-use crate::tiler::{BarReservation, Input, Settings, Tiler};
+use crate::tiler::{Input, Settings, Tiler};
 
 /// A window on monitor 0 that the tiler leaves alone.
 fn unmanaged() -> FakeWindow {
@@ -87,10 +88,7 @@ fn a_window_maximized_as_the_bars_are_made_again_counts_once_restored() {
     let mut player = unmanaged();
     player.maximized = true;
     h.desktop.windows.insert(wid(9), player);
-    h.step(Input::Bar(BarReservation {
-        height: 30,
-        monitors: Vec::new(),
-    }));
+    h.step(Input::Reach(Reach::bar_on(&h.tiler.places(), 30, &[])));
 
     // Act
     h.window(9).maximized = false;

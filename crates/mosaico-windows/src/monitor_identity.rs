@@ -22,13 +22,20 @@ use crate::monitor_edid::{output_technology_name, registry_edid, wide_to_string}
 /// `edidIdsValid` bit of `DISPLAYCONFIG_TARGET_DEVICE_NAME_FLAGS`.
 const EDID_IDS_VALID: u32 = 0x4;
 
+/// What the display stack knows about an active display.
+pub(crate) struct DisplayIdentity {
+    pub(crate) key: MonitorKey,
+    /// The friendly name the user sees, empty when the display has none.
+    pub(crate) name: String,
+}
+
 /// Returns the identity of every active display, keyed by the GDI device
 /// name of the source it shows (`\\.\DISPLAY1`), which is what
 /// `GetMonitorInfoW` reports for the matching `HMONITOR`.
 ///
 /// Displays that cannot be queried are simply missing from the map; the
 /// caller then gets an unknown key for them.
-pub(crate) fn display_identities() -> HashMap<String, MonitorKey> {
+pub(crate) fn display_identities() -> HashMap<String, DisplayIdentity> {
     let mut keys = HashMap::new();
     for path in active_paths() {
         let Some(gdi_name) = source_gdi_name(&path) else {
@@ -39,8 +46,8 @@ pub(crate) fn display_identities() -> HashMap<String, MonitorKey> {
         if keys.contains_key(&gdi_name) {
             continue;
         }
-        if let Some(key) = target_key(&path) {
-            keys.insert(gdi_name, key);
+        if let Some(identity) = target_identity(&path) {
+            keys.insert(gdi_name, identity);
         }
     }
     keys
@@ -98,7 +105,7 @@ fn source_gdi_name(path: &DISPLAYCONFIG_PATH_INFO) -> Option<String> {
     (status == 0).then(|| wide_to_string(&source.viewGdiDeviceName))
 }
 
-fn target_key(path: &DISPLAYCONFIG_PATH_INFO) -> Option<MonitorKey> {
+fn target_identity(path: &DISPLAYCONFIG_PATH_INFO) -> Option<DisplayIdentity> {
     let mut target = DISPLAYCONFIG_TARGET_DEVICE_NAME {
         header: DISPLAYCONFIG_DEVICE_INFO_HEADER {
             r#type: DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_NAME,
@@ -135,9 +142,12 @@ fn target_key(path: &DISPLAYCONFIG_PATH_INFO) -> Option<MonitorKey> {
         target.connectorInstance
     );
 
-    Some(MonitorKey {
-        stable_id: (!device_path.is_empty()).then_some(device_path),
-        edid,
-        connector: Some(connector),
+    Some(DisplayIdentity {
+        key: MonitorKey {
+            stable_id: (!device_path.is_empty()).then_some(device_path),
+            edid,
+            connector: Some(connector),
+        },
+        name: wide_to_string(&target.monitorFriendlyDeviceName),
     })
 }

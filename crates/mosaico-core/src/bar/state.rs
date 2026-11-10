@@ -1,7 +1,8 @@
 //! What one monitor's bar shows of the tiler and the daemon.
 
 use crate::action::MAX_WORKSPACES;
-use crate::{LayoutKind, WindowId};
+use crate::api::State;
+use crate::{LayoutKind, StableMonitorId, WindowId};
 
 /// What one monitor's bar shows of the tiler and the daemon, and what the
 /// pointer on it needs to know of them.
@@ -51,3 +52,34 @@ impl Default for BarState {
         }
     }
 }
+
+impl BarState {
+    /// What the bar of monitor `id` shows of `state`, or `None` when
+    /// `state` has no such monitor.
+    ///
+    /// Only the monitor the user works on shows the focused window. A
+    /// layout this build does not know shows as the default one.
+    pub fn from_state(state: &State, id: &StableMonitorId) -> Option<Self> {
+        let monitor = state.monitor(id)?;
+        let active = monitor.active_workspace.saturating_sub(1) as usize;
+        let workspace = monitor.workspaces.get(active);
+        let focused_here = state.focus.monitor.as_ref() == Some(id);
+        Some(Self {
+            active_workspace: active,
+            workspace_count: monitor.workspaces.len(),
+            layout: (workspace.and_then(|ws| LayoutKind::from_key(&ws.layout))).unwrap_or_default(),
+            monocle: workspace.is_some_and(|ws| ws.monocle),
+            focused_window: (state.focus.window.as_ref())
+                .filter(|_| focused_here)
+                .map(|w| w.id),
+            update_text: state.daemon.update.clone().unwrap_or_default(),
+            paused: state.daemon.paused,
+            wrap: state.daemon.wrap,
+            maximized: monitor.maximized,
+        })
+    }
+}
+
+#[cfg(test)]
+#[path = "tests/state_tests.rs"]
+mod tests;

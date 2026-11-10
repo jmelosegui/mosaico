@@ -4,8 +4,9 @@
 //! opens after a drag gets, or a monitor that comes back, does not hang on
 //! how the stack rounds.
 
+use crate::tiler::Input;
+use crate::tiler::Reach;
 use crate::tiler::tests::{Harness, displays};
-use crate::tiler::{BarReservation, Input};
 use crate::{Action, LayoutKind, Rect};
 
 use super::super::support::{held, resize_to, resizing};
@@ -123,15 +124,18 @@ fn a_whole_monitor_back_after_a_drag_and_an_open_is_back_to_the_pixel() {
     let mut h = Harness::with_settings(settings, 2, &windows);
     let ws = h.tiler.monitors[1].active_ws_mut();
     ws.set_layout_kind(LayoutKind::VerticalStack);
-    h.step(Input::Bar(BarReservation::default()));
+    h.step(Input::Reach(Reach::none()));
     drag_to(&mut h, 4, false, 1080);
     h.open(8, 1);
     let before: Vec<Rect> = (2..=8).map(|id| h.rect_of(id)).collect();
 
     // Act -- it disconnects, and is back.
     for count in [1, 2] {
-        let (monitors, bar) = (displays(count), BarReservation::default());
-        h.step(Input::Displays { monitors, bar });
+        let (monitors, bar) = (displays(count), Reach::none());
+        h.step(Input::Displays {
+            monitors,
+            reach: bar,
+        });
     }
 
     // Assert

@@ -24,7 +24,7 @@ fn connect_all_but(h: &mut Harness, count: usize, away: &[usize]) {
         .collect();
     h.step(Input::Displays {
         monitors,
-        bar: BarReservation::default(),
+        reach: Reach::none(),
     });
 }
 

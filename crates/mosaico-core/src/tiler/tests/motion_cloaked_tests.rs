@@ -4,6 +4,7 @@
 
 use crate::config::WorkspaceMode;
 use crate::id::wid;
+use crate::tiler::Reach;
 use crate::tiler::tests::displays;
 use crate::tiler::tests::manager_support::{start, tiled};
 use crate::{Action, WindowEvent};
@@ -36,7 +37,7 @@ fn a_window_cloaked_away_after_a_transition_that_a_display_change_brings_back_st
 
     // Act -- monitor 1 goes away, which brings both back into view, on the
     // primary monitor's workspace in view.
-    manager.handle_display_change(displays(1), 0, &[]);
+    manager.handle_display_change(displays(1), Reach::none());
 
     // Assert -- the tiler took them for shown while cloaked, as the
     // desktop has them, so the rebuild keeps them tiled, and shows them.
@@ -57,7 +58,7 @@ fn a_maximized_window_cloaked_away_is_placed_before_it_is_shown_as_a_display_cha
     let (platform, mut manager) = cloaked_away(true);
 
     // Act
-    manager.handle_display_change(displays(1), 0, &[]);
+    manager.handle_display_change(displays(1), Reach::none());
 
     // Assert -- as window 2 is.
     assert_eq!(shown_first(&platform.take_calls(), 1), Some(false));

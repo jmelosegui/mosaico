@@ -1,4 +1,4 @@
-use super::*;
+use crate::bar::BarState;
 use crate::id::wid;
 use crate::tiler::tests::Harness;
 use crate::{Action, Direction, LayoutKind};
@@ -9,7 +9,7 @@ fn every_monitor_gets_a_bar_state_in_monitor_order() {
     let h = Harness::new(2, &[(1, 0), (2, 1)]);
 
     // Act
-    let states = h.tiler.bar_states("", false);
+    let states = h.bars();
 
     // Assert
     let focused = BarState {
@@ -28,7 +28,7 @@ fn switching_workspace_shows_on_that_monitors_bar_only() {
     h.action(Action::GoToWorkspace(3));
 
     // Assert
-    let states = h.tiler.bar_states("", false);
+    let states = h.bars();
     assert_eq!(states[0].active_workspace, 2);
     assert_eq!(states[1].active_workspace, 0);
 }
@@ -42,7 +42,7 @@ fn cycling_the_layout_shows_the_new_layout() {
     h.action(Action::CycleLayout);
 
     // Assert
-    let states = h.tiler.bar_states("", false);
+    let states = h.bars();
     assert_eq!(states[0].layout, LayoutKind::VerticalStack);
 }
 
@@ -55,7 +55,7 @@ fn monocle_mode_shows_on_the_bar() {
     h.action(Action::ToggleMonocle);
 
     // Assert
-    let states = h.tiler.bar_states("", false);
+    let states = h.bars();
     assert!(states[0].monocle);
 }
 
@@ -68,7 +68,7 @@ fn only_the_monitor_with_focus_shows_the_focused_window() {
     h.action(Action::Focus(Direction::Right));
 
     // Assert
-    let states = h.tiler.bar_states("", false);
+    let states = h.bars();
     assert_eq!(states[0].focused_window, None);
     assert_eq!(states[1].focused_window, Some(wid(2)));
 }
@@ -79,7 +79,11 @@ fn the_update_notice_and_the_pause_reach_every_monitor() {
     let h = Harness::new(2, &[(1, 0)]);
 
     // Act
-    let states = h.tiler.bar_states("v0.10.0 available", true);
+    let states = h.bars_with(&crate::api::Daemon {
+        update: Some("v0.10.0 available".into()),
+        paused: true,
+        ..Default::default()
+    });
 
     // Assert
     assert!(

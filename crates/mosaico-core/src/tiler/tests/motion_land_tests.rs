@@ -4,6 +4,7 @@
 
 use super::display_tests::{fits, shorter};
 use super::{REFRESH, animated, frame_by_frame, placements, settle, swap, two};
+use crate::tiler::Reach;
 
 #[test]
 fn a_window_that_absorbs_its_frames_is_still_placed_exactly_at_its_target() {
@@ -52,7 +53,7 @@ fn a_display_change_while_a_frame_is_on_its_way_places_the_windows_behind_it() {
     manager.frame();
 
     // Act -- then window 1's application gets to what is queued for it.
-    manager.handle_display_change(shorter(), 0, &[]);
+    manager.handle_display_change(shorter(), Reach::none());
     settle(&platform, &mut manager);
     platform.catch_up(1);
 

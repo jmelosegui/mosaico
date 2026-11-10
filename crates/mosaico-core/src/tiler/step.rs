@@ -12,13 +12,13 @@ impl Tiler {
         // while the bar takes its space right after the start.
         let rebuild = match input {
             Input::Displays { .. } => true,
-            Input::Bar(_) => self.fresh,
+            Input::Reach(_) => self.fresh,
             _ => false,
         };
         // The steps that go with the bars being made again.
         let seed = matches!(
             input,
-            Input::Displays { .. } | Input::WorkAreas { .. } | Input::Bar(_)
+            Input::Displays { .. } | Input::WorkAreas { .. } | Input::Reach(_)
         );
         self.fresh = false;
         let mut plan = Plan::new(desktop, now);
@@ -43,11 +43,13 @@ impl Tiler {
             Input::Raise(window) => self.raise(&mut plan, window),
             Input::Event(event) => self.handle_event(&mut plan, &event),
             Input::DisplayChanging => {}
-            Input::Displays { monitors, bar } => {
-                self.handle_display_change(&mut plan, monitors, &bar)
+            Input::Displays { monitors, reach } => {
+                self.handle_display_change(&mut plan, monitors, &reach)
             }
-            Input::WorkAreas { monitors, bar } => self.reset_work_areas(&mut plan, &monitors, &bar),
-            Input::Bar(bar) => self.reserve_bar(&mut plan, &bar),
+            Input::WorkAreas { monitors, reach } => {
+                self.reset_work_areas(&mut plan, &monitors, &reach)
+            }
+            Input::Reach(reach) => self.reserve_bar(&mut plan, &reach),
             Input::Config(config) => self.reload_config(&mut plan, &config),
             Input::Rules(rules) => self.reload_rules(&mut plan, rules),
             Input::RefreshBorders => self.update_border(&mut plan),

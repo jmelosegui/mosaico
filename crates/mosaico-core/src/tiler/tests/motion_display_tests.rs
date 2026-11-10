@@ -3,6 +3,7 @@
 //! and the rebuild, or its absence, leaves each window stopped in its slot.
 
 use crate::tiler::Display;
+use crate::tiler::Reach;
 use crate::tiler::tests::fake_platform::Call;
 use crate::tiler::tests::{MON_H, MON_W, displays};
 use crate::{Action, Direction, Rect};
@@ -29,7 +30,7 @@ fn a_display_change_ends_every_motion_in_the_slot_it_lays_the_window_out_in() {
     platform.take_calls();
 
     // Act
-    manager.handle_display_change(shorter(), 0, &[]);
+    manager.handle_display_change(shorter(), Reach::none());
 
     // Assert -- each window placed once, at once, in the smaller work area,
     // and no border drawn around the slot it was going to.
@@ -60,7 +61,7 @@ fn a_display_change_stops_every_motion_where_it_is_until_it_is_rebuilt_for() {
     let frames = settle(&platform, &mut manager);
     let meanwhile = platform.take_calls();
     let held = [1, 2].map(|id| platform.window(id).rect);
-    manager.handle_display_change(shorter(), 0, &[]);
+    manager.handle_display_change(shorter(), Reach::none());
 
     // Assert -- nothing places the windows stopped while the change
     // settles, and the rebuild places each once, in the smaller work area.
@@ -90,7 +91,7 @@ fn the_windows_a_display_change_stopped_go_to_their_targets_rebuilt_for_or_not()
 
         // Act
         if rebuilt {
-            manager.handle_display_change(displays(1), 0, &[]);
+            manager.handle_display_change(displays(1), Reach::none());
         } else {
             manager.display_change_skipped();
         }
@@ -129,7 +130,7 @@ fn a_window_placed_while_a_display_change_settles_stays_where_it_was_placed() {
     platform.take_calls();
 
     // Act
-    manager.handle_display_change(displays(1), 0, &[]);
+    manager.handle_display_change(displays(1), Reach::none());
 
     // Assert -- not sent back to where the swap was taking it.
     assert!(placements(&platform.take_calls()).is_empty());

@@ -1,0 +1,81 @@
+{
+  "daemon": {
+    "version": "0.14.0",
+    "api": 1,
+    "instance": null,
+    "provider": "mosaico",
+    "paused": false,
+    "update": "v0.15.0 available",
+    "workspace_mode": "per-monitor",
+    "wrap": true
+  },
+  "theme": {
+    "name": "catppuccin",
+    "flavor": "mocha",
+    "colors": {
+      "blue": "#89b4fa",
+      "green": "#a6e3a1",
+      "red": "#f38ba8",
+      "text": "#cdd6f4"
+    }
+  },
+  "monitors": [
+    {
+      "id": "m-3fa2c1",
+      "index": 0,
+      "name": "DELL U2720Q",
+      "device": "\\\\.\\DISPLAY1",
+      "scale": 1.5,
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 3840,
+        "height": 2160
+      },
+      "work_area": {
+        "x": 0,
+        "y": 0,
+        "width": 3840,
+        "height": 2112
+      },
+      "tiling_area": {
+        "x": 0,
+        "y": 48,
+        "width": 3840,
+        "height": 2064
+      },
+      "maximized": false,
+      "active_workspace": 1,
+      "workspaces": [
+        {
+          "number": 1,
+          "name": "1",
+          "layout": "bsp",
+          "monocle": false,
+          "windows": [
+            1180,
+            2236
+          ],
+          "focused": 2236
+        },
+        {
+          "number": 2,
+          "name": "2",
+          "layout": "vertical-stack",
+          "monocle": true,
+          "windows": [],
+          "focused": null
+        }
+      ]
+    }
+  ],
+  "focus": {
+    "monitor": "m-3fa2c1",
+    "workspace": 1,
+    "window": {
+      "id": 2236,
+      "title": "README.md - mosaico",
+      "program": "Code.exe"
+    }
+  }
+}

@@ -42,6 +42,7 @@ impl Desktop for FakePlatform {
     }
 
     fn windows_on_screen(&self) -> Vec<WindowId> {
+        self.shared.queries.borrow_mut().push("windows_on_screen");
         self.shared.desktop.borrow().windows_on_screen()
     }
 
@@ -50,6 +51,7 @@ impl Desktop for FakePlatform {
     }
 
     fn facts(&self, window: WindowId) -> Option<WindowFacts> {
+        self.shared.queries.borrow_mut().push("facts");
         self.shared.desktop.borrow().facts(window)
     }
 

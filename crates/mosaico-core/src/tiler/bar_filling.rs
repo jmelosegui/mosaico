@@ -1,6 +1,6 @@
 //! Which windows on screen fill their monitor, so the bars are drawn
 //! again as soon as one starts or stops: a bar lets the pointer through
-//! over such a window (see [`Tiler::mark_maximized`]).
+//! over such a window (see [`Tiler::maximized_monitors`]).
 //!
 //! Maximizing or restoring a window, and taking it in or out of
 //! fullscreen, only reports that the window moved, which also comes on

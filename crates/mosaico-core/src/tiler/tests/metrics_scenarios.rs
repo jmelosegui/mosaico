@@ -13,7 +13,7 @@ use crate::config::Config;
 use super::fake_platform::FakePlatform;
 use super::manager_support::{animated, settle, start, still};
 use super::metrics_support::{
-    Manager, Measured, act, animate, burst, four, four_with, on, on_settled, taken, windows,
+    Manager, Measured, act, animate, burst, four, four_with, on, on_settled, shown, taken, windows,
 };
 use super::*;
 
@@ -80,7 +80,7 @@ pub(super) const SCENARIOS: &[Scenario] = &[
     ("resize_split_followed", drag::resize_followed),
     ("config_reload", config_reload),
     ("bar_reserved", || {
-        on(four(), |m| m.adjust_work_areas_for_bar(30, &[]))
+        on(four(), |m| m.set_reach(Reach::bar_on(&m.places(), 30, &[])))
     }),
     ("monitor_disconnect", display::disconnect),
     ("monitor_reconnect", display::reconnect),
@@ -99,6 +99,7 @@ fn startup() -> Measured {
     let platform = FakePlatform::new(1, &windows(4));
     let mut manager = start(&platform, None, &still());
     manager.flush_pending();
+    shown(&mut manager);
     taken(&platform)
 }
 

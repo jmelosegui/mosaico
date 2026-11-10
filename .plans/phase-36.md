@@ -695,22 +695,22 @@ needs 36.4 and 36.6; 36.8 and 36.9 need 36.7.
 
 ### 36.2 The state model and the contract
 
-- [ ] `StableMonitorId`, assigned by the tiler, parked and restored with the
+- [x] `StableMonitorId`, assigned by the tiler, parked and restored with the
       monitor's workspaces
-- [ ] `api::State` and its builder, taking over `Tiler::bar_states()` and
+- [x] `api::State` and its builder, taking over `Tiler::bar_states()` and
       `mark_maximized()`; the dirty signal; the focused window's title read
       on `TitleChanged`
-- [ ] `Display` gains `bounds`, `name`, `device` and `scale`, in the contract
+- [x] `Display` gains `bounds`, `name`, `device` and `scale`, in the contract
       and on Windows
-- [ ] `Reach` and `Input::Reach` in place of `BarReservation`, carrying only
+- [x] `Reach` and `Input::Reach` in place of `BarReservation`, carrying only
       the top edge the built-in bar uses today
-- [ ] `BarProvider`, and `BuiltinBar` drawn through `BarState::from_state`;
+- [x] `BarProvider`, and `BuiltinBar` drawn through `BarState::from_state`;
       the daemon holds the provider and nothing else of the bar
-- [ ] `diff` and `apply`, with property tests: `apply(diff(a, b), a) == b`
-- [ ] The example files, their byte-for-byte test and the generated schema
-- [ ] The parity test: the built-in bar drawn from decoded JSON and from the
+- [x] `diff` and `apply`, with property tests: `apply(diff(a, b), a) == b`
+- [x] The example files, their byte-for-byte test and the generated schema
+- [x] The parity test: the built-in bar drawn from decoded JSON and from the
       built state, the same content
-- [ ] No visible change; every metrics scenario keeps its counts, now with the
+- [x] No visible change; every metrics scenario keeps its counts, now with the
       queries counted
 
 ### 36.3 The provider setting

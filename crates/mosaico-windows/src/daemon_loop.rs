@@ -1,15 +1,16 @@
 use std::rc::Rc;
 use std::sync::mpsc;
 
-use mosaico_core::bar::BarManager;
+use mosaico_core::api::{self, API_VERSION};
+use mosaico_core::bar::{BarHost, BuiltinBar};
 use mosaico_core::config::{ConfigStore, manage_deprecation};
-use mosaico_core::tiler::{Enumerator, HiddenFile};
+use mosaico_core::ipc::DAEMON_VERSION;
+use mosaico_core::tiler::HiddenFile;
 use mosaico_core::tray::{TrayNotice, TrayPaths};
 use mosaico_core::update::Installer;
 use mosaico_core::{Instance, Result};
 
 use crate::bar::Win32BarRenderer;
-use crate::enumerate::WindowsEnumerator;
 use crate::http::WinHttpClient;
 use crate::install::RenameInstaller;
 use crate::system_info::Win32SystemInfo;
@@ -47,32 +48,27 @@ pub(super) fn daemon_loop(pipe_name: &str, store: &ConfigStore) -> Result<()> {
         config.logging.level
     );
 
-    let mut current_theme = config.theme.resolve();
-
     let (tx, rx) = mpsc::channel::<DaemonMsg>();
 
-    let bar_config = store.merge_missing_bar_widgets();
-    let monitor_rects: Vec<_> = WindowsEnumerator
-        .monitors()?
-        .iter()
-        .map(|m| m.work_area)
-        .collect();
-    let mut bar_mgr = BarManager::new(
+    let builtin = BuiltinBar::new(
         Box::new(Win32BarRenderer),
         Box::new(Win32SystemInfo),
         Rc::new(ChannelSink(tx.clone())),
-        bar_config,
-        monitor_rects,
-        current_theme,
+        store.merge_missing_bar_widgets(),
+        config.theme.resolve(),
     );
+    let daemon = api::Daemon {
+        version: DAEMON_VERSION.to_string(),
+        api: API_VERSION,
+        instance: Instance::current().and_then(|i| i.name().map(str::to_string)),
+        ..api::Daemon::default()
+    };
+    let mut bars = BarHost::new(Box::new(builtin), daemon, config.theme.resolve());
 
     let hidden = Instance::current().map(HiddenFile::for_instance);
     let mut manager = TilingManager::new(Win32Platform::new(), hidden, &config, rules)?;
-    let bar_height = bar_mgr.bar_height();
-    if bar_height > 0 {
-        // Retile with bar-adjusted work areas so borders match final positions.
-        manager.adjust_work_areas_for_bar(bar_height, bar_mgr.bar_monitor_indices());
-    }
+    // Retile clear of the bars, so borders match the final positions.
+    bars.start(&mut manager);
     manager.refresh_border();
 
     // Background version check — runs once, stores result for the bar.
@@ -82,7 +78,6 @@ pub(super) fn daemon_loop(pipe_name: &str, store: &ConfigStore) -> Result<()> {
     daemon_threads::spawn_rules_download(WinHttpClient, store.clone(), tx.clone());
 
     let get_update = || update_text.lock().map_or(String::new(), |t| t.clone());
-    bar_mgr.update(&manager.bar_states(&get_update(), false));
     mosaico_core::log_info!("Managing {} windows", manager.window_count());
 
     // Start the window events, hotkeys, focus-follows-mouse and the tray
@@ -136,8 +131,7 @@ pub(super) fn daemon_loop(pipe_name: &str, store: &ConfigStore) -> Result<()> {
     daemon_loop_run::run(
         &rx,
         &mut manager,
-        &mut bar_mgr,
-        &mut current_theme,
+        &mut bars,
         &mut inputs,
         &frames,
         &get_update,
@@ -145,7 +139,7 @@ pub(super) fn daemon_loop(pipe_name: &str, store: &ConfigStore) -> Result<()> {
 
     drop(frames);
     manager.restore_all_windows();
-    bar_mgr.hide_all();
+    bars.stop();
     inputs.stop();
     watcher_stop.store(true, std::sync::atomic::Ordering::Relaxed);
     drop(tx);

@@ -3,10 +3,11 @@
 //! workspaces.
 
 use crate::config::WorkspaceMode;
+use crate::tiler::Reach;
 use crate::{Action, Direction, WindowId};
 
 use super::super::tests::Harness;
-use super::super::{BarReservation, Effect, Input, Settings};
+use super::super::{Effect, Input, Settings};
 
 /// The pointer follows focus, so a step that moved it would say so.
 pub(super) fn following(mode: WorkspaceMode) -> Settings {
@@ -76,8 +77,5 @@ pub(super) fn on_screen(h: &Harness) -> Vec<usize> {
 
 /// Reserves a 30 pixel bar at the top of every monitor.
 pub(super) fn reserve_bar(h: &mut Harness) {
-    h.step(Input::Bar(BarReservation {
-        height: 30,
-        monitors: Vec::new(),
-    }));
+    h.step(Input::Reach(Reach::bar_on(&h.tiler.places(), 30, &[])));
 }

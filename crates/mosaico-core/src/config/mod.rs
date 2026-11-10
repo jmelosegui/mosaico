@@ -17,7 +17,7 @@ mod launch_args;
 pub mod limits;
 mod mouse;
 /// Color palette definitions for themes.
-mod palette;
+pub(crate) mod palette;
 /// Which config files the daemon reloads while it runs, and when.
 mod reload;
 /// Telling the user about their config while it loads.

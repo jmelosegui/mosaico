@@ -21,7 +21,7 @@ use super::*;
 fn change(h: &mut Harness, monitors: Vec<Display>) {
     h.step(Input::Displays {
         monitors,
-        bar: BarReservation::default(),
+        reach: Reach::none(),
     });
 }
 
@@ -109,7 +109,7 @@ fn the_systems_own_pick_does_not_take_focus_from_the_window_chosen() {
 
     // Act -- window 1 moves to the primary's workspace 1, out of view,
     // and the system hands focus to window 5 once it is hidden.
-    manager.handle_display_change(displays(1), 0, &[]);
+    manager.handle_display_change(displays(1), Reach::none());
     manager.handle_event(&WindowEvent::Focused { window: wid(5) });
     manager.flush_pending();
 

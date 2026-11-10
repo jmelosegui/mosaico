@@ -11,10 +11,22 @@ pub struct Display {
     pub id: MonitorId,
     /// Identity that survives reconnects. See [`MonitorKey`].
     pub key: MonitorKey,
+    /// The whole monitor in desktop pixels. Taskbars, docks and panels at
+    /// its edges are inside it, and so is [`work_area`](Self::work_area).
+    pub bounds: Rect,
     /// Usable area, excluding taskbars, docks and panels.
     pub work_area: Rect,
     /// Whether this is the primary monitor.
     pub primary: bool,
+    /// What the system calls the display, as shown to the user, such as
+    /// "DELL U2720Q". Empty when the platform cannot tell.
+    pub name: String,
+    /// The name the system gives the display's output, which other
+    /// programs use to find it. Empty when unknown.
+    pub device: String,
+    /// The display's scale factor: 1.0 at 100%, 1.5 at 150%. 1.0 when
+    /// unknown.
+    pub scale: f64,
 }
 
 impl crate::Monitor for Display {

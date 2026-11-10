@@ -109,8 +109,12 @@ fn info(id: usize, key: &MonitorKey, x: i32, primary: bool) -> Display {
     Display {
         id: MonitorId::from_raw(id as u64),
         key: key.clone(),
+        bounds: Rect::new(x, 0, 1920, 1080),
         work_area: Rect::new(x, 0, 1920, 1080),
         primary,
+        name: String::new(),
+        device: String::new(),
+        scale: 1.0,
     }
 }
 
@@ -120,9 +124,9 @@ fn keyed_monitors(keys: &[&MonitorKey]) -> Vec<MonitorState> {
         .enumerate()
         .map(|(i, k)| info(i + 1, k, i as i32 * 1920, i == 0))
         .collect();
-    infos
-        .iter()
-        .map(|i| MonitorState::new(i, &layouts()))
+    let ids = crate::monitor::assign_stable_ids(keys, &[]);
+    (infos.iter().zip(ids))
+        .map(|(i, id)| MonitorState::new(i, &layouts(), id))
         .collect()
 }
 

@@ -6,8 +6,9 @@
 
 use crate::config::Config;
 use crate::id::wid;
+use crate::tiler::Input;
+use crate::tiler::Reach;
 use crate::tiler::tests::Harness;
-use crate::tiler::{BarReservation, Input};
 use crate::{Action, Direction, Rect, WindowEvent};
 
 /// Moves the splits of the layout on screen on the first monitor of `h`
@@ -24,7 +25,7 @@ pub(super) fn move_splits_on(h: &mut Harness, mon: usize, ratios: &[f64]) {
     for (split, &ratio) in ratios.iter().enumerate() {
         ws.set_split_ratio(split, ratio);
     }
-    h.step(Input::Bar(BarReservation::default()));
+    h.step(Input::Reach(Reach::none()));
 }
 
 /// Where windows `ids` of `h` are.

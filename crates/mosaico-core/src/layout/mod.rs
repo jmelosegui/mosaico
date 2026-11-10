@@ -64,6 +64,23 @@ impl LayoutKind {
         }
     }
 
+    /// The name the config and the bar API give the layout, such as
+    /// `"vertical-stack"`.
+    pub fn key(self) -> &'static str {
+        match self {
+            Self::Bsp => "bsp",
+            Self::VerticalStack => "vertical-stack",
+            Self::ThreeColumn => "three-column",
+        }
+    }
+
+    /// The layout [`key`](Self::key) names, if any.
+    pub fn from_key(key: &str) -> Option<Self> {
+        [Self::Bsp, Self::VerticalStack, Self::ThreeColumn]
+            .into_iter()
+            .find(|kind| kind.key() == key)
+    }
+
     /// Where to insert a window among `count` others so this layout puts
     /// it against `side` of the work area, moving as few of the others to
     /// another column as it can.

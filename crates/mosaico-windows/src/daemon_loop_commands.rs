@@ -2,7 +2,7 @@
 //! CLI.
 
 use mosaico_core::action::Origin;
-use mosaico_core::bar::BarManager;
+use mosaico_core::bar::BarHost;
 use mosaico_core::ipc::{Command, DAEMON_VERSION, DaemonStatus, PROTOCOL_VERSION, Response};
 
 use crate::tiling::{TilingManager, TilingViews};
@@ -10,7 +10,7 @@ use crate::tiling::{TilingManager, TilingViews};
 use super::daemon_inputs::Inputs;
 
 /// Carries out an action from a hotkey, the CLI or a bar, which `origin`
-/// says, then refreshes the bar.
+/// says, then shows the bars the state.
 ///
 /// Fails only when something the action needed reported an error, which
 /// is logged here, whoever sent the action. An action with nothing to act
@@ -19,33 +19,31 @@ pub(super) fn carry_out(
     action: mosaico_core::Action,
     origin: Origin,
     manager: &mut TilingManager,
-    bar_mgr: &mut BarManager,
+    bars: &mut BarHost,
     inputs: &mut Inputs,
     hotkeys_paused: &mut bool,
-    get_update: &dyn Fn() -> String,
 ) -> mosaico_core::Result<()> {
     let done = if action == mosaico_core::Action::TogglePause {
         toggle_pause(inputs, hotkeys_paused);
         Ok(())
     } else {
-        run_action(&action, origin, manager, bar_mgr)
+        run_action(&action, origin, manager, bars)
     };
     if let Err(e) = &done {
         mosaico_core::log_warn!("{action}: {e}");
     }
-    bar_mgr.update(&manager.bar_states(&get_update(), *hotkeys_paused));
+    bars.set_paused(*hotkeys_paused);
+    bars.show(manager);
     done
 }
 
 /// Carries out a press of the launch binding at `index`, tells how it
-/// went, then refreshes the bar.
+/// went, then shows the bars the state.
 pub(super) fn launch(
     index: usize,
     manager: &mut TilingManager,
-    bar_mgr: &mut BarManager,
+    bars: &mut BarHost,
     inputs: &Inputs,
-    hotkeys_paused: bool,
-    get_update: &dyn Fn() -> String,
 ) {
     let Some((binding, launcher)) = inputs.launch(index) else {
         mosaico_core::log_warn!("No launch binding at position {index}");
@@ -53,7 +51,7 @@ pub(super) fn launch(
     };
     let outcome = manager.launch(binding, launcher);
     inputs.report_launch(binding, &outcome);
-    bar_mgr.update(&manager.bar_states(&get_update(), hotkeys_paused));
+    bars.show(manager);
 }
 
 fn toggle_pause(inputs: &mut Inputs, hotkeys_paused: &mut bool) {
@@ -80,12 +78,11 @@ fn run_action(
     action: &mosaico_core::Action,
     origin: Origin,
     manager: &mut TilingManager,
-    bar_mgr: &BarManager,
+    bars: &mut BarHost,
 ) -> mosaico_core::Result<()> {
     if *action == mosaico_core::Action::Retile {
         mosaico_core::log_info!("Retile: re-reading work areas");
-        let indices = bar_mgr.bar_monitor_indices().to_vec();
-        let reread = manager.reset_and_adjust_work_areas(bar_mgr.bar_height(), &indices);
+        let reread = bars.reset_work_areas(manager);
         manager.handle_action_from(action, origin);
         manager.refresh_visible_windows();
         return reread;
@@ -97,10 +94,9 @@ fn run_action(
 pub(super) fn handle_command(
     command: &Command,
     manager: &mut TilingManager,
-    bar_mgr: &mut BarManager,
+    bars: &mut BarHost,
     inputs: &mut Inputs,
     hotkeys_paused: &mut bool,
-    get_update: &dyn Fn() -> String,
 ) -> Option<Response> {
     match command {
         Command::Stop => {
@@ -122,10 +118,9 @@ pub(super) fn handle_command(
                 *action,
                 Origin::Focused,
                 manager,
-                bar_mgr,
+                bars,
                 inputs,
                 hotkeys_paused,
-                get_update,
             );
             Some(match done {
                 Ok(()) => Response::ok(),
@@ -143,7 +138,8 @@ pub(super) fn handle_command(
                 *hotkeys_paused = true;
                 mosaico_core::log_info!("Hotkeys paused via CLI");
             }
-            bar_mgr.update(&manager.bar_states(&get_update(), *hotkeys_paused));
+            bars.set_paused(*hotkeys_paused);
+            bars.show(manager);
             Some(Response::ok_with_message("Hotkeys paused"))
         }
         Command::UnpauseHotkeys => {
@@ -152,7 +148,8 @@ pub(super) fn handle_command(
                 *hotkeys_paused = false;
                 mosaico_core::log_info!("Hotkeys unpaused via CLI");
             }
-            bar_mgr.update(&manager.bar_states(&get_update(), *hotkeys_paused));
+            bars.set_paused(*hotkeys_paused);
+            bars.show(manager);
             Some(Response::ok_with_message("Hotkeys unpaused"))
         }
     }

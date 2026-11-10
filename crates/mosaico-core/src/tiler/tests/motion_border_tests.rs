@@ -2,6 +2,7 @@
 
 use crate::config::Color;
 use crate::id::wid;
+use crate::tiler::Reach;
 use crate::tiler::tests::displays;
 use crate::tiler::tests::fake_platform::Call;
 use crate::{Action, Direction, Rect, WindowEvent};
@@ -111,7 +112,7 @@ fn a_window_a_display_change_stopped_has_its_border_drawn_once_it_is_placed() {
     platform.take_calls();
 
     // Act -- the change settles back where it started.
-    manager.handle_display_change(displays(1), 0, &[]);
+    manager.handle_display_change(displays(1), Reach::none());
 
     // Assert -- each border is drawn once, at the window's target, as the
     // focus change left it.
@@ -138,7 +139,7 @@ fn a_window_placed_while_a_display_change_settles_moves_next_with_a_fresh_border
     manager.handle_action(&Action::ToggleMonocle);
     manager.display_changing();
     manager.handle_action(&Action::ToggleMonocle);
-    manager.handle_display_change(displays(1), 0, &[]);
+    manager.handle_display_change(displays(1), Reach::none());
     platform.take_calls();
 
     // Act -- it grows again.

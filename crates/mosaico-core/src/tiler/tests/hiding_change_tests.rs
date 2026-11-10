@@ -26,7 +26,7 @@ fn reload(h: &mut Harness, how: HidingBehaviour) {
 fn connect(h: &mut Harness, count: usize) {
     h.step(Input::Displays {
         monitors: displays(count),
-        bar: BarReservation::default(),
+        reach: Reach::none(),
     });
 }
 

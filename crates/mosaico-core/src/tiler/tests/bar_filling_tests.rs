@@ -2,6 +2,7 @@
 //! screen went in or out of maximized or fullscreen, which only reports
 //! that it moved.
 
+use crate::api::{Daemon, Theme};
 use crate::id::wid;
 use crate::tiler::tests::fake_desktop::FakeWindow;
 use crate::tiler::tests::fake_platform::FakePlatform;
@@ -106,20 +107,23 @@ fn a_window_the_tiler_hid_leaves_the_bars() {
 }
 
 #[test]
-fn the_manager_says_when_the_bars_must_be_drawn_again() {
+fn the_managers_bar_state_follows_a_window_that_only_reports_it_moved() {
     // Arrange
     let platform = FakePlatform::new(1, &[(1, 0), (2, 0)]);
     let mut manager = start(&platform, None, &still());
+    let (daemon, theme) = (Daemon::default(), Theme::default());
+    manager.bar_state(&daemon, &theme);
     platform.edit(2, |w| w.maximized = true);
 
     // Act
     manager.handle_event(&WindowEvent::LocationChanged { window: wid(2) });
+    let first = manager.bar_state(&daemon, &theme).cloned();
+    let second = manager.bar_state(&daemon, &theme).cloned();
 
     // Assert
-    assert!(manager.take_bars_changed());
-    assert!(!manager.take_bars_changed());
+    assert!(first.is_some_and(|state| state.monitors[0].maximized));
+    assert_eq!(second, None);
 }
-
 #[test]
 fn a_window_hidden_or_minimized_but_still_marked_maximized_leaves_the_bars() {
     // Arrange -- windows 8 and 9, which the tiler leaves alone, say they

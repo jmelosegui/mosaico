@@ -118,7 +118,7 @@ mosaico action focus left -> Command::Action { action } -> named pipe
 
 ```
 Click or wheel on a bar -> bar window procedure -> PointerSink
-  -> DaemonMsg::BarPointer -> BarManager::pointer() / take_wheel()
+  -> DaemonMsg::BarPointer -> BarHost::pointer() / take_due()
   -> (Action, Origin::Bar(monitor)) -> TilingManager::handle_action_from()
 ```
 

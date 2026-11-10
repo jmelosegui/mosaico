@@ -1,8 +1,9 @@
 use super::*;
 use crate::action::MAX_WORKSPACES;
 use crate::id::{wid, wids};
+use crate::tiler::Input;
+use crate::tiler::Reach;
 use crate::tiler::tests::{Harness, displays, key};
-use crate::tiler::{BarReservation, Input};
 
 /// What the platform would report: only the id says which window it is.
 fn seen(id: WindowId) -> WindowSnapshot {
@@ -56,7 +57,7 @@ fn the_snapshot_reports_a_disconnected_monitor_and_its_windows() {
     let mut h = Harness::new(2, &[(1, 0), (2, 1)]);
     h.step(Input::Displays {
         monitors: displays(1),
-        bar: BarReservation::default(),
+        reach: Reach::none(),
     });
 
     // Act

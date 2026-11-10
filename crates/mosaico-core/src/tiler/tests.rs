@@ -4,7 +4,9 @@
 use crate::action::MAX_WORKSPACES;
 use crate::config::HidingBehaviour;
 use crate::id::wid;
-use crate::{Action, MonitorId, MonitorKey, Rect, WindowEvent, WindowId, Workspace};
+use crate::{
+    Action, MonitorId, MonitorKey, Rect, StableMonitorId, WindowEvent, WindowId, Workspace,
+};
 
 use super::*;
 
@@ -17,6 +19,12 @@ mod adopt_order_kept_tests;
 mod adopt_order_support;
 #[path = "tests/adopt_order_tests.rs"]
 mod adopt_order_tests;
+#[path = "tests/bar_host_tests.rs"]
+mod bar_host_tests;
+#[path = "tests/bar_parity_tests.rs"]
+mod bar_parity_tests;
+#[path = "tests/bar_support.rs"]
+pub(super) mod bar_support;
 #[path = "tests/border_once_tests.rs"]
 mod border_once_tests;
 #[path = "tests/border_order_tests.rs"]
@@ -65,6 +73,8 @@ mod hiding_change_record_tests;
 mod hiding_change_tests;
 #[path = "tests/layout_tests.rs"]
 mod layout_tests;
+#[path = "tests/manager_api_tests.rs"]
+mod manager_api_tests;
 #[path = "tests/manager_config_tests.rs"]
 mod manager_config_tests;
 #[path = "tests/manager_daemon_tests.rs"]
@@ -119,6 +129,8 @@ mod rules_release_tests;
 mod rules_reload_tests;
 #[path = "tests/session_tests.rs"]
 mod session_tests;
+#[path = "tests/stable_id_tiler_tests.rs"]
+mod stable_id_tiler_tests;
 #[path = "tests/stacking_tests.rs"]
 mod stacking_tests;
 #[path = "tests/window_effects_tests.rs"]
@@ -142,8 +154,12 @@ pub(super) fn displays(count: usize) -> Vec<Display> {
         .map(|i| Display {
             id: MonitorId::from_raw(i as u64),
             key: key(&format!("mon{i}")),
+            bounds: Rect::new(i as i32 * MON_W, 0, MON_W, MON_H),
             work_area: Rect::new(i as i32 * MON_W, 0, MON_W, MON_H),
             primary: i == 0,
+            name: String::new(),
+            device: String::new(),
+            scale: 1.0,
         })
         .collect()
 }
@@ -161,6 +177,11 @@ pub(super) fn make_monitor(id: u64) -> MonitorState {
     MonitorState {
         id: MonitorId::from_raw(id),
         key: MonitorKey::default(),
+        stable_id: StableMonitorId::new(format!("m-{id}")),
+        bounds: Rect::new(0, 0, MON_W, MON_H),
+        name: String::new(),
+        device: String::new(),
+        scale: 1.0,
         os_work_area: Rect::new(0, 0, MON_W, MON_H),
         work_area: Rect::new(0, 0, MON_W, MON_H),
         workspaces: (0..MAX_WORKSPACES).map(|_| Workspace::new()).collect(),
@@ -184,8 +205,12 @@ pub(super) fn simulate_display_change(
         .map(|(i, (id, work_area))| Display {
             id: MonitorId::from_raw(id),
             key: MonitorKey::default(),
+            bounds: work_area,
             work_area,
             primary: i == 0,
+            name: String::new(),
+            device: String::new(),
+            scale: 1.0,
         })
         .collect();
     let layouts = vec![LayoutKind::default(); MAX_WORKSPACES as usize];

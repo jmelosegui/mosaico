@@ -37,7 +37,7 @@ fn settings(how: HidingBehaviour) -> Settings {
 fn connect(h: &mut Harness, count: usize) {
     h.step(Input::Displays {
         monitors: displays(count),
-        bar: BarReservation::default(),
+        reach: Reach::none(),
     });
 }
 

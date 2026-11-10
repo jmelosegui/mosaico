@@ -3,8 +3,9 @@
 
 use crate::event::{DragStart, Grab};
 use crate::id::wid;
+use crate::tiler::Reach;
 use crate::tiler::tests::{Harness, MON_W};
-use crate::tiler::{BarReservation, Effect, Input, Settings};
+use crate::tiler::{Effect, Input, Settings};
 use crate::{Rect, WindowEvent};
 
 /// Settings with windows dropped on tiles moving there.
@@ -17,10 +18,7 @@ pub(super) fn swapping() -> Settings {
 
 /// Reserves a 30 pixel bar at the top of every monitor of `h`.
 pub(super) fn reserve_bar(h: &mut Harness) {
-    h.step(Input::Bar(BarReservation {
-        height: 30,
-        monitors: Vec::new(),
-    }));
+    h.step(Input::Reach(Reach::bar_on(&h.tiler.places(), 30, &[])));
 }
 
 /// Whether `effects` place window `id`.

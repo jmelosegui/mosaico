@@ -1,14 +1,15 @@
 //! Floating windows when a monitor goes away and comes back.
 
 use crate::id::wid;
+use crate::tiler::Input;
+use crate::tiler::Reach;
 use crate::tiler::tests::{Harness, displays};
-use crate::tiler::{BarReservation, Input};
 use crate::{Action, WindowEvent};
 
 fn connect(h: &mut Harness, count: usize) {
     h.step(Input::Displays {
         monitors: displays(count),
-        bar: BarReservation::default(),
+        reach: Reach::none(),
     });
 }
 

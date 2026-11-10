@@ -27,8 +27,12 @@ fn second_alone() -> Vec<Display> {
     vec![Display {
         id: MonitorId::from_raw(1),
         key: key("mon1"),
+        bounds: Rect::new(MON_W, 0, MON_W, MON_H),
         work_area: Rect::new(MON_W, 0, MON_W, MON_H),
         primary: true,
+        name: String::new(),
+        device: String::new(),
+        scale: 1.0,
     }]
 }
 

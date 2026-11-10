@@ -9,8 +9,8 @@
 
 mod actions;
 mod adopt;
+mod api_state;
 mod applier;
-mod bar_states;
 mod border_style;
 mod borders;
 mod coalesce;
@@ -51,6 +51,7 @@ mod plan;
 mod platform;
 mod queries;
 mod raise;
+mod reach;
 mod reconnect;
 mod release;
 mod removal;
@@ -80,11 +81,12 @@ pub use effect::Effect;
 pub use enumerator::{Enumerator, Insets, WindowDetails};
 pub use hidden::{HiddenWindows, WindowIdentity};
 pub use hidden_file::HiddenFile;
-pub use input::{BarReservation, Input};
+pub use input::Input;
 pub use last_drawn::LastDrawn;
 pub use manager::{Launched, TilingManager};
 pub use placement::{Timing, Transition};
 pub use platform::Platform;
+pub use reach::{MonitorPlace, Reach};
 pub use release::{MAX_HOLD, QUIET, release_at};
 pub use startup::Settings;
 pub use state::MonitorState;
@@ -137,7 +139,7 @@ pub struct Tiler {
     /// that `LocationChanged`, which fires on every animation frame,
     /// reacts only when the window enters or leaves maximized state.
     focused_maximized: bool,
-    filling: bar_states::Filling,
+    filling: api_state::Filling,
     /// Pins `focused_monitor` while its active workspace is empty. See
     /// [`empty_focus`].
     empty_focus_claim: Option<empty_focus::EmptyFocusClaim>,

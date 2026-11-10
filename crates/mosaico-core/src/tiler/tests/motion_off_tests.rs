@@ -6,6 +6,7 @@
 
 use crate::config::{HidingBehaviour, WorkspaceMode};
 use crate::id::wid;
+use crate::tiler::Reach;
 use crate::tiler::tests::displays;
 use crate::tiler::tests::fake_platform::Call;
 use crate::tiler::tests::manager_support::{start, still};
@@ -57,7 +58,7 @@ fn a_maximized_window_a_display_change_brings_into_view_is_placed_first_with_ani
 
     // Act -- monitor 1 goes away, which brings both into view on the
     // primary monitor.
-    manager.handle_display_change(displays(1), 0, &[]);
+    manager.handle_display_change(displays(1), Reach::none());
 
     // Assert -- placed while hidden, then shown in place.
     let calls = platform.take_calls();

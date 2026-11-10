@@ -1,4 +1,6 @@
-use mosaico_core::bar::BarManager;
+use mosaico_core::WindowEvent;
+use mosaico_core::bar::BarHost;
+use mosaico_core::config::ConfigReload;
 use mosaico_core::tiler::Enumerator;
 use mosaico_core::tray::TrayNotice;
 
@@ -7,108 +9,68 @@ use crate::tiling::TilingManager;
 
 use super::daemon_inputs::Inputs;
 
-/// Processes a single event. Returns `true` if the bar should be refreshed.
-///
-/// Bar updates are deferred to the caller so the bar is only refreshed
-/// once per batch instead of after every individual event.
-pub(super) fn handle_event(
-    event: mosaico_core::WindowEvent,
-    manager: &mut TilingManager,
-    bar_mgr: &mut BarManager,
-    current_theme: &mut mosaico_core::config::Theme,
-    _get_update: &dyn Fn() -> String,
-) -> bool {
+/// Processes a single event. The bars are shown the state by the caller,
+/// once per batch instead of after every event.
+pub(super) fn handle_event(event: WindowEvent, manager: &mut TilingManager, bars: &mut BarHost) {
     match event {
-        // A drag that starts changes nothing on the bar.
-        started @ mosaico_core::WindowEvent::MoveStarted { .. } => {
-            manager.handle_event(&started);
-            false
-        }
-        mosaico_core::WindowEvent::WorkAreaChanged => {
+        WindowEvent::WorkAreaChanged => {
             mosaico_core::log_info!("Work area changed (taskbar shown/hidden)");
-            let bar_height = bar_mgr.bar_height();
-            let indices = bar_mgr.bar_monitor_indices().to_vec();
-            if let Err(e) = manager.reset_and_adjust_work_areas(bar_height, &indices) {
+            if let Err(e) = bars.reset_work_areas(manager) {
                 mosaico_core::log_warn!("Work area changed, but {e}");
             }
-            true
         }
-        mosaico_core::WindowEvent::DisplayChanged => match WindowsEnumerator.monitors() {
+        WindowEvent::DisplayChanged => match WindowsEnumerator.monitors() {
             Ok(new_monitors) => {
                 mosaico_core::log_info!("Display change detected, {} monitors", new_monitors.len());
-                // Rebuild the bars first: the tiler must reserve space on
-                // the monitors that have a bar *after* the change. Reading
-                // the indices beforehand leaves a newly connected monitor
-                // tiled underneath its bar.
-                let monitor_rects: Vec<_> = new_monitors.iter().map(|m| m.work_area).collect();
-                bar_mgr.rebuild_for_monitors(monitor_rects, *current_theme);
-                let bar_height = bar_mgr.bar_height();
-                let indices = bar_mgr.bar_monitor_indices().to_vec();
-                manager.handle_display_change(new_monitors, bar_height, &indices);
-                true
+                // The bars move first: the tiler keeps clear of where they
+                // are *after* the change, so a monitor just connected is
+                // not tiled underneath its bar.
+                bars.display_changed(manager, new_monitors);
             }
             Err(e) => {
                 mosaico_core::log_warn!("Failed to re-enumerate monitors: {}", e);
                 manager.display_change_skipped();
-                false
             }
         },
-        other => {
-            manager.handle_event(&other);
-            // LocationChanged fires very frequently. The bar only follows it
-            // when a window on screen goes in or out of maximized or
-            // fullscreen, which decides whether the bar lets clicks through.
-            let bars_changed = manager.take_bars_changed();
-            bars_changed || !matches!(other, mosaico_core::WindowEvent::LocationChanged { .. })
-        }
+        other => manager.handle_event(&other),
     }
 }
 
 pub(super) fn handle_reload(
-    reload: mosaico_core::config::ConfigReload,
+    reload: ConfigReload,
     manager: &mut TilingManager,
-    bar_mgr: &mut BarManager,
-    current_theme: &mut mosaico_core::config::Theme,
+    bars: &mut BarHost,
     inputs: &mut Inputs,
-    hotkeys_paused: bool,
-    get_update: &dyn Fn() -> String,
 ) {
     match reload {
-        mosaico_core::config::ConfigReload::Config(cfg) => {
-            *current_theme = cfg.theme.resolve();
+        ConfigReload::Config(cfg) => {
+            bars.set_theme(cfg.theme.resolve());
             manager.reload_config(&cfg);
             inputs.set_focus_follows_mouse(cfg.mouse.focus_follows_mouse);
             inputs.set_tray_enabled(cfg.tray.enabled);
-            // Theme may have changed — re-resolve bar colors.
-            bar_mgr.resolve_colors(*current_theme);
-            bar_mgr.update(&manager.bar_states(&get_update(), hotkeys_paused));
         }
-        mosaico_core::config::ConfigReload::Rules(rules) => {
+        ConfigReload::Rules(rules) => {
             manager.reload_rules(rules);
         }
-        mosaico_core::config::ConfigReload::Bar(bar_cfg) => {
-            let new_height = bar_mgr.reload(*bar_cfg);
-            bar_mgr.resolve_colors(*current_theme);
-            let indices = bar_mgr.bar_monitor_indices().to_vec();
-            if let Err(e) = manager.reset_and_adjust_work_areas(new_height, &indices) {
+        ConfigReload::Bar(bar_cfg) => {
+            if let Err(e) = bars.reload(manager, *bar_cfg) {
                 mosaico_core::log_warn!("Bar reloaded, but {e}");
             }
-            bar_mgr.update(&manager.bar_states(&get_update(), hotkeys_paused));
         }
-        mosaico_core::config::ConfigReload::Keybindings { bindings, launches } => {
+        ConfigReload::Keybindings { bindings, launches } => {
             inputs.reload_hotkeys(bindings, launches);
         }
-        mosaico_core::config::ConfigReload::Invalid { file, reason } => {
+        ConfigReload::Invalid { file, reason } => {
             inputs.notify(&TrayNotice::invalid_config(file, &reason));
         }
     }
+    bars.show(manager);
 }
 
-pub(super) fn handle_tick(
-    manager: &mut TilingManager,
-    bar_mgr: &mut BarManager,
-    hotkeys_paused: bool,
-    get_update: &dyn Fn() -> String,
-) {
-    bar_mgr.update(&manager.bar_states(&get_update(), hotkeys_paused));
+/// Once a second: the bars take in the update notice, then are shown the
+/// state if it changed, or else redraw what changes on its own, such as the
+/// clock.
+pub(super) fn handle_tick(manager: &mut TilingManager, bars: &mut BarHost, update: &str) {
+    bars.set_update(update);
+    bars.tick(manager);
 }

@@ -75,4 +75,10 @@ impl FakePlatform {
         let renders = std::mem::take(&mut *self.shared.renders.borrow_mut());
         renders.into_iter().map(|w| w.raw()).collect()
     }
+
+    /// The desktop queries that read the most, by name, since the last
+    /// call, forgetting them: the windows on screen, and a window's facts.
+    pub(crate) fn take_queries(&self) -> Vec<&'static str> {
+        std::mem::take(&mut *self.shared.queries.borrow_mut())
+    }
 }

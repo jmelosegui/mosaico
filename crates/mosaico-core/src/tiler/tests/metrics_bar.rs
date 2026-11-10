@@ -13,6 +13,7 @@ use crate::bar::{BarManager, Button, PointerEvent, WHEEL_QUIET};
 use crate::config::{BarConfig, Theme};
 use crate::{Action, Direction, Rect};
 
+use super::super::bar_support::manager_bars;
 use super::super::fake_platform::FakePlatform;
 use super::super::manager_support::{start, still};
 use super::super::metrics_support::{Manager, Measured, on};
@@ -102,7 +103,7 @@ pub(super) fn click_on_a_widget() -> Measured {
 
 /// A bar with `config` on each monitor of `manager`, drawn by `renderer`
 /// with what the manager has on screen.
-fn drawn_bars(manager: &Manager, renderer: &FakeRenderer, config: BarConfig) -> BarManager {
+fn drawn_bars(manager: &mut Manager, renderer: &FakeRenderer, config: BarConfig) -> BarManager {
     let areas = vec![
         Rect::new(0, 0, MON_W, MON_H),
         Rect::new(MON_W, 0, MON_W, MON_H),
@@ -116,6 +117,6 @@ fn drawn_bars(manager: &Manager, renderer: &FakeRenderer, config: BarConfig) -> 
         areas,
         Theme::default(),
     );
-    bars.update(&manager.bar_states("", false));
+    bars.update(&manager_bars(manager, &Default::default()));
     bars
 }

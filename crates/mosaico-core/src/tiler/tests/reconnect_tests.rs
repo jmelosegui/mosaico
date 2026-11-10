@@ -1,11 +1,10 @@
 use crate::action::MAX_WORKSPACES;
-use crate::{EdidIdentity, LayoutKind, MonitorId, MonitorKey, Rect};
-
 use crate::id::{wid, wids};
+use crate::{EdidIdentity, LayoutKind, MonitorId, MonitorKey};
 
-use super::super::Display;
-use super::super::MonitorState;
 use super::super::display_rebuild::rebuild_monitors;
+use super::super::tests::displays;
+use super::super::{Display, MonitorState};
 use super::ReconnectMemory;
 
 fn key(name: &str) -> MonitorKey {
@@ -22,21 +21,19 @@ fn layouts() -> Vec<LayoutKind> {
 /// Monitors laid out left to right, the first one primary. `id_base`
 /// stands in for the fresh session ids a platform hands out each time.
 fn infos(keys: &[&MonitorKey], id_base: usize) -> Vec<Display> {
-    keys.iter()
-        .enumerate()
-        .map(|(i, k)| Display {
+    (displays(keys.len()).into_iter().zip(keys).enumerate())
+        .map(|(i, (display, k))| Display {
             id: MonitorId::from_raw((id_base + i) as u64),
             key: (*k).clone(),
-            work_area: Rect::new(i as i32 * 1920, 0, 1920, 1080),
-            primary: i == 0,
+            ..display
         })
         .collect()
 }
 
 fn states(keys: &[&MonitorKey]) -> Vec<MonitorState> {
-    infos(keys, 1)
-        .iter()
-        .map(|i| MonitorState::new(i, &layouts()))
+    let ids = crate::monitor::assign_stable_ids(keys, &[]);
+    (infos(keys, 1).iter().zip(ids))
+        .map(|(i, id)| MonitorState::new(i, &layouts(), id))
         .collect()
 }
 

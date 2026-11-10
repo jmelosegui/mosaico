@@ -5,10 +5,11 @@ use std::time::Instant;
 
 use crate::action::MAX_WORKSPACES;
 use crate::config::{AnimationConfig, BorderConfig, LayoutConfig, WindowRule, WorkspacesConfig};
-use crate::{HidingSupport, LayoutKind, WindowId};
+use crate::monitor::assign_stable_ids;
+use crate::{HidingSupport, LayoutKind, MonitorKey, WindowId};
 
 use super::{
-    Desktop, Display, Effect, MonitorState, Plan, Tiler, bar_states, drag, hidden_how, reconnect,
+    Desktop, Display, Effect, MonitorState, Plan, Tiler, api_state, drag, hidden_how, reconnect,
 };
 
 /// Everything the tiler is configured with at startup.
@@ -73,9 +74,12 @@ impl Tiler {
                     .unwrap_or(settings.layout.default)
             })
             .collect();
+        let keys: Vec<&MonitorKey> = displays.iter().map(|d| &d.key).collect();
+        let ids = assign_stable_ids(&keys, &[]);
         let monitors = displays
             .iter()
-            .map(|d| MonitorState::new(d, &workspace_layouts))
+            .zip(ids)
+            .map(|(d, id)| MonitorState::new(d, &workspace_layouts, id))
             .collect();
         let mut layout = settings.layout;
         let configured_hiding = layout.hiding;
@@ -105,7 +109,7 @@ impl Tiler {
             focused_monitor: 0,
             focused_window: None,
             focused_maximized: false,
-            filling: bar_states::Filling::default(),
+            filling: api_state::Filling::default(),
             empty_focus_claim: None,
             adopt_rejected: HashSet::new(),
             min_sizes: super::min_sizes::MinSizes::default(),

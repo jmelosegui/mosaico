@@ -55,8 +55,7 @@ fn a_dragged_window_reporting_where_it_is_leaves_the_bars_as_they_were() {
     // Act -- window 1 is dragged over it.
     report_at(&mut h, 1, (MON_W + MON_W / 2, MON_H / 2));
     let changed = h.tiler.take_bars_changed();
-    let mut states = h.tiler.bar_states("", false);
-    h.tiler.mark_maximized(&mut states, &h.desktop);
+    let states = h.bars();
 
     // Assert -- its reports neither have the bars drawn again nor let the
     // pointer through them.

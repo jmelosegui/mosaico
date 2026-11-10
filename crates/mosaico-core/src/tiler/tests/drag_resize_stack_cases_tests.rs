@@ -4,8 +4,9 @@
 //! moves its split all the same, and a window dropped into a resized stack
 //! from another monitor takes an equal share of it.
 
+use crate::tiler::Input;
+use crate::tiler::Reach;
 use crate::tiler::tests::Harness;
-use crate::tiler::{BarReservation, Input};
 use crate::{LayoutKind, Rect};
 
 use super::super::super::support::{center, drag_to, swapping};
@@ -95,7 +96,7 @@ fn a_window_dropped_into_a_resized_stack_on_another_monitor_takes_an_equal_share
     let ws = h.tiler.monitors[1].active_ws_mut();
     ws.set_layout_kind(LayoutKind::VerticalStack);
     ws.set_heights(1, &[0.25, 0.75]);
-    h.step(Input::Bar(BarReservation::default()));
+    h.step(Input::Reach(Reach::none()));
 
     // Act -- window 1 dropped on window 4.
     let over = center(h.rect_of(4));

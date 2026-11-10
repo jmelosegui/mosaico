@@ -53,6 +53,8 @@ struct Shared {
     drawn: RefCell<HashMap<WindowId, LastDrawn>>,
     /// The windows whose border was drawn from scratch, in order.
     renders: RefCell<Vec<WindowId>>,
+    /// The desktop queries counted for the metrics, by name, in order.
+    queries: RefCell<Vec<&'static str>>,
 }
 
 /// A platform on a fake desktop that records what it is asked to do.
@@ -82,6 +84,7 @@ impl FakePlatform {
                 frame_fault: Cell::new(frames::FrameFault::Works),
                 drawn: RefCell::new(HashMap::new()),
                 renders: RefCell::new(Vec::new()),
+                queries: RefCell::new(Vec::new()),
             }),
         }
     }

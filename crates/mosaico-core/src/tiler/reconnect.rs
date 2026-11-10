@@ -12,7 +12,7 @@
 use std::collections::HashMap;
 
 use crate::layout::OwnSplits;
-use crate::{MonitorKey, WindowId, Workspace};
+use crate::{MonitorKey, StableMonitorId, WindowId, Workspace};
 
 use super::MonitorState;
 
@@ -28,9 +28,11 @@ pub(super) struct ReconnectMemory {
     displaced: HashMap<WindowId, Displaced>,
 }
 
-struct ParkedMonitor {
-    workspaces: Vec<Workspace>,
-    active_workspace: usize,
+/// What is kept of a disconnected monitor until it comes back.
+pub(super) struct ParkedMonitor {
+    pub(super) workspaces: Vec<Workspace>,
+    pub(super) active_workspace: usize,
+    pub(super) stable_id: StableMonitorId,
 }
 
 /// Where a displaced window lived, and where it was put instead.
@@ -75,6 +77,7 @@ impl ReconnectMemory {
                 ParkedMonitor {
                     workspaces: gone.workspaces,
                     active_workspace: gone.active_workspace,
+                    stable_id: gone.stable_id,
                 },
             );
         }

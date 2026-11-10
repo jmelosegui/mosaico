@@ -1,4 +1,4 @@
-use crate::{LayoutKind, MonitorId, MonitorKey, Rect, WindowId, Workspace};
+use crate::{LayoutKind, MonitorId, MonitorKey, Rect, StableMonitorId, WindowId, Workspace};
 
 use super::Display;
 
@@ -9,6 +9,16 @@ pub struct MonitorState {
     /// Identity that survives reconnects, used to match monitors across
     /// display changes.
     pub(super) key: MonitorKey,
+    /// The id programs outside mosaico name the monitor by, kept through
+    /// display changes and parked with the workspaces.
+    pub(super) stable_id: StableMonitorId,
+    /// The whole monitor, as the platform reports it.
+    pub(super) bounds: Rect,
+    /// What the system calls the display, and the name of its output.
+    pub(super) name: String,
+    pub(super) device: String,
+    /// Scale factor, 1.0 at 100%.
+    pub(super) scale: f64,
     /// Work area as reported by the OS, before the bar is reserved.
     ///
     /// Kept so the bar-adjusted `work_area` can always be re-derived
@@ -21,17 +31,39 @@ pub struct MonitorState {
 }
 
 impl MonitorState {
-    /// State for a monitor seen for the first time: empty workspaces
-    /// with the configured layouts.
-    pub(super) fn new(display: &Display, layouts: &[LayoutKind]) -> Self {
+    /// State for a monitor seen for the first time, or for the first time
+    /// since it was parked, with `stable_id`: empty workspaces with the
+    /// configured layouts.
+    pub(super) fn new(
+        display: &Display,
+        layouts: &[LayoutKind],
+        stable_id: StableMonitorId,
+    ) -> Self {
         Self {
             id: display.id,
             key: display.key.clone(),
+            stable_id,
+            bounds: display.bounds,
+            name: display.name.clone(),
+            device: display.device.clone(),
+            scale: display.scale,
             os_work_area: display.work_area,
             work_area: display.work_area,
             workspaces: layouts.iter().map(|&k| Workspace::with_layout(k)).collect(),
             active_workspace: 0,
         }
+    }
+
+    /// Takes what the platform reports of the monitor now, its session
+    /// id, bounds, names, scale and work area, keeping its tiling area
+    /// until the bar is reserved again.
+    pub(super) fn sync(&mut self, display: &Display) {
+        self.id = display.id;
+        self.bounds = display.bounds;
+        self.name.clone_from(&display.name);
+        self.device.clone_from(&display.device);
+        self.scale = display.scale;
+        self.os_work_area = display.work_area;
     }
 
     pub(super) fn active_ws(&self) -> &Workspace {
@@ -64,6 +96,11 @@ impl MonitorState {
     /// Identity that survives reconnects.
     pub fn key(&self) -> &MonitorKey {
         &self.key
+    }
+
+    /// The id programs outside mosaico name the monitor by.
+    pub fn stable_id(&self) -> &StableMonitorId {
+        &self.stable_id
     }
 
     /// Area windows are tiled into, after the bar is reserved.

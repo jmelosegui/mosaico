@@ -37,7 +37,7 @@ fn a_display_change_while_a_window_is_dragged_leaves_it_with_the_user() {
     let rebuilt = h
         .step(Input::Displays {
             monitors: displays(1),
-            bar: Default::default(),
+            reach: Default::default(),
         })
         .to_vec();
     h.window(2).monitor = 0;
@@ -83,7 +83,7 @@ fn a_display_change_that_parks_a_dragged_window_on_a_monocle_workspace_leaves_it
     // to the first, where the user drops it.
     let rebuilt = h.step(Input::Displays {
         monitors: displays(1),
-        bar: Default::default(),
+        reach: Default::default(),
     });
     let rebuilt = rebuilt.to_vec();
     let waits = h.workspace(0, 0).waits_behind(wid(2));

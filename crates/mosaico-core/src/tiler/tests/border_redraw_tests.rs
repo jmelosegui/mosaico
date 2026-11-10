@@ -56,7 +56,7 @@ fn a_retile_that_reads_the_work_areas_first_draws_every_border_from_scratch() {
     let before = slots(&platform);
 
     // Act -- as the daemon runs the user's retile.
-    let read = manager.reset_and_adjust_work_areas(0, &[]);
+    let read = manager.reset_work_areas(|_| Reach::none());
     manager.handle_action(&Action::Retile);
 
     // Assert
@@ -73,8 +73,8 @@ fn reading_the_work_areas_again_draws_no_border_again() {
 
     // Act -- a taskbar change reports the work areas changed several
     // times, here with nothing changed.
-    let first = manager.reset_and_adjust_work_areas(0, &[]);
-    let second = manager.reset_and_adjust_work_areas(0, &[]);
+    let first = manager.reset_work_areas(|_| Reach::none());
+    let second = manager.reset_work_areas(|_| Reach::none());
 
     // Assert
     assert!(first.is_ok() && second.is_ok());
@@ -88,7 +88,7 @@ fn reserving_the_bar_again_draws_no_border_again() {
     let (platform, mut manager) = three_windows(1);
 
     // Act
-    manager.adjust_work_areas_for_bar(0, &[]);
+    manager.set_reach(Reach::none());
 
     // Assert
     assert_eq!(drawn_from_scratch(&platform), Vec::<u64>::new());
@@ -101,7 +101,7 @@ fn a_display_change_draws_every_border_from_scratch() {
     let before = slots(&platform);
 
     // Act -- the second monitor, which has no windows, goes away.
-    manager.handle_display_change(displays(1), 0, &[]);
+    manager.handle_display_change(displays(1), Reach::none());
 
     // Assert
     assert_eq!(slots(&platform), before);
@@ -114,7 +114,7 @@ fn a_display_change_that_changes_nothing_draws_no_border_again() {
     let (platform, mut manager) = three_windows(2);
 
     // Act
-    manager.handle_display_change(displays(2), 0, &[]);
+    manager.handle_display_change(displays(2), Reach::none());
 
     // Assert
     assert_eq!(drawn_from_scratch(&platform), Vec::<u64>::new());

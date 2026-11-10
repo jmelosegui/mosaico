@@ -3,7 +3,7 @@
 use crate::Rect;
 use crate::config::Config;
 use crate::tiler::tests::{Harness, MON_H, MON_W, displays};
-use crate::tiler::{BarReservation, Input};
+use crate::tiler::{Input, Reach};
 
 use super::{Animate, Snap, animated, marks};
 
@@ -12,12 +12,8 @@ fn the_start_and_the_bar_reservation_right_after_it_snap() {
     // Arrange
     let mut h = Harness::with_settings(animated(), 1, &[(1, 0), (2, 0)]);
     let start = h.effects.clone();
-    let bar = |height| {
-        Input::Bar(BarReservation {
-            height,
-            monitors: Vec::new(),
-        })
-    };
+    let places = h.tiler.places();
+    let bar = |height| Input::Reach(Reach::bar_on(&places, height, &[]));
 
     // Act
     let reserved = h.step(bar(30)).to_vec();
@@ -35,10 +31,15 @@ fn a_display_change_snaps_every_window() {
     let mut h = Harness::with_settings(animated(), 2, &[(1, 0), (2, 1)]);
     let mut monitors = displays(2);
     monitors[1].work_area = Rect::new(MON_W, 0, MON_W, MON_H - 40);
-    let bar = BarReservation::default();
+    let bar = Reach::none();
 
     // Act
-    let effects = h.step(Input::Displays { monitors, bar }).to_vec();
+    let effects = h
+        .step(Input::Displays {
+            monitors,
+            reach: bar,
+        })
+        .to_vec();
 
     // Assert
     assert_eq!(marks(&effects), [(1, Snap), (2, Snap)]);

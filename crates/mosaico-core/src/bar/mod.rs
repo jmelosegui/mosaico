@@ -1,5 +1,10 @@
 //! What the status bar shows, and the contracts that put it on screen.
 //!
+//! Every bar, mosaico's own or one another program draws, is a
+//! [BarProvider](crate::bar::BarProvider): it is told the bar API's
+//! [State](crate::api::State) and says how far it reaches into each
+//! monitor. [BuiltinBar](crate::bar::BuiltinBar) is mosaico's own.
+//!
 //! Core decides what every bar shows.
 //! [`BarContent::build`](crate::bar::BarContent::build) turns the bar
 //! config, a monitor's [`BarState`](crate::bar::BarState) and the
@@ -21,13 +26,16 @@
 //! ask for. What a click on a widget runs is decided from the bar config
 //! by [`WidgetClicks`](crate::bar::WidgetClicks).
 
+mod builtin;
 mod clicks;
 mod content;
 mod cpu;
+mod host;
 mod icon;
 mod manager;
 mod pointer;
 mod press;
+mod provider;
 mod readings;
 mod region;
 mod renderer;
@@ -38,13 +46,16 @@ mod time;
 mod wheel;
 mod widget_text;
 
+pub use builtin::BuiltinBar;
 pub use clicks::{ClickProblem, RejectedClick, WidgetClicks};
 pub use content::{BarContent, BarItem};
 pub use cpu::CpuTracker;
+pub use host::BarHost;
 pub use icon::{BarIcon, Stroke, mask};
 pub use manager::BarManager;
 pub use pointer::{BarId, Button, PointerEvent, PointerSink};
 pub use press::Press;
+pub use provider::{BarProvider, NoBar};
 pub use readings::SystemReadings;
 pub use region::{BarSide, BarTarget, ItemRegion, WidgetRef, hit};
 pub use renderer::{BarRenderer, BarSurface};

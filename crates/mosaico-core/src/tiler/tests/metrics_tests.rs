@@ -41,16 +41,26 @@ fn kind(call: &Call) -> &'static str {
 }
 
 /// Every scenario's calls by kind, with the total and the borders drawn
-/// from scratch. Kinds a scenario never asks for are left out.
+/// from scratch, and the desktop queries that read the most, as
+/// `read_<query>`. Kinds a scenario never asks for are left out.
 fn measure() -> Report {
     let mut report = Report::new();
     for &(name, run) in SCENARIOS {
-        let Measured { calls, renders } = run();
+        let Measured {
+            calls,
+            renders,
+            queries,
+        } = run();
         report.set(name, "calls", calls.len() as u64, Better::Lower);
         report.set(name, "border_renders", renders as u64, Better::Lower);
         for call in &calls {
             let count = report.get(name, kind(call)).map_or(0, |m| m.value);
             report.set(name, kind(call), count + 1, Better::Lower);
+        }
+        for query in queries {
+            let key = format!("read_{query}");
+            let count = report.get(name, &key).map_or(0, |m| m.value);
+            report.set(name, &key, count + 1, Better::Lower);
         }
     }
     report

@@ -78,7 +78,7 @@ fn a_window_a_display_change_brings_onto_monocle_is_put_behind_it() {
     platform.take_calls();
 
     // Act -- the second monitor leaves.
-    manager.handle_display_change(displays(1), 0, &[]);
+    manager.handle_display_change(displays(1), Reach::none());
 
     // Assert -- through the window control.
     let calls = platform.calls();
@@ -97,12 +97,33 @@ fn the_work_areas_are_read_again_from_the_platform() {
     platform.set_work_area(0, smaller);
 
     // Act
-    let read = manager.reset_and_adjust_work_areas(0, &[]);
+    let read = manager.reset_work_areas(|_| Reach::none());
 
     // Assert
     assert!(read.is_ok());
     assert_eq!(manager.tiler().monitors()[0].work_area(), smaller);
     assert!(platform.window(1).rect.y + platform.window(1).rect.height <= smaller.height);
+}
+
+#[test]
+fn the_bar_reaches_from_the_work_areas_just_read() {
+    // Arrange -- a taskbar 48 high appeared at the top.
+    let platform = FakePlatform::new(1, &[(1, 0)]);
+    let mut manager = start(&platform, None, &still());
+    let below_taskbar = Rect::new(0, 48, MON_W, MON_H - 48);
+    platform.set_work_area(0, below_taskbar);
+    let mut told = Vec::new();
+
+    // Act -- with a bar 30 high.
+    let read = manager.reset_work_areas(|places| {
+        told = places.iter().map(|place| place.work_area).collect();
+        Reach::bar_on(places, 30, &[])
+    });
+
+    // Assert -- the bar sits under the taskbar, and the tiles under both.
+    assert!(read.is_ok());
+    assert_eq!(told, [below_taskbar]);
+    assert_eq!(manager.tiler().monitors()[0].work_area().y, 48 + 30);
 }
 
 #[test]
@@ -114,7 +135,7 @@ fn the_work_areas_stay_when_the_monitors_cannot_be_read_again() {
     platform.fail_monitors();
 
     // Act -- with a bar 30 high.
-    let read = manager.reset_and_adjust_work_areas(30, &[]);
+    let read = manager.reset_work_areas(|places| Reach::bar_on(places, 30, &[]));
 
     // Assert -- the bar is reserved again on the area last read, and the
     // windows are laid out below it.

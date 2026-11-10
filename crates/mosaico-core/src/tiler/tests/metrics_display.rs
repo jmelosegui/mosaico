@@ -4,6 +4,7 @@ use super::super::displays;
 use super::super::fake_platform::FakePlatform;
 use super::super::manager_support::{start, still};
 use super::super::metrics_support::{Manager, Measured, on};
+use crate::tiler::Reach;
 
 /// Two windows on each of two monitors.
 fn two_monitors() -> (FakePlatform, Manager) {
@@ -14,15 +15,15 @@ fn two_monitors() -> (FakePlatform, Manager) {
 
 pub(super) fn disconnect() -> Measured {
     on(two_monitors(), |m| {
-        m.handle_display_change(displays(1), 0, &[]);
+        m.handle_display_change(displays(1), Reach::none());
     })
 }
 
 pub(super) fn reconnect() -> Measured {
     let (platform, mut manager) = two_monitors();
-    manager.handle_display_change(displays(1), 0, &[]);
+    manager.handle_display_change(displays(1), Reach::none());
     manager.flush_pending();
     on((platform, manager), |m| {
-        m.handle_display_change(displays(2), 0, &[]);
+        m.handle_display_change(displays(2), Reach::none());
     })
 }

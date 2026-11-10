@@ -56,8 +56,12 @@ pub fn monitor(id: u64, x: i32) -> Display {
             stable_id: Some(format!("mon{id}")),
             ..Default::default()
         },
+        bounds: Rect::new(x, 0, 1920, 1080),
         work_area: Rect::new(x, 0, 1920, 1040),
         primary: x == 0,
+        name: String::new(),
+        device: String::new(),
+        scale: 1.0,
     }
 }
 

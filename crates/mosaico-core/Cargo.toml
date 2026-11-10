@@ -14,6 +14,7 @@ zip = { version = "2", default-features = false, features = ["deflate"] }
 
 [dev-dependencies]
 mosaico-metrics = { path = "../mosaico-metrics" }
+schemars = "1"
 
 [lints]
 workspace = true
