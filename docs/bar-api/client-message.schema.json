@@ -75,6 +75,30 @@
           "required": [
             "ping"
           ]
+        },
+        {
+          "description": "Keeps tiles clear of the bar's space on a monitor, in place of what\nthe session reserved there before.",
+          "type": "object",
+          "properties": {
+            "reserve": {
+              "$ref": "#/$defs/Reserve"
+            }
+          },
+          "required": [
+            "reserve"
+          ]
+        },
+        {
+          "description": "Ends the session's reservations.",
+          "type": "object",
+          "properties": {
+            "release": {
+              "$ref": "#/$defs/Release"
+            }
+          },
+          "required": [
+            "release"
+          ]
         }
       ],
       "required": [
@@ -111,6 +135,15 @@
             "null"
           ]
         },
+        "process": {
+          "description": "The process that draws the bar, when it is not the one connected,\nas when a bar speaks through `mosaico subscribe`. Its windows are\nnot tiled while the session reserves space.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        },
         "topics": {
           "description": "The topics to follow, or `None` for all of them.",
           "type": [
@@ -122,6 +155,56 @@
           }
         }
       }
+    },
+    "Release": {
+      "description": "Ends a session's reservations.",
+      "type": "object",
+      "properties": {
+        "monitor": {
+          "description": "The one made for this monitor, or `\"all\"`, or every one the session\nholds when `None`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "Reserve": {
+      "description": "How far a bar reaches into a monitor from each edge, in the desktop's\npixels, which tiles keep clear of while its session lasts. Edges left\nout reach nothing; all of them at 0 ends the reservation.",
+      "type": "object",
+      "properties": {
+        "bottom": {
+          "description": "Up from the bottom edge.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "left": {
+          "description": "In from the left edge.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "monitor": {
+          "description": "The monitor, by id, or `\"all\"`.",
+          "type": "string"
+        },
+        "right": {
+          "description": "In from the right edge.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "top": {
+          "description": "Down from the top edge.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "monitor"
+      ]
     },
     "Run": {
       "description": "An action to run, as a click on a monitor's bar runs it.",

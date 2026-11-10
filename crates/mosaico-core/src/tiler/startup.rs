@@ -96,6 +96,7 @@ impl Tiler {
             workspace_mode: settings.workspaces.mode,
             workspace_wrap: settings.workspaces.wrap,
             rules: settings.rules,
+            bar_processes: Vec::new(),
             border_config: settings.borders,
             animations: settings.animations,
             fresh: true,

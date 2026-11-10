@@ -8,6 +8,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use mosaico_core::action::Origin;
 use mosaico_core::api::{ErrorCode, Hub, Limits, LoopRequest, serve_api};
 use mosaico_core::bar::BarHost;
+use mosaico_core::tiler::Platform;
 
 use crate::ipc::ApiPipeListener;
 use crate::tiling::TilingManager;
@@ -79,8 +80,8 @@ fn boot_id() -> String {
 }
 
 /// Carries out what a session asked of the loop: the state published
-/// again, or an action run on the monitor it names, answered once the
-/// state it led to is published.
+/// again, an action run on the monitor it names, or space reserved or
+/// released, answered once the state it led to is published.
 pub(super) fn handle(
     request: LoopRequest,
     manager: &mut TilingManager,
@@ -105,5 +106,27 @@ pub(super) fn handle(
                 Err(e) => reply.fail(ErrorCode::Failed, e.to_string()),
             }
         }
+        LoopRequest::Reserve {
+            peer,
+            reserve,
+            reply,
+        } => {
+            let reserved = bars.reserve(manager, &peer, &reserve);
+            bars.show(manager);
+            match reserved {
+                Ok(()) => reply.ok(),
+                Err(e) => reply.fail(e.code, e.message),
+            }
+        }
+        LoopRequest::Release {
+            session,
+            release,
+            reply,
+        } => {
+            bars.release(manager, session, release.monitor.as_ref());
+            bars.show(manager);
+            reply.ok();
+        }
+        LoopRequest::Ended { session } => bars.session_ended(session, manager.platform().now()),
     }
 }

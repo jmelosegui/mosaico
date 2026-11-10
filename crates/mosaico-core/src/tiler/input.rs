@@ -52,6 +52,8 @@ pub enum Input {
     Config(Box<Config>),
     /// The window rules changed.
     Rules(Vec<WindowRule>),
+    /// The processes of the bars that reserve space changed.
+    BarProcesses(Vec<u32>),
     /// Redraw every border from the current state.
     RefreshBorders,
     /// Repaint every visible window, including the ones already in

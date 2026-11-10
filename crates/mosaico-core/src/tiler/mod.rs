@@ -120,6 +120,9 @@ pub struct Tiler {
     workspace_mode: WorkspaceMode,
     workspace_wrap: bool,
     rules: Vec<WindowRule>,
+    /// The processes of the bars that reserve space through the bar API,
+    /// whose windows are never managed.
+    bar_processes: Vec<u32>,
     border_config: BorderConfig,
     /// Whether placements may animate, and how, see
     /// [`Transition`](crate::tiler::Transition).

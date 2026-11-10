@@ -96,6 +96,7 @@ fn wait<'a>(
 /// split, it ends the connection, as closing a real one does.
 pub struct FakeConnection {
     ends: Option<(Arc<Chan>, Arc<Chan>)>,
+    peer: Option<u32>,
 }
 
 impl Drop for FakeConnection {
@@ -134,6 +135,10 @@ impl ApiConnection for FakeConnection {
             deadline: None,
         };
         Ok((reader, writer))
+    }
+
+    fn peer_process(&self) -> Option<u32> {
+        self.peer
     }
 }
 
@@ -244,13 +249,15 @@ impl FakeListener {
         }
     }
 
-    /// Connects a bar whose end holds `capacity` bytes the daemon sent.
-    pub fn connect_with(&self, capacity: usize) -> FakeBar {
+    /// Connects a bar whose end holds `capacity` bytes the daemon sent,
+    /// from process `peer`, as the platform tells it.
+    pub fn connect_from(&self, capacity: usize, peer: Option<u32>) -> FakeBar {
         let to_daemon = Chan::new(usize::MAX);
         let from_daemon = Chan::new(capacity);
         let (lock, changed) = &*self.queue;
         lock.lock().unwrap().0.push_back(FakeConnection {
             ends: Some((Arc::clone(&to_daemon), Arc::clone(&from_daemon))),
+            peer,
         });
         changed.notify_all();
         FakeBar {
@@ -262,7 +269,7 @@ impl FakeListener {
 
     /// Connects a bar.
     pub fn connect(&self) -> FakeBar {
-        self.connect_with(usize::MAX)
+        self.connect_from(usize::MAX, None)
     }
 }
 

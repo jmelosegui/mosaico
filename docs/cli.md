@@ -360,13 +360,15 @@ Prints the state bars are shown, once, as JSON: the topics named
 one monitor, by id or by index from the left; `--field` prints one value as
 text, such as `focus.window.title`.
 
-### `mosaico subscribe [--bar NAME] [--topics LIST] [--monitor ID] [--full | --field PATH] [--wait] [--requests]`
+### `mosaico subscribe [--bar NAME] [--topics LIST] [--monitor ID] [--full | --field PATH] [--wait] [--requests] [--reserve EDGE=PX[@MONITOR]]...`
 
 Follows the state bars are shown, a line for each change, for bars that read
 a command's output. Prints the daemon's messages as sent, the whole state
 with `--full`, or one value with `--field`. `--requests` sends the JSON
 requests read on standard input. `--wait` waits for the daemon and survives
-its restarts. It also ends when the program that started it exits.
+its restarts. `--reserve top=32` keeps that space clear of tiles for the
+program that started it while it runs, when `[bar] provider` accepts the bar.
+It also ends when the program that started it exits.
 
 ### `mosaico run <action> [--monitor ID]`
 

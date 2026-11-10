@@ -167,7 +167,8 @@ pub enum ErrorCode {
     UnsupportedApi,
     /// A message was not JSON, or not shaped as its kind is.
     Malformed,
-    /// A message was larger than a message may be. Sent before closing.
+    /// A message was larger than a message may be, sent before closing;
+    /// or a reservation reached past a quarter of a monitor.
     TooLarge,
     /// A request of a kind the daemon does not know.
     UnknownRequest,
@@ -181,6 +182,9 @@ pub enum ErrorCode {
     Failed,
     /// The daemon is stopping and carries out nothing more.
     Stopping,
+    /// The bar the session speaks for is not the one `[bar] provider`
+    /// picks, so it may not reserve space.
+    NotProvider,
     /// A code this build does not know.
     #[serde(other)]
     Other,
@@ -188,7 +192,7 @@ pub enum ErrorCode {
 
 impl ErrorCode {
     /// Every code but `Other`, with its name on the wire.
-    pub const NAMED: [(Self, &'static str); 10] = [
+    pub const NAMED: [(Self, &'static str); 11] = [
         (Self::Busy, "busy"),
         (Self::UnsupportedApi, "unsupported-api"),
         (Self::Malformed, "malformed"),
@@ -199,6 +203,7 @@ impl ErrorCode {
         (Self::UnknownAction, "unknown-action"),
         (Self::Failed, "failed"),
         (Self::Stopping, "stopping"),
+        (Self::NotProvider, "not-provider"),
     ];
 
     /// The code `name` names on the wire, or `Other`.

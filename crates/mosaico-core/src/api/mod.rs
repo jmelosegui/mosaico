@@ -18,6 +18,7 @@ mod messages;
 mod outbox;
 mod protocol;
 mod session;
+mod space;
 mod state;
 mod topics;
 mod writer;
@@ -25,12 +26,13 @@ mod writer;
 pub use connection::{ApiConnection, ApiListener, ApiReader, ApiWriter, Limits, Stopper};
 pub use diff::{Removed, Update};
 pub use hub::{Hub, ToLoop};
-pub use loop_request::{LoopRequest, Reply};
+pub use loop_request::{LoopRequest, Peer, Reply};
 pub use messages::{Ack, ApiError, Bye, DaemonMessage, ErrorCode, Snapshot, Welcome};
 pub use protocol::{
     ClientMessage, Hello, Refusal, Request, Run, SUPPORTED_APIS, Subscribe, negotiate,
 };
 pub use session::serve_api;
+pub use space::{MonitorTarget, Release, Reserve};
 pub use state::{Daemon, Focus, FocusedWindow, Monitor, Rect, State, Theme, Workspace};
 pub use topics::{Topic, Topics};
 
@@ -58,6 +60,10 @@ mod arbitrary;
 mod protocol_tests;
 
 #[cfg(test)]
+#[path = "tests/space_message_tests.rs"]
+mod space_message_tests;
+
+#[cfg(test)]
 #[path = "tests/fake_pipe.rs"]
 pub(crate) mod fake_pipe;
 
@@ -76,6 +82,10 @@ mod session_tests;
 #[cfg(test)]
 #[path = "tests/session_limits_tests.rs"]
 mod session_limits_tests;
+
+#[cfg(test)]
+#[path = "tests/session_space_tests.rs"]
+mod session_space_tests;
 
 #[cfg(test)]
 #[path = "tests/metrics_tests.rs"]

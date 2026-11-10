@@ -1,6 +1,7 @@
 use super::*;
-use crate::bar::ApiBar;
+use crate::bar::{ApiBar, BarProvider};
 use crate::config::BarReserve;
+use crate::tiler::MonitorPlace;
 use crate::{Rect, StableMonitorId};
 
 fn id(text: &str) -> StableMonitorId {
@@ -99,7 +100,7 @@ fn the_hold_ends_once_the_new_bar_reaches_into_every_monitor_it_held() {
     let mut handover = Handover::begin(&top(&[("m-a", 84)]), &Reach::none(), now + HANDOVER);
 
     // Act
-    let reach = reach_of(&bar, &mut handover, &[place]);
+    let reach = reach_of(bar.reach(&[place]), &mut handover);
 
     // Assert -- nothing is left to hold, so nothing waits for the time.
     assert_eq!(reach.top(&id("m-a")), 40);

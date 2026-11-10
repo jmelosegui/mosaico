@@ -1,15 +1,16 @@
 //! What the client commands share: the daemon read on a thread of its
 //! own, the opening `hello`, and how a command ends.
 
-use std::io::{BufReader, Read};
+use std::io::{BufRead, BufReader, Read};
 use std::thread;
 
-use serde_json::Value;
+use serde_json::{Value, json};
 
-use crate::api::{ApiError, ClientMessage, ErrorCode, Hello, SUPPORTED_APIS};
+use crate::api::{ApiError, ErrorCode, Hello, SUPPORTED_APIS};
 use crate::ipc::IpcError;
 use crate::ipc::framing::read_message;
 
+use super::OpenInput;
 use super::queue::Sender;
 
 /// How a client command ended.
@@ -46,16 +47,22 @@ pub(super) enum Event {
     ParentExited,
 }
 
-/// The `hello` that opens a session for `client`.
-pub(super) fn hello(client: &str, bar: Option<&str>, topics: Option<Vec<String>>) -> ClientMessage {
-    ClientMessage::Hello {
-        hello: Hello {
-            api: SUPPORTED_APIS.to_vec(),
-            bar: bar.map(str::to_string),
-            client: Some(client.to_string()),
-            topics,
-        },
-    }
+/// The `hello` that opens a session for `client`, speaking for the bar
+/// that runs as `process`, if any, as the line sent.
+pub(super) fn hello(
+    client: &str,
+    bar: Option<&str>,
+    topics: Option<Vec<String>>,
+    process: Option<u32>,
+) -> Value {
+    let hello = Hello {
+        api: SUPPORTED_APIS.to_vec(),
+        bar: bar.map(str::to_string),
+        client: Some(client.to_string()),
+        topics,
+        process,
+    };
+    json!({ "hello": hello })
 }
 
 /// Reads the daemon's messages on `reader` on a thread of its own, and
@@ -110,4 +117,26 @@ pub(super) fn not_connected(error: IpcError) -> Outcome {
         IpcError::NotRunning => Outcome::NotRunning,
         error => Outcome::Failed(error),
     }
+}
+
+/// Runs `body` on a thread named `name`.
+pub(super) fn spawn(name: &str, body: impl FnOnce() + Send + 'static) {
+    let _ = thread::Builder::new().name(name.into()).spawn(body);
+}
+
+/// Sends each line of the input that `open` opens, then its end.
+pub(super) fn read_input(open: OpenInput, sender: &Sender<Event>) {
+    for line in open().lines() {
+        let Ok(line) = line else { break };
+        if !line.trim().is_empty() && sender.send(Event::Input(line)).is_err() {
+            return;
+        }
+    }
+    let _ = sender.send(Event::InputEnded);
+}
+
+/// The answer to request `id`, which the daemon was lost before answering.
+pub(super) fn disconnected(id: u64) -> String {
+    let message = "the daemon went away before answering";
+    json!({"id": id, "error": {"code": "disconnected", "message": message}}).to_string()
 }

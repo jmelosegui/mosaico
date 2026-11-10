@@ -46,6 +46,12 @@ impl<P: Platform> TilingManager<P> {
         self.step(Input::Rules(rules));
     }
 
+    /// Never manages the windows of `processes`, the bars that reserve
+    /// space, and lets go of those it manages now.
+    pub fn set_bar_processes(&mut self, processes: Vec<u32>) {
+        self.step(Input::BarProcesses(processes));
+    }
+
     /// Stops every motion where its window is, as soon as a display change
     /// is noted, and has every placement snap until the layout is rebuilt
     /// for it, once it settles

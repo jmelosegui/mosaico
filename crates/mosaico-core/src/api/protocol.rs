@@ -1,11 +1,12 @@
 //! What a bar sends the daemon on a session.
 
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
 
 use crate::StableMonitorId;
 
-use super::{ApiError, ErrorCode};
+use super::{ApiError, ErrorCode, Release, Reserve};
 
 /// The versions of the API this build speaks, oldest first.
 pub const SUPPORTED_APIS: [u32; 1] = [super::API_VERSION];
@@ -47,6 +48,11 @@ pub struct Hello {
     /// The topics to follow, or `None` for all of them.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub topics: Option<Vec<String>>,
+    /// The process that draws the bar, when it is not the one connected,
+    /// as when a bar speaks through `mosaico subscribe`. Its windows are
+    /// not tiled while the session reserves space.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub process: Option<u32>,
 }
 
 /// What a bar asks of the daemon.
@@ -62,6 +68,11 @@ pub enum Request {
     Resync {},
     /// Answers at once, to show the session is alive.
     Ping {},
+    /// Keeps tiles clear of the bar's space on a monitor, in place of what
+    /// the session reserved there before.
+    Reserve(Reserve),
+    /// Ends the session's reservations.
+    Release(Release),
 }
 
 /// An action to run, as a click on a monitor's bar runs it.
@@ -87,7 +98,7 @@ pub struct Subscribe {
 }
 
 /// The request kinds this build knows, as their keys on the wire.
-const KINDS: [&str; 4] = ["run", "subscribe", "resync", "ping"];
+const KINDS: [&str; 6] = ["run", "subscribe", "resync", "ping", "reserve", "release"];
 
 /// Why a message from a bar was refused, and the request's `id` when it
 /// could be read.
@@ -159,12 +170,27 @@ fn parse_request(mut map: Map<String, Value>) -> Result<Request, ApiError> {
             None => ApiError::new(ErrorCode::Malformed, "no request beside `id`"),
         });
     };
-    let mut only = Map::new();
-    if let Some(body) = map.remove(kind) {
-        only.insert(kind.to_string(), body);
+    // Each kind is read on its own: the derived reading of the enum costs
+    // the daemon much more code.
+    let body = map.remove(kind).unwrap_or_default();
+    match kind {
+        "run" => read(kind, body).map(Request::Run),
+        "subscribe" => read(kind, body).map(Request::Subscribe),
+        "reserve" => read(kind, body).map(Request::Reserve),
+        "release" => read(kind, body).map(Request::Release),
+        _ if !body.is_object() => Err(malformed(kind, "expected an object")),
+        "resync" => Ok(Request::Resync {}),
+        _ => Ok(Request::Ping {}),
     }
-    serde_json::from_value(Value::Object(only))
-        .map_err(|e| ApiError::new(ErrorCode::Malformed, format!("bad {kind}: {e}")))
+}
+
+/// The body of a request of kind `kind`.
+fn read<T: DeserializeOwned>(kind: &str, body: Value) -> Result<T, ApiError> {
+    serde_json::from_value(body).map_err(|e| malformed(kind, e))
+}
+
+fn malformed(kind: &str, why: impl std::fmt::Display) -> ApiError {
+    ApiError::new(ErrorCode::Malformed, format!("bad {kind}: {why}"))
 }
 
 /// The highest version in `offered` this build speaks too.

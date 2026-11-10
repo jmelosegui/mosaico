@@ -7,7 +7,7 @@ use serde_json::json;
 
 use crate::api::{
     Ack, ApiError, Bye, ClientMessage, Daemon, DaemonMessage, ErrorCode, Focus, FocusedWindow,
-    Hello, Request, Run, Snapshot, Subscribe, Update, Welcome,
+    Hello, MonitorTarget, Release, Request, Reserve, Run, Snapshot, Subscribe, Update, Welcome,
 };
 use crate::{StableMonitorId, WindowId};
 
@@ -22,6 +22,7 @@ fn client_examples() -> Vec<ClientMessage> {
                 bar: Some("yasb".to_string()),
                 client: Some("mosaico-yasb 1.0".to_string()),
                 topics: Some(vec!["daemon".to_string(), "focus".to_string()]),
+                process: None,
             },
         },
         request(
@@ -39,6 +40,29 @@ fn client_examples() -> Vec<ClientMessage> {
         ),
         request(3, Request::Resync {}),
         request(4, Request::Ping {}),
+        request(
+            5,
+            Request::Reserve(Reserve {
+                monitor: MonitorTarget::One(StableMonitorId::new("m-41c6e2")),
+                top: 48,
+                ..Reserve::default()
+            }),
+        ),
+        request(
+            6,
+            Request::Reserve(Reserve {
+                monitor: MonitorTarget::All,
+                bottom: 32,
+                ..Reserve::default()
+            }),
+        ),
+        request(
+            7,
+            Request::Release(Release {
+                monitor: Some(MonitorTarget::One(StableMonitorId::new("m-41c6e2"))),
+            }),
+        ),
+        request(8, Request::Release(Release::default())),
     ]
 }
 
@@ -104,6 +128,13 @@ fn daemon_examples() -> Vec<DaemonMessage> {
             error: ApiError::new(
                 ErrorCode::NotAllowed,
                 "`close-focused` acts on the focused window, which a bar may not",
+            ),
+        },
+        DaemonMessage::Error {
+            id: Some(6),
+            error: ApiError::new(
+                ErrorCode::NotProvider,
+                "only the bar provider may reserve space; set `[bar] provider` to `external`",
             ),
         },
         DaemonMessage::Error {

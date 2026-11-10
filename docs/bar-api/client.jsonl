@@ -3,3 +3,7 @@
 {"id":2,"subscribe":{"topics":["monitors","focus"]}}
 {"id":3,"resync":{}}
 {"id":4,"ping":{}}
+{"id":5,"reserve":{"monitor":"m-41c6e2","top":48}}
+{"id":6,"reserve":{"monitor":"all","bottom":32}}
+{"id":7,"release":{"monitor":"m-41c6e2"}}
+{"id":8,"release":{}}

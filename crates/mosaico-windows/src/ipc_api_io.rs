@@ -19,6 +19,7 @@ use windows::Win32::Foundation::{
 };
 use windows::Win32::Storage::FileSystem::{ReadFile, WriteFile};
 use windows::Win32::System::IO::{CancelIoEx, GetOverlappedResult, OVERLAPPED};
+use windows::Win32::System::Pipes::GetNamedPipeClientProcessId;
 use windows::Win32::System::Threading::{
     CreateEventW, INFINITE, SetEvent, WaitForMultipleObjects, WaitForSingleObject,
 };
@@ -173,6 +174,16 @@ impl ApiConnection for ApiPipeConnection {
             deadline: None,
         };
         Ok((reader, writer))
+    }
+
+    /// The client's process id, which the system records as the client
+    /// opens the pipe.
+    fn peer_process(&self) -> Option<u32> {
+        let mut process = 0;
+        // SAFETY: the handle is the connected server end of the pipe,
+        // owned by this connection, and `process` outlives the call.
+        let read = unsafe { GetNamedPipeClientProcessId(self.pipe.handle(), &mut process) };
+        read.ok().map(|()| process).filter(|&process| process != 0)
     }
 }
 

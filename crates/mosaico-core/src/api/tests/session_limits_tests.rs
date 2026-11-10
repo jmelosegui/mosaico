@@ -158,7 +158,7 @@ fn a_bar_that_stops_reading_is_dropped_while_others_keep_getting_updates() {
     };
     let world = World::with(limits);
     world.hub.publish(&state(1));
-    let stuck = world.listener.connect_with(2048);
+    let stuck = world.listener.connect_from(2048, None);
     stuck.send(HELLO);
     let (mut reading, _, _) = world.open(HELLO);
 

@@ -4,9 +4,7 @@
 
 use std::time::{Duration, Instant};
 
-use crate::tiler::{Edges, MonitorPlace, Reach, Side};
-
-use super::BarProvider;
+use crate::tiler::{Edges, Reach, Side};
 
 /// How long a switch holds the previous bar's space for a bar that is yet
 /// to say how far it reaches.
@@ -72,15 +70,10 @@ impl Handover {
     }
 }
 
-/// How far `provider` reaches into `places`, with the space `handover`
-/// still holds, which lets go of the monitors the provider reaches into,
-/// and ends once it holds nothing.
-pub(super) fn reach_of(
-    provider: &dyn BarProvider,
-    handover: &mut Option<Handover>,
-    places: &[MonitorPlace],
-) -> Reach {
-    let reach = provider.reach(places);
+/// `reach`, how far the bars reach now, with the space `handover` still
+/// holds, which lets go of the monitors the bars reach into, and ends once
+/// it holds nothing.
+pub(super) fn reach_of(reach: Reach, handover: &mut Option<Handover>) -> Reach {
     match handover {
         Some(held) => {
             held.release(&reach);

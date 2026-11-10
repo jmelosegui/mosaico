@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use crate::{Action, StableMonitorId};
 
-use super::{ApiError, ErrorCode, Hub};
+use super::{ApiError, ErrorCode, Hub, Release, Reserve};
 
 /// What a session asks of the daemon loop, which alone may touch the
 /// tiler.
@@ -26,6 +26,44 @@ pub enum LoopRequest {
         /// Where the answer goes.
         reply: Reply,
     },
+    /// Keeps tiles clear of the space `reserve` asks for, for as long as
+    /// `peer`'s session lasts, then answers `reply`.
+    Reserve {
+        /// Who asks.
+        peer: Peer,
+        /// The space, as the bar asked for it.
+        reserve: Reserve,
+        /// Where the answer goes.
+        reply: Reply,
+    },
+    /// Ends the reservations `release` names of `session`, then answers
+    /// `reply`.
+    Release {
+        /// The session they belong to.
+        session: u64,
+        /// Which ones.
+        release: Release,
+        /// Where the answer goes.
+        reply: Reply,
+    },
+    /// Session `session`, which reserved space, ended. What it still
+    /// holds is kept a moment longer, for a bar that starts again.
+    Ended {
+        /// The session.
+        session: u64,
+    },
+}
+
+/// The session a request comes from, and the bar it speaks for.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Peer {
+    /// The session.
+    pub session: u64,
+    /// The bar its `hello` named, such as `"yasb"`, if any.
+    pub bar: Option<String>,
+    /// The process that draws the bar, if known: the one `hello` named,
+    /// or else the one at the other end of the connection.
+    pub process: Option<u32>,
 }
 
 /// Answers one request. Answering after the state the request changed

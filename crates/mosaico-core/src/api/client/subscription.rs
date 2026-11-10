@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use crate::system::ParentWatch;
 
-use super::{MonitorRef, Output};
+use super::{Hold, MonitorRef, Output};
 
 /// What `subscribe` follows, prints and forwards.
 #[derive(Debug, Clone, PartialEq)]
@@ -30,6 +30,8 @@ pub struct Subscription {
     pub idle: Duration,
     /// With `wait`, how often to try to connect.
     pub retry: Duration,
+    /// The space held for the bar while the command runs.
+    pub reserve: Vec<Hold>,
 }
 
 impl Default for Subscription {
@@ -43,6 +45,7 @@ impl Default for Subscription {
             requests: false,
             idle: Duration::from_secs(15),
             retry: Duration::from_millis(500),
+            reserve: Vec::new(),
         }
     }
 }

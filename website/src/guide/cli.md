@@ -217,6 +217,7 @@ mosaico subscribe                                        # Every message, as JSO
 mosaico subscribe --topics monitors,focus --full         # The whole state on each change
 mosaico subscribe --field focus.window.title --wait      # One value, across restarts
 mosaico subscribe --bar mybar --monitor 0 --requests     # Also send requests from stdin
+mosaico subscribe --field focus.window.title --reserve top=32  # Keep 32 px clear for the bar
 ```
 
 | Option | What it does |
@@ -228,6 +229,7 @@ mosaico subscribe --bar mybar --monitor 0 --requests     # Also send requests fr
 | `--field PATH` | Prints one value, as text, when it changes |
 | `--wait` | Waits for mosaico to start, and reconnects when it restarts |
 | `--requests` | Sends each JSON line read on standard input, such as `{"id":1,"run":{"action":"goto-workspace-2"}}`, and prints the answers. Send `{"id":2,"ping":{}}` every few seconds: it stops after 15 seconds without input, and once the input ends and every request is answered |
+| `--reserve EDGE=PX` | Keeps tiles out of that much of an edge (`top`, `bottom`, `left` or `right`) while it runs, such as `top=32`, or `top=32@1` for one monitor. Repeat it for more edges. Needs `[bar] provider = "external"`, and the windows of the program that started it are not tiled |
 
 It stops when mosaico stops (unless `--wait`), and when the program that
 started it exits, so it never outlives your bar. With `--wait`, losing mosaico

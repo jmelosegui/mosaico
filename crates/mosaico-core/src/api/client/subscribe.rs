@@ -1,7 +1,6 @@
 //! `subscribe`: a session kept open, its messages printed as they come.
 
-use std::io::{BufRead, Write};
-use std::thread;
+use std::io::Write;
 use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
@@ -9,15 +8,20 @@ use serde_json::{Value, json};
 use crate::api::ErrorCode;
 use crate::ipc::framing::write_message;
 
-use super::link::{Event, hello, not_connected, read_daemon, refused, session_error};
+use super::link::{
+    Event, disconnected, hello, not_connected, read_daemon, read_input, refused, session_error,
+    spawn,
+};
 use super::output::Printer;
 use super::queue::{Received, Receiver, Sender, queue};
-use super::{ApiClient, MonitorRef, OpenInput, Outcome, Output, Streams, Subscription};
+use super::space::{Context, Space};
+use super::{ApiClient, Outcome, Output, Streams, Subscription};
 
 /// Follows the state as `name` until the session, the input, the output
 /// or the parent ends.
 pub fn subscribe(client: &dyn ApiClient, name: &str, sub: &Subscription, io: Streams) -> Outcome {
     let (sender, events) = queue();
+    let process = io.parent.as_ref().and_then(|parent| parent.pid());
     if let Some(parent) = io.parent {
         let sender = sender.clone();
         spawn("parent-watch", move || {
@@ -39,6 +43,8 @@ pub fn subscribe(client: &dyn ApiClient, name: &str, sub: &Subscription, io: Str
         out: io.out,
         printer,
         sender,
+        space: Space::new(sub.reserve.clone()),
+        process,
         topics: sub.topics.clone(),
         generation: 0,
         writer: None,
@@ -53,20 +59,6 @@ pub fn subscribe(client: &dyn ApiClient, name: &str, sub: &Subscription, io: Str
     subscriber.steps(&events).err().unwrap_or(Outcome::Done)
 }
 
-fn spawn(name: &str, body: impl FnOnce() + Send + 'static) {
-    let _ = thread::Builder::new().name(name.into()).spawn(body);
-}
-
-fn read_input(open: OpenInput, sender: &Sender<Event>) {
-    for line in open().lines() {
-        let Ok(line) = line else { break };
-        if !line.trim().is_empty() && sender.send(Event::Input(line)).is_err() {
-            return;
-        }
-    }
-    let _ = sender.send(Event::InputEnded);
-}
-
 struct Subscriber<'a> {
     client: &'a dyn ApiClient,
     name: &'a str,
@@ -74,6 +66,9 @@ struct Subscriber<'a> {
     out: &'a mut dyn Write,
     printer: Printer,
     sender: Sender<Event>,
+    space: Space,
+    /// The process that started this one, the bar's, said in `hello`.
+    process: Option<u32>,
     /// The topics the next `hello` asks for: the last `subscribe` forwarded.
     topics: Option<Vec<String>>,
     /// Counts sessions, so the messages of a lost one are dropped.
@@ -145,9 +140,9 @@ impl Subscriber<'_> {
         read_daemon(connection.reader, self.generation, &self.sender);
         let mut writer = connection.writer;
         let bar = self.sub.bar.as_deref();
-        let opening = hello(self.name, bar, self.topics.clone());
+        let opening = hello(self.name, bar, self.topics.clone(), self.process);
         // A failed write shows as the session ending, read on the other half.
-        let _ = write_message(&mut writer, &opening.to_json());
+        let _ = write_message(&mut writer, &opening);
         self.writer = Some(writer);
         Ok(())
     }
@@ -174,6 +169,9 @@ impl Subscriber<'_> {
         {
             return Err(refused(error));
         }
+        if !self.space.answered(message) {
+            return Ok(());
+        }
         if let Some(id) = message["id"].as_u64() {
             self.in_flight.retain(|waiting| *waiting != id);
         }
@@ -190,6 +188,15 @@ impl Subscriber<'_> {
             self.ready = true;
             for request in std::mem::take(&mut self.held) {
                 self.send(request)?;
+            }
+        }
+        if self.ready {
+            let at = Context::new(self.printer.state(), self.sub.monitor.as_ref());
+            let due = self.space.due(&at);
+            if let Some(writer) = self.writer.as_mut() {
+                // A failed write shows as the session ending.
+                due.iter()
+                    .for_each(|request| drop(write_message(writer, request)));
             }
         }
         self.check_answered()
@@ -214,6 +221,7 @@ impl Subscriber<'_> {
         }
         self.writer = None;
         self.printer.lost();
+        self.space.lost();
         if matches!(self.sub.output, Output::Messages | Output::Full) {
             let reason = self.bye.take().unwrap_or_else(|| "lost".to_string());
             self.print(&json!({"disconnected": {"reason": reason}}).to_string())?;
@@ -258,6 +266,8 @@ impl Subscriber<'_> {
         {
             self.in_flight.push(id);
         }
+        let at = Context::new(self.printer.state(), self.sub.monitor.as_ref());
+        self.space.forwarded(&mut request, &at);
         // A failed write shows as the session ending, which fails the request.
         let _ = write_message(writer, &request);
         Ok(())
@@ -274,11 +284,7 @@ impl Subscriber<'_> {
         if run.contains_key("monitor") {
             return;
         }
-        let id = match monitor {
-            MonitorRef::Id(id) => Some(id.clone()),
-            index => self.printer.state().monitor_id(index),
-        };
-        if let Some(id) = id {
+        if let Some(id) = monitor.resolve(self.printer.state()) {
             run.insert("monitor".to_string(), Value::String(id));
         }
     }
@@ -287,10 +293,4 @@ impl Subscriber<'_> {
         let written = writeln!(self.out, "{line}").and_then(|()| self.out.flush());
         written.map_err(|_| Outcome::Done)
     }
-}
-
-/// The answer to request `id`, which the daemon was lost before answering.
-fn disconnected(id: u64) -> String {
-    let message = "the daemon went away before answering";
-    json!({"id": id, "error": {"code": "disconnected", "message": message}}).to_string()
 }

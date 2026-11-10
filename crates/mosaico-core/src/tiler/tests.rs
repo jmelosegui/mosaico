@@ -23,6 +23,8 @@ mod adopt_order_tests;
 mod bar_host_api_tests;
 #[path = "tests/bar_host_reserve_tests.rs"]
 mod bar_host_reserve_tests;
+#[path = "tests/bar_host_space_tests.rs"]
+mod bar_host_space_tests;
 #[path = "tests/bar_host_switch_tests.rs"]
 mod bar_host_switch_tests;
 #[path = "tests/bar_host_tests.rs"]

@@ -17,7 +17,7 @@ use super::outbox::Out;
 use super::writer::{SessionWriter, refuse};
 use super::{
     ApiConnection, ApiError, ApiListener, ApiReader, ApiWriter, ClientMessage, DaemonMessage,
-    ErrorCode, LoopRequest, Reply, Request, Run, SUPPORTED_APIS, Topics, negotiate,
+    ErrorCode, LoopRequest, Peer, Reply, Request, Run, SUPPORTED_APIS, Topics, negotiate,
 };
 
 /// Accepts bars on `listener` until `hub` closes, each session on threads
@@ -51,6 +51,7 @@ pub fn serve_api<L: ApiListener>(listener: &mut L, hub: &Arc<Hub>) {
 /// Serves one connection: waits for `hello`, opens the session, then
 /// reads the bar's requests while a writer thread sends it the state.
 fn run_session<C: ApiConnection>(connection: C, ticket: Ticket) {
+    let process = connection.peer_process();
     let Ok((reader, mut writer)) = connection.split() else {
         return;
     };
@@ -83,23 +84,35 @@ fn run_session<C: ApiConnection>(connection: C, ticket: Ticket) {
     );
     let _ = reader.get_mut().set_read_timeout(None);
     let topics = Topics::requested(hello.topics.as_deref());
+    let peer = Peer {
+        session,
+        bar: hello.bar,
+        process: hello.process.or(process),
+    };
     thread::scope(|scope| {
         scope.spawn(|| SessionWriter::new(writer, &hub, session, topics).run());
-        read_requests(&mut reader, &hub, session);
+        let reserved = read_requests(&mut reader, &hub, &peer);
         hub.end(session);
+        if reserved {
+            hub.ask(LoopRequest::Ended { session });
+        }
     });
     crate::log_info!("Bar API: session {session} closed");
     drop(ticket);
 }
 
 /// Reads and takes in the bar's messages until the connection ends.
-fn read_requests(reader: &mut impl BufRead, hub: &Arc<Hub>, session: u64) {
+/// Tells whether the bar asked to reserve space meanwhile.
+fn read_requests(reader: &mut impl BufRead, hub: &Arc<Hub>, peer: &Peer) -> bool {
+    let session = peer.session;
+    let mut reserved = false;
     loop {
         let refusal = match read_message::<Value>(reader) {
             Ok(value) => match ClientMessage::parse(value) {
                 Ok(ClientMessage::Request { id, request }) => {
-                    if !take(hub, session, id, request) {
-                        return;
+                    reserved |= matches!(request, Request::Reserve(_));
+                    if !take(hub, peer, id, request) {
+                        return reserved;
                     }
                     continue;
                 }
@@ -123,18 +136,35 @@ fn read_requests(reader: &mut impl BufRead, hub: &Arc<Hub>, session: u64) {
                 let message = "a message was too large; the session ends";
                 let error = ApiError::new(ErrorCode::TooLarge, message);
                 hub.push(session, Out::Error { id: None, error });
-                return hub.push(session, Out::End);
+                hub.push(session, Out::End);
+                return reserved;
             }
-            Err(_) => return,
+            Err(_) => return reserved,
         };
         hub.push(session, refusal);
     }
 }
 
 /// Takes in request `id`; `false` once the session can take no more.
-fn take(hub: &Arc<Hub>, session: u64, id: u64, request: Request) -> bool {
+fn take(hub: &Arc<Hub>, peer: &Peer, id: u64, request: Request) -> bool {
+    let session = peer.session;
     let out = match request {
         Request::Run(run) => return take_run(hub, session, id, run),
+        Request::Reserve(reserve) => {
+            let peer = peer.clone();
+            return hand_over(hub, session, id, |reply| LoopRequest::Reserve {
+                peer,
+                reserve,
+                reply,
+            });
+        }
+        Request::Release(release) => {
+            return hand_over(hub, session, id, |reply| LoopRequest::Release {
+                session,
+                release,
+                reply,
+            });
+        }
         Request::Subscribe(subscribe) => Out::Snapshot {
             id,
             topics: Some(Topics::requested(Some(&subscribe.topics))),
@@ -170,16 +200,27 @@ fn take_run(hub: &Arc<Hub>, session: u64, id: u64, run: Run) -> bool {
         let message = format!("`{action}` acts on the focused window, which a bar may not");
         return refuse(ErrorCode::NotAllowed, message);
     }
+    let monitor = run.monitor;
+    hand_over(hub, session, id, |reply| LoopRequest::Run {
+        action,
+        monitor,
+        reply,
+    })
+}
+
+/// Hands request `id` to the daemon loop as `request` makes it of its
+/// reply, once the session has fewer requests with the loop than it may.
+fn hand_over(
+    hub: &Arc<Hub>,
+    session: u64,
+    id: u64,
+    request: impl FnOnce(Reply) -> LoopRequest,
+) -> bool {
     if !hub.take_slot(session) {
         return false;
     }
     let reply = Reply::new(Arc::clone(hub), session, id);
-    let monitor = run.monitor;
     // A request the loop never sees answers `stopping` as its reply drops.
-    hub.ask(LoopRequest::Run {
-        action,
-        monitor,
-        reply,
-    });
+    hub.ask(request(reply));
     true
 }

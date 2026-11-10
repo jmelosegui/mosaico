@@ -2,7 +2,7 @@
 //! each change, for bars that read a command's output.
 
 use clap::Args;
-use mosaico_core::api::client::{self, FieldPath, MonitorRef, Output, Streams, Subscription};
+use mosaico_core::api::client::{self, FieldPath, Hold, MonitorRef, Output, Streams, Subscription};
 
 use super::bar_api::{BarIo, finish};
 use super::context::Exit;
@@ -34,6 +34,11 @@ pub struct SubscribeArgs {
     /// ends when none comes for 15 seconds
     #[arg(long)]
     pub requests: bool,
+    /// Keep space clear of tiles while this command runs, as EDGE=PIXELS
+    /// or EDGE=PIXELS@MONITOR, such as top=32; repeat for more edges.
+    /// Only a bar that `[bar] provider` accepts may reserve space
+    #[arg(long, value_name = "EDGE=PX")]
+    pub reserve: Vec<Hold>,
 }
 
 /// Prints the session's messages until it, the input, the output or the
@@ -51,6 +56,7 @@ pub fn execute(io: &mut BarIo, args: SubscribeArgs) -> Exit {
         output,
         wait: args.wait,
         requests: args.requests,
+        reserve: args.reserve,
         ..Subscription::default()
     };
     let streams = Streams {

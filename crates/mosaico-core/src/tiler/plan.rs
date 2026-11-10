@@ -15,7 +15,7 @@ use std::time::Instant;
 use crate::config::HidingBehaviour;
 use crate::{MonitorId, Rect, WindowId};
 
-use super::{Desktop, Effect, WindowFacts};
+use super::{Desktop, Effect, WindowFacts, WindowIdentity};
 
 #[path = "plan_borders.rs"]
 mod borders;
@@ -146,5 +146,9 @@ impl<'a> Plan<'a> {
 
     pub(super) fn facts(&self, window: WindowId) -> Option<WindowFacts> {
         self.desktop.facts(window)
+    }
+
+    pub(super) fn identity(&self, window: WindowId) -> Option<WindowIdentity> {
+        self.desktop.identity(window)
     }
 }

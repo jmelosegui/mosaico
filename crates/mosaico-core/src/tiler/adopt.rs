@@ -16,6 +16,16 @@ impl Tiler {
     pub(super) fn passes_tiling_rules(&self, plan: &Plan, window: WindowId) -> bool {
         plan.candidate(window)
             .is_some_and(|facts| self.rules_manage(&facts))
+            && !self.is_bar_window(plan, window)
+    }
+
+    /// Whether the window belongs to a bar that reserves space, which
+    /// draws over the space it keeps and is never tiled into it.
+    pub(super) fn is_bar_window(&self, plan: &Plan, window: WindowId) -> bool {
+        !self.bar_processes.is_empty()
+            && plan
+                .identity(window)
+                .is_some_and(|who| self.bar_processes.contains(&who.process))
     }
 
     /// Whether the rules manage a window with these facts, tiled or

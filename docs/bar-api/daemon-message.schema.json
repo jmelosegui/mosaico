@@ -265,7 +265,7 @@
           "const": "malformed"
         },
         {
-          "description": "A message was larger than a message may be. Sent before closing.",
+          "description": "A message was larger than a message may be, sent before closing;\nor a reservation reached past a quarter of a monitor.",
           "type": "string",
           "const": "too-large"
         },
@@ -298,6 +298,11 @@
           "description": "The daemon is stopping and carries out nothing more.",
           "type": "string",
           "const": "stopping"
+        },
+        {
+          "description": "The bar the session speaks for is not the one `[bar] provider`\npicks, so it may not reserve space.",
+          "type": "string",
+          "const": "not-provider"
         },
         {
           "description": "A code this build does not know.",

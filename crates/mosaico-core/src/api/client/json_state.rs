@@ -76,6 +76,11 @@ impl JsonState {
         state
     }
 
+    /// The topic `name`, if the state carries it.
+    pub fn topic(&self, name: &str) -> Option<&Value> {
+        self.0.get(name)
+    }
+
     /// The id of the monitor `monitor` names, if the state has it.
     pub fn monitor_id(&self, monitor: &MonitorRef) -> Option<String> {
         let monitors = self.0.get("monitors")?.as_array()?;

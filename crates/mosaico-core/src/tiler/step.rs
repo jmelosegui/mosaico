@@ -52,6 +52,7 @@ impl Tiler {
             Input::Reach(reach) => self.reserve_bar_if_moved(&mut plan, &reach),
             Input::Config(config) => self.reload_config(&mut plan, &config),
             Input::Rules(rules) => self.reload_rules(&mut plan, rules),
+            Input::BarProcesses(processes) => self.set_bar_processes(&mut plan, processes),
             Input::RefreshBorders => self.update_border(&mut plan),
             Input::RepaintAll => self.repaint_visible(&mut plan),
             Input::Shutdown => self.restore_all_windows(&mut plan),

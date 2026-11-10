@@ -8,11 +8,12 @@ use std::time::Instant;
 use crate::action::Origin;
 use crate::api;
 use crate::config::{BarChoice, BarConfig, BarReserve, BarSection, Theme};
-use crate::tiler::{Display, MonitorPlace, Platform, Reach, TilingManager};
+use crate::tiler::{Display, Platform, Reach, TilingManager};
 use crate::{Action, Result};
 
 use super::handover::{HANDOVER, Handover, reach_of};
 use super::provider::provider_for;
+use super::reservations::Reservations;
 use super::{BarId, BarProvider, PointerEvent};
 
 /// Makes mosaico's own bar in a theme, with `bar.toml` read afresh.
@@ -44,6 +45,10 @@ pub struct BarHost {
     handover: Option<Handover>,
     /// Where the bars that read the state through the bar API get it.
     hub: Option<Arc<api::Hub>>,
+    /// The space bars reserve through the bar API.
+    reservations: Reservations,
+    /// The processes of those bars, as the tiler was last told them.
+    processes: Vec<u32>,
 }
 
 impl BarHost {
@@ -75,6 +80,8 @@ impl BarHost {
             reserve: section.reserve.clone(),
             handover: None,
             hub: None,
+            reservations: Reservations::default(),
+            processes: Vec::new(),
         }
     }
 
@@ -83,7 +90,7 @@ impl BarHost {
     pub fn start<P: Platform>(&mut self, manager: &mut TilingManager<P>) {
         let places = manager.places();
         self.provider.place(&places);
-        self.reach = reach_of(self.provider.as_ref(), &mut self.handover, &places);
+        self.reach = reach_of(self.wanted(&places), &mut self.handover);
         manager.set_reach(self.reach.clone());
         self.placed = true;
         self.show(manager);
@@ -131,7 +138,7 @@ impl BarHost {
     ) {
         let places = manager.places_for(&displays);
         self.provider.place(&places);
-        self.reach = reach_of(self.provider.as_ref(), &mut self.handover, &places);
+        self.reach = reach_of(self.wanted(&places), &mut self.handover);
         manager.handle_display_change(displays, self.reach.clone());
         self.placed = true;
     }
@@ -142,10 +149,12 @@ impl BarHost {
     pub fn reset_work_areas<P: Platform>(&mut self, manager: &mut TilingManager<P>) -> Result<()> {
         let provider = &mut self.provider;
         let handover = &mut self.handover;
+        let reservations = &self.reservations;
         let mut reached = None;
         let read = manager.reset_work_areas(|places| {
             provider.place(places);
-            let reach = reach_of(provider.as_ref(), handover, places);
+            let wanted = provider.reach(places).furthest(&reservations.reach(places));
+            let reach = reach_of(wanted, handover);
             reached = Some(reach.clone());
             reach
         });
@@ -197,34 +206,43 @@ impl BarHost {
     }
 
     /// When the bars next need [`wake`](Self::wake): the provider's
-    /// [`due`](BarProvider::due), or the end of the hold on the previous
-    /// bar's space, whichever is sooner. `None` while nothing waits, so an
-    /// idle daemon with no clock to draw is never woken for the bars.
+    /// [`due`](BarProvider::due), the end of the hold on the previous
+    /// bar's space, or of the space of a session that ended, whichever is
+    /// sooner. `None` while nothing waits, so an idle daemon with no clock
+    /// to draw is never woken for the bars.
     pub fn due(&self) -> Option<Instant> {
         let held = self.handover.as_ref().map(Handover::until);
-        self.provider.due().into_iter().chain(held).min()
+        let reserved = self.reservations.due();
+        (self.provider.due().into_iter())
+            .chain(held)
+            .chain(reserved)
+            .min()
     }
 
     /// Does what is due at `now`: lets go of the previous bar's space once
-    /// its hold is over, and has the provider draw again what changed on
-    /// its own. Returns the actions the bars hand over, such as the
-    /// wheel's.
+    /// its hold is over, and of the space of a session that ended once its
+    /// grace is, and has the provider draw again what changed on its own.
+    /// Returns the actions the bars hand over, such as the wheel's.
     pub fn wake<P: Platform>(
         &mut self,
         manager: &mut TilingManager<P>,
         now: Instant,
     ) -> Vec<(Action, Origin)> {
-        if self.handover.as_ref().is_some_and(|held| held.over(now)) {
+        let over = self.handover.as_ref().is_some_and(|held| held.over(now));
+        if over {
             self.handover = None;
-            self.keep_clear(manager, &manager.places());
+        }
+        if self.reservations.expire(now) || over {
+            self.space_changed(manager);
             self.show(manager);
         }
         self.provider.wake(now)
     }
 
-    /// Takes the bars off screen.
+    /// Takes the bars off screen, and lets go of the space reserved.
     pub fn stop(&mut self) {
         self.provider.stop();
+        self.reservations.clear();
     }
 
     /// The bar running, as `[bar] provider` picks it.
@@ -263,24 +281,20 @@ impl BarHost {
         self.provider = provider_for(choice, &mut self.make_builtin, self.theme, &self.reserve);
         self.choice = choice;
         self.daemon.provider = self.provider.name().to_string();
+        let provider = &self.provider;
+        self.reservations.retain(|bar| provider.accepts(bar));
         self.provider.place(&places);
         let until = now + HANDOVER;
         self.handover = (self.provider.connects_later())
-            .then(|| Handover::begin(&self.reach, &self.provider.reach(&places), until))
+            .then(|| Handover::begin(&self.reach, &self.wanted(&places), until))
             .flatten();
+        self.tell_processes(manager);
         self.keep_clear(manager, &places);
         self.placed = true;
         self.show(manager);
         true
     }
-
-    /// Keeps the tiles clear of how far the bars reach into `places` now,
-    /// moving them only when that changed.
-    fn keep_clear<P: Platform>(&mut self, manager: &mut TilingManager<P>, places: &[MonitorPlace]) {
-        let reach = reach_of(self.provider.as_ref(), &mut self.handover, places);
-        if reach != self.reach {
-            self.reach = reach;
-            manager.set_reach(self.reach.clone());
-        }
-    }
 }
+
+#[path = "host_space.rs"]
+mod space;

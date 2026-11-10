@@ -10,7 +10,7 @@ unsafe_keywords = 68
 files_over_line_limit = 7
 lines_over_line_limit = 907
 os_names = 0
-tests = 2488
+tests = 2514
 unsafe_keywords = 0
 unwraps_outside_tests = 0
 
@@ -30,5 +30,5 @@ unsafe_keywords = 0
 files_over_line_limit = 1
 lines_over_line_limit = 38
 tests = 303
-unsafe_keywords = 363
+unsafe_keywords = 364
 unwraps_outside_tests = 0

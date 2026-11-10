@@ -3,10 +3,10 @@
 use std::io::Write;
 use std::time::Duration;
 
-use serde_json::Value;
+use serde_json::{Value, json};
 
 use crate::StableMonitorId;
-use crate::api::{ApiError, ClientMessage, ErrorCode, Request, Run};
+use crate::api::{ApiError, ErrorCode, Run};
 use crate::ipc::framing::write_message;
 
 use super::link::{Event, hello, not_connected, read_daemon, refused, session_error};
@@ -31,7 +31,8 @@ pub struct Query {
 pub fn query(client: &dyn ApiClient, name: &str, query: &Query, out: &mut dyn Write) -> Outcome {
     let field_topic = (query.field.as_ref()).map(|field| vec![field.topic().to_string()]);
     let topics = query.topics.clone().or(field_topic);
-    let result = Link::open(client, &hello(name, None, topics)).and_then(|link| link.snapshot());
+    let result =
+        Link::open(client, &hello(name, None, topics, None)).and_then(|link| link.snapshot());
     let state = match result {
         Ok(state) => state,
         Err(outcome) => return outcome,
@@ -71,7 +72,7 @@ fn run_in(
     } else {
         Vec::new()
     };
-    let mut link = Link::open(client, &hello(name, None, Some(topics)))?;
+    let mut link = Link::open(client, &hello(name, None, Some(topics), None))?;
     let state = link.snapshot()?;
     let monitor = match monitor {
         None => None,
@@ -81,14 +82,12 @@ fn run_in(
             Outcome::Refused(ApiError::new(ErrorCode::NoMonitor, message))
         })?),
     };
-    let request = ClientMessage::Request {
-        id: 1,
-        request: Request::Run(Run {
-            action: action.to_string(),
-            monitor: monitor.map(StableMonitorId::new),
-        }),
+    let run = Run {
+        action: action.to_string(),
+        monitor: monitor.map(StableMonitorId::new),
     };
-    write_message(&mut link.writer, &request.to_json()).map_err(|_| Outcome::Lost)?;
+    let request = json!({"id": 1, "run": run});
+    write_message(&mut link.writer, &request).map_err(|_| Outcome::Lost)?;
     let reply = link.until(|message| message["id"] == 1)?;
     match reply.get("error") {
         None => Ok(Outcome::Done),
@@ -103,12 +102,12 @@ struct Link {
 }
 
 impl Link {
-    fn open(client: &dyn ApiClient, hello: &ClientMessage) -> Result<Self, Outcome> {
+    fn open(client: &dyn ApiClient, hello: &Value) -> Result<Self, Outcome> {
         let connection = client.connect().map_err(not_connected)?;
         let (sender, events) = queue();
         read_daemon(connection.reader, 0, &sender);
         let mut writer = connection.writer;
-        write_message(&mut writer, &hello.to_json()).map_err(|_| Outcome::Lost)?;
+        write_message(&mut writer, hello).map_err(|_| Outcome::Lost)?;
         Ok(Self { events, writer })
     }
 

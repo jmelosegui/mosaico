@@ -4,5 +4,6 @@
 {"id":1,"ok":{"rev":59}}
 {"id":4,"ok":{}}
 {"id":5,"error":{"code":"not-allowed","message":"`close-focused` acts on the focused window, which a bar may not"}}
+{"id":6,"error":{"code":"not-provider","message":"only the bar provider may reserve space; set `[bar] provider` to `external`"}}
 {"error":{"code":"unsupported-api","message":"no API version in common","api":[1]}}
 {"bye":{"reason":"stopping"}}

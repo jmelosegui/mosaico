@@ -770,10 +770,10 @@ needs 36.4 and 36.6; 36.8 and 36.9 need 36.7.
 - [x] `mosaico query`, `mosaico subscribe` (with `--wait` replaying and the
       `--requests` keepalive) and `mosaico run`
 - [x] `ParentWatch` and its Windows implementation
-- [ ] `reserve` and `release`, bound to the provider by `hello`'s `bar`, the
+- [x] `reserve` and `release`, bound to the provider by `hello`'s `bar`, the
       grace, the refusals, monitors followed by id, the provider's sessions told
       at a switch; `subscribe --reserve`, replayed by `--wait`
-- [ ] Windows of a reserving session's process left untiled
+- [x] Windows of a reserving session's process left untiled
 - [ ] doctor: the sessions, their bars and what each reserves; the settings
       app's list of them
 - [x] `cli.md` and the guide's CLI page; tests with fakes

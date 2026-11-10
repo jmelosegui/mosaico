@@ -40,6 +40,8 @@ The contract has three parts:
 | `crates/mosaico-core/src/api/messages.rs` | What the daemon sends: `DaemonMessage`, `Welcome`, `Snapshot`, `Ack`, `ApiError`, `ErrorCode`, `Bye` |
 | `crates/mosaico-core/src/api/topics.rs` | `Topic`, `Topics` -- what a session follows, and the state cut down to it |
 | `crates/mosaico-core/src/api/connection.rs` | `ApiListener`, `ApiConnection`, `ApiReader`, `ApiWriter` -- the contract for the platform's endpoint; `Limits` |
+| `crates/mosaico-core/src/bar/reservations.rs` | `Reservations` -- the space sessions reserve, and the 5 second grace after one ends |
+| `crates/mosaico-core/src/bar/host_space.rs` | `BarHost::reserve()` and `release()` -- who may reserve, and keeping the tiles clear of it |
 | `crates/mosaico-core/src/api/session.rs` | `serve_api()` -- accepts bars, opens sessions on `hello` and reads their requests |
 | `crates/mosaico-core/src/api/hub.rs`, `outbox.rs` | `Hub` -- the latest state, the sessions and what each is owed |
 | `crates/mosaico-core/src/api/writer.rs` | `SessionWriter` -- sends a session its replies and the state |
@@ -305,6 +307,9 @@ The bar speaks first:
 - `topics`: what to follow, of `daemon`, `theme`, `monitors` and
   `focus`; all four when left out. Names the daemon does not know are left
   out, so a bar written for a later version still opens a session.
+- `process`: the process id of the program that draws the bar, when it
+  is not the one connected. Its windows are not tiled while the session
+  reserves space (see [Reserving Space](#reserving-space)).
 
 The daemon answers `welcome`, with the version, its `boot` (which changes
 when the daemon restarts), the provider the user picked and the topics
@@ -341,6 +346,8 @@ back:
 | `{"id":2,"subscribe":{"topics":["monitors","focus"]}}` | A snapshot of those topics, with `"id":2`; they are what the session follows from then on |
 | `{"id":3,"resync":{}}` | A snapshot of the topics followed, with `"id":3` |
 | `{"id":4,"ping":{}}` | `{"id":4,"ok":{}}` |
+| `{"id":5,"reserve":{"monitor":"m-41c6e2","top":48}}` | `{"id":5,"ok":{"rev":60}}`, once the tiles are clear of it |
+| `{"id":6,"release":{"monitor":"m-41c6e2"}}` | `{"id":6,"ok":{"rev":61}}`; without `monitor` it ends all the session reserved |
 
 - `run` carries an action out as a click on that monitor's bar does,
   named as in `bar.toml`'s click bindings. Without `monitor` it acts on
@@ -352,6 +359,36 @@ back:
   answer.
 - A session has at most 32 `run` requests waiting for the daemon; the
   bar's next ones wait until one is answered.
+
+### Reserving Space
+
+A bar that draws itself keeps the tiles clear of its space with
+`reserve`. Only a bar `[bar] provider` accepts may: under `external`
+any bar. Under `mosaico` or `none` it is refused with `not-provider`,
+since mosaico's own bar, or nothing, keeps that space.
+
+- `monitor` is a monitor's id, or `"all"` for every monitor, including
+  those connected later. `top`, `bottom`, `left` and `right` are in
+  pixels of that monitor, and a missing edge is 0.
+- A `reserve` replaces what the session reserved on the same monitors.
+  It is refused with `no-monitor` for a monitor that is not connected,
+  and with `too-large` for an edge that reaches past a quarter of a
+  monitor.
+- The space kept on an edge is the furthest any bar reaches: the
+  provider's own, `[bar.reserve]`, and every session's reservation.
+  The daemon also reads the monitors' work areas again, as a bar may have
+  told the system of its space too.
+- While a session reserves space, the windows of its process are not
+  tiled, nor those of the process `hello.process` names, which is how a
+  bar that speaks through `mosaico subscribe` names itself.
+- `release` ends the session's reservation on `monitor`, or all of
+  them without one, and the tiles move back at once. When a session ends
+  without releasing, its space is kept for 5 seconds, so a bar that
+  restarts takes it over without the tiles moving out and back in.
+- When `[bar] provider` changes, the reservations of the bars it no
+  longer accepts end at once, and so do all of them when the daemon
+  stops. A bar learns the provider from `daemon.provider`, and reserves
+  again when it is accepted again.
 
 ### Errors
 
@@ -367,10 +404,11 @@ none:
 | `busy` | The daemon serves as many sessions as it may; the session closes |
 | `unsupported-api` | No version in common, with `api` listing the daemon's; the session closes |
 | `malformed` | Not JSON, not shaped as its kind is, a request before `hello` (which closes), or a second `hello` |
-| `too-large` | Over 1 MiB; the session closes |
+| `too-large` | Over 1 MiB, and the session closes; or a `reserve` past a quarter of a monitor |
 | `unknown-request` | A kind of request the daemon does not know |
 | `not-allowed` | An action that acts on the focused window |
-| `no-monitor` | The monitor named is not connected |
+| `not-provider` | A `reserve` from a bar `[bar] provider` does not accept |
+| `no-monitor` | The monitor a `run` or `reserve` names is not connected |
 | `unknown-action` | An action the daemon does not know |
 | `failed` | The action was carried out, and something it needed failed |
 | `stopping` | The daemon is stopping and carries out nothing more |
@@ -449,6 +487,15 @@ this is what they do.
     A request waiting for an answer, or sent while there is no daemon, is
     answered `{"id":N,"error":{"code":"disconnected","message":"..."}}`.
     `disconnected` is the command's own code; the daemon never sends it.
+  - `--reserve EDGE=PIXELS`, or `EDGE=PIXELS@MONITOR` with a monitor's id
+    or index, keeps that space clear while the command runs, as
+    `reserve` does, for the program that started the command. Without
+    `@MONITOR` it is on `--monitor`'s monitor, or every monitor. Repeat it
+    for more edges. A bar's own `reserve` on the same monitor is widened
+    to cover these, since a session holds one reservation per monitor,
+    and they are sent again after a `release`, on a change of provider,
+    and on connecting again under `--wait`. The answers to them are not
+    printed.
   - It ends on `bye` or a lost session (without `--wait`), when standard
     input ends and every request sent is answered (with `--requests`, so
     `echo '{"id":1,...}' | mosaico subscribe --requests` prints the

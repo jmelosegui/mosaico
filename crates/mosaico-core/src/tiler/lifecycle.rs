@@ -84,7 +84,34 @@ impl Tiler {
         let floated_before = self.rule_floats(plan);
         self.rules = rules;
         self.adopt_rejected.clear();
+        let mut affected = self.let_go_of_unmanaged(plan, "unmanaged by new rules");
+        for mi in self.follow_rule_floats(plan, &floated_before) {
+            if !affected.contains(&mi) {
+                affected.push(mi);
+            }
+        }
+        for idx in affected {
+            self.apply_layout_on(plan, idx);
+        }
+    }
 
+    /// Takes in the processes of the bars that reserve space, and lets go
+    /// of the windows they own as the rules' changes do, so a bar that was
+    /// tiled before it reserved leaves the layout. A window of a bar that
+    /// no longer reserves is judged again on its next event.
+    pub(super) fn set_bar_processes(&mut self, plan: &mut Plan, processes: Vec<u32>) {
+        self.bar_processes = processes;
+        self.adopt_rejected.clear();
+        for idx in self.let_go_of_unmanaged(plan, "a bar's window") {
+            self.apply_layout_on(plan, idx);
+        }
+    }
+
+    /// Lets go of every window the tiler manages that it no longer would,
+    /// see [`untile`], and returns the monitors that lost one. One hidden
+    /// by a workspace switch is shown again as it is let go, so it is not
+    /// left out of view.
+    fn let_go_of_unmanaged(&mut self, plan: &mut Plan, why: &str) -> Vec<usize> {
         let mut removals = Vec::new();
         for (mi, mon) in self.monitors.iter().enumerate() {
             for (wi, ws) in mon.workspaces.iter().enumerate() {
@@ -109,19 +136,12 @@ impl Tiler {
             }
             // Shows it the way it was hidden, if it was, then forgets it.
             self.hidden_how.release(plan, window);
-            crate::log_info!("-rule {window} (unmanaged by new rules)");
+            crate::log_info!("-rule {window} ({why})");
             if !affected.contains(&mi) {
                 affected.push(mi);
             }
         }
-        for mi in self.follow_rule_floats(plan, &floated_before) {
-            if !affected.contains(&mi) {
-                affected.push(mi);
-            }
-        }
-        for idx in affected {
-            self.apply_layout_on(plan, idx);
-        }
+        affected
     }
 
     /// Whether the rules still manage a window the tiler manages.
@@ -135,6 +155,7 @@ impl Tiler {
         }
         plan.facts(window)
             .is_some_and(|facts| self.rules_manage(&facts))
+            && !self.is_bar_window(plan, window)
     }
 
     /// Every managed window, tiled or floating, on every workspace of

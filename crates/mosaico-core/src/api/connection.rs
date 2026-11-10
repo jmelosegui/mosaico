@@ -54,6 +54,13 @@ pub trait ApiConnection: Send + 'static {
     /// Splits the connection, so one thread reads while another writes.
     /// Neither half waits for the other.
     fn split(self) -> Result<(Self::Reader, Self::Writer), IpcError>;
+
+    /// The id of the process at the other end, as the system reports it,
+    /// or `None` when the platform cannot tell. The windows of that
+    /// process are not tiled while its session reserves space, unless its
+    /// `hello` names another process as the bar's, as a helper such as
+    /// `mosaico subscribe` does. Never read it from what was sent.
+    fn peer_process(&self) -> Option<u32>;
 }
 
 /// Reads what a bar sends.

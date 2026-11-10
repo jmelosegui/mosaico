@@ -99,6 +99,14 @@ pub trait BarProvider {
         false
     }
 
+    /// Whether a bar API session for the bar `bar`, the name its `hello`
+    /// gave, if any, speaks for this provider, and so may reserve space
+    /// and has its windows left untiled. A provider that draws its own bars,
+    /// or keeps no space, accepts none.
+    fn accepts(&self, _bar: Option<&str>) -> bool {
+        false
+    }
+
     /// Takes the bars off screen as the daemon stops or switches to
     /// another provider.
     fn stop(&mut self);
@@ -130,7 +138,8 @@ impl BarProvider for NoBar {
 
 /// A bar another program draws, which reads the state through the bar
 /// API. Tiles keep clear of `[bar.reserve]`, whether the program runs or
-/// not, beside the work areas the system gives.
+/// not, beside the work areas the system gives, and of the space any
+/// session reserves.
 #[derive(Debug, Default)]
 pub struct ApiBar {
     reserve: BarReserve,
@@ -158,6 +167,10 @@ impl BarProvider for ApiBar {
     }
 
     fn connects_later(&self) -> bool {
+        true
+    }
+
+    fn accepts(&self, _bar: Option<&str>) -> bool {
         true
     }
 
