@@ -37,7 +37,8 @@ use crate::token;
 /// the user's ordinary programs run at.
 const MEDIUM_INTEGRITY: u32 = 0x2000;
 
-/// A security descriptor for one pipe instance, freed when dropped.
+/// A security descriptor, for a pipe instance to be created or read from
+/// an open one, freed when dropped.
 pub(crate) struct PipeSecurity {
     descriptor: PSECURITY_DESCRIPTOR,
 }
@@ -68,6 +69,56 @@ impl PipeSecurity {
         Ok(Self { descriptor })
     }
 
+    /// The owner and label of the object behind `handle`.
+    fn of(handle: HANDLE) -> io::Result<Self> {
+        let mut descriptor = PSECURITY_DESCRIPTOR::default();
+        // SAFETY: Reads the owner and label of an open handle into a
+        // descriptor the system allocates; it is freed once, when this
+        // value is dropped.
+        unsafe {
+            GetSecurityInfo(
+                handle,
+                SE_KERNEL_OBJECT,
+                OWNER_SECURITY_INFORMATION | LABEL_SECURITY_INFORMATION,
+                None,
+                None,
+                None,
+                None,
+                Some(&mut descriptor),
+            )
+        }
+        .ok()?;
+        Ok(Self { descriptor })
+    }
+
+    /// Whether this is the descriptor of a pipe the daemon of `user`
+    /// created: owned by `user` and labelled medium or above.
+    fn trusted_by(&self, user: &str) -> io::Result<bool> {
+        Ok(trusts(&self.text()?, user))
+    }
+
+    /// The owner and label, in the security descriptor definition
+    /// language.
+    fn text(&self) -> io::Result<String> {
+        let mut text = PWSTR::null();
+        // SAFETY: `self.descriptor` is a valid descriptor; the text it
+        // writes is freed below.
+        unsafe {
+            ConvertSecurityDescriptorToStringSecurityDescriptorW(
+                self.descriptor,
+                SDDL_REVISION_1,
+                OWNER_SECURITY_INFORMATION | LABEL_SECURITY_INFORMATION,
+                &mut text,
+                None,
+            )
+        }?;
+        // SAFETY: `text` is the null-terminated string written above.
+        let owned = unsafe { text.to_string() };
+        // SAFETY: Frees the string written above, once.
+        unsafe { LocalFree(Some(HLOCAL(text.0.cast()))) };
+        owned.map_err(io::Error::other)
+    }
+
     /// Attributes that apply this descriptor and are not inherited. They
     /// point into `self`, which must outlive their use.
     pub(crate) fn attributes(&self) -> SECURITY_ATTRIBUTES {
@@ -81,7 +132,8 @@ impl PipeSecurity {
 
 impl Drop for PipeSecurity {
     fn drop(&mut self) {
-        // SAFETY: Frees the descriptor allocated in `from_text`, once.
+        // SAFETY: Frees the descriptor allocated in `from_text` or `of`,
+        // once.
         unsafe { LocalFree(Some(HLOCAL(self.descriptor.0))) };
     }
 }
@@ -96,56 +148,15 @@ fn descriptor_text(user: &str, label: &str) -> String {
 /// Fails with [`IpcError::Untrusted`] unless the pipe `file` is connected
 /// to belongs to the current user and is labelled medium or above.
 pub(crate) fn check_server(file: &impl AsRawHandle) -> Result<(), IpcError> {
-    let text = owner_and_label(HANDLE(file.as_raw_handle()))?;
+    let security = PipeSecurity::of(HANDLE(file.as_raw_handle()))?;
     let user = token::current_user().map_err(io::Error::other)?;
-    if trusts(&text, &user) {
+    if security.trusted_by(&user)? {
         Ok(())
     } else {
+        let text = security.text().unwrap_or_default();
         mosaico_core::log_warn!("IPC: refused a pipe that is not the daemon's: {text}");
         Err(IpcError::Untrusted)
     }
-}
-
-/// The owner and label of the object behind `handle`, in the security
-/// descriptor definition language.
-fn owner_and_label(handle: HANDLE) -> io::Result<String> {
-    let what = OWNER_SECURITY_INFORMATION | LABEL_SECURITY_INFORMATION;
-    let mut descriptor = PSECURITY_DESCRIPTOR::default();
-    // SAFETY: Reads the owner and label of an open handle into a
-    // descriptor the system allocates, freed below.
-    unsafe {
-        GetSecurityInfo(
-            handle,
-            SE_KERNEL_OBJECT,
-            what,
-            None,
-            None,
-            None,
-            None,
-            Some(&mut descriptor),
-        )
-    }
-    .ok()?;
-    let mut text = PWSTR::null();
-    // SAFETY: `descriptor` was filled in above; the text it writes is
-    // freed below.
-    let converted = unsafe {
-        ConvertSecurityDescriptorToStringSecurityDescriptorW(
-            descriptor,
-            SDDL_REVISION_1,
-            what,
-            &mut text,
-            None,
-        )
-    };
-    // SAFETY: Frees the descriptor GetSecurityInfo allocated, once.
-    unsafe { LocalFree(Some(HLOCAL(descriptor.0))) };
-    converted?;
-    // SAFETY: `text` is the null-terminated string written above.
-    let owned = unsafe { text.to_string() };
-    // SAFETY: Frees the string written above, once.
-    unsafe { LocalFree(Some(HLOCAL(text.0.cast()))) };
-    owned.map_err(io::Error::other)
 }
 
 /// Whether a pipe whose owner and label read `text` is one the daemon of

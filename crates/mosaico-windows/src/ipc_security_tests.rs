@@ -104,7 +104,10 @@ fn the_daemons_pipe_is_owned_by_the_user_and_labelled_at_its_level() {
 
     // Act
     let instance = server.create_instance().unwrap();
-    let text = owner_and_label(HANDLE(instance.as_raw_handle())).unwrap();
+    let text = PipeSecurity::of(HANDLE(instance.as_raw_handle()))
+        .unwrap()
+        .text()
+        .unwrap();
 
     // Assert
     let user = token::current_user().unwrap();
