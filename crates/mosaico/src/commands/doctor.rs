@@ -4,7 +4,10 @@ use mosaico_core::config::schema::CONFIG_SETTINGS;
 use mosaico_core::config::{ConfigStore, ThemeCheck, ThemeConfig, manage_deprecation};
 
 use super::context::{Context, Exit, say};
-use super::{doctor_animations, doctor_bar, doctor_launch, doctor_runtime, doctor_settings};
+use super::{
+    doctor_animations, doctor_bar, doctor_bar_sessions, doctor_launch, doctor_runtime,
+    doctor_settings,
+};
 
 /// ANSI escape helpers for doctor output.
 const OK: &str = "\x1b[32m[ok]\x1b[0m";
@@ -29,6 +32,7 @@ pub fn execute(cx: &mut Context) -> Exit {
     doctor_bar::check_bar(cx);
     doctor_runtime::check_autostart(cx);
     doctor_runtime::check_daemon(cx);
+    doctor_bar_sessions::check_sessions(cx);
     doctor_runtime::check_monitors(cx);
     doctor_animations::check_animations(cx);
     println!();

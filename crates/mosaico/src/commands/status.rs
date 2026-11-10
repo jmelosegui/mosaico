@@ -81,6 +81,7 @@ mod tests {
             version: version.into(),
             protocol: PROTOCOL_VERSION,
             windows: 3,
+            bar: None,
         }
     }
 

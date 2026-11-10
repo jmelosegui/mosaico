@@ -51,7 +51,8 @@ The space is measured from the edge of the monitor, so a bar over the
 taskbar needs no sum: tiles keep clear of whichever reaches further. An
 edge that would take more than a quarter of a monitor keeps nothing, and
 `mosaico doctor` says so, along with what the system and the bar keep on
-each monitor. When you switch from mosaico's bar to another program's, the
+each monitor, and which bars are connected to mosaico and the space each
+keeps. When you switch from mosaico's bar to another program's, the
 space mosaico's bar kept is held for a few seconds while the other bar
 starts, so windows do not jump into the gap and back.
 

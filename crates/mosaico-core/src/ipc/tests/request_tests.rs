@@ -216,6 +216,7 @@ fn typed_data_round_trips() {
         version: "1.2.3".into(),
         protocol: 7,
         windows: 4,
+        bar: None,
     };
 
     // Act

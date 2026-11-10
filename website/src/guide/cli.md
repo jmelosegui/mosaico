@@ -72,8 +72,11 @@ Checks performed:
     mosaico or other arguments, or is turned off, fails when the program
     it starts no longer exists
 11. Daemon status (IPC pipe, PID file, process liveness)
-12. Monitor enumeration and dimensions
-13. Window transitions: the `[animations]` settings (the defaults when
+12. The bars connected to mosaico (see [Status Bar](status-bar.md)): each
+    one, the program behind it and the space it keeps; warns when the
+    running daemon uses another bar than `config.toml` names
+13. Monitor enumeration and dimensions
+14. Window transitions: the `[animations]` settings (the defaults when
     `config.toml` is invalid, and it says so), whether Windows allows
     animations right now ("Animation effects", and not a remote session),
     and whether windows can move frame by frame; warns when transitions are

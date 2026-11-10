@@ -153,6 +153,7 @@ fn reports_a_refused_stop_with_what_to_do() {
         version: "0.0.1".into(),
         protocol: 99,
         windows: 0,
+        bar: None,
     };
     h.world.reply(Ok(
         Response::error(ErrorCode::VersionMismatch, "mismatch").with_data(&status)

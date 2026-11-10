@@ -2,7 +2,7 @@
 
 use std::time::{Duration, Instant};
 
-use crate::api::{MonitorTarget, Peer};
+use crate::api::{BarSession, MonitorTarget, Peer, Reserve};
 use crate::tiler::{Edges, MonitorPlace, Reach};
 
 /// How long the space of a session that ended is kept, so a bar that
@@ -14,6 +14,7 @@ pub const RESERVATION_GRACE: Duration = Duration::from_secs(5);
 #[derive(Debug, Clone, PartialEq)]
 struct Held {
     session: u64,
+    client: Option<String>,
     bar: Option<String>,
     process: Option<u32>,
     target: MonitorTarget,
@@ -42,6 +43,7 @@ impl Reservations {
         if !edges.is_none() {
             self.held.push(Held {
                 session: peer.session,
+                client: peer.client.clone(),
                 bar: peer.bar.clone(),
                 process: peer.process,
                 target,
@@ -119,6 +121,32 @@ impl Reservations {
     /// Lets go of every reservation.
     pub fn clear(&mut self) {
         self.held.clear();
+    }
+
+    /// The sessions holding space, by number, each with what it holds and
+    /// whether it ended, as far as the reservations know them.
+    pub fn listed(&self) -> Vec<BarSession> {
+        let mut listed: Vec<BarSession> = Vec::new();
+        for held in &self.held {
+            let at = match listed.binary_search_by_key(&held.session, |s| s.session) {
+                Ok(at) => at,
+                Err(at) => {
+                    let session = BarSession {
+                        session: held.session,
+                        client: held.client.clone(),
+                        bar: held.bar.clone(),
+                        process: held.process,
+                        ended: held.until.is_some(),
+                        ..BarSession::default()
+                    };
+                    listed.insert(at, session);
+                    at
+                }
+            };
+            let reserve = Reserve::new(held.target.clone(), held.edges);
+            listed[at].reserves.push(reserve);
+        }
+        listed
     }
 }
 

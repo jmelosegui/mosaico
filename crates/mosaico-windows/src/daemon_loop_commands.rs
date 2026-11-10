@@ -109,6 +109,7 @@ pub(super) fn handle_command(
                 version: DAEMON_VERSION.to_string(),
                 protocol: PROTOCOL_VERSION,
                 windows,
+                bar: Some(bars.status()),
             };
             let msg = format!("Daemon is running, managing {windows} windows");
             Some(Response::ok_with_message(msg).with_data(&status))

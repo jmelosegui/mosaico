@@ -13,6 +13,7 @@ pub mod client;
 mod connection;
 mod diff;
 mod hub;
+mod listing;
 mod loop_request;
 mod messages;
 mod outbox;
@@ -26,6 +27,7 @@ mod writer;
 pub use connection::{ApiConnection, ApiListener, ApiReader, ApiWriter, Limits, Stopper};
 pub use diff::{Removed, Update};
 pub use hub::{Hub, ToLoop};
+pub use listing::{BarSession, BarStatus};
 pub use loop_request::{LoopRequest, Peer, Reply};
 pub use messages::{Ack, ApiError, Bye, DaemonMessage, ErrorCode, Snapshot, Welcome};
 pub use protocol::{

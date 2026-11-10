@@ -3,7 +3,7 @@
 
 use std::time::Instant;
 
-use crate::api::{ApiError, ErrorCode, MonitorTarget, Peer, Reserve};
+use crate::api::{ApiError, BarSession, BarStatus, ErrorCode, MonitorTarget, Peer, Reserve};
 use crate::tiler::{MonitorPlace, Platform, Reach, TilingManager};
 
 use super::super::handover::reach_of;
@@ -77,6 +77,37 @@ impl BarHost {
     /// the tiles moving out and back.
     pub fn session_ended(&mut self, session: u64, now: Instant) {
         self.reservations.end(session, now + RESERVATION_GRACE);
+    }
+
+    /// The bar API as the daemon serves it: the provider, the sessions
+    /// open, each with whether it may reserve and what it does, then those
+    /// that ended and still keep space.
+    pub fn status(&self) -> BarStatus {
+        let held = self.reservations.listed();
+        let open = self
+            .hub
+            .as_ref()
+            .map(|hub| hub.listed())
+            .unwrap_or_default();
+        let mut sessions: Vec<BarSession> = (open.into_iter())
+            .map(|session| {
+                let holds = held.iter().find(|h| h.session == session.session);
+                BarSession {
+                    reserves: holds.map(|h| h.reserves.clone()).unwrap_or_default(),
+                    ..session
+                }
+            })
+            .collect();
+        let gone = |h: &&BarSession| !sessions.iter().any(|s| s.session == h.session);
+        let ended: Vec<BarSession> = held.iter().filter(gone).cloned().collect();
+        sessions.extend(ended.into_iter().map(|h| BarSession { ended: true, ..h }));
+        for session in &mut sessions {
+            session.may_reserve = self.provider.accepts(session.bar.as_deref());
+        }
+        BarStatus {
+            provider: self.provider.name().to_string(),
+            sessions,
+        }
     }
 
     /// How far the provider's bars and the reservations reach into

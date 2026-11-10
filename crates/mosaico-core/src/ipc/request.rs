@@ -81,6 +81,7 @@ fn version_mismatch(client: Option<u64>) -> Response {
         version: DAEMON_VERSION.to_string(),
         protocol: PROTOCOL_VERSION,
         windows: 0,
+        bar: None,
     })
 }
 

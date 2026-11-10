@@ -29,6 +29,7 @@ fn places() -> Vec<MonitorPlace> {
 fn peer(session: u64, process: u32) -> Peer {
     Peer {
         session,
+        client: None,
         bar: Some("yasb".to_string()),
         process: Some(process),
     }

@@ -1,6 +1,8 @@
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
+use crate::api::BarStatus;
+
 /// A reply from the daemon.
 ///
 /// `code` and `data` are optional on the wire, so replies from daemons
@@ -64,6 +66,10 @@ pub struct DaemonStatus {
     /// Number of windows the daemon manages.
     #[serde(default)]
     pub windows: usize,
+    /// The bar API's provider and sessions. Daemons from before it leave
+    /// it out.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bar: Option<BarStatus>,
 }
 
 impl Response {

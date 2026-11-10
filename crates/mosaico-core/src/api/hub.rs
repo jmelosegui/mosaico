@@ -11,7 +11,7 @@ use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, Instant};
 
 use super::outbox::Outbox;
-use super::{ApiError, ErrorCode, Limits, LoopRequest, State, Stopper};
+use super::{ApiError, BarSession, ErrorCode, Limits, LoopRequest, State, Stopper};
 
 /// Sends a request to the daemon loop; `false` once the loop is gone.
 pub type ToLoop = Box<dyn Fn(LoopRequest) -> bool + Send + Sync>;
@@ -33,6 +33,8 @@ pub(super) struct Shared {
     pub(super) fresh: bool,
     pub(super) connections: usize,
     pub(super) sessions: BTreeMap<u64, Outbox>,
+    /// What each open session said of itself in `hello`, oldest first.
+    pub(super) about: Vec<BarSession>,
     pub(super) next_session: u64,
     pub(super) closing: Option<String>,
     pub(super) stoppers: Vec<Stopper>,
@@ -55,6 +57,7 @@ impl Hub {
                 fresh: false,
                 connections: 0,
                 sessions: BTreeMap::new(),
+                about: Vec::new(),
                 next_session: 1,
                 closing: None,
                 stoppers: Vec::new(),
@@ -107,6 +110,12 @@ impl Hub {
     /// How many sessions are open.
     pub fn sessions(&self) -> usize {
         self.lock().sessions.len()
+    }
+
+    /// The sessions open, in the order they opened, as each described
+    /// itself in `hello`. The space they reserve is the loop's to say.
+    pub fn listed(&self) -> Vec<BarSession> {
+        self.lock().about.clone()
     }
 
     /// Ends every session, each told `reason`, stops the listeners, and
@@ -162,9 +171,10 @@ impl Hub {
         })
     }
 
-    /// Opens a session on `ticket`'s connection, and asks the loop for
-    /// the state if nobody followed it yet.
-    pub(super) fn join(&self, ticket: &mut Ticket) -> Result<u64, ApiError> {
+    /// Opens a session on `ticket`'s connection for the program `about`
+    /// describes, and asks the loop for the state if nobody followed it
+    /// yet.
+    pub(super) fn join(&self, ticket: &mut Ticket, about: BarSession) -> Result<u64, ApiError> {
         let mut shared = self.lock();
         if shared.closing.is_some() {
             return Err(ApiError::new(ErrorCode::Stopping, "the daemon is stopping"));
@@ -176,6 +186,7 @@ impl Hub {
         let session = shared.next_session;
         shared.next_session += 1;
         shared.sessions.insert(session, Outbox::default());
+        shared.about.push(BarSession { session, ..about });
         ticket.session = Some(session);
         let stale = !shared.fresh;
         drop(shared);
@@ -218,6 +229,7 @@ impl Drop for Ticket {
         shared.connections = shared.connections.saturating_sub(1);
         if let Some(session) = self.session {
             shared.sessions.remove(&session);
+            shared.about.retain(|about| about.session != session);
             if shared.sessions.is_empty() {
                 shared.fresh = false;
             }

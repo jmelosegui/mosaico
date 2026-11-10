@@ -59,6 +59,8 @@ pub enum LoopRequest {
 pub struct Peer {
     /// The session.
     pub session: u64,
+    /// The program its `hello` named, such as `"yasb 2.0.8"`, if any.
+    pub client: Option<String>,
     /// The bar its `hello` named, such as `"yasb"`, if any.
     pub bar: Option<String>,
     /// The process that draws the bar, if known: the one `hello` named,

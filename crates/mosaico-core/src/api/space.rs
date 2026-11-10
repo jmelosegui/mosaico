@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::StableMonitorId;
-use crate::tiler::Edges;
+use crate::tiler::{Edges, Side};
 
 /// The monitors a reservation is for: one, by id, or every one connected
 /// now and later.
@@ -49,7 +49,7 @@ impl From<MonitorTarget> for String {
 /// How far a bar reaches into a monitor from each edge, in the desktop's
 /// pixels, which tiles keep clear of while its session lasts. Edges left
 /// out reach nothing; all of them at 0 ends the reservation.
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(test, derive(schemars::JsonSchema))]
 pub struct Reserve {
     /// The monitor, by id, or `"all"`.
@@ -70,6 +70,18 @@ pub struct Reserve {
 }
 
 impl Reserve {
+    /// Asks for `edges` on `monitor`.
+    pub fn new(monitor: MonitorTarget, edges: Edges) -> Self {
+        let px = |side| u32::try_from(edges.get(side)).unwrap_or(0);
+        Self {
+            monitor,
+            top: px(Side::Top),
+            bottom: px(Side::Bottom),
+            left: px(Side::Left),
+            right: px(Side::Right),
+        }
+    }
+
     /// What it asks for, on each edge.
     pub fn edges(&self) -> Edges {
         let px = |edge: u32| i32::try_from(edge).unwrap_or(i32::MAX);

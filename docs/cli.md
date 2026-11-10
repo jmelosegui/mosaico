@@ -24,6 +24,7 @@ dedicated handler module under `crates/mosaico/src/commands/`.
 | `crates/mosaico/src/commands/doctor.rs` | `mosaico doctor` handler |
 | `crates/mosaico/src/commands/doctor_animations.rs` | What `mosaico doctor` says about window transitions |
 | `crates/mosaico/src/commands/doctor_bar.rs` | What `mosaico doctor` says about `bar.toml`: whether it loads, and the clicks on the bar's widgets |
+| `crates/mosaico/src/commands/doctor_bar_sessions.rs` | What `mosaico doctor` says about the bar API sessions the running daemon has open |
 | `crates/mosaico/src/commands/autostart.rs` | `mosaico autostart enable` / `disable` / `status` handler |
 | `crates/mosaico/src/commands/daemon.rs` | `mosaico daemon` handler (hidden) |
 | `crates/mosaico/src/commands/action.rs` | `mosaico action <verb>` handler |
@@ -216,9 +217,16 @@ Checks performed:
    changes the registration
 9. **Daemon** -- checks IPC pipe, PID file, and process liveness; cleans up
    stale PID files
-10. **Monitors** -- enumerates monitors and reports count with per-monitor
+10. **Bar API sessions** -- while the daemon runs, asks it for its status and
+   lists `DaemonStatus::bar` (`BarStatus`): how many sessions are open, then
+   per session the bar and program its `hello` named, its process, and the
+   space it reserves, that it reserves nothing, that the provider lets it
+   reserve nothing, or that it ended and its space is held through the grace.
+   `[warn]` when the daemon runs another provider than `config.toml` names,
+   as when the file has an error. A daemon that sends no `bar` prints nothing
+11. **Monitors** -- enumerates monitors and reports count with per-monitor
    dimensions and positions
-11. **Window transitions** -- reports whether windows move to their new place
+12. **Window transitions** -- reports whether windows move to their new place
    in transitions, then the `[animations]` settings the daemon starts with
    (`enabled`, `duration`, `easing`, `follow_system`; the defaults when
    `config.toml` is missing or invalid, said to be the defaults for an

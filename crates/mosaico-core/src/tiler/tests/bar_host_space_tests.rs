@@ -1,9 +1,11 @@
 //! The space bars reserve through the bar API, and their windows, which
 //! are left untiled.
 
+use std::sync::Arc;
 use std::time::Instant;
 
-use crate::api::{ErrorCode, MonitorTarget, Peer, Reserve};
+use crate::api::session_world::{World, state};
+use crate::api::{BarSession, BarStatus, ErrorCode, MonitorTarget, Peer, Reserve};
 use crate::bar::{BarHost, RESERVATION_GRACE};
 use crate::config::BarChoice;
 use crate::id::wid;
@@ -18,6 +20,7 @@ use super::{MON_H, TilingManager};
 fn peer() -> Peer {
     Peer {
         session: 1,
+        client: None,
         bar: Some("yasb".to_string()),
         process: Some(4242),
     }
@@ -175,4 +178,80 @@ fn a_window_a_reserving_bar_opens_is_not_tiled() {
 
     // Assert
     assert_eq!(tiled(&manager, 0), [1]);
+}
+
+#[test]
+fn the_status_lists_the_open_sessions_with_their_space_then_those_that_ended() {
+    // Arrange
+    let world = World::new();
+    world.hub.publish(&state(1));
+    let mut bar = world.listener.connect_from(usize::MAX, Some(4242));
+    bar.send(r#"{"hello":{"api":[1],"bar":"yasb","client":"yasb 2.0.8"}}"#);
+    let _ = (bar.recv(), bar.recv());
+    let (_platform, mut manager, mut bars) = external();
+    bars.publish_to(Arc::clone(&world.hub));
+    let gone = Peer {
+        session: 9,
+        client: Some("gone 1".to_string()),
+        bar: None,
+        process: Some(7),
+    };
+
+    // Act
+    bars.reserve(&mut manager, &peer(), &top(MonitorTarget::All, 40))
+        .unwrap();
+    bars.reserve(&mut manager, &gone, &top(MonitorTarget::All, 20))
+        .unwrap();
+    bars.session_ended(9, Instant::now());
+    let status = bars.status();
+
+    // Assert
+    let expected = BarStatus {
+        provider: "external".to_string(),
+        sessions: vec![
+            BarSession {
+                session: 1,
+                client: Some("yasb 2.0.8".to_string()),
+                bar: Some("yasb".to_string()),
+                process: Some(4242),
+                ended: false,
+                may_reserve: true,
+                reserves: vec![top(MonitorTarget::All, 40)],
+            },
+            BarSession {
+                session: 9,
+                client: Some("gone 1".to_string()),
+                bar: None,
+                process: Some(7),
+                ended: true,
+                may_reserve: true,
+                reserves: vec![top(MonitorTarget::All, 20)],
+            },
+        ],
+    };
+    assert_eq!(status, expected);
+}
+
+#[test]
+fn the_status_says_which_sessions_the_built_in_bar_lets_reserve() {
+    // Arrange
+    let world = World::new();
+    world.hub.publish(&state(1));
+    let mut bar = world.listener.connect();
+    bar.send(r#"{"hello":{"api":[1],"bar":"yasb"}}"#);
+    let _ = (bar.recv(), bar.recv());
+    let platform = FakePlatform::new(1, &[(1, 0)]);
+    let mut manager = start(&platform, None, &still());
+    let mut bars = host(&Recorder::default());
+    bars.start(&mut manager);
+    bars.publish_to(Arc::clone(&world.hub));
+
+    // Act
+    let status = bars.status();
+
+    // Assert
+    let may: Vec<(u64, bool)> = (status.sessions.iter())
+        .map(|s| (s.session, s.may_reserve))
+        .collect();
+    assert_eq!(may, [(1, false)]);
 }

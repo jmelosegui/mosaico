@@ -94,7 +94,10 @@ actions, which a daemon of version 1 cannot read.
 - `code` -- an `ErrorCode` for programs, on errors. Codes a build does not
   know read as `Other`.
 - `data` -- a typed result, read with `Response::data::<T>()`. `Status`
-  returns a `DaemonStatus`. `Inspect` returns a `DesktopSnapshot`: every
+  returns a `DaemonStatus`, with, from a daemon that has one, `bar`: the bar
+  provider and the bar API sessions with the space each reserves
+  (`BarStatus`), which `mosaico doctor` lists. It is optional, so the
+  protocol stays the same. `Inspect` returns a `DesktopSnapshot`: every
   monitor, workspace and managed window, the disconnected monitors and what
   has focus. Its `message` holds the same state as text, which `mosaico debug
   state` prints as the daemon wrote it; the CLI renders the payload itself

@@ -643,7 +643,8 @@ settings app offers the four edges on its Bar page. When mosaico's bar
 gives way to another, the space it kept is held for a few seconds, so
 windows do not fill the gap and jump back once the other bar is up.
 `mosaico doctor` lists, per monitor, what the system and the bar keep on
-each edge.
+each edge, and, from the running daemon, each bar API session: the bar and
+program that opened it and the space it reserves.
 
 ## Configuration
 

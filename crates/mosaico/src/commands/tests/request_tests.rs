@@ -91,6 +91,7 @@ fn tells_the_user_to_restart_a_mismatched_daemon() {
         version: "0.0.1".into(),
         protocol: 99,
         windows: 0,
+        bar: None,
     };
     h.world.reply(Ok(
         Response::error(ErrorCode::VersionMismatch, "mismatch").with_data(&status)

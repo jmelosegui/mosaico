@@ -774,8 +774,8 @@ needs 36.4 and 36.6; 36.8 and 36.9 need 36.7.
       grace, the refusals, monitors followed by id, the provider's sessions told
       at a switch; `subscribe --reserve`, replayed by `--wait`
 - [x] Windows of a reserving session's process left untiled
-- [ ] doctor: the sessions, their bars and what each reserves; the settings
-      app's list of them
+- [x] doctor: the sessions, their bars and what each reserves
+- [ ] The settings app's list of the sessions
 - [x] `cli.md` and the guide's CLI page; tests with fakes
 - [ ] The desktop suite `tests/external_bar.rs`
 

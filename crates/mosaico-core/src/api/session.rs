@@ -16,8 +16,9 @@ use super::hub::{Hub, Ticket};
 use super::outbox::Out;
 use super::writer::{SessionWriter, refuse};
 use super::{
-    ApiConnection, ApiError, ApiListener, ApiReader, ApiWriter, ClientMessage, DaemonMessage,
-    ErrorCode, LoopRequest, Peer, Reply, Request, Run, SUPPORTED_APIS, Topics, negotiate,
+    ApiConnection, ApiError, ApiListener, ApiReader, ApiWriter, BarSession, ClientMessage,
+    DaemonMessage, ErrorCode, LoopRequest, Peer, Reply, Request, Run, SUPPORTED_APIS, Topics,
+    negotiate,
 };
 
 /// Accepts bars on `listener` until `hub` closes, each session on threads
@@ -74,7 +75,14 @@ fn run_session<C: ApiConnection>(connection: C, ticket: Ticket) {
         return refuse(&mut writer, &hub, &DaemonMessage::Error { id: None, error });
     }
     let mut ticket = ticket;
-    let session = match hub.join(&mut ticket) {
+    let process = hello.process.or(process);
+    let about = BarSession {
+        client: hello.client.clone(),
+        bar: hello.bar.clone(),
+        process,
+        ..BarSession::default()
+    };
+    let session = match hub.join(&mut ticket, about) {
         Ok(session) => session,
         Err(error) => return refuse(&mut writer, &hub, &DaemonMessage::Error { id: None, error }),
     };
@@ -86,8 +94,9 @@ fn run_session<C: ApiConnection>(connection: C, ticket: Ticket) {
     let topics = Topics::requested(hello.topics.as_deref());
     let peer = Peer {
         session,
+        client: hello.client,
         bar: hello.bar,
-        process: hello.process.or(process),
+        process,
     };
     thread::scope(|scope| {
         scope.spawn(|| SessionWriter::new(writer, &hub, session, topics).run());
