@@ -32,6 +32,14 @@ const LOG_LEVELS: &[(&str, &str)] = &[
     ("error", "error"),
 ];
 
+/// The bars `[bar] provider` picks, by the names
+/// [`BarChoice`](crate::config::BarChoice) reads.
+const BAR_PROVIDERS: &[(&str, &str)] = &[
+    ("mosaico", "Mosaico bar"),
+    ("external", "Another program's bar"),
+    ("none", "No bar"),
+];
+
 pub(super) const fn setting(
     key: &'static str,
     label: &'static str,
@@ -214,6 +222,12 @@ pub const CONFIG_SETTINGS: &[SettingDescriptor] = &[
         "Tray icon",
         "Show the mosaico icon in the notification area while the daemon runs.",
         SettingKind::Bool,
+    ),
+    setting(
+        "bar.provider",
+        "Bar",
+        "The bar that shows your workspaces. Tiles keep clear of it.",
+        SettingKind::Choice(BAR_PROVIDERS),
     ),
     setting(
         "logging.enabled",

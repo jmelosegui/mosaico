@@ -157,6 +157,9 @@ impl ConfigReloader {
     /// for the user rules, whose absence still reloads the rules.
     fn load(&self, file: Watched) -> Option<ConfigReload> {
         let path = file.path(&self.store);
+        if matches!(file, Watched::Bar) && !self.bar_is_builtin() {
+            return None;
+        }
         if !matches!(file, Watched::UserRules) && !readable(file, &path) {
             return None;
         }
@@ -190,6 +193,20 @@ impl ConfigReloader {
                 })
             }
         }
+    }
+
+    /// Whether `config.toml` picks the built-in bar, the only one that
+    /// reads `bar.toml`. Under any other, the file is neither read nor
+    /// reported, and is read afresh when the built-in bar is picked again.
+    fn bar_is_builtin(&self) -> bool {
+        let choice = self.store.bar_provider().choice();
+        if !choice.is_builtin() {
+            crate::log_info!(
+                "bar.toml is not read while [bar] provider is \"{}\"",
+                choice.name()
+            );
+        }
+        choice.is_builtin()
     }
 
     /// The keybindings and launch bindings of `keybindings.toml`, leaving
@@ -243,3 +260,7 @@ mod rules_tests;
 #[cfg(test)]
 #[path = "tests/keybindings_tests.rs"]
 mod keybindings_tests;
+
+#[cfg(test)]
+#[path = "tests/bar_provider_tests.rs"]
+mod bar_provider_tests;

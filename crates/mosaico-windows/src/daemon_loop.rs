@@ -1,8 +1,7 @@
-use std::rc::Rc;
 use std::sync::mpsc;
 
 use mosaico_core::api::{self, API_VERSION};
-use mosaico_core::bar::{BarHost, BuiltinBar};
+use mosaico_core::bar::BarHost;
 use mosaico_core::config::{ConfigStore, manage_deprecation};
 use mosaico_core::ipc::DAEMON_VERSION;
 use mosaico_core::tiler::HiddenFile;
@@ -10,15 +9,13 @@ use mosaico_core::tray::{TrayNotice, TrayPaths};
 use mosaico_core::update::Installer;
 use mosaico_core::{Instance, Result};
 
-use crate::bar::Win32BarRenderer;
 use crate::http::WinHttpClient;
 use crate::install::RenameInstaller;
-use crate::system_info::Win32SystemInfo;
 use crate::tiling::{TilingManager, Win32Platform};
 
 use super::daemon_frames;
 use super::daemon_inputs::{Inputs, Senders};
-use super::daemon_loop_bar::ChannelSink;
+use super::daemon_loop_bar;
 use super::daemon_loop_run;
 use super::daemon_threads;
 use super::daemon_types::DaemonMsg;
@@ -50,20 +47,25 @@ pub(super) fn daemon_loop(pipe_name: &str, store: &ConfigStore) -> Result<()> {
 
     let (tx, rx) = mpsc::channel::<DaemonMsg>();
 
-    let builtin = BuiltinBar::new(
-        Box::new(Win32BarRenderer),
-        Box::new(Win32SystemInfo),
-        Rc::new(ChannelSink(tx.clone())),
-        store.merge_missing_bar_widgets(),
-        config.theme.resolve(),
-    );
+    // `bar.toml` is only read, and its new widgets added, while mosaico's
+    // own bar is picked.
+    let provider = store.bar_provider();
+    if let Some(warning) = provider.warning() {
+        mosaico_core::log_warn!("{warning}");
+    }
     let daemon = api::Daemon {
         version: DAEMON_VERSION.to_string(),
         api: API_VERSION,
         instance: Instance::current().and_then(|i| i.name().map(str::to_string)),
         ..api::Daemon::default()
     };
-    let mut bars = BarHost::new(Box::new(builtin), daemon, config.theme.resolve());
+    let mut bars = BarHost::new(
+        provider.choice(),
+        daemon_loop_bar::make_builtin(tx.clone(), store.clone()),
+        daemon,
+        config.theme.resolve(),
+    );
+    mosaico_core::log_info!("Bar: {}", bars.choice().name());
 
     let hidden = Instance::current().map(HiddenFile::for_instance);
     let mut manager = TilingManager::new(Win32Platform::new(), hidden, &config, rules)?;

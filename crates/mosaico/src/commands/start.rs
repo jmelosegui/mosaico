@@ -124,11 +124,18 @@ fn print_banner(cx: &mut Context, pid: u32, version: &str) {
     say!(cx, "");
     say!(cx, "  {d}Config{r}   {}", cx.config.dir().display());
     say!(cx, "  {d}Daemon{r}   Started (PID: {w}{pid}{r})");
+    // The bar as the daemon reads it, from the same file at the same time.
+    let bar = cx.config.bar_provider();
+    say!(cx, "  {d}Bar{r}      {}", bar.choice().name());
     say!(cx, "  {d}Repo{r}     https://github.com/jmelosegui/mosaico");
     say!(cx, "  {d}Tip{r}      {tip}");
 
+    let y = "\x1b[33m"; // Yellow
+    if let Some(warning) = bar.warning() {
+        say!(cx, "");
+        say!(cx, "  {y}{warning}{r}");
+    }
     if let Ok(Some(remote)) = update::newer_release(cx.http, version) {
-        let y = "\x1b[33m"; // Yellow
         say!(cx, "");
         say!(cx, "  {y}Update available: v{version} -> {remote}{r}");
         say!(cx, "  {y}Run 'mosaico update' to install it{r}");

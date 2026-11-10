@@ -4,6 +4,7 @@ mod load;
 mod merge_animations;
 mod merge_bar;
 mod merge_bar_mouse;
+mod merge_bar_provider;
 mod merge_config;
 mod merge_keybindings;
 mod merge_mouse;

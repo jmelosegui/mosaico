@@ -19,6 +19,8 @@ use super::*;
 
 #[path = "metrics_bar.rs"]
 mod bar;
+#[path = "metrics_bar_switch.rs"]
+mod bar_switch;
 #[path = "metrics_display.rs"]
 mod display;
 #[path = "metrics_drag_scenarios.rs"]
@@ -82,6 +84,9 @@ pub(super) const SCENARIOS: &[Scenario] = &[
     ("bar_reserved", || {
         on(four(), |m| m.set_reach(Reach::bar_on(&m.places(), 30, &[])))
     }),
+    ("bar_switch_to_none", bar_switch::to_none),
+    ("bar_switch_to_builtin", bar_switch::to_builtin),
+    ("bar_switch_same_space", bar_switch::same_space),
     ("monitor_disconnect", display::disconnect),
     ("monitor_reconnect", display::reconnect),
     ("float_on_and_off", floating::on_and_off),

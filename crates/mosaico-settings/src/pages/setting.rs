@@ -15,7 +15,7 @@ use crate::widgets::{self, RowState};
 const MAX_SEGMENTS: usize = 3;
 
 /// Choices whose labels are too long for a segmented control.
-const DROPDOWNS: [&str; 2] = ["layout.hiding", "mouse.scroll"];
+const DROPDOWNS: [&str; 3] = ["layout.hiding", "mouse.scroll", "bar.provider"];
 
 /// Numbers with a small range that read best on a track.
 const SLIDERS: [&str; 5] = [

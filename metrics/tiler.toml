@@ -53,6 +53,26 @@ read_windows_on_screen = 1
 show = 1
 show_border = 2
 
+[bar_switch_same_space]
+border_renders = 0
+calls = 0
+
+[bar_switch_to_builtin]
+border_renders = 4
+calls = 12
+place = 4
+read_windows_on_screen = 2
+repaint = 4
+show_border = 4
+
+[bar_switch_to_none]
+border_renders = 4
+calls = 12
+place = 4
+read_windows_on_screen = 2
+repaint = 4
+show_border = 4
+
 [close_one_of_4]
 border_renders = 2
 calls = 11

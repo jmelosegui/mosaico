@@ -166,7 +166,13 @@ as the **Duration** set above, even before you apply it.
 
 ## Bar
 
-The Bar page edits `bar.toml`, a different file from `config.toml`. Apply saves
+At the top, **Bar** picks the bar that shows your workspaces: the Mosaico bar,
+another program's bar, or no bar (`[bar] provider` in `config.toml`, see
+[Status Bar](status-bar.md#which-bar)). The rest of the page edits `bar.toml`
+and is shown only while the Mosaico bar is picked; under any other bar a note
+says `bar.toml` is not read.
+
+`bar.toml` is a different file from `config.toml`. Apply saves
 it after `config.toml`, and the running bar picks the change up by itself.
 
 The page has three tabs, and a preview of the bar at the top of the first two

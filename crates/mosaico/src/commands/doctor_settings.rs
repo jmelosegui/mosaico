@@ -9,6 +9,12 @@ use super::context::{Context, say};
 
 const WARN: &str = "\x1b[33m[warn]\x1b[0m";
 
+/// Settings doctor speaks of on a line of their own, in the words the
+/// daemon logs, which read them more loosely than the settings window
+/// offers them: `[bar] provider` takes any case, and a name mosaico does
+/// not know is another program's bar.
+const OWN_LINE: &[&str] = &["bar.provider"];
+
 /// Says each value of the file `name` at `path` that mosaico does not
 /// take as written.
 pub fn check_settings(
@@ -31,6 +37,7 @@ fn settings_lines(name: &str, path: &Path, settings: &'static [SettingDescriptor
     };
     review(&text, settings)
         .iter()
+        .filter(|problem| !OWN_LINE.contains(&problem.key()))
         .map(|problem| format!("  {WARN} {name}: {problem}"))
         .collect()
 }

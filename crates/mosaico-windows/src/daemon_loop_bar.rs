@@ -1,11 +1,18 @@
-//! What the pointer does on the bars: the sink the bars report to, and
-//! the actions their clicks and the wheel ask for.
+//! mosaico's own bar on this platform, what the pointer does on the bars:
+//! the sink the bars report to, and the actions their clicks and the
+//! wheel ask for.
 
+use std::rc::Rc;
 use std::sync::mpsc::Sender;
 use std::time::Instant;
 
-use mosaico_core::bar::{BarHost, BarId, PointerEvent, PointerSink};
+use mosaico_core::bar::{
+    BarHost, BarId, BarProvider, BuiltinBar, MakeBuiltin, PointerEvent, PointerSink,
+};
+use mosaico_core::config::ConfigStore;
 
+use crate::bar::Win32BarRenderer;
+use crate::system_info::Win32SystemInfo;
 use crate::tiling::TilingManager;
 
 use super::daemon_inputs::Inputs;
@@ -22,6 +29,21 @@ impl PointerSink for ChannelSink {
         // The queue only goes away as the daemon stops.
         let _ = self.0.send(DaemonMsg::BarPointer(bar, event));
     }
+}
+
+/// Makes mosaico's own bar, drawn here, with the widgets in `store`'s
+/// `bar.toml` as it is when the bar is made, the pointer reported on
+/// `queue`.
+pub(super) fn make_builtin(queue: Sender<DaemonMsg>, store: ConfigStore) -> MakeBuiltin {
+    Box::new(move |theme| {
+        Box::new(BuiltinBar::new(
+            Box::new(Win32BarRenderer),
+            Box::new(Win32SystemInfo),
+            Rc::new(ChannelSink(queue.clone())),
+            store.merge_missing_bar_widgets(),
+            theme,
+        )) as Box<dyn BarProvider>
+    })
 }
 
 /// Carries out the action a click on a bar asks for, the way a hotkey's

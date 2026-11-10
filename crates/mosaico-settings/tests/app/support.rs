@@ -93,7 +93,11 @@ fn starts_with_no_unsaved_changes() {
     assert_eq!(h.state().edit(), &saved());
 }
 
+/// Clicks the node with `role` and `label`, scrolled into view first, as
+/// a user would, so a row below the window's height is clicked too.
 pub fn click(h: &mut Harness<'static, SettingsApp>, role: Role, label: &str) {
+    h.get_by_role_and_label(role, label).scroll_to_me();
+    h.run();
     h.get_by_role_and_label(role, label).click();
     h.run();
 }

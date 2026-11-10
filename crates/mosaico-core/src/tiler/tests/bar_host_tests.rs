@@ -2,12 +2,12 @@
 //! which a provider is placed, asked how far it reaches and shown the
 //! state.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use crate::api;
 use crate::bar::{BarHost, BarProvider};
-use crate::config::{CatppuccinFlavor, Theme};
+use crate::config::{BarChoice, CatppuccinFlavor, Theme};
 use crate::tiler::MonitorPlace;
 
 use super::fake_platform::FakePlatform;
@@ -17,7 +17,7 @@ use super::*;
 const HEIGHT: i32 = 30;
 
 #[derive(Debug, Clone, PartialEq)]
-enum Told {
+pub(super) enum Told {
     Placed(Vec<Rect>),
     Reach,
     Shown(Box<api::State>),
@@ -26,16 +26,16 @@ enum Told {
 }
 
 /// A provider that notes what it is told, with a bar `HEIGHT` high on
-/// every monitor.
+/// every monitor. It wants no state while its flag is set.
 #[derive(Default, Clone)]
-struct Recorder(Rc<RefCell<Vec<Told>>>);
+pub(super) struct Recorder(Rc<RefCell<Vec<Told>>>, pub(super) Rc<Cell<bool>>);
 
 impl Recorder {
-    fn take(&self) -> Vec<Told> {
+    pub(super) fn take(&self) -> Vec<Told> {
         std::mem::take(&mut self.0.borrow_mut())
     }
 
-    fn shown(&self) -> Vec<api::State> {
+    pub(super) fn shown(&self) -> Vec<api::State> {
         (self.take().into_iter())
             .filter_map(|told| match told {
                 Told::Shown(state) => Some(*state),
@@ -70,14 +70,25 @@ impl BarProvider for Recorder {
         self.0.borrow_mut().push(Told::Refreshed);
     }
 
+    fn wants_state(&self) -> bool {
+        !self.1.get()
+    }
+
     fn stop(&mut self) {
         self.0.borrow_mut().push(Told::Stopped);
     }
 }
 
-fn host(recorder: &Recorder) -> BarHost {
+pub(super) fn host(recorder: &Recorder) -> BarHost {
+    host_on(recorder, BarChoice::Mosaico)
+}
+
+/// A host on `choice`, whose built-in bar, once picked, is `recorder`.
+pub(super) fn host_on(recorder: &Recorder, choice: BarChoice) -> BarHost {
     let mocha = Theme::Catppuccin(CatppuccinFlavor::Mocha);
-    BarHost::new(Box::new(recorder.clone()), api::Daemon::default(), mocha)
+    let recorder = recorder.clone();
+    let make = Box::new(move |_| Box::new(recorder.clone()) as Box<dyn BarProvider>);
+    BarHost::new(choice, make, api::Daemon::default(), mocha)
 }
 
 #[test]

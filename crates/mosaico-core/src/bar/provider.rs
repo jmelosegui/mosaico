@@ -44,6 +44,13 @@ pub trait BarProvider {
     /// Shows `state`.
     fn show(&mut self, state: &State);
 
+    /// Whether anything would come of [`show`](Self::show) now. The
+    /// daemon builds no state while it is `false`, and shows the state
+    /// it missed once it turns `true`.
+    fn wants_state(&self) -> bool {
+        true
+    }
+
     /// Draws again what changes on its own, such as a clock. Called about
     /// once a second.
     fn refresh(&mut self) {}
@@ -96,6 +103,36 @@ impl BarProvider for NoBar {
     }
 
     fn show(&mut self, _state: &State) {}
+
+    fn wants_state(&self) -> bool {
+        false
+    }
+
+    fn stop(&mut self) {}
+}
+
+/// A bar another program draws, which reads the state through the bar
+/// API. Until it says how far it reaches, tiles keep to the work areas
+/// the system gives.
+#[derive(Debug, Default)]
+pub struct ApiBar;
+
+impl BarProvider for ApiBar {
+    fn name(&self) -> &str {
+        "external"
+    }
+
+    fn place(&mut self, _places: &[MonitorPlace]) {}
+
+    fn reach(&self, _places: &[MonitorPlace]) -> Reach {
+        Reach::none()
+    }
+
+    fn show(&mut self, _state: &State) {}
+
+    fn wants_state(&self) -> bool {
+        false
+    }
 
     fn stop(&mut self) {}
 }

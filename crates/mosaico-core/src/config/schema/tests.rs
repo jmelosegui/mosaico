@@ -183,3 +183,19 @@ mod bar {
         assert!(find_bar("layout.gap").is_none());
     }
 }
+
+#[test]
+fn the_bars_offered_are_the_bars_the_daemon_runs() {
+    // Arrange
+    let provider = find("bar.provider").unwrap();
+    let SettingKind::Choice(options) = provider.kind else {
+        panic!("{provider:?}");
+    };
+
+    // Act
+    let offered: Vec<_> = options.iter().map(|(name, _)| *name).collect();
+
+    // Assert
+    let runs: Vec<_> = crate::config::BarChoice::ALL.map(|c| c.name()).to_vec();
+    assert_eq!(offered, runs);
+}

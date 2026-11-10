@@ -46,6 +46,13 @@ pub(super) fn handle_reload(
         ConfigReload::Config(cfg) => {
             bars.set_theme(cfg.theme.resolve());
             manager.reload_config(&cfg);
+            let provider = cfg.bar.check();
+            if bars.choose(manager, provider.choice()) {
+                mosaico_core::log_info!("Bar: now {}", provider.choice().name());
+                if let Some(warning) = provider.warning() {
+                    mosaico_core::log_warn!("{warning}");
+                }
+            }
             inputs.set_focus_follows_mouse(cfg.mouse.focus_follows_mouse);
             inputs.set_tray_enabled(cfg.tray.enabled);
         }

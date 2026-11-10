@@ -3,6 +3,7 @@ use std::path::Path;
 use crate::Result;
 
 use super::merge_animations::append_missing_animations_hint;
+use super::merge_bar_provider::append_missing_bar_provider_hint;
 use super::merge_mouse::append_missing_mouse_hints;
 use super::merge_tray::append_missing_tray_hint;
 use super::merge_unfocused::append_missing_unfocused_border_hint;
@@ -114,6 +115,15 @@ impl ConfigStore {
             ),
             Ok(false) => {}
             Err(e) => crate::log_warn!("Could not add the [tray] hint: {e}"),
+        }
+
+        match append_missing_bar_provider_hint(&path) {
+            Ok(true) => crate::log_info!(
+                "Appended [bar] hint to {} (new in this version)",
+                path.display()
+            ),
+            Ok(false) => {}
+            Err(e) => crate::log_warn!("Could not add the [bar] hint: {e}"),
         }
     }
 }

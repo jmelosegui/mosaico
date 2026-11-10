@@ -23,7 +23,8 @@ The contract has two halves:
 | `crates/mosaico-core/src/tiler/api_state.rs` | The tiler's monitors, focus and workspace settings as the API shows them |
 | `crates/mosaico-core/src/tiler/manager_api.rs` | `TilingManager::bar_state()` -- the state, built again only when it may have changed |
 | `crates/mosaico-core/src/tiler/reach.rs` | `MonitorPlace`, `Reach` -- where a bar is placed, and how far it reaches |
-| `crates/mosaico-core/src/bar/provider.rs` | `BarProvider`, `NoBar` |
+| `crates/mosaico-core/src/bar/provider.rs` | `BarProvider`, `ApiBar`, `NoBar` |
+| `crates/mosaico-core/src/config/bar_section.rs` | `[bar] provider` in `config.toml`: `BarChoice`, `BarSection`, `ProviderCheck` |
 | `crates/mosaico-core/src/bar/host.rs` | `BarHost` -- the daemon's one bar, and the order the contract asks for |
 | `crates/mosaico-core/src/bar/builtin.rs` | `BuiltinBar` -- the built-in bar as a provider |
 | `docs/bar-api/state.json`, `update.json` | An example state and update |
@@ -125,6 +126,7 @@ pub trait BarProvider {
     fn place(&mut self, places: &[MonitorPlace]);
     fn reach(&self, places: &[MonitorPlace]) -> Reach;
     fn show(&mut self, state: &State);
+    fn wants_state(&self) -> bool { true }
     fn refresh(&mut self) {}
     fn pointer(&mut self, bar: BarId, event: PointerEvent, now: Instant)
         -> Option<(Action, Origin)> { None }
@@ -148,6 +150,9 @@ thread:
 - `show` is only called with a state that differs from the one shown last,
   or after `place`. A provider keeps the last state if it needs to draw
   again on its own.
+- `wants_state` says whether anything would come of `show` now. While it is
+  `false` the daemon builds no state at all, and it shows the state it
+  missed once it turns `true`.
 - `refresh` is called about once a second when the state did not change,
   for what changes on its own, such as a clock, so a bar draws once a tick.
 - `pointer`, `due` and `take_due` are for a provider drawn through
@@ -172,9 +177,15 @@ runs, and is tested in core (`tiler/tests/bar_host_tests.rs`):
 | `display_changed` | A display change settled | Place on the monitors as they will be, then have the tiler rebuild them clear of the reach, in one step |
 | `reset_work_areas` | The system's work areas changed, or `retile` | Read the work areas, place on them, keep clear of the reach, in one retile |
 | `reload` | `bar.toml` changed | The provider takes the config, then `reset_work_areas` |
+| `choose` | `[bar] provider` changed on a reload | Stop the old provider, make and place the new one, retile only when it reaches further or less far, then show it the state; nothing when the choice is the same |
 | `set_theme`, `set_paused`, `set_update` | The theme, pause state or update notice changed | Shown from the next `show` |
 
-`daemon.provider` is the name the provider goes by.
+`daemon.provider` is the name the provider goes by. `BarHost` is given the
+choice and a maker for the built-in bar, so the platform decides how that
+bar draws and core decides when it is made: at startup under `"mosaico"`,
+and each time a reload picks it again, with `bar.toml` read as it is then.
+Switching to a bar that keeps the same space moves no window, since the
+tiler leaves a window where it already is.
 
 ### Providers
 
@@ -183,7 +194,16 @@ runs, and is tested in core (`tiler/tests/bar_host_tests.rs`):
   state names, makes its bars again only when a monitor came, went, moved or
   changed size, work area or scale, and reaches its height down from the
   top of the work area on the monitors `bar.toml` picks.
-- `NoBar` (`"none"`): nothing is shown and nothing kept clear.
+- `ApiBar` (`"external"`): a bar another program draws. mosaico draws
+  nothing and keeps tiles to the system's work areas. It wants no state
+  until a program reads it through the API.
+- `NoBar` (`"none"`): nothing is shown and nothing kept clear, and no state
+  is built.
+
+`[bar] provider` in `config.toml` picks one (see
+[configuration.md](configuration.md)). It is compared without regard to
+case, and a name mosaico does not know is read as `"external"`, so the
+built-in bar never draws over a bar the user picked.
 
 A parity test (`tiler/tests/bar_parity_tests.rs`) draws the built-in bar
 from the built state and from its JSON round trip, and checks they draw the

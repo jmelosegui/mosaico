@@ -21,9 +21,10 @@ impl SettingsApp {
     /// navigation.
     pub(super) fn counts(&self) -> [usize; Page::ALL.len()] {
         Page::ALL.map(|page| {
-            self.files
-                .matches(page, &self.query)
-                .unwrap_or_else(|| pages::count(page, &self.query))
+            let file = (self.file_read(page))
+                .then(|| self.files.matches(page, &self.query))
+                .flatten();
+            pages::count(page, &self.query) + file.unwrap_or(0)
         })
     }
 

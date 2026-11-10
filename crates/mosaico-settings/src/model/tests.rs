@@ -147,3 +147,23 @@ fn a_file_the_daemon_would_not_load_cannot_be_edited_or_saved_over() {
     assert!(result.unwrap_err().contains("wobble"));
     assert_eq!(store.text(), broken);
 }
+
+#[test]
+fn a_bar_mosaico_does_not_know_is_shown_as_another_programs_and_kept_on_save() {
+    // Arrange
+    let store = TempStore::with("bar", "[bar]\nprovider = \"Elsewhere\"\n");
+    let saved = Loaded::read(&store.0, false).settings;
+    let mut edit = saved.clone();
+
+    // Act
+    edit.set("tray.enabled", on(false));
+    let result = save(&store.0, &saved, &edit);
+
+    // Assert -- the name is shown as the daemon reads it, but not written.
+    assert_eq!(saved.bar(), BarChoice::External);
+    let shown = SettingValue::Text("external".into());
+    assert_eq!(saved.get("bar.provider"), &shown);
+    assert_eq!(result, Ok(()));
+    let expected = "[bar]\nprovider = \"Elsewhere\"\n\n[tray]\nenabled = false\n";
+    assert_eq!(store.text(), expected);
+}

@@ -75,6 +75,9 @@ flavor = "mocha"     # catppuccin: mocha | macchiato | frappe | latte
 [tray]
 enabled = true     # Show the mosaico icon in the notification area
 
+[bar]
+provider = "mosaico"  # The bar that shows your workspaces: "mosaico", "external" or "none"
+
 [logging]
 enabled = false    # Enable file logging
 level = "info"     # Log level: debug, info, warn, error
@@ -84,6 +87,13 @@ max_file_mb = 10   # Max log file size before rotation
 The `[tray]` section shows the mosaico icon in the notification area while
 the daemon runs, on by default. See [Settings Window](settings.md#tray-icon)
 for what it does. Turning it off removes the icon at once.
+
+The `[bar]` section picks the bar that shows your workspaces, which tiles
+keep clear of: `"mosaico"` (the default) for mosaico's own bar, styled in
+`bar.toml`; `"external"` for a bar another program draws, where mosaico
+draws none and keeps tiles to the space Windows leaves free; or `"none"` for
+no bar at all. Under `"external"` and `"none"`, `bar.toml` is not read. See
+[Status Bar](status-bar.md#which-bar).
 
 The `[animations]` section sets up window transitions, which are on by
 default. See [Window Transitions](animations.md) for what moves, the easings
@@ -217,8 +227,9 @@ is running. The daemon waits for the system to report a change in the config
 directory, then reloads each of these files whose modification time changed.
 
 - **config.toml** -- layout gap/ratio, hiding behaviour, border settings,
-  mouse settings, window transitions and theme are reloaded. Windows are
-  retiled immediately. Hiding changes take effect on the next workspace
+  mouse settings, window transitions, the bar provider and theme are
+  reloaded. Windows are retiled immediately. A new bar provider takes the
+  old bar off screen and puts the new one up in one step. Hiding changes take effect on the next workspace
   switch. Windows already moving keep going, unless the reload moves them
   elsewhere or turns transitions off.
 - **user-rules.toml** -- both rule sets are re-merged, your rules first.
@@ -228,7 +239,7 @@ directory, then reloads each of these files whose modification time changed.
   away, where it was, no longer tiled. A window the new rules would manage
   is picked up the next time it gets focus.
 - **bar.toml** -- the status bar is recreated with updated settings and
-  colors.
+  colors. Only while the bar provider is `"mosaico"`.
 - **rules.toml** -- community rules, not watched: updated only on daemon
   startup.
 - **keybindings.toml** -- every hotkey is registered again from the file,

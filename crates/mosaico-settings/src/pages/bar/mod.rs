@@ -22,6 +22,10 @@ use state::BarState;
 /// descriptors.
 type Section = (&'static str, &'static [&'static str]);
 
+/// The row of `config.toml` over the page, which picks the bar.
+pub(super) const SECTIONS: &[super::Section] =
+    &[("Which bar", &[super::Entry::Setting("bar.provider")])];
+
 /// The tabs, in order.
 const TABS: [&str; 3] = ["Appearance", "Widgets", "Mouse"];
 

@@ -99,7 +99,7 @@ All settings have sensible defaults, so configuration files are optional.
 
 ### `config.toml`
 
-Controls layout, borders, the mouse, window transitions, logging, and theme:
+Controls layout, borders, the mouse, window transitions, the bar, logging, and theme:
 
 ```toml
 [layout]
@@ -147,6 +147,9 @@ flavor = "mocha"     # catppuccin: mocha | macchiato | frappe | latte
                      # rose-pine:  main | moon | dawn
                      # tokyo-night: night | storm | day
 
+[bar]
+provider = "mosaico"  # The bar that shows mosaico: "mosaico", "external" or "none"
+
 [logging]
 enabled = false    # Enable file logging
 level = "info"     # Log level: debug, info, warn, error
@@ -158,6 +161,18 @@ whose palette resolves named colors in border and bar configurations. See
 [theming.md](theming.md) for details. The `[animations]` section turns on
 window transitions; see [animations.md](animations.md) for what moves, what
 snaps and why.
+
+The `[bar]` section picks the bar that shows your workspaces, and that tiles
+keep clear of. `provider` (default `"mosaico"`) takes `"mosaico"`, mosaico's
+own bar, styled in `bar.toml`; `"external"`, a bar another program draws,
+for which mosaico draws nothing, does not read `bar.toml` and keeps tiles
+to the space the system leaves free; or `"none"`, no bar and no space kept
+for one, where `bar.toml` is not read either. The name is compared without
+regard to case. A name mosaico does not know is read as `"external"`, so
+the built-in bar never draws over a bar the user picked, and the daemon's
+log, `mosaico start` and `mosaico doctor` say so. The section lives here
+rather than in `bar.toml` because it decides whether `bar.toml` is read at
+all. See [status-bar.md](status-bar.md#providers).
 
 The `[mouse]` section ties the pointer to focus. `follows_focus` (default
 `true`) moves the pointer to the center of the window that takes focus when
@@ -398,7 +413,10 @@ A missing file is never created. Files that exist change in two ways:
     has. A line that only mentions the section does not count. The block is
     all comments and names no default value, so the file keeps the defaults
     until the user writes the section, and says nothing wrong about them
-    when they change.
+    when they change. It then appends a comment block about the notification
+    area icon unless the file has a `[tray]` section, and one about
+    `[bar] provider` unless it has a `[bar]` section, with the same rule.
+    Neither names a value that changes what the file does.
   - `merge_missing_keybindings()` and `merge_missing_bar_widgets()` append the
     default bindings and bar widgets the files lack; see
     [keyboard-bindings.md](keyboard-bindings.md) and
@@ -441,6 +459,17 @@ invalid.
 All config structs use `#[serde(default)]`, so partial TOML files work. A
 file containing only `[layout]\ngap = 12` will use defaults for all other
 fields.
+
+### The `[bar]` Table Alone
+
+`ConfigStore::bar_provider()` reads `[bar] provider` on its own, so a
+mistake elsewhere in `config.toml` does not change the bar. A file that is
+TOML gives its table whatever the other tables hold; one that is not gives
+the lines under `[bar]` and its subtables, read alone. A missing file, or
+one without the table, picks the built-in bar. A table that cannot be read
+even then is `ProviderCheck::Unreadable`, read as `"external"`, so the
+built-in bar never draws over a bar the user may have picked. The config
+the daemon falls back to when the file does not load keeps this `[bar]`.
 
 ## Window Rules
 
@@ -535,7 +564,8 @@ modification time changed. `ConfigReloader` and `ConfigWatch`
 same way.
 
 - **config.toml**: gap/ratio, hiding behaviour, border settings, the
-  `[mouse]` settings, `[animations]` and theme are reloaded. The tiling
+  `[mouse]` settings, `[animations]`, `[bar] provider` and theme are
+  reloaded. The tiling
   manager calls `reload_config()` which updates the layout gap/ratio, hiding
   strategy, `BorderConfig`, whether the mouse follows focus, whether a drop
   moves a dragged window (`drag_to_swap`, from its next report or drop),
@@ -556,8 +586,14 @@ same way.
   (`workspaces.mode`) and `workspaces.wrap` are reloaded live. Turning `"global"` on switches every
   monitor to the focused monitor's workspace, hiding and showing windows as
   a workspace switch does; turning it off leaves each monitor on the
-  workspace it shows. Per-workspace layout overrides
-  (`[workspaces.layouts]` and `layout.default`) are applied at startup only;
+  workspace it shows. A new `[bar] provider` switches the bar in one step
+  (`BarHost::choose()`): the old one is taken off screen, the new one made
+  (the built-in bar reading `bar.toml` as it is then) and placed, the work
+  areas worked out again and the monitors retiled once, so tiles take the
+  space a bar gave up, or keep clear of a new one. Between two bars that
+  keep the same space, nothing is retiled and no border is drawn again.
+  Per-workspace layout overrides (`[workspaces.layouts]` and
+  `layout.default`) are applied at startup only;
   reloading does not override the active layout chosen via `cycle-layout`
   or `set-layout`; restart the daemon to pick up changes.
 - **user-rules.toml**: the window rules (user rules first, then the community
@@ -572,7 +608,9 @@ same way.
 - **rules.toml**: **not** watched. The daemon downloads the community rules
   at startup and reloads them itself once they are saved, and the next
   download overwrites hand edits. Put your own rules in `user-rules.toml`.
-- **bar.toml**: the built-in bar takes it (`BarHost::reload()`): its bars
+- **bar.toml**: read only while `[bar] provider` is `"mosaico"`; under
+  any other bar a change to it is ignored, and the file is read once the
+  built-in bar is picked. The built-in bar takes it (`BarHost::reload()`): its bars
   are made again with the new config in the current theme, then the work
   areas are read again, the bars placed on them, and all monitors retiled
   once to keep clear of the new bar height. The bars are made

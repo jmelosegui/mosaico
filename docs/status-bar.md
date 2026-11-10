@@ -25,7 +25,7 @@ the pointer does.
 | `crates/mosaico-core/src/bar/clicks.rs` | `WidgetClicks` -- what a click on each kind of widget runs; how each entry is checked, and the entries it leaves out, `RejectedClick` and `ClickProblem` (`clicks_rejected.rs`) |
 | `crates/mosaico-core/src/bar/manager.rs` | `BarManager` -- which monitors get a bar, and refreshing them; making them (`manager_bars.rs`), what it keeps of each (`manager_slot.rs`) and the pointer on them (`manager_pointer.rs`) |
 | `crates/mosaico-core/src/bar/builtin.rs` | `BuiltinBar` -- the built-in bar as a `BarProvider`, drawn from the bar API's state, see [bar-api.md](bar-api.md) |
-| `crates/mosaico-core/src/bar/provider.rs`, `host.rs` | `BarProvider`, `NoBar` -- the contract every bar follows; `BarHost` -- the daemon's one bar, and the order the contract asks for |
+| `crates/mosaico-core/src/bar/provider.rs`, `host.rs` | `BarProvider`, `ApiBar`, `NoBar` -- the contract every bar follows; `BarHost` -- the daemon's one bar, the order the contract asks for, and switching between bars |
 | `crates/mosaico-core/src/bar/content.rs` | `BarContent`, `BarItem` -- what each bar shows, in drawing order; the items of a side (`content_items.rs`) and what each is to the pointer (`content_regions.rs`) |
 | `crates/mosaico-core/src/bar/pointer.rs` | `BarId`, `Button`, `PointerEvent`, `PointerSink` -- what a platform reports, and where |
 | `crates/mosaico-core/src/bar/region.rs` | `ItemRegion`, `BarTarget`, `WidgetRef`, `BarSide`, `hit()` -- where a bar drew its items, and which one the pointer is over |
@@ -599,6 +599,33 @@ See [bar-api.md](bar-api.md#reach) for `Reach` itself.
 The `monitors` field in `bar.toml` controls which monitors display bars.
 An empty list (default) shows bars on all monitors. Specifying monitor
 indices (0-based) restricts bars to those monitors only.
+
+## Providers
+
+The built-in bar is one of the bars mosaico can show its state on.
+`[bar] provider` in `config.toml` picks which:
+
+```toml
+[bar]
+provider = "mosaico"   # "mosaico" (default), "external" or "none"
+```
+
+| Provider | Draws | Keeps tiles clear of | Reads `bar.toml` |
+|----------|-------|----------------------|------------------|
+| `mosaico` | The built-in bar described here | Its height, on the monitors it is on | Yes |
+| `external` | Nothing: another program draws its bar | The space the system leaves free | No |
+| `none` | Nothing | Nothing | No |
+
+The settings app offers the same choice on its Bar page, and shows the
+`bar.toml` settings only while the built-in bar is picked. Changing it
+takes effect on save, with no restart: the old bar goes, the new one is
+placed and the windows retile once (see
+[configuration.md](configuration.md#hot-reload)). `enabled = false` in
+`bar.toml` keeps meaning no bar and no space under `mosaico`;
+`mosaico doctor` points to `provider = "none"`, which says the same where
+mosaico looks first. A name mosaico does not know is read as `external`,
+and `mosaico start` and `mosaico doctor` say so. The contract each provider
+follows is in [bar-api.md](bar-api.md).
 
 ## Configuration
 

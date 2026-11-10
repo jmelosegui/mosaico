@@ -8,7 +8,7 @@ pub use save::{Loaded, save};
 use std::collections::BTreeMap;
 
 use mosaico_core::config::schema::{self, CONFIG_SETTINGS, SettingValue};
-use mosaico_core::config::{SettingsDocument, Theme, ThemeConfig};
+use mosaico_core::config::{BarChoice, BarSection, SettingsDocument, Theme, ThemeConfig};
 
 /// The settings the window shows: those of `config.toml`, by key, and
 /// whether mosaico starts at sign-in, which no file holds.
@@ -22,7 +22,19 @@ pub struct Settings {
 impl Settings {
     /// The settings in effect in `doc`, as loading it takes them.
     pub fn read(doc: &SettingsDocument, start_at_sign_in: bool) -> Self {
-        Self::from_values(start_at_sign_in, |key| doc.value(key))
+        Self::from_values(start_at_sign_in, |key| {
+            match key {
+                // The bar is read as the daemon reads it, whatever the case,
+                // and a name it does not know is another program's bar.
+                "bar.provider" => doc.get(key).map(|written| {
+                    let provider = written.as_text().unwrap_or_default().to_owned();
+                    let choice = BarSection { provider }.choice();
+                    SettingValue::Text(choice.name().into())
+                }),
+                _ => None,
+            }
+            .or_else(|| doc.value(key))
+        })
     }
 
     /// What a new install has.
@@ -43,6 +55,12 @@ impl Settings {
         // that capitalizes one does not count as edited.
         settings.set_theme(settings.theme());
         settings
+    }
+
+    /// The bar picked.
+    pub fn bar(&self) -> BarChoice {
+        let provider = self.get("bar.provider").as_text().unwrap_or_default();
+        BarChoice::parse(provider).unwrap_or_default()
     }
 
     /// The value of the setting of `config.toml` at `key`.

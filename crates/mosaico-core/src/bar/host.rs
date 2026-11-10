@@ -6,11 +6,14 @@ use std::time::Instant;
 
 use crate::action::Origin;
 use crate::api;
-use crate::config::{BarConfig, Theme};
-use crate::tiler::{Display, Platform, TilingManager};
+use crate::config::{BarChoice, BarConfig, Theme};
+use crate::tiler::{Display, Platform, Reach, TilingManager};
 use crate::{Action, Result};
 
-use super::{BarId, BarProvider, PointerEvent};
+use super::{ApiBar, BarId, BarProvider, NoBar, PointerEvent};
+
+/// Makes mosaico's own bar in a theme, with `bar.toml` read afresh.
+pub type MakeBuiltin = Box<dyn FnMut(Theme) -> Box<dyn BarProvider>>;
 
 /// The bar provider the daemon runs, with what the daemon tells it beside
 /// the tiler's state: the daemon's own facts and the theme.
@@ -21,25 +24,42 @@ use super::{BarId, BarProvider, PointerEvent};
 /// change, and a provider placed again is shown the state again.
 pub struct BarHost {
     provider: Box<dyn BarProvider>,
+    choice: BarChoice,
+    make_builtin: MakeBuiltin,
     daemon: api::Daemon,
-    theme: api::Theme,
+    theme: Theme,
+    api_theme: api::Theme,
     /// Whether the bars were placed since they were last shown the state.
     placed: bool,
+    /// How far the bars reached when the tiles last moved for them.
+    reach: Reach,
 }
 
 impl BarHost {
-    /// Runs `provider` for a daemon described by `daemon`, in `theme`.
-    /// `daemon`'s provider is set to the name `provider` goes by.
-    pub fn new(provider: Box<dyn BarProvider>, daemon: api::Daemon, theme: Theme) -> Self {
+    /// Runs the provider `choice` names for a daemon described by
+    /// `daemon`, in `theme`. `make_builtin` is only called when mosaico's
+    /// own bar is picked, now or later. `daemon`'s provider is set to the
+    /// name the provider goes by.
+    pub fn new(
+        choice: BarChoice,
+        mut make_builtin: MakeBuiltin,
+        daemon: api::Daemon,
+        theme: Theme,
+    ) -> Self {
+        let provider = provider_for(choice, &mut make_builtin, theme);
         let daemon = api::Daemon {
             provider: provider.name().to_string(),
             ..daemon
         };
         Self {
             provider,
+            choice,
+            make_builtin,
             daemon,
-            theme: api::Theme::of(theme),
+            theme,
+            api_theme: api::Theme::of(theme),
             placed: false,
+            reach: Reach::default(),
         }
     }
 
@@ -48,7 +68,8 @@ impl BarHost {
     pub fn start<P: Platform>(&mut self, manager: &mut TilingManager<P>) {
         let places = manager.places();
         self.provider.place(&places);
-        manager.set_reach(self.provider.reach(&places));
+        self.reach = self.provider.reach(&places);
+        manager.set_reach(self.reach.clone());
         self.placed = true;
         self.show(manager);
     }
@@ -69,9 +90,13 @@ impl BarHost {
     }
 
     /// Shows the state as [`show`](Self::show) does, and tells whether it
-    /// did.
+    /// did. Nothing is built while the provider wants no state; it is
+    /// shown the state once it does.
     fn shown<P: Platform>(&mut self, manager: &mut TilingManager<P>) -> bool {
-        let changed = manager.bar_state(&self.daemon, &self.theme).is_some();
+        if !self.provider.wants_state() {
+            return false;
+        }
+        let changed = manager.bar_state(&self.daemon, &self.api_theme).is_some();
         let show = changed || self.placed;
         if show {
             self.provider.show(manager.last_bar_state());
@@ -90,8 +115,8 @@ impl BarHost {
     ) {
         let places = manager.places_for(&displays);
         self.provider.place(&places);
-        let reach = self.provider.reach(&places);
-        manager.handle_display_change(displays, reach);
+        self.reach = self.provider.reach(&places);
+        manager.handle_display_change(displays, self.reach.clone());
         self.placed = true;
     }
 
@@ -100,10 +125,16 @@ impl BarHost {
     /// [`TilingManager::reset_work_areas`] for when the read fails.
     pub fn reset_work_areas<P: Platform>(&mut self, manager: &mut TilingManager<P>) -> Result<()> {
         let provider = &mut self.provider;
+        let mut reached = None;
         let read = manager.reset_work_areas(|places| {
             provider.place(places);
-            provider.reach(places)
+            let reach = provider.reach(places);
+            reached = Some(reach.clone());
+            reach
         });
+        if let Some(reach) = reached {
+            self.reach = reach;
+        }
         self.placed = true;
         read
     }
@@ -122,7 +153,8 @@ impl BarHost {
 
     /// Has the bars drawn in `theme` from the next [`show`](Self::show).
     pub fn set_theme(&mut self, theme: Theme) {
-        self.theme = api::Theme::of(theme);
+        self.theme = theme;
+        self.api_theme = api::Theme::of(theme);
     }
 
     /// Notes whether the hotkeys are paused, from the next
@@ -160,5 +192,52 @@ impl BarHost {
     /// Takes the bars off screen.
     pub fn stop(&mut self) {
         self.provider.stop();
+    }
+
+    /// The bar running, as `[bar] provider` picks it.
+    pub fn choice(&self) -> BarChoice {
+        self.choice
+    }
+
+    /// Runs the provider `choice` names, and tells whether that changed
+    /// the bar. The bars running are taken off screen first, then the new
+    /// ones are placed, the tiles keep clear of them, moving only where
+    /// they reach further or less far, and they are shown the state.
+    pub fn choose<P: Platform>(
+        &mut self,
+        manager: &mut TilingManager<P>,
+        choice: BarChoice,
+    ) -> bool {
+        if choice == self.choice {
+            return false;
+        }
+        let places = manager.places();
+        self.provider.stop();
+        self.provider = provider_for(choice, &mut self.make_builtin, self.theme);
+        self.choice = choice;
+        self.daemon.provider = self.provider.name().to_string();
+        self.provider.place(&places);
+        let reach = self.provider.reach(&places);
+        // A bar that keeps the same space moves no window.
+        if reach != self.reach {
+            self.reach = reach;
+            manager.set_reach(self.reach.clone());
+        }
+        self.placed = true;
+        self.show(manager);
+        true
+    }
+}
+
+/// The provider `choice` names, `make_builtin` making mosaico's own.
+fn provider_for(
+    choice: BarChoice,
+    make_builtin: &mut MakeBuiltin,
+    theme: Theme,
+) -> Box<dyn BarProvider> {
+    match choice {
+        BarChoice::Mosaico => make_builtin(theme),
+        BarChoice::External => Box::new(ApiBar),
+        BarChoice::Off => Box::new(NoBar),
     }
 }

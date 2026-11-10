@@ -28,9 +28,19 @@ impl SettingsApp {
         });
     }
 
-    /// The rows of `page` matching `query`, under what is wrong with its
-    /// file, if anything is.
+    /// The rows of `page` matching `query`, under what is wrong with their
+    /// file, if anything is: those of `config.toml`, then those of the
+    /// page's own file while it is read.
     pub(super) fn body(&mut self, ui: &mut Ui, c: &Colors, page: Page, query: &str) {
+        if pages::count(page, query) > 0 {
+            self.settings(ui, c, page, query);
+        }
+        if !self.file_read(page) {
+            if query.trim().is_empty() {
+                pages::not_read(ui, c, page.file());
+            }
+            return;
+        }
         let file = page.file();
         if let Some(shown) = self.files.get(page) {
             if let Some(problem) = shown.problem() {
@@ -38,10 +48,20 @@ impl SettingsApp {
             }
             let enabled = shown.problem().is_none();
             ui.add_enabled_ui(enabled, |ui| shown.show(ui, c, query));
-            return;
         }
+    }
+
+    /// Whether mosaico reads the file `page` edits, as the settings are
+    /// edited: `bar.toml` only matters while mosaico's own bar is picked.
+    pub(super) fn file_read(&self, page: Page) -> bool {
+        page != Page::Bar || self.draft.edit.bar().is_builtin()
+    }
+
+    /// The rows of `config.toml` on `page` matching `query`, under what is
+    /// wrong with the file, if anything is.
+    fn settings(&mut self, ui: &mut Ui, c: &Colors, page: Page, query: &str) {
         if let Some(problem) = &self.problem {
-            pages::problem(ui, c, file, problem);
+            pages::problem(ui, c, "config.toml", problem);
         }
         let saved = self.draft.saved().clone();
         let cx = PageContext {

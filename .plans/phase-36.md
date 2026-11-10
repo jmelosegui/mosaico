@@ -715,20 +715,20 @@ needs 36.4 and 36.6; 36.8 and 36.9 need 36.7.
 
 ### 36.3 The provider setting
 
-- [ ] `[bar] provider` with `mosaico`, `external` and `none`, compared without
+- [x] `[bar] provider` with `mosaico`, `external` and `none`, compared without
       case, an unknown value read as `external` and printed by `start`; the
       `[bar]` table read alone when the file does not parse
-- [ ] `ApiBar` and `NoBar`; under them no bar manager, no `bar.toml` read,
-      merged or watched, no machine readings, and the existing tick sends
-      nothing to the loop until 36.5 removes it
-- [ ] Switching on a reload in one step, in every direction, `bar.toml` read
+- [x] `ApiBar` and `NoBar`; under them no bar manager, no `bar.toml` read,
+      merged or watched, no machine readings, and the existing tick builds
+      and draws nothing until 36.5 removes it
+- [x] Switching on a reload in one step, in every direction, `bar.toml` read
       before the space is worked out
-- [ ] The dropdown and the note on the settings app's Bar page
-- [ ] doctor: the provider, `bar.toml` not read and why, settings the provider
+- [x] The dropdown and the note on the settings app's Bar page
+- [x] doctor: the provider, `bar.toml` not read and why, settings the provider
       ignores
-- [ ] The template, the hint for existing files, `configuration.md`,
+- [x] The template, the hint for existing files, `configuration.md`,
       `status-bar.md` and the guide
-- [ ] Metrics scenarios for the switches; what the built-in bar adds to the
+- [x] Metrics scenarios for the switches; what the built-in bar adds to the
       binary, measured with `cargo bloat` and recorded in the PR
 
 ### 36.4 Reach from four edges

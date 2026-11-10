@@ -100,6 +100,14 @@ follow_system = true
 # the config and quits mosaico.
 enabled = true
 
+[bar]
+# The bar that shows your workspaces. Tiles keep clear of it.
+# "mosaico" (default): mosaico's own bar, styled in bar.toml.
+# "external": a bar another program draws. mosaico draws none, does not
+#   read bar.toml, and keeps tiles to the space the system leaves free.
+# "none": no bar, and no space kept for one. bar.toml is not read.
+provider = "mosaico"
+
 [logging]
 # Enable file logging to ~/.config/mosaico/logs/mosaico.log.
 enabled = false

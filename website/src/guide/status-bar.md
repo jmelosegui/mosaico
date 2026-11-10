@@ -3,6 +3,27 @@
 Mosaico includes a configurable status bar that sits at the top of each
 monitor. It is configured in `~/.config/mosaico/bar.toml`.
 
+## Which Bar
+
+mosaico's own bar is the default. To use a bar another program draws, or no
+bar at all, set the provider in `config.toml`:
+
+```toml
+[bar]
+provider = "external"   # "mosaico" (default), "external" or "none"
+```
+
+| Provider | What you get |
+|----------|--------------|
+| `mosaico` | mosaico's own bar, set up in `bar.toml`. Tiles keep clear of it. |
+| `external` | No bar from mosaico. Another program draws its bar, and tiles keep to the space Windows leaves free. |
+| `none` | No bar, and no space kept for one. |
+
+`bar.toml` is only read under `mosaico`. The change takes effect when you save,
+with no restart. The Bar page of the [Settings Window](settings.md#bar) offers
+the same choice. A name mosaico does not know counts as `external`, and
+`mosaico start` and `mosaico doctor` tell you so.
+
 ## Configuration
 
 ```toml
@@ -218,6 +239,7 @@ wheel to the window that has focus, and the bar never does.
 
 The bar reserves space at the top of the monitor. The tiling layout
 automatically accounts for the bar height so windows do not overlap it.
+Switching to `provider = "none"` gives that space back to the windows.
 
 ## Hot-Reload
 

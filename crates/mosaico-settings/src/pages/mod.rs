@@ -8,15 +8,17 @@ mod general;
 mod keybindings;
 mod layout;
 mod mouse;
+mod notice;
 mod rules;
 mod search;
 mod setting;
 mod workspaces;
 
 pub use file_page::{FilePage, FilePages};
+pub use notice::{not_read, problem};
 pub use search::{Row, count};
 
-use eframe::egui::{Frame, Margin, RichText, Stroke, Ui};
+use eframe::egui::{RichText, Ui};
 use mosaico_core::config::ConfigStore;
 
 use crate::icons::Icon;
@@ -102,12 +104,14 @@ impl Page {
     /// The files the page edits and shows, under its name.
     pub fn subtitle(self) -> &'static str {
         match self {
+            Self::Bar => "config.toml and bar.toml",
             Self::Rules => "user-rules.toml and rules.toml",
             _ => self.file(),
         }
     }
 
-    /// The page's rows of `config.toml` settings, if it has them.
+    /// The page's rows of `config.toml` settings, if it has them. The Bar
+    /// page has them over those of its own file.
     fn sections(self) -> Option<&'static [Section]> {
         match self {
             Self::General => Some(general::SECTIONS),
@@ -116,6 +120,7 @@ impl Page {
             Self::Animations => Some(animations::SECTIONS),
             Self::Workspaces => Some(workspaces::SECTIONS),
             Self::Borders => Some(borders::SECTIONS),
+            Self::Bar => Some(bar::SECTIONS),
             _ => None,
         }
     }
@@ -214,33 +219,6 @@ pub fn header(ui: &mut Ui, c: &Colors, page: Page, file: &str) {
             .font(theme::regular(11.0))
             .color(c.faint_text),
     );
-    ui.add_space(16.0);
-}
-
-/// Why `file` cannot be edited: what is wrong with it, over the page.
-pub fn problem(ui: &mut Ui, c: &Colors, file: &str, problem: &str) {
-    Frame::new()
-        .fill(c.card)
-        .stroke(Stroke::new(1.0, c.warning))
-        .corner_radius(8)
-        .inner_margin(Margin::symmetric(16, 12))
-        .show(ui, |ui| {
-            ui.set_width(ui.available_width());
-            let title = format!("{file} has a problem, so it can't be edited here");
-            ui.label(RichText::new(title).font(theme::bold(13.0)));
-            ui.add_space(4.0);
-            ui.label(
-                RichText::new(problem)
-                    .font(theme::regular(12.0))
-                    .color(c.dim_text),
-            );
-            ui.add_space(4.0);
-            ui.label(
-                RichText::new("Fix it in an editor; this window picks the fix up.")
-                    .font(theme::regular(11.0))
-                    .color(c.faint_text),
-            );
-        });
     ui.add_space(16.0);
 }
 

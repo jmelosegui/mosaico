@@ -1,11 +1,12 @@
 use crate::Result;
 use crate::config::bar::BarConfig;
+use crate::config::bar_section::read_bar_section;
 use crate::config::keybinding;
 use crate::config::report;
 use crate::config::rules::{KeybindingsFile, RulesFile, UserRulesFile};
 use crate::config::{
-    Config, Keybinding, LaunchBinding, WindowRule, count_manage_rules, default_rules,
-    parse_launches,
+    BarSection, Config, Keybinding, LaunchBinding, ProviderCheck, WindowRule, count_manage_rules,
+    default_rules, parse_launches,
 };
 
 use super::migrate::migrate_config_if_needed;
@@ -44,17 +45,51 @@ impl ConfigStore {
     /// their border colors come from the theme.
     ///
     /// A missing file silently gives the defaults; any other failure is
-    /// reported as a warning, on standard error and in the log.
+    /// reported as a warning, on standard error and in the log. A file
+    /// that does not load keeps its `[bar]` table when that can be read
+    /// on its own, see [`bar_provider`](Self::bar_provider).
     pub fn load_config(&self) -> Config {
         load_or_default(
             &self.config_path(),
             || self.try_load_config(),
             || {
-                let mut config = Config::default();
+                let mut config = Config {
+                    bar: self.bar_section(),
+                    ..Config::default()
+                };
                 config.validate();
                 config
             },
         )
+    }
+
+    /// Which bar `config.toml` picks, read from its `[bar]` table alone,
+    /// so a mistake elsewhere in the file does not change the bar.
+    ///
+    /// A missing file, or one without the table, picks the built-in bar.
+    /// A table that cannot be read, in a file that cannot be read or is
+    /// not TOML, is [`ProviderCheck::Unreadable`]: the built-in bar never
+    /// draws over a bar the user may have picked.
+    pub fn bar_provider(&self) -> ProviderCheck {
+        match self.read_bar_section() {
+            Some(section) => section.check(),
+            None => ProviderCheck::Unreadable,
+        }
+    }
+
+    /// The `[bar]` table [`bar_provider`](Self::bar_provider) reads, or
+    /// the one an unreadable table stands for.
+    fn bar_section(&self) -> BarSection {
+        self.read_bar_section()
+            .unwrap_or_else(BarSection::unreadable)
+    }
+
+    fn read_bar_section(&self) -> Option<BarSection> {
+        match std::fs::read_to_string(self.config_path()) {
+            Ok(content) => read_bar_section(&content),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Some(BarSection::default()),
+            Err(_) => None,
+        }
     }
 
     /// Loads and parses `keybindings.toml`.
@@ -200,6 +235,9 @@ impl ConfigStore {
     }
 }
 
+#[cfg(test)]
+#[path = "tests/bar_provider_tests.rs"]
+mod bar_provider_tests;
 #[cfg(test)]
 #[path = "tests/defaults_tests.rs"]
 mod defaults_tests;

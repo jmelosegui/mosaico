@@ -31,6 +31,29 @@ fn starts_the_daemon_and_shows_where_its_config_lives() {
     assert!(out.contains("Started (PID: \x1b[1;97m4321"), "{out}");
     let config_dir = h.config.dir().display().to_string();
     assert!(out.contains(&config_dir), "{out}");
+    assert!(out.contains("Bar\x1b[0m      mosaico\n"), "{out}");
+}
+
+#[test]
+fn says_which_bar_it_reads_a_provider_mosaico_does_not_know_as() {
+    // Arrange
+    let mut h = Harness::new("start-bar-unknown");
+    std::fs::create_dir_all(h.config.dir()).unwrap();
+    std::fs::write(h.config.config_path(), "[bar]\nprovider = \"elsewhere\"\n").unwrap();
+    *h.world.launch.borrow_mut() = Launch::Answers(4321);
+
+    // Act
+    let exit = h.run(execute);
+    let _ = std::fs::remove_dir_all(h.config.dir());
+
+    // Assert
+    assert_eq!(exit, Exit::Success);
+    let out = h.out();
+    assert!(out.contains("Bar\x1b[0m      external\n"), "{out}");
+    assert!(
+        out.contains("\"elsewhere\" is not a bar mosaico knows"),
+        "{out}"
+    );
 }
 
 #[test]

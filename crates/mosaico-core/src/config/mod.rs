@@ -2,6 +2,8 @@
 mod animations;
 /// Status bar configuration.
 pub mod bar;
+/// `[bar]` in `config.toml`: which bar shows mosaico.
+mod bar_section;
 /// Which widgets the bar shows, where, and in what order.
 mod bar_widgets;
 /// Colors as the configuration writes them.
@@ -49,6 +51,7 @@ use serde::{Deserialize, Serialize};
 
 pub use animations::AnimationConfig;
 pub use bar::{BarColors, BarConfig, BarMouseConfig, BarScroll, ClickBinding, WidgetConfig};
+pub use bar_section::{BarChoice, BarSection, ProviderCheck};
 pub use bar_widgets::{BarWidget, BarWidgets, BarZone};
 pub use color::Color;
 pub use hiding_behaviour::HidingBehaviour;
@@ -92,6 +95,8 @@ pub struct Config {
     pub animations: AnimationConfig,
     /// The icon in the notification area.
     pub tray: TrayConfig,
+    /// Which bar shows mosaico.
+    pub bar: BarSection,
     /// Logging settings.
     pub logging: crate::log::LogConfig,
 }

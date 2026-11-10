@@ -31,6 +31,16 @@ pub enum SettingProblem {
     },
 }
 
+impl SettingProblem {
+    /// The key of the value, with its tables joined by dots.
+    pub fn key(&self) -> &str {
+        match self {
+            Self::OutOfRange { setting, .. } | Self::Refused { setting, .. } => setting.key,
+            Self::Unknown { key } => key,
+        }
+    }
+}
+
 impl fmt::Display for SettingProblem {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
