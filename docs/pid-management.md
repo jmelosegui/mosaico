@@ -58,12 +58,18 @@ Commands check and end processes only through `ProcessControl`
 
 ### `ProcessControl::is_alive(pid: u32) -> bool`
 
-On Windows, calls `OpenProcess` with `PROCESS_QUERY_LIMITED_INFORMATION` to
-check if a process with the given PID exists. Returns `true` if the process
-is alive, `false` otherwise.
+On Windows, opens the process with `PROCESS_QUERY_LIMITED_INFORMATION` and
+reads its exit code with `GetExitCodeProcess`. Returns `true` only while the
+process runs (`STILL_ACTIVE`), and `false` when it cannot be opened or has
+exited.
 
-This uses the minimal permission flag to check process existence without
-requiring elevated privileges.
+Opening alone is not enough: Windows keeps the object of an exited process
+as long as something references it, such as another program's handle to it
+or data it wrote to a pipe that is not read yet. Without the exit code,
+`mosaico stop` would wait its full timeout for a daemon that is gone (#226).
+
+This permission is the minimal one, and it is granted even for a daemon
+that runs elevated.
 
 ### `ProcessControl::kill(pid: u32) -> Result<()>`
 

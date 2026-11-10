@@ -8,39 +8,43 @@ use std::process::{Command, Stdio};
 use mosaico_core::Result;
 use mosaico_core::system::ProcessControl;
 use windows::Win32::Foundation::{
-    CloseHandle, HANDLE_FLAG_INHERIT, HANDLE_FLAGS, SetHandleInformation,
+    CloseHandle, HANDLE_FLAG_INHERIT, HANDLE_FLAGS, STILL_ACTIVE, SetHandleInformation,
 };
 use windows::Win32::System::Console::{
     GetStdHandle, STD_ERROR_HANDLE, STD_INPUT_HANDLE, STD_OUTPUT_HANDLE,
 };
 use windows::Win32::System::Threading::{
-    OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_TERMINATE, TerminateProcess,
+    GetExitCodeProcess, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_TERMINATE,
+    TerminateProcess,
 };
 
 use crate::error::OrPlatform;
 
 /// Checks whether a process with the given PID is still alive.
 ///
-/// Uses `OpenProcess` with minimal access rights. If the handle can be
-/// opened, the process exists. This is used to detect stale PID files
-/// left behind when the daemon is killed without a clean shutdown.
+/// Used to wait for the daemon to exit and to detect stale PID files left
+/// behind when it was killed. A process that has exited is not alive,
+/// even while Windows keeps its object because something still references
+/// it: another program's handle to it, or what it wrote to a pipe that is
+/// not read yet (#226).
 fn is_process_alive(pid: u32) -> bool {
     // SAFETY: OpenProcess attempts to open an existing process.
     // PROCESS_QUERY_LIMITED_INFORMATION is the least-privilege access
-    // right that still lets us confirm the process exists.
-    let result = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) };
-
-    match result {
-        Ok(handle) => {
-            // SAFETY: We only opened the handle to check existence,
-            // so we close it immediately.
-            unsafe {
-                let _ = CloseHandle(handle);
-            }
-            true
-        }
-        Err(_) => false,
-    }
+    // right that still reads its exit code, even when it runs elevated.
+    let Ok(handle) = (unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) }) else {
+        return false;
+    };
+    let mut code = 0;
+    // SAFETY: the handle was just opened with the right to query it, and
+    // `code` outlives the call. It is closed once, and not used again.
+    let read = unsafe {
+        let read = GetExitCodeProcess(handle, &mut code);
+        let _ = CloseHandle(handle);
+        read
+    };
+    // A process that ended with the code STILL_ACTIVE reads as running;
+    // mosaico never exits with it.
+    read.is_ok() && code == STILL_ACTIVE.0 as u32
 }
 
 /// Returns whether the current process is running elevated (Administrator).
