@@ -26,8 +26,6 @@ mod switch;
 mod task;
 #[path = "autostart_task_xml.rs"]
 mod task_xml;
-#[path = "autostart_user.rs"]
-mod user;
 
 use std::path::Path;
 
@@ -37,6 +35,7 @@ use mosaico_core::system::{Autostart, FileProbe, LaunchCommand};
 use self::registry::Value;
 use self::task::LogonTask;
 use crate::files::WindowsFiles;
+use crate::token;
 
 /// The command line older mosaico had logon run.
 const RUN: Value = Value {
@@ -88,7 +87,7 @@ impl Autostart for LogonTaskAutostart {
     /// exactly is refused before anything is changed.
     fn enable(&self, command: &LaunchCommand) -> Result<()> {
         let action = command_line::join(command)?;
-        let user = user::current_user()?;
+        let user = token::current_user()?;
         LogonTask::of(&user).register(&task_xml::definition(&user, &action))?;
         RUN.delete("remove the older autostart entry")?;
         SWITCH.delete("remove the older startup apps setting")
@@ -104,5 +103,5 @@ impl Autostart for LogonTaskAutostart {
 
 /// The logon task of the current user.
 fn user_task() -> Result<LogonTask> {
-    Ok(LogonTask::of(&user::current_user()?))
+    Ok(LogonTask::of(&token::current_user()?))
 }

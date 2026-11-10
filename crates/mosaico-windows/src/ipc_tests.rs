@@ -4,7 +4,7 @@ use std::thread;
 use std::time::Duration;
 
 use mosaico_core::ipc::{
-    Command, Request, Response, read_message, serve, serve_with_timeout, write_message,
+    Command, IpcServer, Request, Response, read_message, serve, serve_with_timeout, write_message,
 };
 
 use super::*;

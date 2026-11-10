@@ -28,6 +28,7 @@ The protocol lives in core and the platform only supplies byte streams:
 | `crates/mosaico-core/src/ipc/framing.rs` | `read_message()`, `write_message()`, `MAX_MESSAGE_BYTES` |
 | `crates/mosaico-core/src/ipc/transport.rs` | `IpcClient`, `IpcServer`, `IpcConnection`, `serve()` |
 | `crates/mosaico-windows/src/ipc.rs` | `PipeClient`, `PipeServer`, `PipeConnection`, `DEFAULT_PIPE_NAME` |
+| `crates/mosaico-windows/src/ipc_security.rs` | Who may open the pipe, and the client's check that it is the daemon's |
 | `crates/mosaico-windows/src/daemon_ipc.rs` | Runs `serve()` on the daemon's IPC thread |
 
 ## Framing
@@ -139,6 +140,14 @@ failures are logged rather than reported.
   implement it
 - `set_write_timeout` does the same for writing the reply and `finish`. A
   transport whose writes or `finish` can wait for the client must implement it
+- only clients of the same user, on the same machine, may connect, and none
+  less trusted than the daemon. If another program already holds the
+  endpoint's name, creating it fails and `accept` reports the error, so the
+  daemon never shares an endpoint it did not create
+
+`IpcClient::connect` also refuses an endpoint that belongs to another user or
+that a less trusted program created, with `IpcError::Untrusted`, before
+anything is sent, and the endpoint cannot act as the client.
 
 `serve()` gives every client `REQUEST_TIMEOUT` (5 seconds) to send its
 request, and again to read the reply. A client that connects and never sends,
@@ -190,6 +199,46 @@ stop it.
 - The pipe name comes from the instance (`pipe_name`): `\\.\pipe\mosaico` for
   the default instance, `\\.\pipe\mosaico-<name>` for a named one.
 
+### Who may use the pipe
+
+A pipe created without a descriptor lets Everyone and Anonymous read it.
+`ipc_security.rs` gives every instance an explicit one instead:
+
+```text
+O:<user>D:P(D;;GA;;;NU)(A;;GA;;;SY)(A;;GA;;;<user>)S:(ML;;NWNR;;;<daemon's level>)
+```
+
+- The DACL allows the user and SYSTEM, denies network logons, and is
+  protected from inheritance. Every instance also has
+  `PIPE_REJECT_REMOTE_CLIENTS`.
+- The mandatory label is the daemon's own integrity level, with no-read-up
+  and no-write-up, so a process of the user at a lower level (a low-integrity
+  or sandboxed program) can neither read nor write the pipe.
+- The owner is the user, not the token's default owner, which is the
+  Administrators group for an elevated process, so clients can check it either
+  way.
+- The first instance is created with `FILE_FLAG_FIRST_PIPE_INSTANCE`. If
+  another program already holds the name, the daemon's IPC listener fails and
+  the daemon shuts down instead of joining a pipe it does not control.
+
+`PipeClient` opens the pipe with `SECURITY_SQOS_PRESENT |
+SECURITY_IDENTIFICATION`, so the server can tell who the client is but cannot
+impersonate it. It then reads the pipe's owner and label (`GetSecurityInfo`)
+and refuses, with `IpcError::Untrusted`, a pipe owned by another account or
+labelled below medium. A pipe with no label counts as medium, as the system
+treats it. A label exactly at the daemon's level is not required: an elevated
+CLI still reaches an unelevated daemon.
+
+This keeps out other users, other machines and less trusted processes of the
+user. A process of the same user at the same integrity can still create an
+instance of the pipe once the daemon has made the first one; that is the
+user's own code, as with any per-user IPC.
+
+An elevated daemon labels its pipe high. An unelevated CLI then cannot open
+it, as before this descriptor: the default one only let administrators and the
+owner, the Administrators group, write. Run the CLI elevated as well to reach
+an elevated daemon.
+
 ## Testing
 
 Framing, request decoding, error replies and the accept loop are tested in
@@ -198,4 +247,6 @@ of it needs a daemon or a pipe.
 
 `crates/mosaico-windows/src/ipc_tests.rs` runs a real pipe server on a
 unique pipe name and checks that a daemon busy with one client still answers
-the next.
+the next. `ipc_security_tests.rs` checks, on pipes of its own, the owner and
+label of the daemon's pipe, that the daemon will not join a pipe created
+before it, and that a client refuses a low-integrity pipe.

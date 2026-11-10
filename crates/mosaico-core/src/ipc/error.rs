@@ -16,6 +16,9 @@ pub enum IpcError {
     Io(io::Error),
     /// The daemon is listening but did not reply in time.
     TimedOut,
+    /// The endpoint is not the daemon's: it belongs to another user or
+    /// to a less trusted program, so nothing was sent to it.
+    Untrusted,
 }
 
 impl fmt::Display for IpcError {
@@ -27,6 +30,9 @@ impl fmt::Display for IpcError {
             Self::Malformed(e) => write!(f, "malformed message: {e}"),
             Self::Io(e) => write!(f, "{e}"),
             Self::TimedOut => f.write_str("the daemon did not reply in time"),
+            Self::Untrusted => f.write_str(
+                "the daemon's endpoint belongs to another user or a less trusted program",
+            ),
         }
     }
 }

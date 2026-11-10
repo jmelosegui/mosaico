@@ -33,6 +33,11 @@ use super::{Command, ErrorCode, IpcError, Request, Response, decode_request};
 /// - Callers about to send a command do not need `is_daemon_running`
 ///   first: `send` reports [`IpcError::NotRunning`] by itself, and a
 ///   separate check can only add a window in which the answer changes.
+/// - `connect` only hands out a connection to an endpoint the daemon of
+///   the same user created. One that belongs to another user, or that a
+///   program less trusted than the user's ordinary ones created, fails
+///   with [`IpcError::Untrusted`] before anything is sent. The endpoint
+///   must not be able to act as the client on the connection.
 pub trait IpcClient {
     /// A connection to the daemon.
     type Stream: IpcStream;
@@ -103,7 +108,13 @@ pub trait IpcStream: Read + Write {
 ///   waits for the next client.
 /// - Any other error from `accept` means the daemon can no longer listen
 ///   at all; [`serve`] stops on it.
-/// - Only clients of the same user may connect.
+/// - Only clients of the same user, on the same machine, may connect,
+///   and none less trusted than the daemon itself: a program the user
+///   runs with fewer rights (a sandboxed or low-trust process) cannot
+///   read or write the endpoint.
+/// - The endpoint is the daemon's own. If another program already holds
+///   its name, creating it fails rather than sharing it, and `accept`
+///   reports the error, so [`serve`] stops.
 pub trait IpcServer {
     /// One accepted connection.
     type Connection: IpcConnection;

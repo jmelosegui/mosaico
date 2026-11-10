@@ -515,7 +515,8 @@ clients of the same user). Both pipes get:
   first is never joined;
 - on the client side, `SECURITY_SQOS_PRESENT | SECURITY_IDENTIFICATION`, so a
   server that is not the daemon cannot act as the user, and a check that the
-  pipe's owner is the user and its label is not below the client's.
+  pipe's owner is the user and its label is at least medium, so an elevated
+  CLI still reaches an unelevated daemon.
 
 The boundary this keeps is other users, other machines and less trusted
 processes of the user. Any process of the user at the same integrity can still
@@ -683,14 +684,14 @@ needs 36.4 and 36.6; 36.8 and 36.9 need 36.7.
 
 ### 36.1 Pipe security
 
-- [ ] The security contract on `IpcServer` and the CLI client, in core, in
+- [x] The security contract on `IpcServer` and the CLI client, in core, in
       behaviour terms
-- [ ] The explicit descriptor, remote rejection and first-instance flag for
+- [x] The explicit descriptor, remote rejection and first-instance flag for
       the CLI pipe; the client's identification level and owner and label
       checks
 - [ ] Today's behaviour with an elevated daemon and an unelevated CLI,
       confirmed and recorded in `ipc.md`
-- [ ] Tests on pipes of the tests' own
+- [x] Tests on pipes of the tests' own
 
 ### 36.2 The state model and the contract
 

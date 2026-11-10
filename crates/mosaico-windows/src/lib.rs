@@ -121,6 +121,7 @@ mod system_settings;
 
 /// The Win32 platform the core tiling manager runs on.
 pub mod tiling;
+mod token;
 
 /// The icon in the notification area.
 pub mod tray;
