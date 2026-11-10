@@ -4,7 +4,7 @@
 //! [`Scheduler`] makes every timing decision: what runs first, which
 //! window events are repeats, when a display change has settled, when
 //! held effects are flushed, when moving windows step on and when the
-//! wheel's turns on a bar are applied. This loop only waits, keeps the
+//! bars are woken. This loop only waits, keeps the
 //! thread's windows pumped, asks for frames while windows move, reads the
 //! clock and carries out the steps it gets back.
 
@@ -32,7 +32,6 @@ pub(super) fn run(
     bars: &mut BarHost,
     inputs: &mut Inputs,
     frames: &dyn FrameClock,
-    get_update: &dyn Fn() -> String,
 ) {
     let mut scheduler = Scheduler::default();
     let mut should_stop = false;
@@ -50,8 +49,8 @@ pub(super) fn run(
         // daemon costs one wakeup per `PUMP_INTERVAL` and never spins.
         frames.want_frames(manager.wants_frames());
         let due = manager.frame_due(scheduler.last_frame_step());
-        let wheel = bars.due();
-        let wait = scheduler.begin_wait(manager.held_since(), due, wheel, Instant::now());
+        let bars_due = bars.due();
+        let wait = scheduler.begin_wait(manager.held_since(), due, bars_due, Instant::now());
         let wait = wait.map_or(PUMP_INTERVAL, |left| left.min(PUMP_INTERVAL));
         let wake = match rx.recv_timeout(wait) {
             Ok(first) => Wake::Received(
@@ -73,14 +72,8 @@ pub(super) fn run(
                     bars.show(manager);
                 }
                 Step::Run(task) => {
-                    should_stop |= daemon_loop_task::run(
-                        task,
-                        manager,
-                        bars,
-                        inputs,
-                        &mut hotkeys_paused,
-                        get_update,
-                    );
+                    should_stop |=
+                        daemon_loop_task::run(task, manager, bars, inputs, &mut hotkeys_paused);
                 }
                 Step::Events(events) => {
                     // Take in the batch's window events, then show the bars
@@ -91,9 +84,9 @@ pub(super) fn run(
                     bars.show(manager);
                 }
                 // The wheel switches workspaces once it has gone quiet over
-                // a bar.
-                Step::Wheel => {
-                    daemon_loop_bar::apply_wheel(manager, bars, inputs, &mut hotkeys_paused);
+                // a bar, a clock turns, or a hold on a bar's space ends.
+                Step::Bar => {
+                    daemon_loop_bar::wake(manager, bars, inputs, &mut hotkeys_paused);
                 }
                 Step::Frame => manager.frame(),
             }

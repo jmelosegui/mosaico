@@ -26,6 +26,8 @@ pub struct BuiltinBar {
     places: Vec<MonitorPlace>,
     /// What each monitor's bar shows, in monitor order.
     states: Vec<BarState>,
+    /// When what the bars show next changes on its own.
+    redraw_at: Option<Instant>,
 }
 
 impl BuiltinBar {
@@ -44,7 +46,15 @@ impl BuiltinBar {
             theme,
             places: Vec::new(),
             states: Vec::new(),
+            redraw_at: None,
         }
+    }
+
+    /// Draws every bar with what it shows at `now`, and notes when that
+    /// next changes on its own.
+    fn draw(&mut self, now: Instant) {
+        self.bars.update(&self.states);
+        self.redraw_at = self.bars.refresh_in().map(|wait| now + wait);
     }
 
     /// Takes the theme `state` names, when it names one and it differs
@@ -86,16 +96,12 @@ impl BarProvider for BuiltinBar {
         Reach::bar_on(places, self.bars.bar_height(), indices)
     }
 
-    fn show(&mut self, state: &State) {
+    fn show(&mut self, state: &State, now: Instant) {
         self.follow_theme(state);
         self.states = (state.monitors.iter())
             .filter_map(|monitor| BarState::from_state(state, &monitor.id))
             .collect();
-        self.bars.update(&self.states);
-    }
-
-    fn refresh(&mut self) {
-        self.bars.update(&self.states);
+        self.draw(now);
     }
 
     fn pointer(
@@ -107,11 +113,24 @@ impl BarProvider for BuiltinBar {
         self.bars.pointer(bar, event, now)
     }
 
+    /// The soonest of when the wheel's turns are due and when what the
+    /// bars show changes on its own: the clock, or a reading of the
+    /// machine.
     fn due(&self) -> Option<Instant> {
-        self.bars.wheel_due()
+        self.bars
+            .wheel_due()
+            .into_iter()
+            .chain(self.redraw_at)
+            .min()
     }
 
-    fn take_due(&mut self, now: Instant) -> Vec<(Action, Origin)> {
+    /// Draws the bars again from the state they hold, without it being
+    /// built again, when what they show changed on its own, and hands over
+    /// the wheel's turns that are due.
+    fn wake(&mut self, now: Instant) -> Vec<(Action, Origin)> {
+        if self.redraw_at.is_some_and(|at| now >= at) {
+            self.draw(now);
+        }
         self.bars.take_wheel(now)
     }
 

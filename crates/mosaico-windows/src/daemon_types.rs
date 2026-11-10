@@ -27,8 +27,9 @@ pub(super) enum DaemonMsg {
     Tray(TrayCommand),
     /// A validated config reload from the file watcher.
     Reload(Box<ConfigReload>),
-    /// 1-second tick for refreshing bar system widgets.
-    Tick,
+    /// The newer version on offer, from the version check, which runs once
+    /// at startup.
+    Update(String),
     /// The IPC listener died, so the daemon can no longer be controlled.
     IpcFailed,
 }

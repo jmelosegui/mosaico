@@ -22,7 +22,7 @@ fn drawn(manager: &TilingManager<FakePlatform>, state: &api::State) -> Vec<BarEv
     let mut bar = BuiltinBar::new(renderer.boxed(), system, Rc::new(NoPointer), config, mocha);
     bar.place(&manager.places());
     renderer.take();
-    bar.show(state);
+    bar.show(state, std::time::Instant::now());
     renderer.take()
 }
 

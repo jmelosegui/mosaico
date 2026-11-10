@@ -31,8 +31,8 @@ pub(super) enum Task {
     Tray(TrayCommand),
     /// A validated config reload from the file watcher.
     Reload(Box<ConfigReload>),
-    /// 1-second tick for refreshing bar system widgets.
-    Tick,
+    /// The newer version on offer, from the version check.
+    Update(String),
     /// The IPC listener died, so the daemon can no longer be controlled.
     IpcFailed,
 }
@@ -51,7 +51,7 @@ pub(super) fn message(msg: DaemonMsg) -> Message<Task> {
         DaemonMsg::Command(command, reply) => Message::Task(Task::Command(command, reply)),
         DaemonMsg::Tray(command) => Message::Task(Task::Tray(command)),
         DaemonMsg::Reload(reload) => Message::Task(Task::Reload(reload)),
-        DaemonMsg::Tick => Message::Task(Task::Tick),
+        DaemonMsg::Update(text) => Message::Task(Task::Update(text)),
         DaemonMsg::IpcFailed => Message::Task(Task::IpcFailed),
     }
 }
@@ -65,7 +65,6 @@ pub(super) fn run(
     bars: &mut BarHost,
     inputs: &mut Inputs,
     hotkeys_paused: &mut bool,
-    get_update: &dyn Fn() -> String,
 ) -> bool {
     match task {
         Task::Action(action) => {
@@ -96,8 +95,9 @@ pub(super) fn run(
             return daemon_loop_tray::handle(command, manager, bars, inputs, hotkeys_paused);
         }
         Task::Reload(reload) => daemon_loop_handlers::handle_reload(*reload, manager, bars, inputs),
-        Task::Tick => {
-            daemon_loop_handlers::handle_tick(manager, bars, &get_update());
+        Task::Update(text) => {
+            bars.set_update(&text);
+            bars.show(manager);
         }
         Task::IpcFailed => return true,
     }

@@ -104,7 +104,8 @@ A platform gives the bar two things:
 
 - `SystemInfo` reports raw readings: processor time counters, the share of
   memory in use, what is playing and the local time. Each call must return
-  at once, since the daemon makes them on its own thread every second.
+  at once, since the daemon makes them on its own thread, every second
+  while a widget shows a reading.
   `CpuTracker` turns two counter readings into a percentage.
 - `BarRenderer::create(id, area, sink)` makes a hidden bar at the top of a
   monitor's work area, letting the pointer through. The `BarSurface` it
@@ -338,6 +339,8 @@ its side is added back on the next start; to hide a widget, set
 - `pointer(bar, event, now)` -- what the pointer did on a bar, and the action
   it asks for, if any; `wheel_due()` and `take_wheel(now)` -- the wheel's
   turns, once they are due (see [Pointer Input](#pointer-input))
+- `refresh_in()` -- how long after the last `update` what the bars show
+  changes on its own, see [Refresh Strategy](#refresh-strategy)
 - `bar_height()` -- returns the bar height while at least one monitor has a
   bar, 0 otherwise, so a bar that no monitor gets reserves no space (the
   tiler reads an empty monitor list as every monitor)
@@ -537,7 +540,7 @@ draws.
 The bars' window procedures run when the daemon drains its message queue, at
 the top of each loop iteration, so a click can wait up to `PUMP_INTERVAL`
 (50 ms) and can run after a key pressed just after it. The scheduler ends
-the loop's wait when the wheel's turns are due, and runs the wheel step then
+the loop's wait when the wheel's turns are due, and runs the bar step then
 (see [daemon.md](daemon.md#main-loop)), so the switch comes `WHEEL_QUIET`
 after the last turn.
 
@@ -588,9 +591,15 @@ See [bar-api.md](bar-api.md#reach) for `Reach` itself.
   changed, checked on every action, workspace switch and batch of window
   events; a window's report that it moved changes it only when a window on
   screen went in or out of maximized or fullscreen
-- **System widgets**: a 1-second `DaemonMsg::Tick` triggers clock, RAM,
-  CPU, and date refresh (`BarProvider::refresh()`), unless the state
-  changed, which redraws them anyway, so a bar is drawn once per tick
+- **System widgets**: after each draw, `BarManager::refresh_in()` says when
+  what the bars show next changes on its own (`bar/refresh.rs`): every
+  second while a CPU, RAM or media widget shows, or a clock or date shows
+  seconds, and as the minute turns for a clock or date without seconds.
+  `BuiltinBar::due()` hands that time, or the wheel's if sooner, to the
+  daemon's scheduler, which wakes the bar then (`BarProvider::wake()`) to
+  draw again from the state it holds, without the state being built
+  again. A bar with none of these widgets is never woken for them, and a
+  state change in between draws them anyway and moves the next time on.
 - **Config reload**: `ConfigReload::Bar` recreates bars, reads the work
   areas again and places the bars on them
 

@@ -90,34 +90,18 @@ impl BarHost {
         self.shown(manager);
     }
 
-    /// Once a second, at `now`: lets go of the previous bar's space once
-    /// its hold is over, then shows the bars the state if it changed, or
-    /// else has them draw again what changes on its own, such as a clock,
-    /// so they draw once either way.
-    pub fn tick<P: Platform>(&mut self, manager: &mut TilingManager<P>, now: Instant) {
-        if self.handover.as_ref().is_some_and(|held| held.over(now)) {
-            self.handover = None;
-            self.keep_clear(manager, &manager.places());
-        }
-        if !self.shown(manager) {
-            self.provider.refresh();
-        }
-    }
-
-    /// Shows the state as [`show`](Self::show) does, and tells whether it
-    /// did. Nothing is built while the provider wants no state; it is
-    /// shown the state once it does.
-    fn shown<P: Platform>(&mut self, manager: &mut TilingManager<P>) -> bool {
+    /// Shows the state as [`show`](Self::show) does. Nothing is built while
+    /// the provider wants no state; it is shown the state once it does.
+    fn shown<P: Platform>(&mut self, manager: &mut TilingManager<P>) {
         if !self.provider.wants_state() {
-            return false;
+            return;
         }
         let changed = manager.bar_state(&self.daemon, &self.api_theme).is_some();
-        let show = changed || self.placed;
-        if show {
-            self.provider.show(manager.last_bar_state());
+        if changed || self.placed {
+            let now = manager.platform().now();
+            self.provider.show(manager.last_bar_state(), now);
             self.placed = false;
         }
-        show
     }
 
     /// Takes in a display change to `displays`: the bars move to the
@@ -195,14 +179,30 @@ impl BarHost {
         self.provider.pointer(bar, event, now)
     }
 
-    /// When the bars next have actions to hand over on their own.
+    /// When the bars next need [`wake`](Self::wake): the provider's
+    /// [`due`](BarProvider::due), or the end of the hold on the previous
+    /// bar's space, whichever is sooner. `None` while nothing waits, so an
+    /// idle daemon with no clock to draw is never woken for the bars.
     pub fn due(&self) -> Option<Instant> {
-        self.provider.due()
+        let held = self.handover.as_ref().map(Handover::until);
+        self.provider.due().into_iter().chain(held).min()
     }
 
-    /// The actions the bars hand over at `now`.
-    pub fn take_due(&mut self, now: Instant) -> Vec<(Action, Origin)> {
-        self.provider.take_due(now)
+    /// Does what is due at `now`: lets go of the previous bar's space once
+    /// its hold is over, and has the provider draw again what changed on
+    /// its own. Returns the actions the bars hand over, such as the
+    /// wheel's.
+    pub fn wake<P: Platform>(
+        &mut self,
+        manager: &mut TilingManager<P>,
+        now: Instant,
+    ) -> Vec<(Action, Origin)> {
+        if self.handover.as_ref().is_some_and(|held| held.over(now)) {
+            self.handover = None;
+            self.keep_clear(manager, &manager.places());
+            self.show(manager);
+        }
+        self.provider.wake(now)
     }
 
     /// Takes the bars off screen.

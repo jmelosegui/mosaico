@@ -21,9 +21,7 @@ The daemon uses a multi-thread architecture:
 5. **IPC thread** -- runs blocking named pipe server, accepts CLI commands
 6. **Config watcher thread** -- waits for changes in the config directory and
    reloads the config files that changed
-7. **Tick thread** -- sends a `DaemonMsg::Tick` every 1 second for bar
-   widget refresh (clock, CPU, RAM)
-8. **Frame pacer thread** -- sends a `DaemonMsg::Frame` about once per
+7. **Frame pacer thread** -- sends a `DaemonMsg::Frame` about once per
    display refresh while the main loop wants frames, never with more than one
    waiting, and is parked otherwise (`FramePacer`)
 
@@ -43,11 +41,11 @@ community rules.
 | `crates/mosaico-windows/src/daemon_types.rs` | `DaemonMsg` |
 | `crates/mosaico-windows/src/daemon_loop_run.rs` | The main loop: waits for messages and runs the scheduler's steps |
 | `crates/mosaico-windows/src/daemon_loop_task.rs` | `Task` -- every `DaemonMsg` except a window event or a frame, as the main loop runs it, and `run()`, which runs one |
-| `crates/mosaico-windows/src/daemon_loop_bar.rs` | `ChannelSink`, the `PointerSink` the bars report to; `handle_pointer()` and `apply_wheel()` -- what clicks and the wheel on the bars ask for |
+| `crates/mosaico-windows/src/daemon_loop_bar.rs` | `ChannelSink`, the `PointerSink` the bars report to; `handle_pointer()` and `wake()` -- what clicks ask for, and what the bars do once due, the wheel's switches included |
 | `crates/mosaico-windows/src/daemon_loop_pump.rs` | `pump_thread_messages()`, `PUMP_INTERVAL` -- keeps the bar and border windows responsive |
 | `crates/mosaico-windows/src/daemon_loop_commands.rs` | `carry_out()`, `handle_command()` -- actions from hotkeys, the CLI and the bars, and CLI commands |
-| `crates/mosaico-windows/src/daemon_loop_handlers.rs` | `handle_event()`, `handle_reload()`, `handle_tick()` -- window events, config reloads and the bar's tick |
-| `crates/mosaico-windows/src/daemon_threads.rs` | Starts the bridge, IPC, config watcher, tick, version check and rules download threads |
+| `crates/mosaico-windows/src/daemon_loop_handlers.rs` | `handle_event()`, `handle_reload()` -- window events and config reloads |
+| `crates/mosaico-windows/src/daemon_threads.rs` | Starts the bridge, IPC, config watcher, version check and rules download threads |
 | `crates/mosaico-windows/src/daemon_frames.rs` | `start()` -- starts the frame pacer, or logs why it cannot and turns transitions off |
 | `crates/mosaico-core/src/daemon/` | `Scheduler` -- decides what the main loop runs, and when; `FrameClock` -- the contract for waking the loop on display frames; `FramePacer`, `FrameToken` -- a `FrameClock` on a thread of its own, paced through a `FrameWait` |
 | `crates/mosaico-windows/src/frame_clock.rs` | `DisplayWait` -- the Win32 `FrameWait`: `DwmFlush` and a high-resolution timer |
@@ -71,7 +69,8 @@ community rules.
     the bar's window procedure
   - `Command(Command, ResponseSender)` -- CLI command from IPC with reply channel
   - `Reload(Box<ConfigReload>)` -- validated config change from file watcher
-  - `Tick` -- 1-second timer for bar widget refresh
+  - `Update(String)` -- the newer version the version check found, sent
+    once, if at all
   - `IpcFailed` -- the IPC listener died, so the daemon stops
 - `Inputs` -- holds the `EventWatch` of the event source, the `HotkeyWatch`
   of the hotkey source and `FocusFollowsMouse`, and starts the sources
@@ -152,13 +151,12 @@ order, it:
 12. Start the IPC thread
 13. Start the config file watcher thread, and a reload bridge thread to
     forward `ConfigReload` into `DaemonMsg`
-14. Start the tick thread (1-second interval for bar refresh)
-15. Start the frame pacer, which sends `DaemonMsg::Frame` while the loop
+14. Start the frame pacer, which sends `DaemonMsg::Frame` while the loop
     wants frames (`daemon_frames.rs`). A pacer that cannot start is logged as
     a warning that transitions are off for the session, and the daemon runs
     without it: `TilingManager::turn_off_transitions()` has every placement
     snap
-16. Enter the main receive loop
+15. Enter the main receive loop
 
 ## Main Loop
 
@@ -219,13 +217,18 @@ back, in order:
    fullscreen (`Tiler::take_bars_changed()`), which decides whether the
    bar lets the pointer through: maximizing and restoring report nothing
    else.
-5. **Apply the wheel** (`daemon_loop_bar::apply_wheel()`): once the wheel
-   has been quiet over a bar for `bar::WHEEL_QUIET` (120 ms), carry out the
-   workspace switches its turns add up to, which `BarHost::take_due()`
-   says. It comes after the tasks and events of the wake, so a turn or a
-   click that came with them counts first, and before the frame step. Like
-   input, it ends the wait, so the time the switch takes never counts as
-   quiet.
+5. **Wake the bars** (`daemon_loop_bar::wake()`) once `BarHost::due()`
+   has come: the wheel has been quiet over a bar for `bar::WHEEL_QUIET`
+   (120 ms), what the built-in bar shows changed on its own (a clock
+   turned, or a reading of the machine is due), or the hold on a previous
+   bar's space is over. `BarHost::wake()` does what is due and returns the
+   workspace switches the wheel's turns add up to, which are carried out.
+   It comes after the tasks and events of the wake, so a turn or a click
+   that came with them counts first, and before the frame step. Like
+   input, it ends the wait, so the time a switch takes never counts as
+   quiet. There is no timer thread: a daemon whose bar shows nothing that
+   changes on its own, or that runs no built-in bar, is woken by messages
+   alone, and one that shows only the minutes is woken once a minute.
 6. **Take the frame step** (`TilingManager::frame()`), which moves the
    windows of transitions on: once per wake that brought display frames,
    however many, and once the wait reaches the earliest end of a motion
@@ -248,8 +251,8 @@ back, in order:
 Input that ends a wait only finds the flush and the rebuild that were due
 when the wait began: an input message that arrives during the quiet window
 ends it without a flush, and the next wait starts the window over. The frame
-and wheel steps are found by the time the wait ended, so a wake for input
-after a motion's end, or after the wheel went quiet, still takes them. The
+and bar steps are found by the time the wait ended, so a wake for input
+after a motion's end, or once the bars are due, still takes them. The
 scheduler never reads the clock itself, so its decisions are unit tested
 with a fake one.
 
@@ -286,9 +289,8 @@ Tasks are dispatched like this:
   the bar takes the new `bar.toml`, then the work areas are read again, the
   bar placed on them and the tiles kept clear of it, in one retile; then
   the bar is shown the state
-- `DaemonMsg::Tick` -- hands the update notice to the bar, then
-  `BarHost::tick()` shows it the state if it changed, or else has it draw
-  again what changes on its own (clock, CPU, RAM), so it draws once
+- `DaemonMsg::Update(text)` -- hands the update notice to the bar
+  (`BarHost::set_update()`) and shows it the state
 - `DaemonMsg::IpcFailed` -- stops the loop
 
 Window events (`DaemonMsg::Event`) go to `TilingManager::handle_event()` in
@@ -489,8 +491,8 @@ Shutdown is triggered by:
   - The config watcher is told to stop and the loop's own sender is
     dropped. Then the event and action bridges are joined, then the config
     watcher thread, which while the directory is quiet checks for the stop
-    every 5 seconds, so this can take that long, then the reload bridge,
-    the tick thread and the IPC thread
+    every 5 seconds, so this can take that long, then the reload bridge
+    and the IPC thread
   - Once the loop has returned, `lifecycle::run` removes the PID file and then
     releases the single instance lock
 

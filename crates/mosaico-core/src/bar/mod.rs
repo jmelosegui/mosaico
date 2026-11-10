@@ -38,6 +38,7 @@ mod pointer;
 mod press;
 mod provider;
 mod readings;
+mod refresh;
 mod region;
 mod renderer;
 mod reserve;

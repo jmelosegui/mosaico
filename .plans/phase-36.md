@@ -744,10 +744,10 @@ needs 36.4 and 36.6; 36.8 and 36.9 need 36.7.
 
 ### 36.5 The refresh due time
 
-- [ ] `BarProvider::due`, the soonest of the built-in bar's clock, readings
+- [x] `BarProvider::due`, the soonest of the built-in bar's clock, readings
       and wheel quiet period, as a due time in the `Scheduler`, and the tick
       thread gone
-- [ ] The update check posts a message to the loop
+- [x] The update check posts a message to the loop
 
 ### 36.6 Bar API sessions
 

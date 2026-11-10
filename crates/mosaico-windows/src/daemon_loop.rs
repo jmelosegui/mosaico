@@ -73,13 +73,13 @@ pub(super) fn daemon_loop(pipe_name: &str, store: &ConfigStore) -> Result<()> {
     bars.start(&mut manager);
     manager.refresh_border();
 
-    // Background version check — runs once, stores result for the bar.
-    let update_text = daemon_threads::spawn_version_check(WinHttpClient);
+    // Background version check: runs once, and tells the loop of a newer
+    // version.
+    daemon_threads::spawn_version_check(WinHttpClient, tx.clone());
 
     // Background community-rules download — updates cached rules.toml.
     daemon_threads::spawn_rules_download(WinHttpClient, store.clone(), tx.clone());
 
-    let get_update = || update_text.lock().map_or(String::new(), |t| t.clone());
     mosaico_core::log_info!("Managing {} windows", manager.window_count());
 
     // Start the window events, hotkeys, focus-follows-mouse and the tray
@@ -123,21 +123,11 @@ pub(super) fn daemon_loop(pipe_name: &str, store: &ConfigStore) -> Result<()> {
     let (watcher_stop, watcher_thread, reload_bridge) =
         daemon_threads::spawn_config_watcher(tx.clone(), store.clone());
 
-    // 1-second tick for bar system widget refresh (clock, RAM).
-    let tick_thread = daemon_threads::spawn_tick_thread(tx.clone(), watcher_stop.clone());
-
     // Display frames, sent while windows move. Without them, windows are
     // placed at once, and the daemon runs all the same.
     let frames = daemon_frames::start(tx.clone(), &mut manager);
 
-    daemon_loop_run::run(
-        &rx,
-        &mut manager,
-        &mut bars,
-        &mut inputs,
-        &frames,
-        &get_update,
-    );
+    daemon_loop_run::run(&rx, &mut manager, &mut bars, &mut inputs, &frames);
 
     drop(frames);
     manager.restore_all_windows();
@@ -150,7 +140,6 @@ pub(super) fn daemon_loop(pipe_name: &str, store: &ConfigStore) -> Result<()> {
     let _ = tray_bridge.join();
     let _ = watcher_thread.join();
     let _ = reload_bridge.join();
-    let _ = tick_thread.join();
     let _ = ipc_thread.join();
 
     Ok(())

@@ -46,9 +46,9 @@ fn a_switch_to_another_programs_bar_holds_the_old_space_until_the_hold_is_over()
     // Act
     bars.choose(&mut manager, &picked(BarChoice::External), now);
     let held = platform.take_calls();
-    bars.tick(&mut manager, now + HANDOVER / 2);
+    bars.wake(&mut manager, now + HANDOVER / 2);
     let early = manager.tiler().monitors()[0].work_area().y;
-    bars.tick(&mut manager, now + HANDOVER);
+    bars.wake(&mut manager, now + HANDOVER);
 
     // Assert -- no window moves until the hold is over, then they take the
     // space at once.
@@ -94,4 +94,23 @@ fn a_reserve_that_keeps_the_same_space_moves_no_window() {
     // Assert
     let calls = platform.take_calls();
     assert!(calls.is_empty(), "{calls:?}");
+}
+
+#[test]
+fn the_bars_are_due_when_the_hold_on_the_old_space_ends() {
+    // Arrange
+    let platform = FakePlatform::new(1, &[(1, 0)]);
+    let mut manager = start(&platform, None, &still());
+    let mut bars = host(&Recorder::default());
+    bars.start(&mut manager);
+    let now = Instant::now();
+
+    // Act
+    bars.choose(&mut manager, &picked(BarChoice::External), now);
+    let held = bars.due();
+    bars.wake(&mut manager, now + HANDOVER);
+
+    // Assert -- nothing is due once the hold is over.
+    assert_eq!(held, Some(now + HANDOVER));
+    assert_eq!(bars.due(), None);
 }

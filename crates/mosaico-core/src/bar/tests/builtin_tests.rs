@@ -2,10 +2,13 @@
 //! reach, and what it draws from the bar API's state.
 
 use std::rc::Rc;
+use std::time::{Duration, Instant};
 
 use crate::api::{Monitor, State, Theme as ApiTheme};
+use crate::bar::LocalTime;
 use crate::bar::fakes::BarEvent::{self, Created, Drawn, Dropped};
 use crate::bar::fakes::{FakeRenderer, FakeSystem, NoPointer};
+use crate::bar::refresh::READING_INTERVAL;
 use crate::config::{BarConfig, CatppuccinFlavor, Theme};
 use crate::tiler::{MonitorPlace, Reach};
 use crate::{Rect, StableMonitorId};
@@ -27,10 +30,38 @@ fn places(taskbar: i32) -> Vec<MonitorPlace> {
 }
 
 fn start(renderer: &FakeRenderer) -> BuiltinBar {
+    start_with(renderer, &FakeSystem::default(), BarConfig::default())
+}
+
+/// A bar with `config`, reading the machine `system`.
+fn start_with(renderer: &FakeRenderer, system: &FakeSystem, config: BarConfig) -> BuiltinBar {
     let mocha = Theme::Catppuccin(CatppuccinFlavor::Mocha);
-    let system = Box::new(FakeSystem::default());
-    let config = BarConfig::default();
+    let system = Box::new(system.clone());
     BuiltinBar::new(renderer.boxed(), system, Rc::new(NoPointer), config, mocha)
+}
+
+/// A bar with `widgets`, inline tables of `bar.toml`, on its right, placed
+/// on two monitors and shown a state at `now`, with the clock 15 seconds
+/// past the minute.
+fn shown_with(renderer: &FakeRenderer, widgets: &str, now: Instant) -> BuiltinBar {
+    let system = FakeSystem::default();
+    system.set(|machine| {
+        machine.time = LocalTime {
+            second: 15,
+            ..LocalTime::default()
+        }
+    });
+    let config = toml::from_str(&format!("left = []\nright = [{widgets}]")).unwrap_or_default();
+    let mut bar = start_with(renderer, &system, config);
+    let places = places(0);
+    bar.place(&places);
+    bar.show(&state(&places, "catppuccin"), now);
+    renderer.take();
+    bar
+}
+
+fn draws(events: &[BarEvent]) -> usize {
+    events.iter().filter(|e| matches!(e, Drawn { .. })).count()
 }
 
 /// A state with the monitors of `places`, in the theme `name`.
@@ -140,14 +171,70 @@ fn it_draws_in_the_theme_the_state_names() {
     let mut bar = start(&renderer);
     let places = places(0);
     bar.place(&places);
-    bar.show(&state(&places, "catppuccin"));
+    bar.show(&state(&places, "catppuccin"), Instant::now());
     let mocha = backgrounds(&renderer.take());
 
     // Act
-    bar.show(&state(&places, "rose-pine"));
+    bar.show(&state(&places, "rose-pine"), Instant::now());
 
     // Assert
     let rose_pine = backgrounds(&renderer.take());
     assert_eq!(rose_pine.len(), 2);
     assert_ne!(mocha, rose_pine);
+}
+
+#[test]
+fn a_clock_without_seconds_is_due_as_the_minute_turns() {
+    // Arrange
+    let renderer = FakeRenderer::default();
+    let now = Instant::now();
+
+    // Act
+    let bar = shown_with(&renderer, r#"{ type = "clock", format = "%H:%M" }"#, now);
+
+    // Assert
+    assert_eq!(bar.due(), Some(now + Duration::from_secs(45)));
+}
+
+#[test]
+fn a_wake_draws_the_bars_again_only_once_the_clock_turns() {
+    // Arrange
+    let renderer = FakeRenderer::default();
+    let now = Instant::now();
+    let mut bar = shown_with(&renderer, r#"{ type = "clock", format = "%H:%M" }"#, now);
+
+    // Act
+    bar.wake(now + Duration::from_secs(44));
+    let early = draws(&renderer.take());
+    bar.wake(now + Duration::from_secs(45));
+    let turned = draws(&renderer.take());
+
+    // Assert
+    assert_eq!((early, turned), (0, 2));
+    assert_eq!(bar.due(), Some(now + Duration::from_secs(90)));
+}
+
+#[test]
+fn a_reading_of_the_machine_is_due_every_second() {
+    // Arrange
+    let renderer = FakeRenderer::default();
+    let now = Instant::now();
+
+    // Act
+    let bar = shown_with(&renderer, r#"{ type = "ram" }"#, now);
+
+    // Assert
+    assert_eq!(bar.due(), Some(now + READING_INTERVAL));
+}
+
+#[test]
+fn a_bar_that_shows_nothing_changing_on_its_own_is_never_due() {
+    // Arrange
+    let renderer = FakeRenderer::default();
+
+    // Act
+    let bar = shown_with(&renderer, r#"{ type = "workspaces" }"#, Instant::now());
+
+    // Assert
+    assert_eq!(bar.due(), None);
 }

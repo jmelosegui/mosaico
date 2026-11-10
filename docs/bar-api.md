@@ -129,13 +129,12 @@ pub trait BarProvider {
     fn name(&self) -> &str;
     fn place(&mut self, places: &[MonitorPlace]);
     fn reach(&self, places: &[MonitorPlace]) -> Reach;
-    fn show(&mut self, state: &State);
+    fn show(&mut self, state: &State, now: Instant);
     fn wants_state(&self) -> bool { true }
-    fn refresh(&mut self) {}
     fn pointer(&mut self, bar: BarId, event: PointerEvent, now: Instant)
         -> Option<(Action, Origin)> { None }
     fn due(&self) -> Option<Instant> { None }
-    fn take_due(&mut self, now: Instant) -> Vec<(Action, Origin)> { Vec::new() }
+    fn wake(&mut self, now: Instant) -> Vec<(Action, Origin)> { Vec::new() }
     fn reload(&mut self, config: BarConfig) {}
     fn set_reserve(&mut self, reserve: &BarReserve) {}
     fn connects_later(&self) -> bool { false }
@@ -159,11 +158,14 @@ thread:
 - `wants_state` says whether anything would come of `show` now. While it is
   `false` the daemon builds no state at all, and it shows the state it
   missed once it turns `true`.
-- `refresh` is called about once a second when the state did not change,
-  for what changes on its own, such as a clock, so a bar draws once a tick.
-- `pointer`, `due` and `take_due` are for a provider drawn through
-  mosaico's renderer: what the pointer did on it, and the actions it hands
-  over on its own, such as a workspace switch once the wheel went quiet.
+- `due` is when the provider next needs `wake`: to draw again what
+  changes on its own, such as a clock or a reading of the machine, or to
+  hand over actions, such as a workspace switch once the wheel went quiet.
+  The daemon has no other timer, so a provider with nothing waiting says
+  `None` and is never woken for nothing. `wake(now)` does what is due and
+  returns the actions.
+- `pointer` is for a provider drawn through mosaico's renderer: what the
+  pointer did on it.
 - `reload` takes a new `bar.toml`; a provider that does not draw ignores it.
 - `set_reserve` takes `[bar.reserve]` before `place`, at startup and on
   each reload that changes it. A provider whose bar cannot say how far it
@@ -185,7 +187,7 @@ runs, and is tested in core (`tiler/tests/bar_host_tests.rs`):
 |------|------|--------------|
 | `start` | Startup | Place, keep the tiles clear of the reach, show |
 | `show` | After each action, batch of window events and reload | Show the state when it changed, or when the bars were placed since |
-| `tick` | Once a second | End a handover whose time is up, then `show`, or else `refresh` |
+| `due`, `wake` | The loop waits no longer than `due`, then calls `wake` | `due` is the sooner of the provider's and the end of a handover. `wake` ends a handover whose time is up, retiling and showing once, then wakes the provider and returns its actions |
 | `display_changed` | A display change settled | Place on the monitors as they will be, then have the tiler rebuild them clear of the reach, in one step |
 | `reset_work_areas` | The system's work areas changed, or `retile` | Read the work areas, place on them, keep clear of the reach, in one retile |
 | `reload` | `bar.toml` changed | The provider takes the config, then `reset_work_areas` |
@@ -252,7 +254,9 @@ nothing at, for at most `HANDOVER` (5 seconds):
 
 - tiles keep clear of the further of the held reach and the new one;
 - a monitor the new bar reaches into is released at once;
-- once the time is up, `tick` drops what is left and retiles once.
+- once the time is up, `wake` drops what is left and retiles once;
+  `BarHost::due` includes that time, so the loop wakes for it;
+- once the new bar reaches into every monitor held, the hold ends early.
 
 A switch from mosaico's bar to `"external"` therefore moves no window
 while the other bar starts, and at most one retile once the hold ends.

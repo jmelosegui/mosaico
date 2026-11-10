@@ -7,7 +7,7 @@
 //! that loop: what runs first, which events say nothing new, when a
 //! display change has settled, when the effects the tiling manager holds
 //! back are flushed, when windows in motion take their next step and when
-//! the wheel's turns on a bar are applied. It never reads the clock. The
+//! the bars are woken. It never reads the clock. The
 //! platform loop tells it when it starts waiting, hands it whatever ended
 //! the wait, and runs the [`Step`](crate::daemon::Step)s it gets back. The
 //! frames come from the platform's

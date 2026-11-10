@@ -47,8 +47,7 @@ pub(super) fn make_builtin(queue: Sender<DaemonMsg>, store: ConfigStore) -> Make
 }
 
 /// Carries out the action a click on a bar asks for, the way a hotkey's
-/// is carried out, on the bar's monitor. Wheel turns wait for
-/// [`apply_wheel`]. Pausing pauses the hotkeys only: the bar keeps working.
+/// is carried out, on the bar's monitor. Wheel turns wait for [`wake`]. Pausing pauses the hotkeys only: the bar keeps working.
 pub(super) fn handle_pointer(
     bar: BarId,
     event: PointerEvent,
@@ -62,15 +61,16 @@ pub(super) fn handle_pointer(
     }
 }
 
-/// Carries out the workspace switches the wheel asks for on the bars it
+/// Wakes the bars now that they are due, see [`BarHost::wake`], and
+/// carries out the workspace switches the wheel asks for on the bars it
 /// has gone quiet over.
-pub(super) fn apply_wheel(
+pub(super) fn wake(
     manager: &mut TilingManager,
     bars: &mut BarHost,
     inputs: &mut Inputs,
     hotkeys_paused: &mut bool,
 ) {
-    for (action, origin) in bars.take_due(Instant::now()) {
+    for (action, origin) in bars.wake(manager, Instant::now()) {
         let _ = carry_out(action, origin, manager, bars, inputs, hotkeys_paused);
     }
 }

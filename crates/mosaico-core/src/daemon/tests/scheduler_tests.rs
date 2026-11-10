@@ -9,6 +9,8 @@ use crate::id::wid;
 
 use super::*;
 
+#[path = "scheduler_bar_tests.rs"]
+mod bar_tests;
 #[path = "scheduler_cap_tests.rs"]
 mod cap_tests;
 #[path = "scheduler_display_tests.rs"]
@@ -27,8 +29,6 @@ mod input_tests;
 mod motion_tests;
 #[path = "scheduler_settle_tests.rs"]
 mod settle_tests;
-#[path = "scheduler_wheel_tests.rs"]
-mod wheel_tests;
 
 type Task = &'static str;
 

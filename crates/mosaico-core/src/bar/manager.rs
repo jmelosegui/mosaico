@@ -1,13 +1,15 @@
 //! The status bars on every monitor.
 
 use std::rc::Rc;
+use std::time::Duration;
 
 use crate::Rect;
 use crate::config::Theme;
 use crate::config::bar::BarConfig;
 
 use super::{
-    BarContent, BarRenderer, BarState, CpuTracker, PointerSink, SystemInfo, SystemReadings,
+    BarContent, BarRenderer, BarState, CpuTracker, LocalTime, PointerSink, SystemInfo,
+    SystemReadings, refresh,
 };
 
 #[path = "manager_bars.rs"]
@@ -21,9 +23,10 @@ mod slot;
 ///
 /// Decides which monitors get a bar, how tall it is and what each one
 /// shows, has a [`BarRenderer`] put the bars on screen, and reads the
-/// machine through [`SystemInfo`]. The daemon refreshes it after every
-/// change it makes and once a second, and hands it what the pointer does
-/// on the bars, which it turns into actions.
+/// machine through [`SystemInfo`]. The daemon updates it after every
+/// change it makes and whenever [`refresh_in`](Self::refresh_in) says what
+/// it shows changes on its own, and hands it what the pointer does on the
+/// bars, which it turns into actions.
 pub struct BarManager {
     /// The bars on screen. Declared before `renderer`, so they are
     /// dropped before the renderer that made them.
@@ -49,6 +52,8 @@ pub struct BarManager {
     /// Only kept while a CPU widget is configured, so the CPU is not
     /// read otherwise.
     cpu: Option<CpuTracker>,
+    /// The time as the bars were last drawn.
+    time: LocalTime,
 }
 
 impl BarManager {
@@ -75,6 +80,7 @@ impl BarManager {
             config,
             monitor_areas,
             cpu: None,
+            time: LocalTime::default(),
         };
         manager.config.resolve_colors(theme);
         bars::report_clicks(&manager.config);
@@ -112,6 +118,7 @@ impl BarManager {
             return;
         }
         let readings = SystemReadings::read(self.system.as_ref(), &self.config, self.cpu.as_mut());
+        self.time = readings.time;
         let fallback = BarState::default();
         for bar in &mut self.bars {
             let state = states.get(bar.id.monitor);
@@ -121,6 +128,16 @@ impl BarManager {
             let content = BarContent::build(&self.config, state, &readings);
             bar.draw(&self.config, &content, state);
         }
+    }
+
+    /// How long after the last [`update`](Self::update) what the bars show
+    /// changes on its own, as a clock does, or `None` when nothing does or
+    /// no monitor has a bar.
+    pub fn refresh_in(&self) -> Option<Duration> {
+        if self.bars.is_empty() {
+            return None;
+        }
+        refresh::refresh_in(&self.config, self.time)
     }
 }
 

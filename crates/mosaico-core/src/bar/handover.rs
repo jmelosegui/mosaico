@@ -56,9 +56,14 @@ impl Handover {
         self.held = held;
     }
 
-    /// Whether there is nothing left to hold at `now`.
+    /// Whether the hold is over at `now`.
     pub fn over(&self, now: Instant) -> bool {
-        now >= self.until || self.held.is_none()
+        now >= self.until
+    }
+
+    /// When the hold is over.
+    pub fn until(&self) -> Instant {
+        self.until
     }
 
     /// The space tiles keep clear of while `new` is the bar's own reach.
@@ -68,7 +73,8 @@ impl Handover {
 }
 
 /// How far `provider` reaches into `places`, with the space `handover`
-/// still holds, which lets go of the monitors the provider reaches into.
+/// still holds, which lets go of the monitors the provider reaches into,
+/// and ends once it holds nothing.
 pub(super) fn reach_of(
     provider: &dyn BarProvider,
     handover: &mut Option<Handover>,
@@ -78,7 +84,11 @@ pub(super) fn reach_of(
     match handover {
         Some(held) => {
             held.release(&reach);
-            held.with(&reach)
+            let reach = held.with(&reach);
+            if held.held.is_none() {
+                *handover = None;
+            }
+            reach
         }
         None => reach,
     }

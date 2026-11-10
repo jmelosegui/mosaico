@@ -30,6 +30,10 @@ use super::{BarId, PointerEvent, reserve_reach};
 /// - [`show`](Self::show) is only called with a state that differs from
 ///   the one shown last, or after `place`. A provider keeps the last state
 ///   if it needs to draw again on its own.
+/// - The daemon wakes the provider through [`wake`](Self::wake) no later
+///   than [`due`](Self::due) says, and at no other cadence: a provider
+///   that draws something changing on its own, such as a clock, says when
+///   it next changes, and one that does not says `None`.
 /// - Nothing here may block: a provider talking to another program queues
 ///   what it sends and drops it when that program falls behind.
 pub trait BarProvider {
@@ -42,8 +46,8 @@ pub trait BarProvider {
     /// How far the bars reach into each of `places` as they are placed.
     fn reach(&self, places: &[MonitorPlace]) -> Reach;
 
-    /// Shows `state`.
-    fn show(&mut self, state: &State);
+    /// Shows `state` at `now`.
+    fn show(&mut self, state: &State, now: Instant);
 
     /// Whether anything would come of [`show`](Self::show) now. The
     /// daemon builds no state while it is `false`, and shows the state
@@ -51,10 +55,6 @@ pub trait BarProvider {
     fn wants_state(&self) -> bool {
         true
     }
-
-    /// Draws again what changes on its own, such as a clock. Called about
-    /// once a second.
-    fn refresh(&mut self) {}
 
     /// Takes what the pointer did on the bar `bar` at `now`, and returns
     /// the action it asks for, if any. Only a provider that draws through
@@ -68,14 +68,17 @@ pub trait BarProvider {
         None
     }
 
-    /// When the provider next has actions to hand over on its own, such
-    /// as a workspace switch the wheel asked for once it went quiet.
+    /// When the provider next needs [`wake`](Self::wake): to draw again
+    /// what changes on its own, such as a clock or a reading of the
+    /// machine, or to hand over actions, such as a workspace switch the
+    /// wheel asked for once it went quiet. `None` while nothing waits.
     fn due(&self) -> Option<Instant> {
         None
     }
 
-    /// The actions due at `now`, see [`due`](Self::due).
-    fn take_due(&mut self, _now: Instant) -> Vec<(Action, Origin)> {
+    /// Does what is due at `now`, see [`due`](Self::due), and returns the
+    /// actions due.
+    fn wake(&mut self, _now: Instant) -> Vec<(Action, Origin)> {
         Vec::new()
     }
 
@@ -116,7 +119,7 @@ impl BarProvider for NoBar {
         Reach::none()
     }
 
-    fn show(&mut self, _state: &State) {}
+    fn show(&mut self, _state: &State, _now: Instant) {}
 
     fn wants_state(&self) -> bool {
         false
@@ -144,7 +147,7 @@ impl BarProvider for ApiBar {
         reserve_reach(&self.reserve, places)
     }
 
-    fn show(&mut self, _state: &State) {}
+    fn show(&mut self, _state: &State, _now: Instant) {}
 
     fn wants_state(&self) -> bool {
         false

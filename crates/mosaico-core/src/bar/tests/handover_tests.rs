@@ -1,5 +1,7 @@
 use super::*;
-use crate::StableMonitorId;
+use crate::bar::ApiBar;
+use crate::config::BarReserve;
+use crate::{Rect, StableMonitorId};
 
 fn id(text: &str) -> StableMonitorId {
     StableMonitorId::new(text)
@@ -61,17 +63,45 @@ fn a_monitor_the_new_bar_reaches_into_is_let_go() {
 }
 
 #[test]
-fn the_hold_is_over_once_its_time_is_up_or_every_monitor_is_let_go() {
+fn the_hold_is_over_once_its_time_is_up() {
     // Arrange
     let old = top(&[("m-a", 84)]);
     let now = Instant::now();
-    let mut handover = Handover::begin(&old, &Reach::none(), now + HANDOVER).unwrap();
+    let handover = Handover::begin(&old, &Reach::none(), now + HANDOVER).unwrap();
 
     // Act
+    let midway = handover.over(now + HANDOVER / 2);
     let at_end = handover.over(now + HANDOVER);
-    handover.release(&top(&[("m-a", 40)]));
 
     // Assert
+    assert!(!midway);
     assert!(at_end);
-    assert!(handover.over(now));
+    assert_eq!(handover.until(), now + HANDOVER);
+}
+
+#[test]
+fn the_hold_ends_once_the_new_bar_reaches_into_every_monitor_it_held() {
+    // Arrange
+    let screen = Rect::new(0, 0, 1920, 1080);
+    let place = MonitorPlace {
+        id: id("m-a"),
+        index: 0,
+        bounds: screen,
+        work_area: screen,
+        scale: 1.0,
+    };
+    let mut bar = ApiBar::default();
+    bar.set_reserve(&BarReserve {
+        top: 40,
+        ..BarReserve::default()
+    });
+    let now = Instant::now();
+    let mut handover = Handover::begin(&top(&[("m-a", 84)]), &Reach::none(), now + HANDOVER);
+
+    // Act
+    let reach = reach_of(&bar, &mut handover, &[place]);
+
+    // Assert -- nothing is left to hold, so nothing waits for the time.
+    assert_eq!(reach.top(&id("m-a")), 40);
+    assert_eq!(handover, None);
 }

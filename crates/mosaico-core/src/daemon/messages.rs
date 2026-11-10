@@ -106,9 +106,10 @@ pub enum Step<T> {
     Run(T),
     /// Handle the window events of a batch, in order.
     Events(Vec<WindowEvent>),
-    /// Carry out what the wheel's turns on the bars ask for, now that they
-    /// are due.
-    Wheel,
+    /// Wake the bars, now that they are due: to carry out what the wheel's
+    /// turns on them ask for, draw again what changed on its own, such as
+    /// a clock, or let go of the space held for a bar yet to connect.
+    Bar,
     /// Move what is in motion on to where it is at the time this step
     /// runs: frames arrived, or a motion is due to end.
     Frame,

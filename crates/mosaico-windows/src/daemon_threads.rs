@@ -1,6 +1,5 @@
 use std::sync::Arc;
-use std::sync::Mutex;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::AtomicBool;
 use std::sync::mpsc;
 use std::thread;
 
@@ -18,20 +17,19 @@ use super::daemon_types::DaemonMsg;
 /// The folder of the mosaico-rules repository with the rules for Windows.
 const COMMUNITY_RULE_SET: &str = "windows";
 
-/// Spawns a background thread for the version check and returns the shared text.
+/// Spawns a background thread for the version check, which tells the
+/// loop on `tx` once it finds a newer version. Nothing is sent otherwise.
 ///
 /// The thread takes `http` with it, so the client must be `Send`.
-pub(super) fn spawn_version_check(http: impl HttpClient + Send + 'static) -> Arc<Mutex<String>> {
-    let update_text: Arc<Mutex<String>> = Arc::new(Mutex::new(String::new()));
-    let update_text_writer = update_text.clone();
+pub(super) fn spawn_version_check(
+    http: impl HttpClient + Send + 'static,
+    tx: mpsc::Sender<DaemonMsg>,
+) {
     thread::spawn(move || {
-        if let Ok(Some(tag)) = update::newer_release(&http, env!("CARGO_PKG_VERSION"))
-            && let Ok(mut text) = update_text_writer.lock()
-        {
-            *text = format!("{tag} available");
+        if let Ok(Some(tag)) = update::newer_release(&http, env!("CARGO_PKG_VERSION")) {
+            let _ = tx.send(DaemonMsg::Update(format!("{tag} available")));
         }
     });
-    update_text
 }
 
 /// Spawns a background thread that downloads the community rules to the
@@ -146,19 +144,4 @@ fn watch_config(store: ConfigStore, reloads: mpsc::Sender<ConfigReload>, stop: &
     if let Err(e) = watch.run(reloads, stop) {
         mosaico_core::log_warn!("config watcher stopped: {e}");
     }
-}
-
-/// Spawns a 1-second tick thread for bar updates.
-pub(super) fn spawn_tick_thread(
-    tx: mpsc::Sender<DaemonMsg>,
-    stop: Arc<AtomicBool>,
-) -> thread::JoinHandle<()> {
-    thread::spawn(move || {
-        while !stop.load(Ordering::Relaxed) {
-            thread::sleep(std::time::Duration::from_secs(1));
-            if tx.send(DaemonMsg::Tick).is_err() {
-                break;
-            }
-        }
-    })
 }

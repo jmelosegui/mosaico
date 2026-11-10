@@ -17,7 +17,7 @@ mod wait;
 /// with the time, what
 /// [`Coalescer::held_since`](crate::tiler::Coalescer::held_since)
 /// reports, the first frame step due after the last one, as at the end of
-/// a motion, and when the wheel's turns on a bar are due, then hands
+/// a motion, and when the bars next need waking, then hands
 /// whatever ended the wait to [`Scheduler::step`].
 ///
 /// - Held effects are flushed once the loop has waited
@@ -53,11 +53,13 @@ mod wait;
 ///   responsive while windows flood the queue. The batch's window events
 ///   come last, as one step, keeping only the last position change and
 ///   the last title change of each window, and without display changes.
-/// - The wheel step comes once the wheel's turns are due, whatever ended
-///   the wait, after the tasks and events of the wake, so the turns and
+/// - The bar step comes once the bars are due, whatever ended the wait,
+///   after the tasks and events of the wake, so the wheel's turns and the
 ///   clicks they bring count first, and before the frame step. It runs
-///   after a flush of the same wake, and ends the wait as input does: it
-///   switches workspaces, which takes time that must not count as quiet.
+///   after a flush of the same wake, and ends the wait as input does: the
+///   wheel switches workspaces, which takes time that must not count as
+///   quiet. There is no other timer: an idle daemon whose bars draw
+///   nothing that changes on its own is woken by messages alone.
 #[derive(Debug, Default)]
 pub struct Scheduler {
     /// When the current wait began.
@@ -72,8 +74,8 @@ pub struct Scheduler {
     /// When the last frame step was taken: the end of a motion by then
     /// has had its step.
     frame_stepped: Option<Instant>,
-    /// When the current wait has to end for the wheel step.
-    wheel_due: Option<Instant>,
+    /// When the current wait has to end for the bar step.
+    bar_due: Option<Instant>,
     /// A display change waiting for the configuration to settle.
     settle: DisplaySettle,
 }
@@ -91,7 +93,7 @@ impl Scheduler {
             _ => now,
         };
         let motion_due = self.frame_due.take().is_some_and(|due| now >= due);
-        let wheel = self.wheel_due.take().is_some_and(|due| now >= due);
+        let bar = self.bar_due.take().is_some_and(|due| now >= due);
         let mut batch = wake.into_batch();
         dedup(&mut batch.events);
         let changing = batch.take_display_changes();
@@ -100,7 +102,7 @@ impl Scheduler {
         if changing {
             self.settle.note(now);
         }
-        if input || flush || rebuild || wheel {
+        if input || flush || rebuild || bar {
             self.waiting_since = None;
         }
         let mut steps = Vec::new();
@@ -112,7 +114,7 @@ impl Scheduler {
         if !batch.events.is_empty() {
             steps.push(Step::Events(batch.events));
         }
-        steps.extend(wheel.then_some(Step::Wheel));
+        steps.extend(bar.then_some(Step::Bar));
         if batch.frame || motion_due {
             self.frame_stepped = Some(now);
             steps.push(Step::Frame);

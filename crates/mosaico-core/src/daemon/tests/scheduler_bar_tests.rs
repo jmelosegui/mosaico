@@ -1,12 +1,12 @@
-//! The wheel step: once the wheel's turns on a bar are due, at its place
-//! in the wake.
+//! The bar step: once the bars are due, for the wheel's turns, a clock
+//! or the end of a hold on a bar's space, at its place in the wake.
 
 use crate::tiler::QUIET;
 
 use super::*;
 
 #[test]
-fn the_wait_ends_with_a_wheel_step_when_the_turns_are_due() {
+fn the_wait_ends_with_a_bar_step_when_the_bars_are_due() {
     // Arrange
     let t0 = Instant::now();
     let mut scheduler = Scheduler::default();
@@ -17,11 +17,11 @@ fn the_wait_ends_with_a_wheel_step_when_the_turns_are_due() {
 
     // Assert
     assert_eq!(wait, Some(ms(120)));
-    assert_eq!(steps, vec![Step::Wheel]);
+    assert_eq!(steps, vec![Step::Bar]);
 }
 
 #[test]
-fn turns_due_while_the_loop_was_busy_end_the_wait_at_once() {
+fn bars_due_while_the_loop_was_busy_end_the_wait_at_once() {
     // Arrange
     let t0 = Instant::now();
     let mut scheduler = Scheduler::default();
@@ -34,7 +34,7 @@ fn turns_due_while_the_loop_was_busy_end_the_wait_at_once() {
 }
 
 #[test]
-fn the_wheel_step_comes_after_the_tasks_and_events_and_before_the_frame() {
+fn the_bar_step_comes_after_the_tasks_and_events_and_before_the_frame() {
     // Arrange -- a click, a focus change and a frame came as the turns
     // fell due.
     let t0 = Instant::now();
@@ -51,14 +51,14 @@ fn the_wheel_step_comes_after_the_tasks_and_events_and_before_the_frame() {
         vec![
             Step::Run("click"),
             Step::Events(vec![focused(1)]),
-            Step::Wheel,
+            Step::Bar,
             Step::Frame,
         ]
     );
 }
 
 #[test]
-fn a_wake_before_the_turns_are_due_takes_no_wheel_step() {
+fn a_wake_before_the_bars_are_due_takes_no_bar_step() {
     // Arrange
     let t0 = Instant::now();
     let mut scheduler = Scheduler::default();
@@ -72,7 +72,7 @@ fn a_wake_before_the_turns_are_due_takes_no_wheel_step() {
 }
 
 #[test]
-fn a_flush_due_in_the_same_wake_comes_before_the_wheel_step() {
+fn a_flush_due_in_the_same_wake_comes_before_the_bar_step() {
     // Arrange -- a focus change is held at t0, and the turns fall due as
     // the quiet window ends.
     let t0 = Instant::now();
@@ -83,11 +83,11 @@ fn a_flush_due_in_the_same_wake_comes_before_the_wheel_step() {
     let steps = scheduler.step(timed_out(), t0 + QUIET);
 
     // Assert
-    assert_eq!(steps, vec![Step::Flush, Step::Wheel]);
+    assert_eq!(steps, vec![Step::Flush, Step::Bar]);
 }
 
 #[test]
-fn the_wheel_step_ends_the_wait_as_input_does() {
+fn the_bar_step_ends_the_wait_as_input_does() {
     // Arrange -- the switch the wheel makes holds a focus change, and
     // takes 30 ms.
     let t0 = Instant::now();

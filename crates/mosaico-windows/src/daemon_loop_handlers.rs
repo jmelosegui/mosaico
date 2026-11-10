@@ -75,11 +75,3 @@ pub(super) fn handle_reload(
     }
     bars.show(manager);
 }
-
-/// Once a second: the bars take in the update notice, then are shown the
-/// state if it changed, or else redraw what changes on its own, such as the
-/// clock.
-pub(super) fn handle_tick(manager: &mut TilingManager, bars: &mut BarHost, update: &str) {
-    bars.set_update(update);
-    bars.tick(manager, Instant::now());
-}

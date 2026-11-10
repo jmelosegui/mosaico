@@ -14,14 +14,14 @@ impl Scheduler {
     /// started being held, if any, and `frame_due` the first frame step due
     /// after the [`last_frame_step`](Self::last_frame_step), as at the end of
     /// a motion: the wait ends by then with it. One at or before it is let go.
-    /// `wheel_due` is when the wheel's turns waiting on a bar are due, as
-    /// [`BarManager::wheel_due`](crate::bar::BarManager::wheel_due) says:
-    /// the wait ends by then with the wheel step.
+    /// `bar_due` is when the bars next need waking, as
+    /// [`BarHost::due`](crate::bar::BarHost::due) says: the wait ends by
+    /// then with the bar step.
     pub fn begin_wait(
         &mut self,
         held_since: Option<Instant>,
         frame_due: Option<Instant>,
-        wheel_due: Option<Instant>,
+        bar_due: Option<Instant>,
         now: Instant,
     ) -> Option<Duration> {
         let waiting_since = *self.waiting_since.get_or_insert(now);
@@ -33,7 +33,7 @@ impl Scheduler {
             .hold
             .map(|(_, first_wait)| release_at(first_wait, waiting_since));
         self.frame_due = self.not_stepped(frame_due);
-        self.wheel_due = wheel_due;
+        self.bar_due = bar_due;
         let due = if self.settle.is_due(now) {
             Some(Duration::ZERO)
         } else {
@@ -43,7 +43,7 @@ impl Scheduler {
             }
         };
         let frame = self.frame_due.map(|due| due.saturating_duration_since(now));
-        let wheel = wheel_due.map(|due| due.saturating_duration_since(now));
-        due.into_iter().chain(frame).chain(wheel).min()
+        let bar = bar_due.map(|due| due.saturating_duration_since(now));
+        due.into_iter().chain(frame).chain(bar).min()
     }
 }

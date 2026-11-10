@@ -131,7 +131,7 @@ fn no_state_is_built_for_a_bar_that_wants_none_until_it_does() {
 
     // Act
     bars.start(&mut manager);
-    bars.tick(&mut manager, Instant::now());
+    bars.wake(&mut manager, Instant::now());
     let built = manager.last_bar_state().monitors.len();
     recorder.1.set(false);
     bars.show(&mut manager);

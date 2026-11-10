@@ -22,7 +22,7 @@ pub(super) enum Told {
     Placed(Vec<Rect>),
     Reach,
     Shown(Box<api::State>),
-    Refreshed,
+    Woken,
     Stopped,
 }
 
@@ -61,14 +61,15 @@ impl BarProvider for Recorder {
         Reach::bar_on(places, HEIGHT, &[])
     }
 
-    fn show(&mut self, state: &api::State) {
+    fn show(&mut self, state: &api::State, _now: Instant) {
         self.0
             .borrow_mut()
             .push(Told::Shown(Box::new(state.clone())));
     }
 
-    fn refresh(&mut self) {
-        self.0.borrow_mut().push(Told::Refreshed);
+    fn wake(&mut self, _now: Instant) -> Vec<(crate::Action, crate::action::Origin)> {
+        self.0.borrow_mut().push(Told::Woken);
+        Vec::new()
     }
 
     fn wants_state(&self) -> bool {
@@ -239,7 +240,7 @@ fn stopping_takes_the_bars_off_screen() {
 }
 
 #[test]
-fn a_tick_draws_the_bars_once() {
+fn a_wake_with_no_hold_to_end_only_wakes_the_bars() {
     // Arrange
     let platform = FakePlatform::new(1, &[(1, 0)]);
     let mut manager = start(&platform, None, &still());
@@ -248,15 +249,29 @@ fn a_tick_draws_the_bars_once() {
     bars.start(&mut manager);
     recorder.take();
 
-    // Act -- one tick with nothing new, one with an update notice.
-    bars.tick(&mut manager, Instant::now());
+    // Act
+    bars.wake(&mut manager, Instant::now());
+
+    // Assert -- the state is not built again for it.
+    assert_eq!(recorder.take(), [Told::Woken]);
+}
+
+#[test]
+fn an_update_notice_is_shown_with_the_next_state() {
+    // Arrange
+    let platform = FakePlatform::new(1, &[(1, 0)]);
+    let mut manager = start(&platform, None, &still());
+    let recorder = Recorder::default();
+    let mut bars = host(&recorder);
+    bars.start(&mut manager);
+    recorder.take();
+
+    // Act
     bars.set_update("v9.0.0 available");
-    bars.tick(&mut manager, Instant::now());
+    bars.show(&mut manager);
 
     // Assert
-    let told = recorder.take();
-    assert!(
-        matches!(told[..], [Told::Refreshed, Told::Shown(_)]),
-        "{told:?}"
-    );
+    let shown = recorder.shown();
+    assert_eq!(shown.len(), 1, "{shown:?}");
+    assert_eq!(shown[0].daemon.update.as_deref(), Some("v9.0.0 available"));
 }
