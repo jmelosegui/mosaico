@@ -13,15 +13,16 @@
 //! update` that started it needs to exit, so the file that process runs
 //! from is free by then.
 
+use std::ffi::OsStr;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 use mosaico_core::{Error, Result};
 
 use crate::autostart::registry::Value;
 use crate::error::OrPlatform;
+use crate::process::spawn_detached;
 
 use super::backup_of;
 
@@ -65,18 +66,21 @@ pub(super) fn run_package(name: &str, package: &[u8], reinstall: bool) -> Result
     let path = dir.join(name);
     fs::write(&path, package).or_platform("save the installer")?;
 
-    let mut msiexec = Command::new("msiexec");
-    msiexec
-        .arg("/i")
-        .arg(&path)
-        .args(["/passive", "/norestart", "/l*v"])
-        .arg(dir.join("install.log"));
+    let log = dir.join("install.log");
+    let mut args = vec![
+        OsStr::new("/i"),
+        path.as_os_str(),
+        OsStr::new("/passive"),
+        OsStr::new("/norestart"),
+        OsStr::new("/l*v"),
+        log.as_os_str(),
+    ];
     if reinstall {
         // The same version is installed already: reinstall every file
         // from this package instead of only repairing what is missing.
-        msiexec.args(["REINSTALL=ALL", "REINSTALLMODE=vamus"]);
+        args.extend(["REINSTALL=ALL", "REINSTALLMODE=vamus"].map(OsStr::new));
     }
-    msiexec.spawn().or_platform("start the installer")?;
+    spawn_detached(OsStr::new("msiexec"), &args, "start the installer")?;
     Ok(())
 }
 

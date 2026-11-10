@@ -1,4 +1,5 @@
 use std::io::Read;
+use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
 use super::*;
@@ -15,9 +16,8 @@ fn launcher() {
     if std::env::var_os(LAUNCHER).is_none() {
         return;
     }
-    let mut sleeper = Command::new("ping");
-    sleeper.args(["-n", "7", "127.0.0.1"]);
-    spawn_detached(sleeper, "start the sleeper").unwrap();
+    let args = ["-n", "7", "127.0.0.1"].map(OsStr::new);
+    spawn_detached(OsStr::new("ping"), &args, "start the sleeper").unwrap();
 }
 
 #[test]

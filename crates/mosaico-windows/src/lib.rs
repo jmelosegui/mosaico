@@ -13,6 +13,9 @@ mod com;
 /// Status bar overlay windows.
 pub mod bar;
 
+/// Joining arguments into the one command line a new process receives.
+mod command_line;
+
 /// Border overlay windows for visual focus indicators.
 pub mod border;
 
