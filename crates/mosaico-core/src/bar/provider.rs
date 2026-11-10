@@ -5,10 +5,10 @@ use std::time::Instant;
 use crate::Action;
 use crate::action::Origin;
 use crate::api::State;
-use crate::config::{BarConfig, BarReserve};
+use crate::config::{BarChoice, BarConfig, BarReserve, Theme};
 use crate::tiler::{MonitorPlace, Reach};
 
-use super::{BarId, PointerEvent, reserve_reach};
+use super::{BarId, MakeBuiltin, PointerEvent, reserve_reach};
 
 /// A bar mosaico shows its state on, and keeps tiles clear of: the
 /// built-in one, a bar another program draws, or none.
@@ -162,4 +162,21 @@ impl BarProvider for ApiBar {
     }
 
     fn stop(&mut self) {}
+}
+
+/// The provider `choice` names, `make_builtin` making mosaico's own,
+/// told `reserve`.
+pub(super) fn provider_for(
+    choice: BarChoice,
+    make_builtin: &mut MakeBuiltin,
+    theme: Theme,
+    reserve: &BarReserve,
+) -> Box<dyn BarProvider> {
+    let mut provider: Box<dyn BarProvider> = match choice {
+        BarChoice::Mosaico => make_builtin(theme),
+        BarChoice::External => Box::new(ApiBar::default()),
+        BarChoice::Off => Box::new(NoBar),
+    };
+    provider.set_reserve(reserve);
+    provider
 }

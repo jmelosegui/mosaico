@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ClientMessage",
+  "description": "One message from a bar to the daemon.",
+  "anyOf": [
+    {
+      "description": "The first message of a session.",
+      "type": "object",
+      "properties": {
+        "hello": {
+          "description": "What the bar tells of itself.",
+          "$ref": "#/$defs/Hello"
+        }
+      },
+      "required": [
+        "hello"
+      ]
+    },
+    {
+      "description": "A request, answered with its `id`.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Picked by the bar, carried back on the reply.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        }
+      },
+      "oneOf": [
+        {
+          "description": "Runs an action.",
+          "type": "object",
+          "properties": {
+            "run": {
+              "$ref": "#/$defs/Run"
+            }
+          },
+          "required": [
+            "run"
+          ]
+        },
+        {
+          "description": "Follows these topics from now on, answered with a snapshot of them.",
+          "type": "object",
+          "properties": {
+            "subscribe": {
+              "$ref": "#/$defs/Subscribe"
+            }
+          },
+          "required": [
+            "subscribe"
+          ]
+        },
+        {
+          "description": "Sends a snapshot of the topics followed, after a gap in `seq`.",
+          "type": "object",
+          "properties": {
+            "resync": {
+              "type": "object"
+            }
+          },
+          "required": [
+            "resync"
+          ]
+        },
+        {
+          "description": "Answers at once, to show the session is alive.",
+          "type": "object",
+          "properties": {
+            "ping": {
+              "type": "object"
+            }
+          },
+          "required": [
+            "ping"
+          ]
+        }
+      ],
+      "required": [
+        "id"
+      ]
+    }
+  ],
+  "$defs": {
+    "Hello": {
+      "description": "The opening of a session.",
+      "type": "object",
+      "properties": {
+        "api": {
+          "description": "The API versions the bar speaks.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "integer",
+            "format": "uint32",
+            "minimum": 0
+          }
+        },
+        "bar": {
+          "description": "The bar the session speaks for, such as `\"yasb\"`, or `None` for any\nother.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "client": {
+          "description": "The program speaking, for the log and `doctor`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "topics": {
+          "description": "The topics to follow, or `None` for all of them.",
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "Run": {
+      "description": "An action to run, as a click on a monitor's bar runs it.",
+      "type": "object",
+      "properties": {
+        "action": {
+          "description": "The action, as `bar.toml`'s click bindings name it, such as\n`\"goto-workspace-3\"`.",
+          "type": "string"
+        },
+        "monitor": {
+          "description": "The monitor it acts on, by id, or `None` for the focused one.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "action"
+      ]
+    },
+    "Subscribe": {
+      "description": "The topics to follow.",
+      "type": "object",
+      "properties": {
+        "topics": {
+          "description": "Their names. Names the daemon does not know are left out.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

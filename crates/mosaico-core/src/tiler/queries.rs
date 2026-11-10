@@ -1,6 +1,6 @@
 //! What the tiler can tell about its state.
 
-use crate::WindowId;
+use crate::{StableMonitorId, WindowId};
 
 use super::{MonitorState, Tiler};
 
@@ -16,6 +16,15 @@ impl Tiler {
     /// Index of the monitor the user is working on.
     pub fn focused_monitor(&self) -> usize {
         self.focused_monitor
+    }
+
+    /// Index of the monitor `id` names, or of the focused one when no id
+    /// is given. `None` when no monitor has that id.
+    pub fn monitor_for(&self, id: Option<&StableMonitorId>) -> Option<usize> {
+        match id {
+            Some(id) => self.monitors.iter().position(|mon| &mon.stable_id == id),
+            None => Some(self.focused_monitor),
+        }
     }
 
     /// The window that has focus, as far as the tiler is concerned.

@@ -4,6 +4,7 @@
 
 use mosaico_core::Action;
 use mosaico_core::action::Origin;
+use mosaico_core::api::LoopRequest;
 use mosaico_core::bar::{BarHost, BarId, PointerEvent};
 use mosaico_core::config::ConfigReload;
 use mosaico_core::daemon::Message;
@@ -15,7 +16,7 @@ use crate::tiling::TilingManager;
 use super::daemon_inputs::Inputs;
 use super::daemon_loop_commands::{self, carry_out};
 use super::daemon_types::{DaemonMsg, ResponseSender};
-use super::{daemon_loop_bar, daemon_loop_handlers, daemon_loop_tray};
+use super::{daemon_loop_api, daemon_loop_bar, daemon_loop_handlers, daemon_loop_tray};
 
 /// A daemon message that is not a window event or a display frame.
 pub(super) enum Task {
@@ -35,6 +36,8 @@ pub(super) enum Task {
     Update(String),
     /// The IPC listener died, so the daemon can no longer be controlled.
     IpcFailed,
+    /// What a bar API session asks of the loop.
+    Api(LoopRequest),
 }
 
 /// Hands window events to the scheduler as events, to be batched, a
@@ -53,6 +56,7 @@ pub(super) fn message(msg: DaemonMsg) -> Message<Task> {
         DaemonMsg::Reload(reload) => Message::Task(Task::Reload(reload)),
         DaemonMsg::Update(text) => Message::Task(Task::Update(text)),
         DaemonMsg::IpcFailed => Message::Task(Task::IpcFailed),
+        DaemonMsg::Api(request) => Message::Task(Task::Api(request)),
     }
 }
 
@@ -100,6 +104,9 @@ pub(super) fn run(
             bars.show(manager);
         }
         Task::IpcFailed => return true,
+        Task::Api(request) => {
+            daemon_loop_api::handle(request, manager, bars, inputs, hotkeys_paused);
+        }
     }
     false
 }

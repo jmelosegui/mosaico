@@ -1,0 +1,8 @@
+{"welcome":{"api":1,"mosaico":"0.15.0","boot":"5f3c9a1e","provider":"yasb","topics":["daemon","focus"]}}
+{"seq":1,"rev":57,"snapshot":{"daemon":{"version":"0.15.0","api":1,"instance":null,"provider":"yasb","paused":false,"update":null,"workspace_mode":"per-monitor","wrap":false},"focus":{"monitor":"m-41c6e2","workspace":2,"window":{"id":132456,"title":"Mozilla Firefox","program":"firefox.exe"}}}}
+{"seq":2,"rev":59,"update":{"focus":{"monitor":"m-41c6e2","workspace":3,"window":{"id":132456,"title":"mosaico - Mozilla Firefox","program":"firefox.exe"}}}}
+{"id":1,"ok":{"rev":59}}
+{"id":4,"ok":{}}
+{"id":5,"error":{"code":"not-allowed","message":"`close-focused` acts on the focused window, which a bar may not"}}
+{"error":{"code":"unsupported-api","message":"no API version in common","api":[1]}}
+{"bye":{"reason":"stopping"}}

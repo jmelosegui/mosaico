@@ -5,13 +5,16 @@ draws it. The built-in bar (see [status-bar.md](status-bar.md)) is the first
 to follow it: it reads mosaico only through the state described here, so a
 bar another program draws can show everything the built-in one shows.
 
-The contract has two halves:
+The contract has three parts:
 
 - **The state** (`mosaico_core::api`): what a bar is shown of mosaico, as
   plain data that reads and writes as JSON, and the updates between two
   states.
 - **The provider** (`mosaico_core::bar::BarProvider`): what the daemon asks
   of the bar it runs, and in what order.
+- **The sessions** (`mosaico_core::api`): how a bar another program draws
+  reads the state and runs actions, over a pipe of its own (see
+  [Sessions](#sessions)).
 
 ## Key Files
 
@@ -33,6 +36,16 @@ The contract has two halves:
 | `crates/mosaico-core/src/bar/builtin.rs` | `BuiltinBar` -- the built-in bar as a provider |
 | `docs/bar-api/state.json`, `update.json` | An example state and update |
 | `docs/bar-api/state.schema.json`, `update.schema.json` | Their JSON schemas |
+| `crates/mosaico-core/src/api/protocol.rs` | What a bar sends: `ClientMessage`, `Hello`, `Request`, `Run`, `Subscribe`; `negotiate()`, `SUPPORTED_APIS` |
+| `crates/mosaico-core/src/api/messages.rs` | What the daemon sends: `DaemonMessage`, `Welcome`, `Snapshot`, `Ack`, `ApiError`, `ErrorCode`, `Bye` |
+| `crates/mosaico-core/src/api/topics.rs` | `Topic`, `Topics` -- what a session follows, and the state cut down to it |
+| `crates/mosaico-core/src/api/connection.rs` | `ApiListener`, `ApiConnection`, `ApiReader`, `ApiWriter` -- the contract for the platform's endpoint; `Limits` |
+| `crates/mosaico-core/src/api/session.rs` | `serve_api()` -- accepts bars, opens sessions on `hello` and reads their requests |
+| `crates/mosaico-core/src/api/hub.rs`, `outbox.rs` | `Hub` -- the latest state, the sessions and what each is owed |
+| `crates/mosaico-core/src/api/writer.rs` | `SessionWriter` -- sends a session its replies and the state |
+| `crates/mosaico-core/src/api/loop_request.rs` | `LoopRequest`, `Reply` -- what a session asks of the daemon loop |
+| `docs/bar-api/client.jsonl`, `daemon.jsonl` | One example of each message, as sent |
+| `docs/bar-api/client-message.schema.json`, `daemon-message.schema.json` | Their JSON schemas |
 
 ## The State
 
@@ -92,9 +105,10 @@ change that removes a field or changes what one means raises it.
 
 The schemas in `docs/bar-api` are generated from the types, and the
 examples read and write back byte for byte, both checked by
-`crates/mosaico-core/src/api/tests/examples_tests.rs`. After changing the
-types on purpose, run those tests with `MOSAICO_BLESS_API=1` to write the
-files again, and review the diff.
+`crates/mosaico-core/src/api/tests/examples_tests.rs` and, for the
+messages, `protocol_tests.rs`. After changing the types on purpose, run
+those tests with `MOSAICO_BLESS_API=1` to write the files again, and review
+the diff.
 
 ## Building the State
 
@@ -260,3 +274,141 @@ nothing at, for at most `HANDOVER` (5 seconds):
 
 A switch from mosaico's bar to `"external"` therefore moves no window
 while the other bar starts, and at most one retile once the hold ends.
+
+## Sessions
+
+A bar drawn by another program reads the state, and runs actions, in a
+session on the daemon's bar API endpoint: on Windows the pipe
+`\\.\pipe\mosaico.bar`, or `\\.\pipe\mosaico-<name>.bar` for a named
+instance (see [ipc.md](ipc.md#the-bar-api-pipe)). Every message is one line
+of compact JSON, as on the CLI's pipe, and at most 1 MiB. One example of
+each is in `docs/bar-api/client.jsonl` (what a bar sends) and
+`docs/bar-api/daemon.jsonl` (what the daemon sends), with their schemas
+beside them. A bar ignores keys and messages it does not know, so later
+versions may add some.
+
+### Opening
+
+The bar speaks first:
+
+```json
+{"hello":{"api":[1],"bar":"yasb","client":"mosaico-yasb 1.0","topics":["daemon","focus"]}}
+```
+
+- `api`: the versions the bar speaks. The daemon picks the highest it
+  speaks too, or answers `unsupported-api` with the ones it does, and
+  closes.
+- `bar`: the provider the bar speaks for, if it is one mosaico knows.
+- `client`: a name for the log.
+- `topics`: what to follow, of `daemon`, `theme`, `monitors` and
+  `focus`; all four when left out. Names the daemon does not know are left
+  out, so a bar written for a later version still opens a session.
+
+The daemon answers `welcome`, with the version, its `boot` (which changes
+when the daemon restarts), the provider the user picked and the topics
+followed, then a snapshot of them:
+
+```text
+{"welcome":{"api":1,"mosaico":"0.15.0","boot":"5f3c9a1e","provider":"yasb","topics":["daemon","focus"]}}
+{"seq":1,"rev":57,"snapshot":{"daemon":{...},"focus":{...}}}
+```
+
+### The State in a Session
+
+- A `snapshot` carries every followed topic in full. An `update` carries
+  what changed since the session's previous message with state in it, in
+  the shape of [Updates](#updates): a changed monitor in full, a removed
+  one by its id.
+- `seq` counts the messages that carry state, from 1, in each session. A
+  gap means one was missed; ask for `resync`.
+- `rev` is the state's revision since the daemon started, the same for
+  every session. It only grows while `boot` stays the same.
+- A slow bar is not sent every state in turn. Its writer sends the latest
+  state the daemon published, as one update from what the bar was sent
+  last, so a bar that falls behind catches up in one message, and the
+  daemon keeps no queue of states for it.
+
+### Requests
+
+Every request carries an `id` the bar picks, and its answer carries it
+back:
+
+| Request | Answer |
+| --- | --- |
+| `{"id":1,"run":{"action":"goto-workspace-3","monitor":"m-41c6e2"}}` | `{"id":1,"ok":{"rev":59}}` |
+| `{"id":2,"subscribe":{"topics":["monitors","focus"]}}` | A snapshot of those topics, with `"id":2`; they are what the session follows from then on |
+| `{"id":3,"resync":{}}` | A snapshot of the topics followed, with `"id":3` |
+| `{"id":4,"ping":{}}` | `{"id":4,"ok":{}}` |
+
+- `run` carries an action out as a click on that monitor's bar does,
+  named as in `bar.toml`'s click bindings. Without `monitor` it acts on
+  the focused monitor. An action that acts on the focused window, such as
+  `close-focused`, is refused: a bar acts on monitors and workspaces,
+  and a program running in the background should not close or move
+  whichever window the user happens to be in. `ok.rev` is the revision once the action was applied,
+  and the session was sent a state at that revision or later before the
+  answer.
+- A session has at most 32 `run` requests waiting for the daemon; the
+  bar's next ones wait until one is answered.
+
+### Errors
+
+An error answers a request by its `id`, or the session when there is
+none:
+
+```json
+{"id":5,"error":{"code":"not-allowed","message":"`close-focused` acts on the focused window, which a bar may not"}}
+```
+
+| Code | Meaning |
+| --- | --- |
+| `busy` | The daemon serves as many sessions as it may; the session closes |
+| `unsupported-api` | No version in common, with `api` listing the daemon's; the session closes |
+| `malformed` | Not JSON, not shaped as its kind is, a request before `hello` (which closes), or a second `hello` |
+| `too-large` | Over 1 MiB; the session closes |
+| `unknown-request` | A kind of request the daemon does not know |
+| `not-allowed` | An action that acts on the focused window |
+| `no-monitor` | The monitor named is not connected |
+| `unknown-action` | An action the daemon does not know |
+| `failed` | The action was carried out, and something it needed failed |
+| `stopping` | The daemon is stopping and carries out nothing more |
+
+A bar reads a code it does not know as any other failure.
+
+### Limits
+
+`Limits::default()` holds what the daemon allows, the same on every
+platform:
+
+- `hello` must come within 5 seconds of connecting.
+- A message must be written within 10 seconds; a bar that reads nothing
+  for longer is dropped.
+- 32 sessions, and 64 connections counting those still to send `hello`.
+  Past 64 a connection is closed unanswered.
+- 32 `run` requests waiting per session.
+
+### Closing
+
+When the daemon stops, every session is sent `{"bye":{"reason":"stopping"}}`
+before the windows are put back, and the daemon waits at most a second
+for the bars to read it before it goes on. A session that ends without
+`bye` is a daemon that crashed or a pipe that broke. A bar closes its
+session by closing its end.
+
+### How It Is Built
+
+The sessions are core's, so every platform serves them alike. A platform
+provides the endpoint, through `ApiListener` and `ApiConnection`, which
+splits into a reader and a writer neither of which waits for the other.
+`serve_api()` accepts bars and reads each one's requests on a thread of
+its own; a `SessionWriter` on another thread sends it the state and the
+answers. They meet in the `Hub`: the daemon loop publishes each new state
+to it and is never held up by a bar, and what a session asks of the loop
+goes to it as a `LoopRequest`, whose `Reply` answers `stopping` if it is
+dropped unanswered. The first session asks the loop to publish, and
+nothing is sent until a state was published while a session was open.
+
+The sessions are tested against an in-memory pipe in
+`crates/mosaico-core/src/api/tests/`. `metrics_tests.rs` counts the
+messages and bytes a bar is sent in each scenario, checked against
+`metrics/api.toml` by `cargo xtask metrics`.

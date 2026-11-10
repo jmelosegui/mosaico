@@ -1,0 +1,29 @@
+# Measured by `cargo xtask metrics --bless`. A change here comes from a new measurement.
+
+[connect]
+bytes = 1544
+messages = 2
+
+[connect_focus_only]
+bytes = 414
+messages = 2
+
+[disconnect_monitor]
+bytes = 65
+messages = 1
+
+[publish_unchanged]
+bytes = 0
+messages = 0
+
+[retitle_focused_window]
+bytes = 144
+messages = 1
+
+[switch_workspace]
+bytes = 587
+messages = 1
+
+[switch_workspace_focus_only]
+bytes = 88
+messages = 1

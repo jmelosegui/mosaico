@@ -15,14 +15,17 @@ use crate::tiling::{TilingManager, Win32Platform};
 
 use super::daemon_frames;
 use super::daemon_inputs::{Inputs, Senders};
+use super::daemon_loop_api::ApiServer;
 use super::daemon_loop_bar;
 use super::daemon_loop_run;
 use super::daemon_threads;
 use super::daemon_types::DaemonMsg;
 
 /// The inner daemon loop, separated so the cleanup in `lifecycle::run` always runs.
-/// It reads and watches the config files in `store`.
-pub(super) fn daemon_loop(pipe_name: &str, store: &ConfigStore) -> Result<()> {
+/// It reads and watches the config files in `store`, and listens for the
+/// CLI and the bars on the two `pipes`, in that order.
+pub(super) fn daemon_loop(pipes: &[String; 2], store: &ConfigStore) -> Result<()> {
+    let [pipe_name, api_pipe] = pipes;
     // Append any missing top-level config sections introduced by newer
     // versions of mosaico (e.g. [workspaces]) before loading, so the
     // user's config.toml visibly tracks the latest schema.
@@ -66,6 +69,8 @@ pub(super) fn daemon_loop(pipe_name: &str, store: &ConfigStore) -> Result<()> {
         config.theme.resolve(),
     );
     mosaico_core::log_info!("Bar: {}", bars.choice().name());
+    let api = ApiServer::start(api_pipe, tx.clone());
+    bars.publish_to(api.hub());
 
     let hidden = Instance::current().map(HiddenFile::for_instance);
     let mut manager = TilingManager::new(Win32Platform::new(), hidden, &config, rules)?;
@@ -129,6 +134,9 @@ pub(super) fn daemon_loop(pipe_name: &str, store: &ConfigStore) -> Result<()> {
 
     daemon_loop_run::run(&rx, &mut manager, &mut bars, &mut inputs, &frames);
 
+    // The bars that read the API are told goodbye first, while the loop's
+    // requests they leave unanswered are refused as stopping.
+    api.stop();
     drop(frames);
     manager.restore_all_windows();
     bars.stop();

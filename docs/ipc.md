@@ -4,6 +4,10 @@ The CLI and the daemon talk over a local channel: the CLI connects, sends one
 request, reads one reply and disconnects. On Windows the channel is a named
 pipe.
 
+Bars talk to the daemon over a second channel of their own, the bar API,
+which keeps a session open as long as the bar runs (see [bar-api.md](bar-api.md)
+and [The Bar API Pipe](#the-bar-api-pipe)).
+
 ## Architecture
 
 The protocol lives in core and the platform only supplies byte streams:
@@ -30,6 +34,8 @@ The protocol lives in core and the platform only supplies byte streams:
 | `crates/mosaico-windows/src/ipc.rs` | `PipeClient`, `PipeServer`, `PipeConnection`, `DEFAULT_PIPE_NAME` |
 | `crates/mosaico-windows/src/ipc_security.rs` | Who may open the pipe, and the client's check that it is the daemon's |
 | `crates/mosaico-windows/src/daemon_ipc.rs` | Runs `serve()` on the daemon's IPC thread |
+| `crates/mosaico-windows/src/ipc_api.rs` | `ApiPipeListener` -- the bar API pipe |
+| `crates/mosaico-windows/src/ipc_api_io.rs` | `ApiPipeConnection`, `ApiPipeReader`, `ApiPipeWriter` -- overlapped reads and writes on one bar's connection |
 
 ## Framing
 
@@ -241,6 +247,40 @@ it, as before this descriptor: the default one only let administrators and the
 owner, the Administrators group, write. Run the CLI elevated as well to reach
 an elevated daemon.
 
+## The Bar API Pipe
+
+The bar API has a pipe of its own, `api_pipe_name(instance)`:
+`\\.\pipe\mosaico.bar`, or `\\.\pipe\mosaico-<name>.bar` for a named
+instance. An instance name cannot hold a dot, so it never collides with an
+instance called `bar`. Core defines what the platform provides
+(`ApiListener`, `ApiConnection`, `ApiReader`, `ApiWriter` in
+`crates/mosaico-core/src/api/connection.rs`); the sessions run in core.
+`ApiPipeListener` differs from `PipeServer` where a session differs from a
+request:
+
+- Instances are opened with `FILE_FLAG_OVERLAPPED`. On a synchronous handle
+  one call runs at a time, so a read waiting for the bar would hold up every
+  write to it. Each call starts, then waits on its own event beside the
+  connection's shutdown event and its deadline; a call given up on is
+  cancelled with `CancelIoEx`, and its result is waited for before its
+  buffer goes away.
+- A write that has not finished by the session's write deadline fails with
+  `TimedOut`, and the session is dropped. The output buffer is 256 KiB, a
+  few full states, so a bar busy for a moment does not hold up its session;
+  the input buffer is 16 KiB.
+- `ConnectNamedPipe` is overlapped too, and waits beside a stop event, so
+  the daemon stops the listener at once. A spare instance waits for the next
+  bar while the others are served.
+- Shutting a connection down wakes its reader and refuses further writes,
+  and the instance is closed rather than disconnected, so the `bye` that was
+  written stays readable and the bar then reads the end.
+- Same descriptor as the CLI's pipe, with one difference: the mandatory
+  label is always medium (`PipeSecurity::at_medium()`), whatever the
+  daemon's level, since a bar is an ordinary program of the user, so an
+  ordinary bar reaches an elevated daemon. Low-integrity programs, other
+  users and other machines stay out, and the first instance is still created
+  with `FILE_FLAG_FIRST_PIPE_INSTANCE`.
+
 ## Testing
 
 Framing, request decoding, error replies and the accept loop are tested in
@@ -251,4 +291,7 @@ of it needs a daemon or a pipe.
 unique pipe name and checks that a daemon busy with one client still answers
 the next. `ipc_security_tests.rs` checks, on pipes of its own, the owner and
 label of the daemon's pipe, that the daemon will not join a pipe created
-before it, and that a client refuses a low-integrity pipe.
+before it, and that a client refuses a low-integrity pipe. `ipc_api_tests.rs`
+runs the bar API pipe for real: a whole session with `bye` readable after
+the daemon closes, the listener stopping when told, the write deadline, and a
+read returning when the other half shuts down.

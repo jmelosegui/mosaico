@@ -12,19 +12,19 @@ use serde::de::DeserializeOwned;
 
 use super::{State, Update};
 
-fn path(name: &str) -> PathBuf {
+pub(super) fn path(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../docs/bar-api")
         .join(name)
 }
 
-fn pretty(value: &impl Serialize) -> String {
+pub(super) fn pretty(value: &impl Serialize) -> String {
     serde_json::to_string_pretty(value).unwrap_or_default() + "\n"
 }
 
 /// Compares `expected` to the file `name`, or writes it there when
 /// blessing.
-fn check(name: &str, expected: &str) {
+pub(super) fn check(name: &str, expected: &str) {
     let path = path(name);
     if std::env::var_os("MOSAICO_BLESS_API").is_some() {
         let _ = std::fs::write(&path, expected);

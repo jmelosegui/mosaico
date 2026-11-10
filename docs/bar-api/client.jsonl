@@ -1,0 +1,5 @@
+{"hello":{"api":[1],"bar":"yasb","client":"mosaico-yasb 1.0","topics":["daemon","focus"]}}
+{"id":1,"run":{"action":"goto-workspace-3","monitor":"m-41c6e2"}}
+{"id":2,"subscribe":{"topics":["monitors","focus"]}}
+{"id":3,"resync":{}}
+{"id":4,"ping":{}}

@@ -2,6 +2,7 @@
 //! the order in which the provider is placed, asked how far it reaches
 //! and shown the state.
 
+use std::sync::Arc;
 use std::time::Instant;
 
 use crate::action::Origin;
@@ -11,7 +12,8 @@ use crate::tiler::{Display, MonitorPlace, Platform, Reach, TilingManager};
 use crate::{Action, Result};
 
 use super::handover::{HANDOVER, Handover, reach_of};
-use super::{ApiBar, BarId, BarProvider, NoBar, PointerEvent};
+use super::provider::provider_for;
+use super::{BarId, BarProvider, PointerEvent};
 
 /// Makes mosaico's own bar in a theme, with `bar.toml` read afresh.
 pub type MakeBuiltin = Box<dyn FnMut(Theme) -> Box<dyn BarProvider>>;
@@ -40,6 +42,8 @@ pub struct BarHost {
     /// The space the previous bar kept, held after a switch until the new
     /// one says how far it reaches.
     handover: Option<Handover>,
+    /// Where the bars that read the state through the bar API get it.
+    hub: Option<Arc<api::Hub>>,
 }
 
 impl BarHost {
@@ -70,6 +74,7 @@ impl BarHost {
             reach: Reach::default(),
             reserve: section.reserve.clone(),
             handover: None,
+            hub: None,
         }
     }
 
@@ -90,17 +95,29 @@ impl BarHost {
         self.shown(manager);
     }
 
-    /// Shows the state as [`show`](Self::show) does. Nothing is built while
-    /// the provider wants no state; it is shown the state once it does.
+    /// Publishes the state to `hub` from the next [`show`](Self::show)
+    /// on, while a bar API session follows it, whichever provider runs.
+    pub fn publish_to(&mut self, hub: Arc<api::Hub>) {
+        self.hub = Some(hub);
+    }
+
+    /// Shows the state as [`show`](Self::show) does, and publishes it to
+    /// the hub when it changed or the hub's is not fresh. Nothing is built
+    /// while neither the provider nor a session wants the state.
     fn shown<P: Platform>(&mut self, manager: &mut TilingManager<P>) {
-        if !self.provider.wants_state() {
+        let hub = self.hub.as_ref().filter(|hub| hub.watched());
+        let wanted = self.provider.wants_state();
+        if !wanted && hub.is_none() {
             return;
         }
         let changed = manager.bar_state(&self.daemon, &self.api_theme).is_some();
-        if changed || self.placed {
+        if wanted && (changed || self.placed) {
             let now = manager.platform().now();
             self.provider.show(manager.last_bar_state(), now);
             self.placed = false;
+        }
+        if let Some(hub) = hub.filter(|hub| changed || !hub.fresh()) {
+            hub.publish(manager.last_bar_state());
         }
     }
 
@@ -266,21 +283,4 @@ impl BarHost {
             manager.set_reach(self.reach.clone());
         }
     }
-}
-
-/// The provider `choice` names, `make_builtin` making mosaico's own,
-/// told `reserve`.
-fn provider_for(
-    choice: BarChoice,
-    make_builtin: &mut MakeBuiltin,
-    theme: Theme,
-    reserve: &BarReserve,
-) -> Box<dyn BarProvider> {
-    let mut provider: Box<dyn BarProvider> = match choice {
-        BarChoice::Mosaico => make_builtin(theme),
-        BarChoice::External => Box::new(ApiBar::default()),
-        BarChoice::Off => Box::new(NoBar),
-    };
-    provider.set_reserve(reserve);
-    provider
 }

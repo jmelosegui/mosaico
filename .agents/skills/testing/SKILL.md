@@ -67,7 +67,7 @@ which suites were skipped and why.
 
 ## Metrics
 
-`metrics/` holds two committed baselines, and `cargo xtask metrics` (run in CI) fails when a count differs from
+`metrics/` holds three committed baselines, and `cargo xtask metrics` (run in CI) fails when a count differs from
 them, in either direction:
 
 - `metrics/tiler.toml`: what the tiling manager asks of the platform in common situations (opening a window,
@@ -77,6 +77,10 @@ them, in either direction:
   three, one of four closing, a layout cycle, and monocle on and off) run with transitions on, as users get them
   by default, and count every call until the windows have settled, frames included. All the others run with
   transitions off (`manager_support::still()`), so they measure what the tiler asks of the platform without them.
+- `metrics/api.toml`: what a bar is sent through the bar API, in messages and bytes, on connecting, after a
+  workspace switch, a new title, a monitor leaving and a state published unchanged, with every topic or the focus
+  only. The scenarios are in `crates/mosaico-core/src/api/tests/metrics_tests.rs`, built from the example state in
+  `docs/bar-api/state.json`, over in-memory connections. Fewer is better.
 - `metrics/code.toml`: per crate, tests (more is better), files and lines over the 300 line limit, `unsafe`
   keywords, `.unwrap()`/`.expect(` outside tests in the library crates, and OS names in `mosaico-core` (fewer is
   better).

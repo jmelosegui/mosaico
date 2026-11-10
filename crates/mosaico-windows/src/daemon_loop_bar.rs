@@ -47,7 +47,8 @@ pub(super) fn make_builtin(queue: Sender<DaemonMsg>, store: ConfigStore) -> Make
 }
 
 /// Carries out the action a click on a bar asks for, the way a hotkey's
-/// is carried out, on the bar's monitor. Wheel turns wait for [`wake`]. Pausing pauses the hotkeys only: the bar keeps working.
+/// is carried out, on the bar's monitor. Wheel turns wait for [`wake`].
+/// Pausing pauses the hotkeys only: the bar keeps working.
 pub(super) fn handle_pointer(
     bar: BarId,
     event: PointerEvent,

@@ -1,8 +1,9 @@
-//! Named pipe transport for the CLI to daemon channel.
+//! Named pipe transports: the CLI to daemon channel and the bar API's.
 //!
 //! Only the byte streams live here. Framing, versioning and the accept
-//! loop are in [`mosaico_core::ipc`]. This file holds the client's end;
-//! the daemon's is in `ipc_server.rs`.
+//! loop are in [`mosaico_core::ipc`] and [`mosaico_core::api`]. This file
+//! holds the CLI client's end; the daemon's is in `ipc_server.rs`, and
+//! the bar API's in `ipc_api.rs` and `ipc_api_io.rs`.
 
 use std::fs::File;
 use std::io::{self, Read, Write};
@@ -21,11 +22,17 @@ use windows::Win32::Storage::FileSystem::{
 use windows::Win32::System::Pipes::WaitNamedPipeW;
 use windows::core::HSTRING;
 
+pub use api::ApiPipeListener;
+pub use api_io::{ApiPipeConnection, ApiPipeReader, ApiPipeWriter};
 pub use server::{PipeConnection, PipeServer};
 
 use security::check_server;
 use watchdog::with_deadline;
 
+#[path = "ipc_api.rs"]
+mod api;
+#[path = "ipc_api_io.rs"]
+mod api_io;
 #[path = "ipc_security.rs"]
 mod security;
 #[path = "ipc_server.rs"]
@@ -37,6 +44,12 @@ mod watchdog;
 /// default instance, `\\.\pipe\mosaico-<name>` for a named one.
 pub fn pipe_name(instance: &Instance) -> String {
     format!(r"\\.\pipe\{}", instance.endpoint_name())
+}
+
+/// The bar API pipe of an instance's daemon: `\\.\pipe\mosaico.bar` for
+/// the default instance, `\\.\pipe\mosaico-<name>.bar` for a named one.
+pub fn api_pipe_name(instance: &Instance) -> String {
+    format!(r"\\.\pipe\{}", instance.api_endpoint_name())
 }
 
 /// How long a client waits for a daemon that is busy with another

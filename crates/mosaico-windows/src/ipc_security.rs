@@ -52,6 +52,14 @@ impl PipeSecurity {
         Self::from_text(&descriptor_text(&user, &label))
     }
 
+    /// Lets in the current user and the system, never over the network,
+    /// and nothing less trusted than the user's ordinary programs, whatever
+    /// this process's own level.
+    pub(crate) fn at_medium() -> io::Result<Self> {
+        let user = token::current_user().map_err(io::Error::other)?;
+        Self::from_text(&descriptor_text(&user, "ME"))
+    }
+
     /// The descriptor written as `text`, in the security descriptor
     /// definition language.
     pub(crate) fn from_text(text: &str) -> io::Result<Self> {

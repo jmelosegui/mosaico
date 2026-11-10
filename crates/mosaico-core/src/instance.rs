@@ -114,6 +114,13 @@ impl Instance {
         }
     }
 
+    /// The identifier of the instance's bar API endpoint, apart from the
+    /// CLI's: [`endpoint_name`](Self::endpoint_name) with `.bar` after
+    /// it. No instance name has a dot, so it is never another instance's.
+    pub fn api_endpoint_name(&self) -> String {
+        format!("{}.bar", self.endpoint_name())
+    }
+
     /// Directory holding the configuration files.
     pub fn config_dir(&self) -> &Path {
         &self.config_dir

@@ -18,3 +18,17 @@ fn an_instance_keeps_its_logs_and_pid_file_in_its_own_directories() {
     assert_eq!(instance.log_dir(), Path::new("cfg").join("logs"));
     assert_eq!(instance.pid_path(), Path::new("data").join("mosaico.pid"));
 }
+
+#[test]
+fn the_bar_api_endpoint_is_apart_from_every_instance_s_own() {
+    // Arrange
+    let default = Instance::new(None, "c", "d").unwrap();
+    let named = Instance::new(Some("bar"), "c", "d").unwrap();
+
+    // Act
+    let names = [default.api_endpoint_name(), named.api_endpoint_name()];
+
+    // Assert
+    assert_eq!(names, ["mosaico.bar", "mosaico-bar.bar"]);
+    assert!(Instance::new(Some("x.bar"), "c", "d").is_err());
+}

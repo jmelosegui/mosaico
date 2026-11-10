@@ -24,6 +24,8 @@ The daemon uses a multi-thread architecture:
 7. **Frame pacer thread** -- sends a `DaemonMsg::Frame` about once per
    display refresh while the main loop wants frames, never with more than one
    waiting, and is parked otherwise (`FramePacer`)
+8. **Bar API threads** -- one accepts bars on the API pipe, and each session
+   has a reader and a writer of its own (see [Bar API](#bar-api))
 
 Three additional bridge threads forward events, actions, and config reloads
 from separate `mpsc` channels into the unified `DaemonMsg` channel. Two more
@@ -38,6 +40,7 @@ community rules.
 | `crates/mosaico-windows/src/daemon.rs` | `serve()` -- checks the instance and runs `daemon_loop()` |
 | `crates/mosaico-windows/src/daemon_loop.rs` | `daemon_loop()` -- startup, the frame pacer and shutdown around the main loop |
 | `crates/mosaico-windows/src/daemon_ipc.rs` | `ipc_loop()` -- the IPC listener |
+| `crates/mosaico-windows/src/daemon_loop_api.rs` | `ApiServer` -- the bar API's hub and listener thread, and its stop; `handle()` -- what a bar session asks of the loop |
 | `crates/mosaico-windows/src/daemon_types.rs` | `DaemonMsg` |
 | `crates/mosaico-windows/src/daemon_loop_run.rs` | The main loop: waits for messages and runs the scheduler's steps |
 | `crates/mosaico-windows/src/daemon_loop_task.rs` | `Task` -- every `DaemonMsg` except a window event or a frame, as the main loop runs it, and `run()`, which runs one |
@@ -72,6 +75,8 @@ community rules.
   - `Update(String)` -- the newer version the version check found, sent
     once, if at all
   - `IpcFailed` -- the IPC listener died, so the daemon stops
+  - `Api(LoopRequest)` -- what a bar session asks of the loop: the state
+    published again, or an action run
 - `Inputs` -- holds the `EventWatch` of the event source, the `HotkeyWatch`
   of the hotkey source and `FocusFollowsMouse`, and starts the sources
   through the `EventSource` and `HotkeySource` traits; `.stop()` stops all
@@ -134,7 +139,9 @@ order, it:
    (`BuiltinBar`) with `Win32BarRenderer`, `Win32SystemInfo`, a
    `ChannelSink` on the daemon channel and the theme; it has no bar on
    screen until it is placed. A `BarHost` runs it, with the daemon's
-   version, API version and instance name
+   version, API version and instance name. Start the bar API
+   (`ApiServer::start()`) on the instance's API pipe, and have the
+   `BarHost` publish the state to its hub
 7. Create the core `TilingManager` on `Win32Platform`, with the config, the
    rules and the instance's hidden-window record
 8. Start the bar (`BarHost::start()`): place it on the monitors, keep the
@@ -292,6 +299,13 @@ Tasks are dispatched like this:
 - `DaemonMsg::Update(text)` -- hands the update notice to the bar
   (`BarHost::set_update()`) and shows it the state
 - `DaemonMsg::IpcFailed` -- stops the loop
+- `DaemonMsg::Api(request)` -- `daemon_loop_api::handle()`: `Publish` shows
+  the bar the state, which publishes it to the hub again for a session that
+  just joined; `Run` finds the monitor it names (the focused one when it
+  names none) and carries the action out from `Origin::Bar(monitor)` as a
+  click does, then answers `ok`, or `failed` with the reason, or
+  `no-monitor` for an id no monitor has. The state the action led to is
+  published before the answer, so a bar has it before the reply
 
 Window events (`DaemonMsg::Event`) go to `TilingManager::handle_event()` in
 step 4, except a work area change, which reads the work areas again and
@@ -370,6 +384,25 @@ thread, with a `PipeServer` on the instance's pipe, `ipc::pipe_name(instance)`
 
 If the pipe can no longer accept connections, the thread sends
 `DaemonMsg::IpcFailed` and the daemon shuts down cleanly. See [ipc.md](ipc.md).
+
+## Bar API
+
+`ApiServer::start()` makes the hub the bar sessions are served from, named
+by a boot id that changes each time the daemon starts, and runs
+`mosaico_core::api::serve_api()` on a `bar-api` thread with an
+`ApiPipeListener` on `ipc::api_pipe_name(instance)` (`\\.\pipe\mosaico.bar`,
+or `\\.\pipe\mosaico-<name>.bar`). Each bar gets a reader thread and a writer
+thread; neither ever waits for the main loop, and the loop never waits for
+a bar:
+
+- The loop publishes the state to the hub whenever `BarHost` shows one
+  that changed, while a session watches.
+- What a session asks of the loop comes as `DaemonMsg::Api`, through the
+  daemon channel like any other input.
+
+A pipe that cannot be created, as when another program holds its name, is
+logged as a warning, and the daemon runs without the API. The sessions,
+their messages and limits are in [bar-api.md](bar-api.md#sessions).
 
 ## Config File Watcher
 
@@ -477,6 +510,11 @@ Shutdown is triggered by:
 - A `Stop` command received via IPC, or the IPC listener failing
   (`DaemonMsg::IpcFailed`)
 - The main loop breaks, which triggers cleanup:
+  - `ApiServer::stop()` tells every bar session `bye` (`stopping`), waits
+    up to a second for them to end, and stops accepting. What a session
+    asked of the loop and was not answered is answered `stopping`. The bars
+    get `bye` before their windows are put back, so they can tell a stop
+    from a crash
   - The frame pacer is dropped, which stops its thread within a frame
   - `TilingManager::restore_all_windows()` -- places every window still in
     a transition, or stopped by a display change, at its target, behind any

@@ -751,16 +751,16 @@ needs 36.4 and 36.6; 36.8 and 36.9 need 36.7.
 
 ### 36.6 Bar API sessions
 
-- [ ] The listener and connection contracts; the API pipe on Windows with
+- [x] The listener and connection contracts; the API pipe on Windows with
       overlapped handles and 36.1's security, labelled medium
-- [ ] The hub, sessions, `hello`, `welcome`, topics, snapshots and updates,
+- [x] The hub, sessions, `hello`, `welcome`, topics, snapshots and updates,
       `subscribe`, `resync`, `ping` and `bye`
-- [ ] Back-pressure: writer threads, the write deadline, the session and
+- [x] Back-pressure: writer threads, the write deadline, the session and
       request limits
-- [ ] `run`, from `Origin::Bar`, with the scope check, on the same path as
+- [x] `run`, from `Origin::Bar`, with the scope check, on the same path as
       `BarProvider::take_runs`, its reply after its update
-- [ ] `docs/bar-api.md`, and the API in `ipc.md` and `daemon.md`
-- [ ] Tests over in-memory connections, among them a writer that blocks while
+- [x] `docs/bar-api.md`, and the API in `ipc.md` and `daemon.md`
+- [x] Tests over in-memory connections, among them a writer that blocks while
       the daemon keeps publishing and another session keeps getting updates;
       metrics with a client, and `metrics/api.toml`
 

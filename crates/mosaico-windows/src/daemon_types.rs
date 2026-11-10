@@ -32,6 +32,8 @@ pub(super) enum DaemonMsg {
     Update(String),
     /// The IPC listener died, so the daemon can no longer be controlled.
     IpcFailed,
+    /// What a bar API session asks of the loop.
+    Api(mosaico_core::api::LoopRequest),
 }
 
 /// Sends a response back to the IPC thread for the connected client.

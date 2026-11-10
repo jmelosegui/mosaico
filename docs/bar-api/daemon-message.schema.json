@@ -1,0 +1,706 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DaemonMessage",
+  "description": "One message from the daemon to a bar.\n\nEach is a JSON object told apart by the key it carries: `welcome`,\n`snapshot`, `update`, `ok`, `error` or `bye`. A bar ignores messages it\ndoes not know, so later versions may add some.",
+  "anyOf": [
+    {
+      "description": "The answer to `hello`: the session is open.",
+      "type": "object",
+      "properties": {
+        "welcome": {
+          "description": "What the daemon tells of itself and the session.",
+          "$ref": "#/$defs/Welcome"
+        }
+      },
+      "required": [
+        "welcome"
+      ]
+    },
+    {
+      "description": "Every followed topic in full, after `welcome`, and in answer to\n`subscribe` and `resync`, then with the request's `id`.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "The request answered, if any.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "rev": {
+          "description": "The state's revision since the daemon started.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "seq": {
+          "description": "The session's count of messages that carry state, from 1.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "snapshot": {
+          "description": "The topics.",
+          "$ref": "#/$defs/Snapshot"
+        }
+      },
+      "required": [
+        "seq",
+        "rev",
+        "snapshot"
+      ]
+    },
+    {
+      "description": "What changed of the followed topics since the session's previous\nmessage that carried state.",
+      "type": "object",
+      "properties": {
+        "rev": {
+          "description": "The state's revision since the daemon started.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "seq": {
+          "description": "The session's count of messages that carry state.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "update": {
+          "description": "What changed.",
+          "$ref": "#/$defs/Update"
+        }
+      },
+      "required": [
+        "seq",
+        "rev",
+        "update"
+      ]
+    },
+    {
+      "description": "A request was carried out.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "The request's `id`.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "ok": {
+          "description": "What came of it.",
+          "$ref": "#/$defs/Ack"
+        }
+      },
+      "required": [
+        "id",
+        "ok"
+      ]
+    },
+    {
+      "description": "A message could not be taken in. Without an `id` it concerns the\nsession, or a message whose `id` could not be read.",
+      "type": "object",
+      "properties": {
+        "error": {
+          "description": "Why.",
+          "$ref": "#/$defs/ApiError"
+        },
+        "id": {
+          "description": "The request refused, if known.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "error"
+      ]
+    },
+    {
+      "description": "The daemon is ending the session.",
+      "type": "object",
+      "properties": {
+        "bye": {
+          "description": "Why.",
+          "$ref": "#/$defs/Bye"
+        }
+      },
+      "required": [
+        "bye"
+      ]
+    }
+  ],
+  "$defs": {
+    "Ack": {
+      "description": "What came of a request carried out.",
+      "type": "object",
+      "properties": {
+        "rev": {
+          "description": "For a request that may change the state, its revision once the\nrequest was applied. The session was sent a state at this\nrevision or later before this reply.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        }
+      }
+    },
+    "ApiError": {
+      "description": "Why a message was refused.",
+      "type": "object",
+      "properties": {
+        "api": {
+          "description": "With `unsupported-api`, the versions the daemon speaks.",
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "integer",
+            "format": "uint32",
+            "minimum": 0
+          }
+        },
+        "code": {
+          "description": "What went wrong, for a program.",
+          "$ref": "#/$defs/ErrorCode"
+        },
+        "message": {
+          "description": "What went wrong, for a person.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ]
+    },
+    "Bye": {
+      "description": "The end of a session.",
+      "type": "object",
+      "properties": {
+        "reason": {
+          "description": "Why it ends, such as `\"stopping\"`.",
+          "type": "string",
+          "default": ""
+        }
+      }
+    },
+    "Daemon": {
+      "description": "The daemon and what it was told.",
+      "type": "object",
+      "properties": {
+        "api": {
+          "description": "The API version the state is shaped by.",
+          "type": "integer",
+          "format": "uint32",
+          "default": 0,
+          "minimum": 0
+        },
+        "instance": {
+          "description": "The instance's name, or `None` for the default instance.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "paused": {
+          "description": "Whether the hotkeys are paused.",
+          "type": "boolean",
+          "default": false
+        },
+        "provider": {
+          "description": "The bar the user picked, as `[bar] provider` names it.",
+          "type": "string",
+          "default": ""
+        },
+        "update": {
+          "description": "Notice of a newer version, such as `\"v0.15.0 available\"`, or\n`None` when there is none.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "version": {
+          "description": "mosaico's version, such as `\"0.14.0\"`.",
+          "type": "string",
+          "default": ""
+        },
+        "workspace_mode": {
+          "description": "How a workspace switch applies across monitors: `\"per-monitor\"` or\n`\"global\"`.",
+          "type": "string",
+          "default": ""
+        },
+        "wrap": {
+          "description": "Whether stepping through the workspaces goes round from the last\nto the first.",
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "ErrorCode": {
+      "description": "What went wrong with a message, for a program. Later versions may add\ncodes; a bar reads one it does not know as [`ErrorCode::Other`].",
+      "oneOf": [
+        {
+          "description": "The daemon has as many sessions as it serves. Sent before closing.",
+          "type": "string",
+          "const": "busy"
+        },
+        {
+          "description": "The daemon speaks none of the versions `hello` listed. Sent with\nthe versions it speaks, before closing.",
+          "type": "string",
+          "const": "unsupported-api"
+        },
+        {
+          "description": "A message was not JSON, or not shaped as its kind is.",
+          "type": "string",
+          "const": "malformed"
+        },
+        {
+          "description": "A message was larger than a message may be. Sent before closing.",
+          "type": "string",
+          "const": "too-large"
+        },
+        {
+          "description": "A request of a kind the daemon does not know.",
+          "type": "string",
+          "const": "unknown-request"
+        },
+        {
+          "description": "An action a bar may not run: one that acts on the focused window.",
+          "type": "string",
+          "const": "not-allowed"
+        },
+        {
+          "description": "The monitor named is not connected.",
+          "type": "string",
+          "const": "no-monitor"
+        },
+        {
+          "description": "An action the daemon does not know.",
+          "type": "string",
+          "const": "unknown-action"
+        },
+        {
+          "description": "The action was carried out and something it needed failed.",
+          "type": "string",
+          "const": "failed"
+        },
+        {
+          "description": "The daemon is stopping and carries out nothing more.",
+          "type": "string",
+          "const": "stopping"
+        },
+        {
+          "description": "A code this build does not know.",
+          "type": "string",
+          "const": "other"
+        }
+      ]
+    },
+    "Focus": {
+      "description": "Where the user is working.",
+      "type": "object",
+      "properties": {
+        "monitor": {
+          "description": "The monitor the user is working on.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "window": {
+          "description": "The focused window, if any.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FocusedWindow"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "workspace": {
+          "description": "The number of the workspace on screen there.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "default": null,
+          "minimum": 0
+        }
+      }
+    },
+    "FocusedWindow": {
+      "description": "The focused window.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Its id, for the session.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "program": {
+          "description": "The file name of the program that owns it, or empty.",
+          "type": "string",
+          "default": ""
+        },
+        "title": {
+          "description": "Its title, cut at [`MAX_TITLE_CHARS`](super::MAX_TITLE_CHARS).\nShow it as text, never as markup.",
+          "type": "string",
+          "default": ""
+        }
+      },
+      "required": [
+        "id"
+      ]
+    },
+    "Monitor": {
+      "description": "One connected monitor.",
+      "type": "object",
+      "properties": {
+        "active_workspace": {
+          "description": "Number of the workspace on screen, from 1.",
+          "type": "integer",
+          "format": "uint32",
+          "default": 0,
+          "minimum": 0
+        },
+        "bounds": {
+          "description": "The whole monitor, in the desktop's pixels.",
+          "$ref": "#/$defs/Rect",
+          "default": {
+            "height": 0,
+            "width": 0,
+            "x": 0,
+            "y": 0
+          }
+        },
+        "device": {
+          "description": "The name other programs know the display by.",
+          "type": "string",
+          "default": ""
+        },
+        "id": {
+          "description": "The id the monitor keeps through display changes and reconnects.",
+          "type": "string",
+          "default": ""
+        },
+        "index": {
+          "description": "Position from the left, from 0, as `bar.toml`'s `monitors` counts.",
+          "type": "integer",
+          "format": "uint32",
+          "default": 0,
+          "minimum": 0
+        },
+        "maximized": {
+          "description": "Whether a maximized or fullscreen window covers the monitor.",
+          "type": "boolean",
+          "default": false
+        },
+        "name": {
+          "description": "What the system calls the display, such as `\"DELL U2720Q\"`.",
+          "type": "string",
+          "default": ""
+        },
+        "scale": {
+          "description": "Scale factor, 1.0 at 100%.",
+          "type": "number",
+          "format": "double",
+          "default": 0.0
+        },
+        "tiling_area": {
+          "description": "Where mosaico tiles: the work area, kept clear of the bar.",
+          "$ref": "#/$defs/Rect",
+          "default": {
+            "height": 0,
+            "width": 0,
+            "x": 0,
+            "y": 0
+          }
+        },
+        "work_area": {
+          "description": "What the system leaves for windows.",
+          "$ref": "#/$defs/Rect",
+          "default": {
+            "height": 0,
+            "width": 0,
+            "x": 0,
+            "y": 0
+          }
+        },
+        "workspaces": {
+          "description": "The monitor's workspaces, in number order.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Workspace"
+          }
+        }
+      }
+    },
+    "Rect": {
+      "description": "A rectangle in the desktop's pixels.",
+      "type": "object",
+      "properties": {
+        "height": {
+          "description": "Height.",
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        },
+        "width": {
+          "description": "Width.",
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        },
+        "x": {
+          "description": "Left edge.",
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        },
+        "y": {
+          "description": "Top edge.",
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        }
+      }
+    },
+    "Removed": {
+      "description": "What an [`Update`] takes away.",
+      "type": "object",
+      "properties": {
+        "monitors": {
+          "description": "The ids of the monitors disconnected.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "Snapshot": {
+      "description": "Topics in full, each present only when followed.",
+      "type": "object",
+      "properties": {
+        "daemon": {
+          "description": "The daemon.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Daemon"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "focus": {
+          "description": "Where the user works.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Focus"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "monitors": {
+          "description": "Every monitor, from the left.",
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/Monitor"
+          }
+        },
+        "theme": {
+          "description": "The theme.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Theme"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "Theme": {
+      "description": "The theme bars are drawn in.",
+      "type": "object",
+      "properties": {
+        "colors": {
+          "description": "Its colors by name, such as `\"blue\": \"#89b4fa\"`.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {}
+        },
+        "flavor": {
+          "description": "Its flavor, such as `\"mocha\"`.",
+          "type": "string",
+          "default": ""
+        },
+        "name": {
+          "description": "The theme's family, such as `\"catppuccin\"`.",
+          "type": "string",
+          "default": ""
+        }
+      }
+    },
+    "Update": {
+      "description": "What changed between two states: each topic that changed, in full, and\neach monitor that changed or came, in full, by id.\n\nApplying one is replacing objects by id, so a bar keeps no model of its\nown: `older.apply(older.diff(&newer))` is `newer`.",
+      "type": "object",
+      "properties": {
+        "daemon": {
+          "description": "The daemon, when it changed.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Daemon"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "focus": {
+          "description": "Where the user works, when it changed.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Focus"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "monitors": {
+          "description": "Each monitor that changed or was connected, in full.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Monitor"
+          }
+        },
+        "removed": {
+          "description": "What is gone.",
+          "$ref": "#/$defs/Removed"
+        },
+        "theme": {
+          "description": "The theme, when it changed.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Theme"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "Welcome": {
+      "description": "The opening of a session.",
+      "type": "object",
+      "properties": {
+        "api": {
+          "description": "The API version the session speaks.",
+          "type": "integer",
+          "format": "uint32",
+          "default": 0,
+          "minimum": 0
+        },
+        "boot": {
+          "description": "Names the daemon's start: it changes when the daemon restarts.",
+          "type": "string",
+          "default": ""
+        },
+        "mosaico": {
+          "description": "mosaico's version.",
+          "type": "string",
+          "default": ""
+        },
+        "provider": {
+          "description": "The bar the user picked, as `[bar] provider` names it.",
+          "type": "string",
+          "default": ""
+        },
+        "topics": {
+          "description": "The topics the session follows.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "Workspace": {
+      "description": "One workspace of a monitor.",
+      "type": "object",
+      "properties": {
+        "focused": {
+          "description": "The one of them focused last, if any.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "default": null,
+          "minimum": 0
+        },
+        "layout": {
+          "description": "Its layout, such as `\"bsp\"`, `\"vertical-stack\"` or\n`\"three-column\"`. A bar shows a layout it does not know as is.",
+          "type": "string",
+          "default": ""
+        },
+        "monocle": {
+          "description": "Whether it shows one window over the whole area.",
+          "type": "boolean",
+          "default": false
+        },
+        "name": {
+          "description": "What to call it. The number for now.",
+          "type": "string",
+          "default": ""
+        },
+        "number": {
+          "description": "Number, from 1, as actions number workspaces.",
+          "type": "integer",
+          "format": "uint32",
+          "default": 0,
+          "minimum": 0
+        },
+        "windows": {
+          "description": "Its windows, in layout order.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0
+          }
+        }
+      }
+    }
+  }
+}

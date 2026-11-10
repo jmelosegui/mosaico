@@ -6,7 +6,7 @@ use crate::api::{Daemon, Theme};
 use crate::id::wid;
 use crate::tiler::tests::fake_platform::FakePlatform;
 use crate::tiler::tests::manager_support::{start, still};
-use crate::{Action, Direction};
+use crate::{Action, Direction, StableMonitorId};
 
 #[test]
 fn the_first_state_is_always_handed_out_and_an_unchanged_one_never() {
@@ -114,4 +114,22 @@ fn focus_moving_to_another_monitor_is_handed_out() {
     let second = state.monitors.get(1).map(|m| m.id.clone());
     assert_eq!(state.focus.monitor, second);
     assert_eq!(state.focus.window.map(|w| w.id), Some(wid(2)));
+}
+
+#[test]
+fn a_bar_names_a_monitor_by_its_id_or_means_the_focused_one() {
+    // Arrange
+    let platform = FakePlatform::new(2, &[(1, 0), (2, 1)]);
+    let manager = start(&platform, None, &still());
+    let tiler = manager.tiler();
+    let second = tiler.monitors()[1].stable_id().clone();
+
+    // Act
+    let named = tiler.monitor_for(Some(&second));
+    let unknown = tiler.monitor_for(Some(&StableMonitorId::new("m-gone")));
+    let focused = tiler.monitor_for(None);
+
+    // Assert
+    assert_eq!((named, unknown), (Some(1), None));
+    assert_eq!(focused, Some(tiler.focused_monitor()));
 }
