@@ -5,7 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::BarReserve;
+use super::{BarProgram, BarReserve, YASB};
 
 /// The bar that shows mosaico, as `[bar] provider` names it.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -13,6 +13,8 @@ pub enum BarChoice {
     /// mosaico's own bar, styled in `bar.toml`.
     #[default]
     Mosaico,
+    /// YASB, which shows mosaico through its widgets for it.
+    Yasb,
     /// Whichever bar connects through the bar API. mosaico draws none.
     External,
     /// No bar, and no space kept for one.
@@ -21,12 +23,13 @@ pub enum BarChoice {
 
 impl BarChoice {
     /// Every choice, in the order the settings offer them.
-    pub const ALL: [Self; 3] = [Self::Mosaico, Self::External, Self::Off];
+    pub const ALL: [Self; 4] = [Self::Mosaico, Self::Yasb, Self::External, Self::Off];
 
     /// The name `[bar] provider` gives it.
     pub fn name(self) -> &'static str {
         match self {
             Self::Mosaico => "mosaico",
+            Self::Yasb => YASB.bar,
             Self::External => "external",
             Self::Off => "none",
         }
@@ -44,6 +47,20 @@ impl BarChoice {
     /// Whether mosaico draws the bar itself, and so reads `bar.toml`.
     pub fn is_builtin(self) -> bool {
         self == Self::Mosaico
+    }
+
+    /// Whether another program draws the bar, so `[bar.reserve]` keeps
+    /// space for it.
+    pub fn takes_reserve(self) -> bool {
+        matches!(self, Self::Yasb | Self::External)
+    }
+
+    /// The program that draws the bar, for a bar mosaico knows by name.
+    pub fn program(self) -> Option<&'static BarProgram> {
+        match self {
+            Self::Yasb => Some(&YASB),
+            Self::Mosaico | Self::External | Self::Off => None,
+        }
     }
 }
 
@@ -120,10 +137,14 @@ impl ProviderCheck {
     pub fn warning(&self) -> Option<String> {
         match self {
             Self::Known(_) => None,
-            Self::Unknown(name) => Some(format!(
-                "[bar] provider \"{name}\" is not a bar mosaico knows (mosaico, external or \
-                 none), so it is read as \"external\" and the built-in bar stays off"
-            )),
+            Self::Unknown(name) => {
+                let known: Vec<&str> = BarChoice::ALL.map(BarChoice::name).to_vec();
+                Some(format!(
+                    "[bar] provider \"{name}\" is not a bar mosaico knows ({}), so it is read \
+                     as \"external\" and the built-in bar stays off",
+                    known.join(", ")
+                ))
+            }
             Self::Unreadable => Some(
                 "config.toml does not load and its [bar] table cannot be read on its own, so \
                  the provider is \"external\" and the built-in bar stays off until the file \

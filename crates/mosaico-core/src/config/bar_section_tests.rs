@@ -34,6 +34,21 @@ fn an_unknown_provider_is_read_as_external_and_said_so() {
 }
 
 #[test]
+fn the_warning_for_an_unknown_provider_names_every_known_one() {
+    // Arrange
+    let check = ProviderCheck::Unknown("zeebar".to_string());
+
+    // Act
+    let warning = check.warning().unwrap_or_default();
+
+    // Assert
+    assert!(
+        warning.contains("(mosaico, yasb, external, none)"),
+        "{warning}"
+    );
+}
+
+#[test]
 fn every_choice_reads_back_from_its_name() {
     for choice in BarChoice::ALL {
         assert_eq!(BarChoice::parse(choice.name()), Some(choice));

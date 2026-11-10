@@ -25,6 +25,8 @@ dedicated handler module under `crates/mosaico/src/commands/`.
 | `crates/mosaico/src/commands/doctor_animations.rs` | What `mosaico doctor` says about window transitions |
 | `crates/mosaico/src/commands/doctor_bar.rs` | What `mosaico doctor` says about `bar.toml`: whether it loads, and the clicks on the bar's widgets |
 | `crates/mosaico/src/commands/doctor_bar_sessions.rs` | What `mosaico doctor` says about the bar API sessions the running daemon has open |
+| `crates/mosaico/src/commands/doctor_bar_program.rs` | What `mosaico doctor` says about the program behind a bar mosaico knows by name: whether it runs, and its sessions |
+| `crates/mosaico/src/commands/bar_setup.rs` | `mosaico bar setup` handler, and the YASB widgets it prints (`bar_setup_yasb.yaml`) |
 | `crates/mosaico/src/commands/autostart.rs` | `mosaico autostart enable` / `disable` / `status` handler |
 | `crates/mosaico/src/commands/daemon.rs` | `mosaico daemon` handler (hidden) |
 | `crates/mosaico/src/commands/action.rs` | `mosaico action <verb>` handler |
@@ -224,9 +226,13 @@ Checks performed:
    reserve nothing, or that it ended and its space is held through the grace.
    `[warn]` when the daemon runs another provider than `config.toml` names,
    as when the file has an error. A daemon that sends no `bar` prints nothing
-11. **Monitors** -- enumerates monitors and reports count with per-monitor
+11. **Bar program** -- under a provider with a program (`yasb`), whether
+   `ProcessControl::running` finds it, `[warn]` with the setup command when it
+   does not, and the sessions whose `hello` named that bar. In
+   `doctor_bar_program.rs`
+12. **Monitors** -- enumerates monitors and reports count with per-monitor
    dimensions and positions
-12. **Window transitions** -- reports whether windows move to their new place
+13. **Window transitions** -- reports whether windows move to their new place
    in transitions, then the `[animations]` settings the daemon starts with
    (`enabled`, `duration`, `easing`, `follow_system`; the defaults when
    `config.toml` is missing or invalid, said to be the defaults for an
@@ -386,6 +392,16 @@ or on the focused one, for bars that run a command on a click.
 These three exit with 0 when done, 1 when refused or no daemon runs, and 3
 when the daemon speaks no version of the bar API this build does. The full
 behaviour is in [bar-api.md](bar-api.md#the-command-line).
+
+### `mosaico bar setup <bar>`
+
+Prints what a bar another program draws needs in its own config to show
+mosaico, today YASB's `config.yaml` widgets, then sets `[bar] provider` to
+that bar in `config.toml` through `SettingsDocument`. It sets it only while
+`ProcessControl::running` finds the bar's program, and otherwise says to
+start it and run the command again, so mosaico's bar never goes with nothing
+in its place. It never edits the other program's files. A bar it has no setup
+for exits with 1 and names those it has.
 
 ### `mosaico daemon` (hidden)
 

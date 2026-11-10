@@ -148,9 +148,9 @@ flavor = "mocha"     # catppuccin: mocha | macchiato | frappe | latte
                      # tokyo-night: night | storm | day
 
 [bar]
-provider = "mosaico"  # The bar that shows mosaico: "mosaico", "external" or "none"
+provider = "mosaico"  # The bar that shows mosaico: "mosaico", "yasb", "external" or "none"
 
-[bar.reserve]       # Space kept for another program's bar ("external" only)
+[bar.reserve]       # Space kept for another program's bar ("yasb" and "external")
 top = 0            # Pixels at 100% kept down from the top edge
 bottom = 0         # ... up from the bottom edge
 left = 0           # ... in from the left edge

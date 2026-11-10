@@ -36,6 +36,7 @@ const LOG_LEVELS: &[(&str, &str)] = &[
 /// [`BarChoice`](crate::config::BarChoice) reads.
 const BAR_PROVIDERS: &[(&str, &str)] = &[
     ("mosaico", "Mosaico bar"),
+    ("yasb", "YASB"),
     ("external", "Another program's bar"),
     ("none", "No bar"),
 ];

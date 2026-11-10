@@ -2,6 +2,7 @@
 mod animations;
 /// Status bar configuration.
 pub mod bar;
+mod bar_program;
 /// `[bar]` in `config.toml`: which bar shows mosaico.
 mod bar_reserve;
 mod bar_section;
@@ -52,6 +53,7 @@ use serde::{Deserialize, Serialize};
 
 pub use animations::AnimationConfig;
 pub use bar::{BarColors, BarConfig, BarMouseConfig, BarScroll, ClickBinding, WidgetConfig};
+pub use bar_program::{BarProgram, YASB};
 pub use bar_reserve::{BarReserve, ReserveEdges};
 pub use bar_section::{BarChoice, BarSection, ProviderCheck};
 pub use bar_widgets::{BarWidget, BarWidgets, BarZone};

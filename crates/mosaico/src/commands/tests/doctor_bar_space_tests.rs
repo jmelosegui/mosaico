@@ -89,7 +89,7 @@ fn under_mosaicos_bar_the_reserve_is_said_to_be_unused() {
             "       On monitor 0 (m0): the system keeps bottom 40; mosaico's bar keeps the space it \
              draws in"
                 .to_string(),
-            format!("  {OK} [bar.reserve] is not used: the bar is \"mosaico\", not \"external\""),
+            format!("  {OK} [bar.reserve] is not used: the bar is \"mosaico\", which does not use it"),
         ]
     );
 }

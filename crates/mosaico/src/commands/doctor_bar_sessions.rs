@@ -10,26 +10,20 @@ use super::context::{Context, say};
 const OK: &str = "\x1b[32m[ok]\x1b[0m";
 const WARN: &str = "\x1b[33m[warn]\x1b[0m";
 
-/// Asks the running daemon for its bar API and says what it serves. Says
-/// nothing when no daemon answers, which the daemon check reports, or
-/// when the daemon is older than the bar API.
-pub fn check_sessions(cx: &mut Context) {
+/// Asks the running daemon for its bar API, says what it serves and
+/// returns it. Says nothing when no daemon answers, which the daemon check
+/// reports, or when the daemon is older than the bar API.
+pub fn check_sessions(cx: &mut Context) -> Option<BarStatus> {
     if !cx.daemon.is_running() {
-        return;
+        return None;
     }
-    let Ok(response) = cx.daemon.send(&Command::Status) else {
-        return;
-    };
-    let Some(bar) = response
-        .data::<DaemonStatus>()
-        .and_then(|status| status.bar)
-    else {
-        return;
-    };
+    let response = cx.daemon.send(&Command::Status).ok()?;
+    let bar = response.data::<DaemonStatus>()?.bar?;
     let configured = cx.config.bar_provider().choice().name().to_string();
     for line in session_lines(&bar, &configured) {
         say!(cx, "{line}");
     }
+    Some(bar)
 }
 
 /// What doctor says about `bar`, served while `config.toml` picks the

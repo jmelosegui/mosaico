@@ -13,6 +13,7 @@
     - [Keyboard Bindings](guide/keybindings.md)
     - [Window Rules](guide/window-rules.md)
     - [Status Bar](guide/status-bar.md)
+        - [Other Bars](guide/other-bars.md)
     - [Theming](guide/theming.md)
     - [Window Transitions](guide/animations.md)
 - [Tiling & Layouts](guide/tiling-layout.md)

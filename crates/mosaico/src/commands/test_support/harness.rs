@@ -40,6 +40,12 @@ impl Harness {
         }
     }
 
+    /// Writes `toml` as the instance's `config.toml`.
+    pub fn write_config(&self, toml: &str) {
+        std::fs::create_dir_all(self.config.dir()).expect("make the config folder");
+        std::fs::write(self.config.config_path(), toml).expect("write config.toml");
+    }
+
     /// Runs `command` and returns how it ended.
     pub fn run(&mut self, command: impl FnOnce(&mut Context) -> Exit) -> Exit {
         let mut cx = Context {

@@ -5,7 +5,7 @@ use std::time::Instant;
 use crate::Action;
 use crate::action::Origin;
 use crate::api::State;
-use crate::config::{BarChoice, BarConfig, BarReserve, Theme};
+use crate::config::{BarChoice, BarConfig, BarProgram, BarReserve, Theme, YASB};
 use crate::tiler::{MonitorPlace, Reach};
 
 use super::{BarId, MakeBuiltin, PointerEvent, reserve_reach};
@@ -138,16 +138,47 @@ impl BarProvider for NoBar {
 
 /// A bar another program draws, which reads the state through the bar
 /// API. Tiles keep clear of `[bar.reserve]`, whether the program runs or
-/// not, beside the work areas the system gives, and of the space any
-/// session reserves.
-#[derive(Debug, Default)]
+/// not, beside the work areas the system gives, and of the space the
+/// sessions it accepts reserve.
+#[derive(Debug)]
 pub struct ApiBar {
+    /// The bar's name in `[bar] provider`.
+    name: &'static str,
+    /// The bar its sessions must name in `hello`, or `None` for any.
+    only: Option<&'static str>,
     reserve: BarReserve,
+}
+
+impl ApiBar {
+    /// Whichever bar connects: `external`.
+    pub fn any() -> Self {
+        Self {
+            name: BarChoice::External.name(),
+            only: None,
+            reserve: BarReserve::default(),
+        }
+    }
+
+    /// The bar `program` draws, which only its own sessions speak for,
+    /// so another bar left running cannot take its space.
+    pub fn of(program: &BarProgram) -> Self {
+        Self {
+            name: program.bar,
+            only: Some(program.bar),
+            reserve: BarReserve::default(),
+        }
+    }
+}
+
+impl Default for ApiBar {
+    fn default() -> Self {
+        Self::any()
+    }
 }
 
 impl BarProvider for ApiBar {
     fn name(&self) -> &str {
-        "external"
+        self.name
     }
 
     fn place(&mut self, _places: &[MonitorPlace]) {}
@@ -170,8 +201,12 @@ impl BarProvider for ApiBar {
         true
     }
 
-    fn accepts(&self, _bar: Option<&str>) -> bool {
-        true
+    fn accepts(&self, bar: Option<&str>) -> bool {
+        match (self.only, bar) {
+            (None, _) => true,
+            (Some(only), Some(bar)) => only.eq_ignore_ascii_case(bar),
+            (Some(_), None) => false,
+        }
     }
 
     fn stop(&mut self) {}
@@ -187,7 +222,8 @@ pub(super) fn provider_for(
 ) -> Box<dyn BarProvider> {
     let mut provider: Box<dyn BarProvider> = match choice {
         BarChoice::Mosaico => make_builtin(theme),
-        BarChoice::External => Box::new(ApiBar::default()),
+        BarChoice::Yasb => Box::new(ApiBar::of(&YASB)),
+        BarChoice::External => Box::new(ApiBar::any()),
         BarChoice::Off => Box::new(NoBar),
     };
     provider.set_reserve(reserve);

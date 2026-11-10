@@ -1,19 +1,18 @@
 //! [`ParentWatch`] on Windows: the parent's id from a process snapshot,
 //! held open by a handle so its exit can be waited on.
 
-use std::mem::size_of;
+use std::ops::ControlFlow;
 use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle};
 use std::thread;
 
 use mosaico_core::system::ParentWatch;
 use windows::Win32::Foundation::{FILETIME, HANDLE};
-use windows::Win32::System::Diagnostics::ToolHelp::{
-    CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW, TH32CS_SNAPPROCESS,
-};
 use windows::Win32::System::Threading::{
     GetCurrentProcess, GetProcessTimes, INFINITE, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION,
     PROCESS_SYNCHRONIZE, WaitForSingleObject,
 };
+
+use crate::process_list;
 
 /// The process that started this one.
 pub struct WindowsParentWatch {
@@ -73,31 +72,15 @@ impl ParentWatch for WindowsParentWatch {
 /// The id of the process that started this one, from a snapshot of every
 /// process. The id may since have been reused; `open_parent` checks.
 fn parent_pid() -> Option<u32> {
-    // SAFETY: the snapshot is a new handle that nothing else owns, so the
-    // OwnedHandle closes it.
-    let snapshot = unsafe {
-        OwnedHandle::from_raw_handle(CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0).ok()?.0)
-    };
-    let snapshot = HANDLE(snapshot.as_raw_handle());
     let me = std::process::id();
-    let mut entry = PROCESSENTRY32W {
-        dwSize: size_of::<PROCESSENTRY32W>() as u32,
-        ..PROCESSENTRY32W::default()
-    };
-    let mut step: Step = Process32FirstW;
-    loop {
-        // SAFETY: `entry` is a PROCESSENTRY32W with its size set, as both
-        // steps require, and the snapshot is open.
-        unsafe { step(snapshot, &mut entry) }.ok()?;
+    process_list::walk(|entry| {
         if entry.th32ProcessID == me {
-            return Some(entry.th32ParentProcessID);
+            ControlFlow::Break(entry.th32ParentProcessID)
+        } else {
+            ControlFlow::Continue(())
         }
-        step = Process32NextW;
-    }
+    })
 }
-
-/// `Process32FirstW` or `Process32NextW`.
-type Step = unsafe fn(HANDLE, *mut PROCESSENTRY32W) -> windows::core::Result<()>;
 
 /// Opens process `pid`, unless it is not the parent: a process that
 /// started after this one reused the id of a parent that exited.

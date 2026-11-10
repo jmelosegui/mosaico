@@ -103,13 +103,16 @@ enabled = true
 [bar]
 # The bar that shows your workspaces. Tiles keep clear of it.
 # "mosaico" (default): mosaico's own bar, styled in bar.toml.
-# "external": a bar another program draws. mosaico draws none and does not
+# "yasb": YASB, with mosaico's widgets in its config.yaml. mosaico draws
+#   none and does not read bar.toml; `mosaico bar setup yasb` prints the
+#   widgets.
+# "external": any other program's bar. mosaico draws none and does not
 #   read bar.toml. Tiles keep clear of the space the bar asks for, and of
 #   [bar.reserve] for a bar that cannot ask.
 # "none": no bar, and no space kept for one. bar.toml is not read.
 provider = "mosaico"
 
-# Space kept for an "external" bar, in pixels at 100% scale, measured from
+# Space kept for a "yasb" or "external" bar, in pixels at 100% scale, measured from
 # each edge of every monitor. An edge past a quarter of a monitor is
 # refused. [bar.reserve.monitor.<n>] keeps space of its own on one monitor,
 # n being its position from the left, from 0, or the id doctor shows.

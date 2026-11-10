@@ -558,10 +558,12 @@ Each lives under `integrations/`, versioned with the API, and is described in
   through Qt's local socket and finds a screen by the monitor's device name.
   The code follows YASB's contribution rules and goes to YASB as a pull
   request; the API's example files are its fixtures.
-  `mosaico bar setup yasb` checks that the installed YASB has it and prints
-  the entries for `config.yaml`, which mosaico does not edit. Until a YASB
-  release has it, it prints YASB's own `windows_app_bar` setting and
-  `[bar.reserve]` for space instead of a polling fallback.
+  `mosaico bar setup yasb` prints the entries for `config.yaml`, which
+  mosaico does not edit. Until a YASB release has the service, those entries
+  are YASB's own custom widget running `mosaico query --field` each second
+  and `mosaico run` on a click, with YASB's `windows_app_bar` for space:
+  YASB has no way to load widgets from outside its release, and a bar that
+  shows mosaico today beats one that waits for an upstream release.
 - **Any bar that runs a command:** recipes for `mosaico subscribe --field`
   (a bar that reads lines), `--full` (one that reads JSON) and `mosaico run`
   for clicks, with `--reserve` or `[bar.reserve]` for space.
@@ -791,13 +793,14 @@ needs 36.4 and 36.6; 36.8 and 36.9 need 36.7.
 
 ### 36.9 YASB
 
-- [ ] `yasb` as a provider and a choice in the dropdown
+- [x] `yasb` as a provider and a choice in the dropdown; only sessions that
+      name `yasb` may reserve under it
 - [ ] The service and widgets in `integrations/yasb/`, offered to YASB
       upstream
-- [ ] `mosaico bar setup yasb`: the check and the entries it prints
-- [ ] doctor: installed, running, a release with the integration, connected,
-      reserving
-- [ ] The guide's "Other Bars" page, with the recipes for any bar
+- [x] `mosaico bar setup yasb`: the check and the entries it prints
+- [x] doctor: running (`ProcessControl::running`), and its sessions;
+      reserving is in the session lines
+- [x] The guide's "Other Bars" page, with the recipes for any bar
 
 ### Verification
 

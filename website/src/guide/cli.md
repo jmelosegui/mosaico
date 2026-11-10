@@ -75,8 +75,10 @@ Checks performed:
 12. The bars connected to mosaico (see [Status Bar](status-bar.md)): each
     one, the program behind it and the space it keeps; warns when the
     running daemon uses another bar than `config.toml` names
-13. Monitor enumeration and dimensions
-14. Window transitions: the `[animations]` settings (the defaults when
+13. Under `provider = "yasb"`, whether YASB is running and its sessions
+    with mosaico (see [Other Bars](other-bars.md))
+14. Monitor enumeration and dimensions
+15. Window transitions: the `[animations]` settings (the defaults when
     `config.toml` is invalid, and it says so), whether Windows allows
     animations right now ("Animation effects", and not a remote session),
     and whether windows can move frame by frame; warns when transitions are
@@ -257,6 +259,19 @@ close the window you were working in.
 running or refused, and 3 when this `mosaico` and the running one have no bar
 API version in common; use the `mosaico` of the running release then. They
 keep working across releases that share a version.
+
+## `mosaico bar setup <bar>`
+
+Prints the widgets a bar needs to show mosaico, then makes it the bar
+mosaico uses, once it is running:
+
+```sh
+mosaico bar setup yasb
+```
+
+It never edits the other bar's files: copy what it prints into them. While
+the bar is not running, mosaico keeps its own and the command says to start
+the bar and run it again. See [Other Bars](other-bars.md).
 
 ## `mosaico banner`
 

@@ -22,7 +22,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use mosaico_core::ipc::{Command, IpcError, Response};
-use mosaico_core::system::{LaunchCommand, ProcessControl};
+use mosaico_core::system::{LaunchCommand, ProcessControl, RunningProcess};
 use mosaico_core::{Error, Rect, Result, WindowId};
 
 use super::context::{Clock, Daemon};
@@ -69,6 +69,8 @@ pub struct World {
     pub sent: RefCell<Vec<Command>>,
     /// Running processes.
     pub processes: RefCell<HashMap<u32, Lifetime>>,
+    /// The processes listed, with their programs.
+    pub programs: RefCell<Vec<RunningProcess>>,
     /// Whether killing a process works.
     pub can_kill: Cell<bool>,
     /// What `launch_daemon` does.
@@ -114,6 +116,7 @@ impl Default for World {
             replies: RefCell::default(),
             sent: RefCell::default(),
             processes: RefCell::default(),
+            programs: RefCell::default(),
             can_kill: Cell::new(true),
             launch: RefCell::new(Launch::Answers(4321)),
             launched: RefCell::default(),
@@ -140,6 +143,14 @@ impl World {
     pub fn daemon_up(&self, pid: u32) {
         self.daemon_running.set(true);
         self.processes.borrow_mut().insert(pid, Lifetime::Forever);
+    }
+
+    /// A process `pid` running `program`, named without the extension.
+    pub fn runs(&self, pid: u32, program: &str) {
+        let program = program.to_string();
+        self.programs
+            .borrow_mut()
+            .push(RunningProcess { pid, program });
     }
 
     /// Queues the daemon's next reply.
@@ -224,6 +235,10 @@ impl ProcessControl for World {
             )),
             Some(_) => Ok(()),
         }
+    }
+
+    fn processes(&self) -> Vec<RunningProcess> {
+        self.programs.borrow().clone()
     }
 }
 

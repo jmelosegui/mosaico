@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 
-use crate::system::{FileProbe, Opener, ProcessControl};
+use crate::system::{FileProbe, Opener, ProcessControl, RunningProcess};
 use crate::{Error, Result};
 
 use super::*;
@@ -51,6 +51,10 @@ impl ProcessControl for World {
 
     fn kill(&self, _: u32) -> Result<()> {
         unreachable!("the tray kills nothing")
+    }
+
+    fn processes(&self) -> Vec<RunningProcess> {
+        Vec::new()
     }
 }
 

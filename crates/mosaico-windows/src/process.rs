@@ -5,7 +5,7 @@ use std::ffi::OsStr;
 use std::path::Path;
 
 use mosaico_core::Result;
-use mosaico_core::system::ProcessControl;
+use mosaico_core::system::{ProcessControl, RunningProcess};
 use windows::Win32::Foundation::CloseHandle;
 use windows::Win32::System::Threading::{
     CREATE_NEW_PROCESS_GROUP, CREATE_NO_WINDOW, CreateProcessW, OpenProcess, PROCESS_INFORMATION,
@@ -172,6 +172,10 @@ impl ProcessControl for WindowsProcesses {
 
     fn kill(&self, pid: u32) -> Result<()> {
         kill_process(pid)
+    }
+
+    fn processes(&self) -> Vec<RunningProcess> {
+        crate::process_list::processes()
     }
 }
 

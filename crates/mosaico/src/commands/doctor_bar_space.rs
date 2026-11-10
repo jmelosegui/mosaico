@@ -35,7 +35,7 @@ fn space_lines(choice: BarChoice, reserve: &BarReserve, places: &[MonitorPlace])
         let mut parts = vec![format!("the system keeps {}", described(system))];
         match choice {
             BarChoice::Mosaico => parts.push("mosaico's bar keeps the space it draws in".into()),
-            BarChoice::External => {
+            BarChoice::Yasb | BarChoice::External => {
                 let space = ReservedSpace::on(reserve, place);
                 parts.push(format!("[bar.reserve] keeps {}", described(space.edges)));
                 warnings.extend(space.refused.iter().map(|side| refused(*side, place.index)));
@@ -49,11 +49,11 @@ fn space_lines(choice: BarChoice, reserve: &BarReserve, places: &[MonitorPlace])
             parts.join("; ")
         ));
     }
-    if choice != BarChoice::External {
+    if !choice.takes_reserve() {
         if *reserve != BarReserve::default() {
             let name = choice.name();
             lines.push(format!(
-                "  {OK} [bar.reserve] is not used: the bar is \"{name}\", not \"external\""
+                "  {OK} [bar.reserve] is not used: the bar is \"{name}\", which does not use it"
             ));
         }
         return lines;

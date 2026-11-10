@@ -5,8 +5,8 @@ use mosaico_core::config::{ConfigStore, ThemeCheck, ThemeConfig, manage_deprecat
 
 use super::context::{Context, Exit, say};
 use super::{
-    doctor_animations, doctor_bar, doctor_bar_sessions, doctor_launch, doctor_runtime,
-    doctor_settings,
+    doctor_animations, doctor_bar, doctor_bar_program, doctor_bar_sessions, doctor_launch,
+    doctor_runtime, doctor_settings,
 };
 
 /// ANSI escape helpers for doctor output.
@@ -32,7 +32,8 @@ pub fn execute(cx: &mut Context) -> Exit {
     doctor_bar::check_bar(cx);
     doctor_runtime::check_autostart(cx);
     doctor_runtime::check_daemon(cx);
-    doctor_bar_sessions::check_sessions(cx);
+    let bar = doctor_bar_sessions::check_sessions(cx);
+    doctor_bar_program::check_program(cx, bar.as_ref());
     doctor_runtime::check_monitors(cx);
     doctor_animations::check_animations(cx);
     println!();

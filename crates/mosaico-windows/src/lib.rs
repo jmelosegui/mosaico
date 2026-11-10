@@ -112,6 +112,9 @@ pub mod parent_watch;
 /// Starting, checking and ending processes.
 pub mod process;
 
+/// Every running process.
+mod process_list;
+
 /// What every mosaico process sets up first.
 pub mod setup;
 

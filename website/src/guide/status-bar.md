@@ -10,18 +10,20 @@ bar at all, set the provider in `config.toml`:
 
 ```toml
 [bar]
-provider = "external"   # "mosaico" (default), "external" or "none"
+provider = "external"   # "mosaico" (default), "yasb", "external" or "none"
 ```
 
 | Provider | What you get |
 |----------|--------------|
 | `mosaico` | mosaico's own bar, set up in `bar.toml`. Tiles keep clear of it. |
+| `yasb` | No bar from mosaico. [YASB](other-bars.md#yasb) draws its bar with mosaico's widgets in it. |
 | `external` | No bar from mosaico. Another program draws its bar, and tiles keep to the space Windows leaves free and to `[bar.reserve]`. |
 | `none` | No bar, and no space kept for one. |
 
 Another program's bar can read mosaico with
 [`mosaico subscribe`](cli.md#mosaico-subscribe) and act with
-[`mosaico run`](cli.md#mosaico-run-action).
+[`mosaico run`](cli.md#mosaico-run-action); [Other Bars](other-bars.md) has
+the recipes.
 
 `bar.toml` is only read under `mosaico`. The change takes effect when you save,
 with no restart. The Bar page of the [Settings Window](settings.md#bar) offers
@@ -31,7 +33,7 @@ the same choice. A name mosaico does not know counts as `external`, and
 ### Space for Another Bar
 
 Some bars do not keep their own space from Windows, so windows would tile
-under them. Under `external`, `[bar.reserve]` keeps that space clear, on any
+under them. Under `yasb` or `external`, `[bar.reserve]` keeps that space clear, on any
 edge, in pixels at 100% scale. Each monitor's scale multiplies it, and a
 monitor can keep space of its own, named by its position from the left,
 from 0, or by the id `mosaico doctor` shows:

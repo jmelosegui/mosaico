@@ -57,6 +57,11 @@ enum Commands {
     Subscribe(commands::subscribe::SubscribeArgs),
     /// Run an action as a click on a bar runs it
     Run(commands::run::RunArgs),
+    /// Set up a bar another program draws
+    Bar {
+        #[command(subcommand)]
+        command: BarCommands,
+    },
     /// Show the animated mosaico banner
     Banner,
     /// Debugging and inspection tools
@@ -97,6 +102,15 @@ enum DebugCommands {
     Move(commands::debug::move_window::MoveArgs),
     /// Dump the daemon's internal workspace state
     State,
+}
+
+#[derive(Subcommand)]
+enum BarCommands {
+    /// Print the widgets a bar needs to show mosaico, and pick it once it runs
+    Setup {
+        /// The bar: yasb
+        bar: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -155,6 +169,9 @@ fn run(cx: &mut Context, command: Commands) -> Exit {
         Commands::Stop => commands::stop::execute(cx),
         Commands::Status => commands::status::execute(cx),
         Commands::Doctor => commands::doctor::execute(cx),
+        Commands::Bar {
+            command: BarCommands::Setup { bar },
+        } => commands::bar_setup::execute(cx, &bar),
         Commands::Autostart { action } => match action {
             AutostartCommands::Enable => commands::autostart::enable(cx),
             AutostartCommands::Disable => commands::autostart::disable(cx),

@@ -1,0 +1,45 @@
+# mosaico for YASB, from `mosaico bar setup yasb`.
+#
+# 1. Put the entries below under `widgets:` in YASB's config.yaml.
+# 2. Name them in a bar's widgets, for example:
+#      left: ["mosaico_workspace", "mosaico_layout"]
+#      center: ["mosaico_window"]
+# 3. Keep `window_flags: { windows_app_bar: true }` on that bar, so
+#    windows tile below it.
+#
+# They show the workspace and window that have the focus, and run
+# mosaico's actions when clicked.
+widgets:
+  mosaico_workspace:
+    type: "yasb.custom.CustomWidget"
+    options:
+      label: "{data}"
+      label_alt: "workspace {data}"
+      class_name: "mosaico-workspace"
+      exec_options:
+        run_cmd: "mosaico query --field focus.workspace"
+        run_interval: 1000
+        return_format: "string"
+      callbacks:
+        on_left: "exec mosaico run goto-workspace-next"
+        on_middle: "toggle_label"
+        on_right: "exec mosaico run goto-workspace-prev"
+  mosaico_layout:
+    type: "yasb.custom.CustomWidget"
+    options:
+      label: "layout"
+      class_name: "mosaico-layout"
+      callbacks:
+        on_left: "exec mosaico run cycle-layout"
+        on_right: "exec mosaico run toggle-monocle"
+  mosaico_window:
+    type: "yasb.custom.CustomWidget"
+    options:
+      label: "{data}"
+      label_max_length: 60
+      class_name: "mosaico-window"
+      exec_options:
+        run_cmd: "mosaico query --field focus.window.title"
+        run_interval: 1000
+        return_format: "string"
+        hide_empty: true

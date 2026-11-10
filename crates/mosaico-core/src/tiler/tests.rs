@@ -29,6 +29,8 @@ mod bar_host_space_tests;
 mod bar_host_switch_tests;
 #[path = "tests/bar_host_tests.rs"]
 mod bar_host_tests;
+#[path = "tests/bar_host_yasb_tests.rs"]
+mod bar_host_yasb_tests;
 #[path = "tests/bar_parity_tests.rs"]
 mod bar_parity_tests;
 #[path = "tests/bar_support.rs"]

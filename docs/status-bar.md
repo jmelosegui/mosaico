@@ -616,12 +616,13 @@ The built-in bar is one of the bars mosaico can show its state on.
 
 ```toml
 [bar]
-provider = "mosaico"   # "mosaico" (default), "external" or "none"
+provider = "mosaico"   # "mosaico" (default), "yasb", "external" or "none"
 ```
 
 | Provider | Draws | Keeps tiles clear of | Reads `bar.toml` |
 |----------|-------|----------------------|------------------|
 | `mosaico` | The built-in bar described here | Its height, on the monitors it is on | Yes |
+| `yasb` | Nothing: YASB draws its bar | The space the system leaves free, `[bar.reserve]`, and what YASB's own sessions reserve | No |
 | `external` | Nothing: another program draws its bar | The space the system leaves free, and `[bar.reserve]` | No |
 | `none` | Nothing | Nothing | No |
 
@@ -635,6 +636,17 @@ placed and the windows retile once (see
 mosaico looks first. A name mosaico does not know is read as `external`,
 and `mosaico start` and `mosaico doctor` say so. The contract each provider
 follows is in [bar-api.md](bar-api.md).
+
+A bar mosaico knows by name (`yasb`, a `BarProgram` in core) differs from
+`external` in two ways: only sessions whose `hello` names that bar may
+reserve space, so another bar left running cannot take it, and
+`mosaico doctor` checks that its program runs and lists the sessions it
+holds. `mosaico bar setup yasb` prints the widgets for YASB's
+`config.yaml`, which mosaico never edits, and picks `yasb` only once YASB
+runs, so the screen is never left without a bar. Today's YASB releases
+have no mosaico widgets of their own, so those it prints are YASB's
+custom widget running `mosaico query --field` each second and
+`mosaico run` on a click, and YASB's `windows_app_bar` keeps the space.
 
 Another program's bar may not keep its own space from the system. Then
 `[bar.reserve]` keeps it, on any edge and per monitor, scaled to each

@@ -28,8 +28,8 @@ impl BarHost {
         if !self.provider.accepts(peer.bar.as_deref()) {
             let name = self.provider.name();
             let message = format!(
-                "the bar provider is `{name}`, which keeps its own space; set `[bar] provider` \
-                 to `external` for this bar to reserve its own"
+                "`[bar] provider` is `{name}`, which does not let this bar reserve space; set it \
+                 to `external` for any bar to reserve its own"
             );
             return Err(ApiError::new(ErrorCode::NotProvider, message));
         }

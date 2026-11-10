@@ -13,11 +13,12 @@ pub(super) const BAR_PROVIDER_HINT_SNIPPET: &str = r##"
 # The [bar] section picks the bar that shows your workspaces. Tiles keep
 # clear of it. Recognized keys:
 #   provider   "mosaico" (default): mosaico's own bar, styled in bar.toml.
-#              "external": a bar another program draws; bar.toml is not
-#              read and tiles keep clear of the space the bar asks for.
+#              "yasb": YASB; `mosaico bar setup yasb` prints its widgets.
+#              "external": any other program's bar. For both, bar.toml is
+#              not read and tiles keep clear of the space the bar asks for.
 #              "none": no bar, and no space kept for one.
-#   [bar.reserve] top, bottom, left, right: space kept for an "external"
-#              bar that cannot ask, in pixels at 100% scale.
+#   [bar.reserve] top, bottom, left, right: space kept for a "yasb" or
+#              "external" bar that cannot ask, in pixels at 100% scale.
 #
 # Example, to use another program's bar:
 #   [bar]

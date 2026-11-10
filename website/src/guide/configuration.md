@@ -76,9 +76,9 @@ flavor = "mocha"     # catppuccin: mocha | macchiato | frappe | latte
 enabled = true     # Show the mosaico icon in the notification area
 
 [bar]
-provider = "mosaico"  # The bar that shows your workspaces: "mosaico", "external" or "none"
+provider = "mosaico"  # The bar that shows your workspaces: "mosaico", "yasb", "external" or "none"
 
-[bar.reserve]          # Space kept for another program's bar, under "external"
+[bar.reserve]          # Space kept for another program's bar, under "yasb" or "external"
 top = 0                # Pixels at 100%; also bottom, left and right
 
 [logging]

@@ -33,7 +33,7 @@ pub use setup::ProcessSetup;
 pub use single_instance::{InstanceLock, SingleInstance};
 pub use single_window::{SingleWindow, Summoned};
 
-/// Starting and stopping daemon processes.
+/// Starting, finding and stopping processes.
 ///
 /// # Contract for platform implementations
 ///
@@ -59,6 +59,10 @@ pub use single_window::{SingleWindow, Summoned};
 ///   allowed to.
 /// - `kill` also fails for a process that has already exited, even one
 ///   that was alive at the last `is_alive`.
+/// - `processes` lists the processes the caller may see, each with the
+///   name of its program: the file name without the folder or the
+///   extension the platform gives programs, as the file has it. A platform
+///   that cannot list processes, or fails to, returns an empty list.
 pub trait ProcessControl {
     /// Starts a daemon in the background and returns its process id.
     fn launch_daemon(&self) -> Result<u32>;
@@ -72,4 +76,28 @@ pub trait ProcessControl {
 
     /// Ends a process forcefully.
     fn kill(&self, pid: u32) -> Result<()>;
+
+    /// The processes running now.
+    fn processes(&self) -> Vec<RunningProcess>;
+
+    /// The ids of the processes running `program`, named by its file name
+    /// without the folder or the extension, whatever the case.
+    fn running(&self, program: &str) -> Vec<u32> {
+        let runs = |p: &RunningProcess| p.program.eq_ignore_ascii_case(program);
+        let found = self.processes().into_iter().filter(runs);
+        found.map(|p| p.pid).collect()
+    }
 }
+
+/// A process [`ProcessControl::processes`] found.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RunningProcess {
+    /// Its id.
+    pub pid: u32,
+    /// Its program's file name, without the folder or the extension.
+    pub program: String,
+}
+
+#[cfg(test)]
+#[path = "system/running_tests.rs"]
+mod running_tests;
