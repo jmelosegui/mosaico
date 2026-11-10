@@ -1,7 +1,7 @@
 use std::sync::mpsc;
 
 use crate::Error;
-use crate::config::reload::test_support::{GAP_7, kinds, temp_store, write_at};
+use crate::config::reload::test_support::{BAR_30, GAP_7, kinds, temp_store, write_at};
 
 use super::fake_watcher::{FakeWatcher, run_watch};
 use super::*;
@@ -14,7 +14,7 @@ fn each_change_the_watcher_reports_reloads_what_changed() {
     let stop = AtomicBool::new(false);
     let mut watcher = FakeWatcher::new(&stop)
         .then(|| write_at(&config, GAP_7, 1), Ok(DirectoryWake::Changed))
-        .then(|| write_at(&bar, "", 1), Ok(DirectoryWake::Changed));
+        .then(|| write_at(&bar, BAR_30, 1), Ok(DirectoryWake::Changed));
 
     // Act
     let (result, reloads) = run_watch(&store, &mut watcher, &stop);
@@ -31,7 +31,7 @@ fn a_change_made_while_the_watcher_opens_is_reloaded_with_the_next_change() {
     let (config, bar) = (store.config_path(), store.bar_path());
     let stop = AtomicBool::new(false);
     let mut watcher =
-        FakeWatcher::new(&stop).then(|| write_at(&bar, "", 1), Ok(DirectoryWake::Changed));
+        FakeWatcher::new(&stop).then(|| write_at(&bar, BAR_30, 1), Ok(DirectoryWake::Changed));
     let lent = &mut watcher;
     let (tx, rx) = mpsc::channel();
 

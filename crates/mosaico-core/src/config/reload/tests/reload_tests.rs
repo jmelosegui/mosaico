@@ -1,4 +1,6 @@
-use crate::config::reload::test_support::{GAP_7, INVALID, kinds, temp_store, touch_at, write_at};
+use crate::config::reload::test_support::{
+    BAR_30, GAP_7, INVALID, kinds, rule_for, temp_store, touch_at, write_at,
+};
 
 use super::*;
 
@@ -37,7 +39,7 @@ fn a_changed_config_toml_is_reloaded() {
 }
 
 #[test]
-fn an_invalid_config_toml_is_skipped_until_its_modification_time_changes_again() {
+fn an_invalid_config_toml_is_skipped_until_it_changes_again() {
     // Arrange
     let store = temp_store("reload-config-invalid");
     write_at(&store.config_path(), GAP_7, 1);
@@ -51,8 +53,9 @@ fn an_invalid_config_toml_is_skipped_until_its_modification_time_changes_again()
     touch_at(&store.config_path(), 3);
     let touched: Vec<_> = reloader.reload_changed().collect();
 
-    // Assert -- the config in use stays until the file loads, and only
-    // the modification time says whether to look again, never content.
+    // Assert -- the config in use stays until the file loads. Fixed with
+    // the same modification time, it is loaded all the same, and touched
+    // with nothing changed, it is loaded again.
     match invalid.as_slice() {
         [ConfigReload::Invalid { file, reason }] => {
             assert_eq!(*file, "config.toml");
@@ -60,10 +63,7 @@ fn an_invalid_config_toml_is_skipped_until_its_modification_time_changes_again()
         }
         other => panic!("expected config.toml reported invalid, got {other:?}"),
     }
-    assert!(
-        fixed_at_the_same_time.is_empty(),
-        "{fixed_at_the_same_time:?}"
-    );
+    assert_eq!(kinds(&fixed_at_the_same_time), ["config"]);
     assert_eq!(kinds(&touched), ["config"]);
 }
 
@@ -237,8 +237,8 @@ fn several_changed_files_reload_in_the_order_config_rules_bar() {
     // Arrange
     let store = temp_store("reload-order");
     let mut reloader = ConfigReloader::new(store.clone());
-    write_at(&store.bar_path(), "", 1);
-    write_at(&store.user_rules_path(), "", 1);
+    write_at(&store.bar_path(), BAR_30, 1);
+    write_at(&store.user_rules_path(), &rule_for("app"), 1);
     write_at(&store.config_path(), GAP_7, 1);
 
     // Act
@@ -254,7 +254,7 @@ fn a_file_the_caller_did_not_reach_is_still_pending() {
     let store = temp_store("reload-pending");
     let mut reloader = ConfigReloader::new(store.clone());
     write_at(&store.config_path(), GAP_7, 1);
-    write_at(&store.bar_path(), "", 1);
+    write_at(&store.bar_path(), BAR_30, 1);
 
     // Act -- the watch stops reading at the first reload it cannot send.
     let first: Vec<_> = reloader.reload_changed().take(1).collect();

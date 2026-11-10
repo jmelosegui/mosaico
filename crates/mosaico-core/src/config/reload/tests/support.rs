@@ -11,6 +11,9 @@ use super::ConfigReload;
 /// A `config.toml` with a gap of 7.
 pub(super) const GAP_7: &str = "[layout]\ngap = 7\n";
 
+/// A `bar.toml` with a height of 30.
+pub(super) const BAR_30: &str = "height = 30\n";
+
 /// A file that is not valid TOML.
 pub(super) const INVALID: &str = "not = [valid";
 

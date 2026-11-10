@@ -214,7 +214,9 @@ mosaico keeps the settings it has, and one that starts uses the defaults.
 Changes to `config.toml`, `user-rules.toml`, `bar.toml` and
 `keybindings.toml` are automatically detected and applied while the daemon
 is running. The daemon waits for the system to report a change in the config
-directory, then reloads each of these files whose modification time changed.
+directory, then reloads each of these files whose modification time or content
+changed. A file that is empty while an editor saves it is skipped until the save
+ends, so the defaults never flash in.
 
 - **config.toml** -- layout gap/ratio, hiding behaviour, border settings,
   mouse settings, window transitions and theme are reloaded. Windows are

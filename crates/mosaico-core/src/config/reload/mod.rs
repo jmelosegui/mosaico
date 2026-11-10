@@ -1,13 +1,14 @@
 mod run;
+mod stamp;
 
 #[cfg(test)]
 #[path = "tests/support.rs"]
 mod test_support;
 
 use std::path::{Path, PathBuf};
-use std::time::SystemTime;
 
 use super::{BarConfig, Config, ConfigStore, Keybinding, LaunchBinding, WindowRule};
+use stamp::Stamp;
 
 pub use run::ConfigWatch;
 
@@ -60,17 +61,20 @@ pub enum ConfigReload {
 ///   daemon downloads at startup and reloads itself, and the next download
 ///   overwrites hand edits anyway. Edit `user-rules.toml` instead.
 ///
-/// A file has changed when its modification time differs from the last
-/// one seen, including when the file appears or disappears. Content alone
-/// is never compared, and nothing waits for a burst of writes to settle:
-/// each change is loaded as soon as it is seen. [`ConfigWatch`] checks
-/// the files each time their directory changes.
+/// A file has changed when its modification time or what it holds differs
+/// from when it was last seen, including when it appears or disappears.
+/// Both count, because a save can truncate a file and write it again with
+/// one modification time. A file that changed to empty is taken to be in
+/// the middle of such a save and skipped, so the defaults do not replace
+/// what is in use for an instant; the write that ends the save is a change
+/// of its own. Nothing waits for a burst of writes to settle: each change
+/// is loaded as soon as it is seen. [`ConfigWatch`] checks the files each
+/// time their directory changes.
 #[derive(Debug)]
 pub struct ConfigReloader {
     store: ConfigStore,
-    /// Each watched file with the modification time last seen, in the
-    /// order they are checked.
-    files: [(Watched, Option<SystemTime>); 4],
+    /// Each watched file as last seen, in the order they are checked.
+    files: [(Watched, Stamp); 4],
 }
 
 /// A file that is reloaded when it changes.
@@ -109,7 +113,7 @@ impl ConfigReloader {
     /// Watches the files in `store` from how they are now: only later
     /// changes are reloaded.
     pub fn new(store: ConfigStore) -> Self {
-        let files = Watched::ALL.map(|file| (file, modified(&file.path(&store))));
+        let files = Watched::ALL.map(|file| (file, Stamp::of(&file.path(&store))));
         Self { store, files }
     }
 
@@ -131,7 +135,7 @@ impl ConfigReloader {
     /// seen as it is now.
     pub fn load_all(&mut self) -> Vec<ConfigReload> {
         for (file, seen) in &mut self.files {
-            *seen = modified(&file.path(&self.store));
+            *seen = Stamp::of(&file.path(&self.store));
         }
         Watched::ALL
             .into_iter()
@@ -143,12 +147,19 @@ impl ConfigReloader {
     fn reload_if_changed(&mut self, index: usize) -> Option<ConfigReload> {
         let (file, seen) = &mut self.files[index];
         let file = *file;
-        let modified = modified(&file.path(&self.store));
-        if *seen == modified {
+        let stamp = Stamp::of(&file.path(&self.store));
+        if *seen == stamp {
             return None;
         }
-        *seen = modified;
+        *seen = stamp;
         crate::log_info!("{} changed", file.name());
+        if stamp.is_empty() {
+            crate::log_info!(
+                "{} is empty, taken to be in the middle of a save",
+                file.name()
+            );
+            return None;
+        }
         self.load(file)
     }
 
@@ -224,12 +235,6 @@ fn readable(file: Watched, path: &Path) -> bool {
             false
         }
     }
-}
-
-/// When the file at `path` was last modified, or `None` when that cannot
-/// be read, as for a file that does not exist.
-fn modified(path: &Path) -> Option<SystemTime> {
-    path.metadata().ok().and_then(|m| m.modified().ok())
 }
 
 #[cfg(test)]
