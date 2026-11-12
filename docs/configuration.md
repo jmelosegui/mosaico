@@ -530,9 +530,10 @@ Changes to `config.toml`, `user-rules.toml`, `bar.toml` and
 is running. The config file watcher
 (see [daemon.md](daemon.md)) waits for the platform to report a change in
 the config directory, then reloads each of the four files whose
-modification time changed. `ConfigReloader` and `ConfigWatch`
-(`mosaico_core::config`) make these decisions, so every platform reloads the
-same way.
+modification time or content changed. A file that changed to empty is taken
+to be in the middle of a save and skipped until it is written.
+`ConfigReloader` and `ConfigWatch` (`mosaico_core::config`) make these
+decisions, so every platform reloads the same way.
 
 - **config.toml**: gap/ratio, hiding behaviour, border settings, the
   `[mouse]` settings, `[animations]` and theme are reloaded. The tiling

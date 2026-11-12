@@ -367,8 +367,9 @@ If the pipe can no longer accept connections, the thread sends
 
 The config watcher runs on a dedicated thread. It sleeps until something in
 the config directory may have changed, then reloads `config.toml`,
-`user-rules.toml` and `bar.toml` if their modification time changed. The
-files are not polled, and nothing waits for a burst of writes to settle.
+`user-rules.toml` and `bar.toml` if their modification time or content
+changed. The files are not polled, and nothing waits for a burst of writes to
+settle.
 
 ### Key Types
 
@@ -386,14 +387,20 @@ files are not polled, and nothing waits for a burst of writes to settle.
 
 ### Behavior
 
-1. Records the modification time of each watched file, then starts watching
-   the directory. A change made in between is reloaded with the first change
-   the platform reports
+1. Records the modification time and a hash of the content of each watched
+   file, then starts watching the directory. A change made in between is
+   reloaded with the first change the platform reports
 2. Waits for a change for up to 5 seconds at a time, and checks between
    waits whether the daemon is stopping
 3. When the platform reports a change, compares each file's modification time
-   with the last one seen, in the order `config.toml`, `user-rules.toml`,
-   `bar.toml`, `keybindings.toml`. A report with nothing changed does nothing
+   and content with the last ones seen, in the order `config.toml`,
+   `user-rules.toml`, `bar.toml`, `keybindings.toml`. A report with nothing
+   changed does nothing. Both count because a save can truncate a file and
+   write it again with one modification time; seen in between, the time alone
+   would mark the save as seen while the file held part of it. A file that
+   changed to empty is skipped as one in the middle of such a save, so the
+   defaults never replace what is in use for an instant. Reload config in the
+   tray menu still loads an empty file, as the defaults
 4. A changed `config.toml`, `bar.toml` or `keybindings.toml` is loaded with
    the daemon's `ConfigStore` (`try_load_config()`, `try_load_bar()`, or
    `try_load_keybindings()` and `try_load_launches()`). Only a file that
