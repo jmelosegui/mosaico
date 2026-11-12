@@ -56,6 +56,8 @@ pub use single_window::{SingleWindow, Summoned};
 ///   allowed to.
 /// - `kill` also fails for a process that has already exited, even one
 ///   that was alive at the last `is_alive`.
+/// - `is_alive` is `false` as soon as the process has exited, even while
+///   the system still keeps a record of it because something refers to it.
 pub trait ProcessControl {
     /// Starts a daemon in the background and returns its process id.
     fn launch_daemon(&self) -> Result<u32>;

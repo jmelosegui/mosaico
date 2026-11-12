@@ -49,3 +49,36 @@ fn a_detached_program_does_not_hold_its_launchers_output_open() {
         "the output stayed open for {closed_after:?}"
     );
 }
+
+// #226
+#[test]
+fn a_process_that_exited_is_not_alive_while_its_object_is_still_held() {
+    // Arrange -- the child keeps a handle to the process, so its object
+    // outlives it, as a reader of the daemon's pipes can make it do.
+    let mut child = Command::new("cmd").args(["/c", "exit 0"]).spawn().unwrap();
+    child.wait().unwrap();
+
+    // Act
+    let alive = is_process_alive(child.id());
+
+    // Assert
+    assert!(!alive, "an exited process was reported alive");
+}
+
+#[test]
+fn a_running_process_is_alive() {
+    // Arrange
+    let mut child = Command::new("ping")
+        .args(["-n", "30", "127.0.0.1"])
+        .stdout(Stdio::null())
+        .spawn()
+        .unwrap();
+
+    // Act
+    let alive = is_process_alive(child.id());
+
+    // Assert
+    let _ = child.kill();
+    let _ = child.wait();
+    assert!(alive, "a running process was reported gone");
+}
