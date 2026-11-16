@@ -19,10 +19,8 @@ fn both_in(layout: LayoutKind, left: u64, right: u64) -> Harness {
         .chain((101..101 + right).map(|id| (id, 1)))
         .collect();
     let mut h = Harness::new(2, &windows);
-    for mon in 0..2 {
-        h.tiler.monitors[mon]
-            .active_ws_mut()
-            .set_layout_kind(layout);
+    for monitor in &mut h.tiler.monitors {
+        monitor.active_ws_mut().set_layout_kind(layout);
     }
     h.action(Action::Retile);
     h

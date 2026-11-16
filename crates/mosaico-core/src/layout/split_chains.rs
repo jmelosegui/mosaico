@@ -105,14 +105,14 @@ impl SplitRatios {
             self.columns = Default::default();
             return;
         }
-        for column in 0..2 {
+        for (column, chain) in self.columns.iter_mut().enumerate() {
             let mine = |&(index, _, own): &(usize, usize, OwnSplits)| {
                 let at = index.checked_sub(1).filter(|at| at % 2 == column)?;
                 Some((at / 2, own.column?))
             };
             let shares: Vec<(usize, f64)> = back.iter().filter_map(mine).collect();
             let windows = count.saturating_sub(1 + column).div_ceil(2);
-            self.columns[column].restore(&shares, windows);
+            chain.restore(&shares, windows);
         }
     }
 }
