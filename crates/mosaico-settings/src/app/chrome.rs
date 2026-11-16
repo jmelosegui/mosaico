@@ -2,8 +2,8 @@
 //! frame in the theme instead of the system's.
 
 use eframe::egui::{
-    Align, Color32, Context, CursorIcon, Layout, Rect, ResizeDirection, RichText, Sense, Ui,
-    ViewportCommand, pos2, vec2,
+    Align, Color32, Context, CornerRadius, CursorIcon, Layout, Rect, ResizeDirection, RichText,
+    Sense, Ui, ViewportCommand, pos2, vec2,
 };
 
 use crate::icons::{self, Icon};
@@ -84,35 +84,35 @@ fn caption(
     response
 }
 
-/// Four tiles in the colors of the mosaico icon.
+/// The three tiles of the mosaico icon: a tall one on the left and two
+/// squares on the right. Their outer corners are rounded wide, so
+/// together they read as one rounded square.
 fn paint_logo(ui: &Ui, rect: Rect) {
     let painter = ui.painter();
-    painter.rect_filled(rect, 3.0, Color32::from_rgb(0x1e, 0x1e, 0x2e));
-    let r = rect.shrink(2.5);
-    let (w, h, gap) = (r.width(), r.height(), 1.5);
-    let half_w = (w - gap) / 2.0;
-    let half_h = (h - gap) / 2.0;
-    let right = r.left() + half_w + gap;
-    let bottom = r.top() + half_h + gap;
-    let quarter = (half_w - gap) / 2.0;
+    // The icon is drawn on a 16-unit grid: 7-unit tiles, 2-unit gaps.
+    let unit = rect.width() / 16.0;
+    let (wide, tight) = (4, 1);
+    let corners = |nw, ne, se, sw| CornerRadius { nw, ne, sw, se };
     let tiles = [
-        (Rect::from_min_size(r.min, vec2(half_w, h)), 0x89b4fa),
         (
-            Rect::from_min_size(pos2(right, r.top()), vec2(half_w, half_h)),
-            0xf5c2e7,
+            Rect::from_min_size(rect.min, vec2(7.0, 16.0) * unit),
+            corners(wide, tight, tight, wide),
+            0x4f8ff7,
         ),
         (
-            Rect::from_min_size(pos2(right, bottom), vec2(quarter, half_h)),
-            0xa6e3a1,
+            Rect::from_min_size(rect.min + vec2(9.0, 0.0) * unit, vec2(7.0, 7.0) * unit),
+            corners(tight, wide, tight, tight),
+            0xf5537a,
         ),
         (
-            Rect::from_min_size(pos2(right + quarter + gap, bottom), vec2(quarter, half_h)),
-            0xf9e2af,
+            Rect::from_min_size(rect.min + vec2(9.0, 9.0) * unit, vec2(7.0, 7.0) * unit),
+            corners(tight, tight, wide, tight),
+            0x3ccf73,
         ),
     ];
-    for (tile, rgb) in tiles {
+    for (tile, radius, rgb) in tiles {
         let [_, red, green, blue] = u32::to_be_bytes(rgb);
-        painter.rect_filled(tile, 1.0, Color32::from_rgb(red, green, blue));
+        painter.rect_filled(tile, radius, Color32::from_rgb(red, green, blue));
     }
 }
 
