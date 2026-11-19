@@ -25,6 +25,8 @@ impl Tiler {
                 .map(|ws| WorkspaceSnapshot {
                     windows: ws.windows().iter().map(|&w| window(w)).collect(),
                     floating: ws.floating().iter().map(|&w| window(w)).collect(),
+                    layout: ws.layout_kind(),
+                    monocle: ws.monocle(),
                 })
                 .collect();
             monitors.push(MonitorSnapshot {
