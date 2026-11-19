@@ -15,24 +15,29 @@ use mosaico_core::WindowEvent;
 use mosaico_core::bar::BarManager;
 use mosaico_core::config::Theme;
 use mosaico_core::daemon::{FrameClock, Scheduler, Step, Wake};
+use mosaico_core::desktop_events::Publisher;
+use mosaico_core::ipc::Command;
 
-use crate::tiling::TilingManager;
+use crate::tiling::{TilingManager, TilingViews};
 
 use super::daemon_inputs::Inputs;
 use super::daemon_loop_bar;
 use super::daemon_loop_handlers;
 use super::daemon_loop_pump::{PUMP_INTERVAL, pump_thread_messages};
-use super::daemon_loop_task::{self, message};
+use super::daemon_loop_task::{self, Task, message};
 use super::daemon_types::DaemonMsg;
 
 /// Runs daemon messages until a `Stop` command arrives, the IPC listener
-/// fails or the channel closes.
+/// fails or the channel closes, telling `publisher` what each wake
+/// changed.
+#[allow(clippy::too_many_arguments)]
 pub(super) fn run(
     rx: &mpsc::Receiver<DaemonMsg>,
     manager: &mut TilingManager,
     bar_mgr: &mut BarManager,
     current_theme: &mut Theme,
     inputs: &mut Inputs,
+    publisher: &mut Publisher,
     frames: &dyn FrameClock,
     get_update: &dyn Fn() -> String,
 ) {
@@ -81,7 +86,13 @@ pub(super) fn run(
                         bar_mgr.update(&manager.bar_states(&get_update(), hotkeys_paused));
                     }
                 }
+                // A subscription is answered here, where the publisher is,
+                // so the snapshot in its reply is where its events start.
+                Step::Run(Task::Command(Command::Subscribe { events }, reply)) => {
+                    let _ = reply.send(publisher.subscribe(events, manager.snapshot()));
+                }
                 Step::Run(task) => {
+                    let reload = matches!(task, Task::Reload(_));
                     should_stop |= daemon_loop_task::run(
                         task,
                         manager,
@@ -91,6 +102,9 @@ pub(super) fn run(
                         &mut hotkeys_paused,
                         get_update,
                     );
+                    if reload {
+                        publisher.config_reloaded();
+                    }
                 }
                 Step::Events(events) => {
                     // Process the batch's window events, then refresh the
@@ -121,5 +135,6 @@ pub(super) fn run(
                 Step::Frame => manager.frame(),
             }
         }
+        publisher.after_step(hotkeys_paused, || manager.snapshot());
     }
 }

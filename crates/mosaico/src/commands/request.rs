@@ -29,23 +29,20 @@ pub fn send(cx: &mut Context, command: &Command) -> Result<Response, Exit> {
             complain!(cx, "Error: {}", describe_refusal(&response));
             Err(Exit::Failure)
         }
-        Err(IpcError::NotRunning) => {
-            complain!(cx, "Mosaico is not running.");
-            Err(Exit::Failure)
-        }
-        Err(IpcError::TimedOut) => {
-            complain!(cx, "{NOT_RESPONDING}");
-            Err(Exit::Failure)
-        }
-        Err(IpcError::Closed) => {
-            complain!(cx, "{CLOSED_WITHOUT_REPLY}");
-            Err(Exit::Failure)
-        }
-        Err(e) => {
-            complain!(cx, "Failed to reach the daemon: {e}");
-            Err(Exit::Failure)
-        }
+        Err(e) => Err(unreachable_daemon(cx, &e)),
     }
+}
+
+/// Writes why the daemon could not be reached to the error stream and
+/// returns the failure to exit with.
+pub fn unreachable_daemon(cx: &mut Context, error: &IpcError) -> Exit {
+    match error {
+        IpcError::NotRunning => complain!(cx, "Mosaico is not running."),
+        IpcError::TimedOut => complain!(cx, "{NOT_RESPONDING}"),
+        IpcError::Closed => complain!(cx, "{CLOSED_WITHOUT_REPLY}"),
+        e => complain!(cx, "Failed to reach the daemon: {e}"),
+    }
+    Exit::Failure
 }
 
 /// Sends `command` and prints the message of its reply.

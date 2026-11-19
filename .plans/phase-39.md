@@ -214,11 +214,11 @@ Each task is one pull request, stacked on the one before, and closes its issue.
 
 ### 39.4 Event subscription (#245)
 
-- [ ] Transport contract and `serve` hand subscriptions to `Subscribers`
-- [ ] Bounded queues, lagging subscribers dropped, all closed at stop
-- [ ] `Command::Subscribe` and `Command::State`; protocol version 3
-- [ ] The Windows daemon publishes changes after each step while subscribed
-- [ ] `mosaico events`
+- [x] Transport contract and `serve` hand subscriptions to `Subscribers`
+- [x] Bounded queues, lagging subscribers dropped, all closed at stop
+- [x] `Command::Subscribe` and `Command::State`; protocol version 3
+- [x] The Windows daemon publishes changes after each step while subscribed
+- [x] `mosaico events`
 
 ### 39.5 Targeted commands (#246)
 

@@ -11,7 +11,7 @@ use std::io::{BufRead, Read, Write};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
-use super::IpcError;
+use super::{ErrorCode, IpcError, Response};
 
 /// Largest message, in bytes, not counting the newline.
 ///
@@ -52,6 +52,23 @@ pub fn read_message<T: DeserializeOwned>(reader: &mut impl BufRead) -> Result<T,
     }
     bytes.pop();
     serde_json::from_slice(&bytes).map_err(IpcError::Malformed)
+}
+
+/// Writes `response`, or a too-large error in its place when it does not
+/// fit in one message, so the client always learns what happened.
+pub(super) fn write_reply(
+    connection: &mut impl Write,
+    response: &Response,
+) -> Result<(), IpcError> {
+    match write_message(connection, response) {
+        // write_message checks the size first, so nothing went out yet.
+        Err(IpcError::TooLarge) => {
+            crate::log_warn!("IPC: a reply was larger than {MAX_MESSAGE_BYTES} bytes");
+            let too_large = Response::error(ErrorCode::TooLarge, "the reply is too large to send");
+            write_message(connection, &too_large)
+        }
+        other => other,
+    }
 }
 
 #[cfg(test)]

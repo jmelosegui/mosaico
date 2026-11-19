@@ -14,8 +14,9 @@ use std::path::PathBuf;
 
 use mosaico_core::WindowControl;
 use mosaico_core::config::ConfigStore;
+use mosaico_core::desktop_events::EventKind;
 use mosaico_core::http::HttpClient;
-use mosaico_core::ipc::{Command, IpcClient, IpcError, Response};
+use mosaico_core::ipc::{Command, IpcClient, IpcError, Response, Subscribed};
 use mosaico_core::pid::PidFile;
 use mosaico_core::system::{Autostart, FileProbe, ProcessControl};
 use mosaico_core::tiler::{Desktop, Enumerator};
@@ -52,15 +53,27 @@ pub trait Daemon {
 
     /// Sends one command and waits for the reply.
     fn send(&self, command: &Command) -> Result<Response, IpcError>;
+
+    /// Subscribes to the desktop events of `kinds`, every kind when
+    /// empty.
+    fn subscribe(&self, kinds: Vec<EventKind>) -> Result<Subscribed, IpcError>;
 }
 
-impl<T: IpcClient> Daemon for T {
+impl<T> Daemon for T
+where
+    T: IpcClient,
+    T::Stream: Send + 'static,
+{
     fn is_running(&self) -> bool {
         self.is_daemon_running()
     }
 
     fn send(&self, command: &Command) -> Result<Response, IpcError> {
         IpcClient::send(self, command)
+    }
+
+    fn subscribe(&self, kinds: Vec<EventKind>) -> Result<Subscribed, IpcError> {
+        mosaico_core::ipc::subscribe(self, kinds)
     }
 }
 

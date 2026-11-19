@@ -9,8 +9,8 @@ use std::time::Duration;
 
 use serde_json::Value;
 
-use super::framing::{MAX_MESSAGE_BYTES, read_message, write_message};
-use super::{Command, ErrorCode, IpcError, Request, Response, decode_request};
+use super::framing::{read_message, write_message, write_reply};
+use super::{Command, ErrorCode, IpcError, Request, Response, ResponseStatus, decode_request};
 
 /// How the CLI reaches the daemon.
 ///
@@ -86,6 +86,13 @@ pub trait IpcStream: Read + Write {
         let _ = timeout;
         Ok(())
     }
+
+    /// Lets reads wait as long as it takes again, as reading the events
+    /// of a subscription does. The default does nothing, which suits a
+    /// transport that ignores `set_read_timeout`.
+    fn clear_read_timeout(&mut self) -> Result<(), IpcError> {
+        Ok(())
+    }
 }
 
 /// How the daemon listens for the CLI.
@@ -93,7 +100,11 @@ pub trait IpcStream: Read + Write {
 /// # Contract for platform implementations
 ///
 /// - `accept` blocks until a client connects. Each connection carries
-///   exactly one command and one reply.
+///   one command and one reply, except an accepted
+///   [`Command::Subscribe`], which then carries events until either side
+///   closes it. Connections must work on any thread, since subscriptions
+///   are written from threads of their own, and must not stop the
+///   endpoint accepting others while they stay open.
 /// - While one connection is being answered, the endpoint keeps
 ///   existing and accepts the next client, so a second CLI command run
 ///   at the same time never finds the daemon missing.
@@ -186,11 +197,25 @@ pub fn serve<S: IpcServer>(
 pub const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// [`serve`], with how long a client gets to send its request and to
-/// read the reply.
+/// read the reply. An accepted subscription is closed after its reply.
 pub fn serve_with_timeout<S: IpcServer>(
     server: &mut S,
     timeout: Duration,
+    handle: impl FnMut(Command) -> Option<Response>,
+) -> Served {
+    serve_with_subscriptions(server, timeout, handle, |connection| {
+        let _ = connection.finish();
+    })
+}
+
+/// [`serve_with_timeout`], handing the connection of each subscription
+/// `handle` accepted to `subscribed` once its reply is written, instead
+/// of closing it, and going on to the next client.
+pub fn serve_with_subscriptions<S: IpcServer>(
+    server: &mut S,
+    timeout: Duration,
     mut handle: impl FnMut(Command) -> Option<Response>,
+    mut subscribed: impl FnMut(S::Connection),
 ) -> Served {
     loop {
         let mut connection = match server.accept() {
@@ -229,15 +254,16 @@ pub fn serve_with_timeout<S: IpcServer>(
             })
             .and_then(|value| decode_request(value).map_err(Some));
 
-        let (response, is_stop) = match request {
+        let (response, is_stop, is_subscribe) = match request {
             Ok(command) => {
                 let is_stop = command == Command::Stop;
+                let is_subscribe = matches!(command, Command::Subscribe { .. });
                 match handle(command) {
-                    Some(response) => (response, is_stop),
+                    Some(response) => (response, is_stop, is_subscribe),
                     None => return Served::Abandoned,
                 }
             }
-            Err(Some(refusal)) => (refusal, false),
+            Err(Some(refusal)) => (refusal, false, false),
             Err(None) => continue,
         };
 
@@ -246,27 +272,18 @@ pub fn serve_with_timeout<S: IpcServer>(
         if let Err(e) = connection.set_write_timeout(timeout) {
             crate::log_warn!("IPC: could not limit how long a reply may take: {e}");
         }
-        let replied = reply(&mut connection, &response).and_then(|()| connection.finish());
+        let written = write_reply(&mut connection, &response);
+        if is_subscribe && response.status == ResponseStatus::Ok && written.is_ok() {
+            subscribed(connection);
+            continue;
+        }
+        let replied = written.and_then(|()| connection.finish());
         if let Err(e) = replied {
             crate::log_warn!("IPC: could not reply: {e}");
         }
         if is_stop {
             return Served::Stopped;
         }
-    }
-}
-
-/// Writes `response`, or a too-large error in its place when it does not
-/// fit in one message, so the client always learns what happened.
-fn reply(connection: &mut impl Write, response: &Response) -> Result<(), IpcError> {
-    match write_message(connection, response) {
-        // write_message checks the size first, so nothing went out yet.
-        Err(IpcError::TooLarge) => {
-            crate::log_warn!("IPC: a reply was larger than {MAX_MESSAGE_BYTES} bytes");
-            let too_large = Response::error(ErrorCode::TooLarge, "the reply is too large to send");
-            write_message(connection, &too_large)
-        }
-        other => other,
     }
 }
 
