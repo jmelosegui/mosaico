@@ -45,6 +45,7 @@ fn snapshot() -> DesktopSnapshot {
                     WorkspaceSnapshot {
                         windows: vec![window(0x6030C, "c")],
                         floating: vec![window(0x7040E, "d")],
+                        ..Default::default()
                     },
                 ],
             },

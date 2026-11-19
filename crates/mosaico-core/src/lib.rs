@@ -14,6 +14,8 @@ pub mod config;
 pub mod daemon;
 /// The contract for drawing borders and corners on windows.
 pub mod decoration;
+/// What changed on the desktop, as clients that subscribe see it.
+pub mod desktop_events;
 /// The error type shared by core and the platform contracts.
 pub mod error;
 /// Window events, and the sources that report them.
