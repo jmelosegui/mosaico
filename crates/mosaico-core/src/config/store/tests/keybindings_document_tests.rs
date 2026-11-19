@@ -29,7 +29,7 @@ fn changing_a_key_keeps_the_comments_and_the_order() {
         .replace("[\"alt\"] # held", "[\"shift\", \"ctrl\"] # held");
     assert_eq!(contents(&store.keybindings_path()), expected);
     let loaded = store.try_load_keybindings().unwrap();
-    assert_eq!(loaded[0].key, "Down");
+    assert_eq!(loaded[0].key.as_deref(), Some("Down"));
     assert_eq!(loaded[1].action, Action::ToggleFloat);
 }
 
@@ -66,8 +66,8 @@ fn adding_and_removing_bindings_leave_the_rest_alone() {
     let actions: Vec<_> = loaded.iter().map(|b| b.action).collect();
     assert_eq!(actions, [Action::Focus(Direction::Down), Action::Retile]);
     assert_eq!(
-        (loaded[1].key.as_str(), loaded[1].modifiers.len()),
-        ("R", 2)
+        (loaded[1].key.as_deref(), loaded[1].modifiers.len()),
+        (Some("R"), 2)
     );
 }
 
@@ -124,5 +124,48 @@ fn a_missing_file_opens_with_the_defaults_and_is_created_by_a_save() {
     let loaded = store.try_load_keybindings().unwrap();
     assert_eq!(loaded.len(), keybinding::defaults().len());
     assert_eq!(loaded[0].action, Action::Focus(Direction::Down));
-    assert_eq!(loaded[0].key, "Down");
+    assert_eq!(loaded[0].key.as_deref(), Some("Down"));
+}
+
+#[test]
+fn clearing_a_key_leaves_the_action_unbound_with_its_comments() {
+    // Arrange
+    let store = store_with("kb-doc-clear", FILE);
+    let mut doc = store.open_keybindings().unwrap();
+
+    // Act
+    doc.clear_key(0).unwrap();
+    assert!(doc.is_dirty());
+    doc.save().unwrap();
+
+    // Assert
+    let written = contents(&store.keybindings_path());
+    assert!(
+        written.contains("action = \"focus-down\" # down"),
+        "{written}"
+    );
+    assert!(!written.contains("the key"), "{written}");
+    assert!(!written.contains("held"), "{written}");
+    let loaded = store.try_load_keybindings().unwrap();
+    assert_eq!(loaded[0].action, Action::Focus(Direction::Down));
+    assert_eq!(loaded[0].key, None);
+    assert!(loaded[0].modifiers.is_empty());
+    assert_eq!(loaded[1].key.as_deref(), Some("F"));
+    assert!(doc.clear_key(9).is_err());
+}
+
+#[test]
+fn an_unbound_binding_gets_a_key_again() {
+    // Arrange
+    let store = store_with("kb-doc-rebind", "[[keybinding]]\naction = \"retile\"\n");
+    let mut doc = store.open_keybindings().unwrap();
+
+    // Act
+    doc.set_key(0, "R", &[Alt, Shift]).unwrap();
+    doc.save().unwrap();
+
+    // Assert
+    let loaded = store.try_load_keybindings().unwrap();
+    assert_eq!(loaded[0].key.as_deref(), Some("R"));
+    assert_eq!(loaded[0].modifiers, [Alt, Shift]);
 }

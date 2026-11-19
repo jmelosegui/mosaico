@@ -16,8 +16,23 @@ impl KeybindingsPage {
         match capture::pressed(&events) {
             None => {}
             Some(Pressed::Cancel) => self.stop_capture(),
+            Some(Pressed::Clear) => self.clear(row),
             Some(Pressed::Refused(why)) => self.refused = Some(why.into()),
             Some(Pressed::Combo { key, modifiers }) => self.bind(row, &key, &modifiers),
+        }
+    }
+
+    /// Leaves the action of `row` on no key. An application needs a key
+    /// to start it, so it keeps its own.
+    fn clear(&mut self, row: Row) {
+        let Row::Action(index) = row else {
+            self.refused = Some("An application needs a shortcut.".into());
+            return;
+        };
+        let Some(doc) = &mut self.doc else { return };
+        if doc.clear_key(index).is_ok() {
+            self.stop_capture();
+            self.refresh();
         }
     }
 
@@ -74,8 +89,11 @@ impl KeybindingsPage {
     }
 
     /// Takes the shortcut from the bindings that had it, for the one
-    /// being changed. A launch binding that loses its shortcut is removed,
-    /// as a keybinding is, since a launch binding needs a key.
+    /// being changed. An action that loses its only shortcut is left on
+    /// no key rather than removed, so the daemon does not put it back on
+    /// its default key when it starts. One with another shortcut loses
+    /// just this one. A launch binding that loses its shortcut is
+    /// removed, since a launch binding needs a key.
     pub(super) fn replace(&mut self) {
         let (Some(row), Some(pending)) = (self.capturing, self.pending.take()) else {
             return;
@@ -93,7 +111,8 @@ impl KeybindingsPage {
         others.sort_unstable_by_key(|&o| std::cmp::Reverse(position(o)));
         for other in others {
             let _ = match other {
-                Row::Action(i) => doc.remove(i),
+                Row::Action(i) if has_another_binding(&self.current, i) => doc.remove(i),
+                Row::Action(i) => doc.clear_key(i),
                 Row::Launch(i) => doc.remove_launch(i),
             };
             if matches!(other, Row::Launch(_)) {
@@ -109,10 +128,11 @@ impl KeybindingsPage {
     pub(super) fn restore_defaults(&mut self) {
         let Some(doc) = &mut self.doc else { return };
         for default in &self.defaults {
+            let Some(key) = &default.key else { continue };
             let at = (self.current.iter()).position(|b| b.action == default.action);
             let _ = match at {
-                Some(i) => doc.set_key(i, &default.key, &default.modifiers),
-                None => doc.add(default.action, &default.key, &default.modifiers),
+                Some(i) => doc.set_key(i, key, &default.modifiers),
+                None => doc.add(default.action, key, &default.modifiers),
             };
         }
         self.stop_capture();
@@ -135,10 +155,18 @@ impl KeybindingsPage {
     /// The combination the binding of `row` is on, if it has one.
     fn combo_of(&self, row: Row) -> Option<KeyCombo> {
         match row {
-            Row::Action(i) => self.current.get(i)?.combo().ok(),
+            Row::Action(i) => self.current.get(i)?.combo().ok().flatten(),
             Row::Launch(i) => self.launches.get(i)?.as_ref().ok()?.combo().ok(),
         }
     }
+}
+
+/// Whether the action of the binding at `index` has another binding.
+fn has_another_binding(bindings: &[Keybinding], index: usize) -> bool {
+    let Some(action) = bindings.get(index).map(|b| b.action) else {
+        return false;
+    };
+    (bindings.iter().enumerate()).any(|(i, b)| i != index && b.action == action)
 }
 
 /// Where `row` is among the rows of its kind.
