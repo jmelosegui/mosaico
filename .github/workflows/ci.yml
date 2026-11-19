@@ -52,7 +52,7 @@ jobs:
         run: cargo xtask metrics
 
       # Builds the release binary the way the release workflow does and
-      # fails when it is over its size ceiling.
+      # prints its size, so the log shows how it grows.
       - name: Binary size
         run: cargo xtask size
 
