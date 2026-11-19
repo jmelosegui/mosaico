@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 use crate::hotkey::KeyCombo;
+use crate::system::Visibility;
 use crate::{Error, Result};
 
 use super::keybinding::{self, Modifier};
@@ -28,6 +29,10 @@ pub struct LaunchBinding {
     /// instead of starting another.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub focus: bool,
+    /// Start the program without a window, as a command-line program
+    /// that does its work and exits needs, so no console flashes.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub hidden: bool,
     /// Which windows count as the application's.
     #[serde(flatten)]
     pub windows: WindowMatch,
@@ -68,6 +73,15 @@ impl LaunchBinding {
             self.windows.match_title.as_deref(),
             self.windows.match_path.as_deref(),
         )
+    }
+
+    /// Whether the program is started shown or hidden.
+    pub fn visibility(&self) -> Visibility {
+        if self.hidden {
+            Visibility::Hidden
+        } else {
+            Visibility::Shown
+        }
     }
 
     /// What names the binding in messages: its command.

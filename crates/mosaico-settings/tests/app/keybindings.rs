@@ -180,3 +180,28 @@ fn backspace_does_not_leave_an_application_on_no_key() {
     h.get_by_label("No unsaved changes");
     assert_eq!(std::fs::read_to_string(path).unwrap(), file);
 }
+
+#[test]
+fn an_application_can_be_set_to_start_without_a_window() {
+    // Arrange
+    let store = folder("keys-app-hidden");
+    let path = store.keybindings_path();
+    let file =
+        format!("{FILE}\n[[launch]]\ncommand = \"pwsh\"\nkey = \"N\"\nmodifiers = [\"alt\"]\n");
+    std::fs::write(&path, &file).unwrap();
+    let mut h = window(store, DaemonState::Stopped, &SignIn::default());
+    open(&mut h, "Keybindings");
+    click(&mut h, Role::Tab, "Applications");
+    click(&mut h, Role::Button, "Edit pwsh");
+
+    // Act
+    click(&mut h, Role::CheckBox, "Start it without a window");
+    click(&mut h, Role::Button, "Apply");
+
+    // Assert
+    let saved = std::fs::read_to_string(path).unwrap();
+    assert!(
+        saved.ends_with("modifiers = [\"alt\"]\nhidden = true\n"),
+        "{saved}"
+    );
+}

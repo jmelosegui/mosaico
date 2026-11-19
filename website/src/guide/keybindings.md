@@ -155,6 +155,14 @@ key = "T"
 modifiers = ["alt", "shift"]
 focus = true
 match_path = "WindowsTerminal.exe"
+
+# Run a script that does its work and exits, without a console flashing up.
+[[launch]]
+command = "pwsh.exe"
+args = ["-File", '%USERPROFILE%\scripts\tidy.ps1']
+key = "R"
+modifiers = ["alt", "shift"]
+hidden = true
 ```
 
 | Field | Required | Meaning |
@@ -163,6 +171,7 @@ match_path = "WindowsTerminal.exe"
 | `args` | no | Arguments, one string each. Paths with spaces need no extra quotes. |
 | `key`, `modifiers` | yes | As in `[[keybinding]]`. |
 | `focus` | no | `true` brings an open window of the program into view instead of starting it. Default `false`. |
+| `hidden` | no | `true` starts the program without a window. A command-line program, such as a PowerShell script, then opens no console, not even for a moment. Default `false`. |
 | `match_path`, `match_class`, `match_title` | no | Which windows count as the program's, with the same meaning as in [window rules](window-rules.md). Only read with `focus = true`. |
 
 ### A new instance, or the open window
