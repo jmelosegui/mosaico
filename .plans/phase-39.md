@@ -204,8 +204,8 @@ Each task is one pull request, stacked on the one before, and closes its issue.
 
 ### 39.2 Remove the binary size ceiling (#243)
 
-- [ ] `cargo xtask size` reports the size and no longer fails over a ceiling
-- [ ] `AGENTS.md` and the testing skill updated
+- [x] `cargo xtask size` reports the size and no longer fails over a ceiling
+- [x] `AGENTS.md` and the testing skill updated
 
 ### 39.3 Desktop events in core (#244)
 
