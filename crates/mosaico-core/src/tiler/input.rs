@@ -2,7 +2,7 @@ use crate::action::Origin;
 use crate::config::{Config, WindowRule};
 use crate::{Action, WindowEvent, WindowId};
 
-use super::Display;
+use super::{Display, Order};
 
 /// Something the tiler reacts to.
 #[derive(Debug, Clone)]
@@ -16,6 +16,9 @@ pub enum Input {
     /// either keeps it out of sight. For a launch binding that focuses an
     /// open window of its application.
     Raise(WindowId),
+    /// Something a client asked of the window, monitor or workspace it
+    /// names.
+    Order(Order),
     /// A window event, already checked against
     /// [`Expectations`](super::Expectations) so it is not an echo of our
     /// own effects. Display and work area events are ignored here; send
