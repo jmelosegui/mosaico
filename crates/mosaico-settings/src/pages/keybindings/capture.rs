@@ -9,6 +9,8 @@ use mosaico_core::config::Modifier;
 pub enum Pressed {
     /// Escape on its own: leave the binding as it is.
     Cancel,
+    /// Backspace or Delete on its own: leave the binding on no key.
+    Clear,
     /// A combination to try. Core checks the key name.
     Combo {
         key: String,
@@ -38,6 +40,9 @@ fn classify(key: Key, held: Modifiers) -> Pressed {
     let modifiers = modifiers_of(held);
     if key == Key::Escape && modifiers.is_empty() {
         return Pressed::Cancel;
+    }
+    if matches!(key, Key::Backspace | Key::Delete) && modifiers.is_empty() {
+        return Pressed::Clear;
     }
     if modifiers.is_empty() && !is_function(key) {
         return Pressed::Refused("Hold Ctrl, Alt or Shift while you press the key.");

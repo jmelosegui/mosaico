@@ -99,6 +99,26 @@ impl KeybindingsDocument {
         Ok(())
     }
 
+    /// Leaves the binding at `index` on no key, keeping its action and
+    /// the comments above it, so the defaults merged into the file do not
+    /// give the action its key back.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`Error::Config`] if there is no such binding or the
+    /// bindings are not written as tables. The file is left as it was.
+    pub fn clear_key(&mut self, index: usize) -> Result<()> {
+        let path = self.path.clone();
+        let table = self
+            .bindings_mut()?
+            .get_mut(index)
+            .ok_or_else(|| file_error(&path, format_args!("no binding {index}")))?;
+        table.remove("key");
+        table.remove("modifiers");
+        self.dirty = true;
+        Ok(())
+    }
+
     /// Adds a binding of `action` to `key` with `modifiers`, after the
     /// others.
     ///

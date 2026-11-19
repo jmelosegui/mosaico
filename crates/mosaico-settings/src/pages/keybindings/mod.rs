@@ -23,8 +23,6 @@ use super::{FilePage, Page};
 use crate::theme::Colors;
 use crate::widgets;
 
-const PROMPT: &str = "Press the new shortcut";
-
 /// The tabs, in order.
 const TABS: [&str; 2] = ["Actions", "Applications"];
 const APPS: usize = 1;
@@ -193,12 +191,16 @@ fn launches_of(doc: &KeybindingsDocument) -> Vec<Launch> {
     launches.map(|l| l.map_err(|e| e.to_string())).collect()
 }
 
-/// The combination of `binding` as `Alt+Shift+J`, or what the file says
-/// when its key is not one.
+/// The combination of `binding` as `Alt+Shift+J`, nothing when it has no
+/// key, or what the file says when its key is not one.
 fn combo_text(binding: &Keybinding) -> String {
     match binding.combo() {
-        Ok(combo) => combo.to_string(),
-        Err(_) => format!("{} (unknown key)", binding.key),
+        Ok(Some(combo)) => combo.to_string(),
+        Ok(None) => String::new(),
+        Err(_) => {
+            let key = binding.key.as_deref().unwrap_or_default();
+            format!("{key} (unknown key)")
+        }
     }
 }
 

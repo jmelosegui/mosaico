@@ -1,4 +1,5 @@
-use mosaico_core::config::ThemeConfig;
+use mosaico_core::Action;
+use mosaico_core::config::{Keybinding, ThemeConfig, keybinding};
 
 use super::*;
 use crate::commands::test_support::Harness;
@@ -170,4 +171,24 @@ fn user_rules_that_use_manage_get_a_warning_that_says_what_to_write() {
     );
     assert!(line.contains("`action = \"tile\"`"), "{line}");
     assert_eq!(updated, None);
+}
+
+#[test]
+fn actions_left_without_a_key_are_named_and_not_counted_as_unknown_keys() {
+    // Arrange
+    let mut bindings = keybinding::defaults();
+    let at = (bindings.iter())
+        .position(|b| b.action == Action::Retile)
+        .unwrap();
+    bindings[at] = Keybinding::unbound(Action::Retile);
+
+    // Act
+    let line = keybinding_keys_line(&bindings);
+
+    // Assert
+    let bound = bindings.len() - 1;
+    assert_eq!(
+        line,
+        format!("  {OK} All {bound} keybinding(s) resolve to valid key codes; no key for: retile")
+    );
 }

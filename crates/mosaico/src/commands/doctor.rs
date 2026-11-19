@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use mosaico_core::config::schema::CONFIG_SETTINGS;
-use mosaico_core::config::{ConfigStore, ThemeCheck, ThemeConfig, manage_deprecation};
+use mosaico_core::config::{ConfigStore, Keybinding, ThemeCheck, ThemeConfig, manage_deprecation};
 
 use super::context::{Context, Exit, say};
 use super::{doctor_animations, doctor_bar, doctor_launch, doctor_runtime, doctor_settings};
@@ -116,25 +116,36 @@ fn check_keybindings_file(store: &ConfigStore) {
 /// Flags the bindings whose key name the daemon would skip. The names
 /// are checked in core, so this agrees with the daemon on every platform.
 fn check_keybinding_keys(store: &ConfigStore) {
-    let bindings = store.load_keybindings();
-    let mut bad: Vec<String> = Vec::new();
-    for kb in &bindings {
-        if kb.combo().is_err() {
-            bad.push(kb.key.clone());
+    println!("{}", keybinding_keys_line(&store.load_keybindings()));
+}
+
+/// The line [`check_keybinding_keys`] prints for `bindings`: the unknown
+/// key names, or a count of the good ones, naming the actions left on no
+/// key.
+fn keybinding_keys_line(bindings: &[Keybinding]) -> String {
+    let mut bad: Vec<&str> = Vec::new();
+    let mut unbound: Vec<String> = Vec::new();
+    for kb in bindings {
+        match (kb.combo(), kb.key.as_deref()) {
+            (Ok(Some(_)), _) => {}
+            (Ok(None), _) => unbound.push(kb.action.to_string()),
+            (Err(_), key) => bad.push(key.unwrap_or_default()),
         }
     }
-    if bad.is_empty() {
-        println!(
-            "  {OK} All {} keybinding(s) resolve to valid key codes",
-            bindings.len()
-        );
-    } else {
-        println!(
+    if !bad.is_empty() {
+        return format!(
             "  {FAIL} {} keybinding(s) have unknown keys: {}",
             bad.len(),
             bad.join(", ")
         );
     }
+    let bound = bindings.len() - unbound.len();
+    let mut line = format!("  {OK} All {bound} keybinding(s) resolve to valid key codes");
+    if !unbound.is_empty() {
+        line.push_str("; no key for: ");
+        line.push_str(&unbound.join(", "));
+    }
+    line
 }
 
 fn check_rules_file(store: &ConfigStore) {

@@ -25,8 +25,8 @@ pub struct Conflict {
 /// Combinations are compared as the daemon registers them: the order and
 /// case of the modifiers and of the key name do not matter, so `Alt+Shift+J`
 /// written as `["shift", "alt"]` and `"j"` clashes with `["alt", "shift"]`
-/// and `"J"`. A binding whose key name is not a key has no combination
-/// and clashes with nothing.
+/// and `"J"`. A binding without a key, or whose key name is not a key,
+/// has no combination and clashes with nothing.
 pub fn conflicts(bindings: &[Keybinding]) -> Vec<Conflict> {
     conflicts_with_launches(bindings, &[])
 }
@@ -42,7 +42,7 @@ pub fn conflicts_with_launches(
     let combos = bindings
         .iter()
         .map(|b| (false, b.combo()))
-        .chain(launches.iter().map(|l| (true, l.combo())));
+        .chain(launches.iter().map(|l| (true, l.combo().map(Some))));
     let mut order: Vec<Conflict> = Vec::new();
     let mut seen: HashMap<KeyCombo, usize> = HashMap::new();
     let (mut binding, mut launch) = (0, 0);
@@ -50,7 +50,7 @@ pub fn conflicts_with_launches(
         let index = if is_launch { &mut launch } else { &mut binding };
         let position = *index;
         *index += 1;
-        let Ok(combo) = combo else {
+        let Ok(Some(combo)) = combo else {
             continue;
         };
         let at = *seen.entry(combo).or_insert_with(|| {

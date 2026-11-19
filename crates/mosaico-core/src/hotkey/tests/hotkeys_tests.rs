@@ -1,6 +1,6 @@
 //! Hotkey tests against a registrar that keeps its hotkeys in memory.
 
-use crate::config::Modifier;
+use crate::config::{Keybinding, Modifier};
 use crate::hotkey::{HotkeyId, Hotkeys, Target};
 use crate::{Action, Error};
 
@@ -119,4 +119,20 @@ fn a_rejected_binding_is_shown_with_its_keys_action_and_reason() {
         "{}",
         shown[1]
     );
+}
+
+#[test]
+fn an_unbound_binding_is_neither_registered_nor_rejected() {
+    // Arrange
+    let registrar = FakeRegistrar::default();
+    let mut bindings = bindings();
+    bindings.insert(1, Keybinding::unbound(Action::ToggleMonocle));
+
+    // Act
+    let (_hotkeys, rejected) = Hotkeys::register(registrar.clone(), &bindings, &[]);
+
+    // Assert
+    assert!(rejected.is_empty(), "{rejected:?}");
+    let expected = vec![alt_j(), alt_k(), alt_shift('R'), alt_shift('P')];
+    assert_eq!(registrar.held(), expected);
 }

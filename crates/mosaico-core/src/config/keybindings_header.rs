@@ -2,7 +2,8 @@ pub(super) fn header() -> &'static str {
     r##"# Mosaico keybindings
 # Location: ~/.config/mosaico/keybindings.toml
 #
-# Each [[keybinding]] entry maps a key combination to an action.
+# Each [[keybinding]] entry maps a key combination to an action. An entry
+# with an action and no key leaves that action on no key at all.
 #
 # Available actions:
 #   focus-left, focus-right, focus-up, focus-down,

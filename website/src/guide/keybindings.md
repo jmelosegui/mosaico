@@ -204,6 +204,20 @@ pick up new shortcuts added in future versions without overwriting any of your
 customizations. Actions you've already bound (even to different keys) are
 never touched.
 
+Because of this, deleting a binding does not unbind its action: the next
+start puts it back on its default key. To leave an action on no key, keep
+its entry and leave out `key` and `modifiers`:
+
+```toml
+# retile runs from a script instead, so it needs no key of its own
+[[keybinding]]
+action = "retile"
+```
+
+The daemon registers no hotkey for it, the merge leaves it alone, and
+`mosaico doctor` lists it as having no key. In the settings app, press
+Backspace or Delete while changing an action's shortcut to do the same.
+
 ## Reloading
 
 Keybinding changes are hot-reloaded. When `keybindings.toml` changes, the
