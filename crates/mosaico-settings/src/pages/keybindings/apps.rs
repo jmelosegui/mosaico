@@ -232,6 +232,7 @@ impl KeybindingsPage {
             key: String::new(),
             modifiers: Vec::new(),
             focus: false,
+            hidden: false,
             windows: WindowMatch::default(),
         };
         if doc.add_launch(&blank).is_err() {

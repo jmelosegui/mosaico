@@ -49,7 +49,7 @@ impl<P: Platform> TilingManager<P> {
         if binding.focus && self.raise_matching(binding) {
             return Ok(Launched::Focused);
         }
-        launcher.launch(&binding.command, &binding.args)?;
+        launcher.launch(&binding.command, &binding.args, binding.visibility())?;
         Ok(Launched::Started)
     }
 

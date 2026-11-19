@@ -12,6 +12,7 @@ fn launch(command: &str, key: &str) -> LaunchBinding {
         key: key.into(),
         modifiers: vec![Modifier::Alt, Modifier::Shift],
         focus: false,
+        hidden: false,
         windows: WindowMatch::default(),
     }
 }

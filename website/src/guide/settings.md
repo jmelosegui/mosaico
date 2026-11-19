@@ -251,8 +251,9 @@ arguments on one line (separated by spaces, with double quotes around an
 argument that holds spaces), each with a line of help, and whether a press
 focuses an open window of it instead of starting another, which is off by
 default. Only when that is ticked does the editor ask for the path its windows
-end with. Click the pencil to capture its shortcut, the arrow to open or close
-its editor, and the bin to remove it. **Apply** refuses an application with no
+end with. **Start it without a window** runs a command-line program, such as a
+script, without a console flashing up. Click the pencil to capture its
+shortcut, the arrow to open or close its editor, and the bin to remove it. **Apply** refuses an application with no
 command or no shortcut. Conflicts and Replace work across actions and
 applications alike; **Restore defaults** leaves applications alone.
 
