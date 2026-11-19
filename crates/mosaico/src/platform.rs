@@ -69,6 +69,8 @@ pub fn run(command: impl FnOnce(&mut Context) -> Exit) -> Exit {
         http: &mosaico_windows::http::WinHttpClient,
         installer: &mosaico_windows::install::RenameInstaller,
         restart: RestartMarker::new(instance.restart_marker_path()),
+        opener: &mosaico_windows::opener::ShellOpener,
+        scripts: &|| script_env(instance),
         logo: &banner::draw_logo,
         out: &mut out,
         err: &mut err,
@@ -107,4 +109,23 @@ pub fn interrupts() -> impl Interrupts {
 #[cfg(target_os = "windows")]
 pub fn desktop() -> impl Enumerator {
     mosaico_windows::enumerate::WindowsEnumerator
+}
+
+/// What a script of this instance runs against: its daemon over the pipe,
+/// the system clock, programs started as from the Run box or run without
+/// a shell, and this process's output.
+#[cfg(target_os = "windows")]
+fn script_env(instance: &mosaico_core::Instance) -> mosaico_script::Env {
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    let client = mosaico_windows::ipc::PipeClient::new(&mosaico_windows::ipc::pipe_name(instance));
+    mosaico_script::Env {
+        daemon: Rc::new(mosaico_script::IpcDaemon::new(client)),
+        clock: Rc::new(mosaico_script::SystemClock),
+        launcher: Rc::new(mosaico_windows::launcher::ShellLauncher::current()),
+        runner: Rc::new(mosaico_script::ProcessRunner),
+        out: Rc::new(RefCell::new(std::io::stdout())),
+        err: Rc::new(RefCell::new(std::io::stderr())),
+    }
 }

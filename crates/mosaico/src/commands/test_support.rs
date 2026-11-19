@@ -13,6 +13,7 @@ mod desktop;
 mod harness;
 #[path = "test_support_release.rs"]
 mod release;
+mod scripts;
 mod windows;
 
 use std::cell::{Cell, RefCell};
@@ -34,6 +35,7 @@ use super::context::{Clock, Daemon};
 pub use autostart_fake::{EXE, MOVED_AWAY};
 pub use harness::Harness;
 pub use release::{ASSET, BINARY, FakeInstaller, PACKAGE, Releases, SETTINGS};
+pub use scripts::Scripts;
 pub use windows::Frames;
 
 /// How long a fake process stays alive.
@@ -73,6 +75,8 @@ pub struct World {
     pub sent: RefCell<Vec<Command>>,
     /// The events a subscription gets, after which the daemon closes it.
     pub events: RefCell<Vec<DesktopEvent>>,
+    /// What the opener was asked to open.
+    pub opened: RefCell<Vec<std::path::PathBuf>>,
     /// Running processes.
     pub processes: RefCell<HashMap<u32, Lifetime>>,
     /// Whether killing a process works.
@@ -120,6 +124,7 @@ impl Default for World {
             replies: RefCell::default(),
             sent: RefCell::default(),
             events: RefCell::default(),
+            opened: RefCell::default(),
             processes: RefCell::default(),
             can_kill: Cell::new(true),
             launch: RefCell::new(Launch::Answers(4321)),

@@ -59,6 +59,11 @@ enum Commands {
         /// Only these events, such as focus_changed or workspace_changed
         kinds: Vec<String>,
     },
+    /// Run and manage Lua scripts that drive mosaico
+    Script {
+        #[command(subcommand)]
+        action: ScriptCommands,
+    },
     /// Show the animated mosaico banner
     Banner,
     /// Debugging and inspection tools
@@ -99,6 +104,39 @@ enum DebugCommands {
     Move(commands::debug::move_window::MoveArgs),
     /// Dump the daemon's internal workspace state
     State,
+}
+
+#[derive(Subcommand)]
+enum ScriptCommands {
+    /// Run a script, by its name in the scripts folder or by its path
+    Run {
+        /// The script's name, or the path of a .lua file
+        script: String,
+        /// Arguments the script reads from mosaico.args, as key=value
+        args: Vec<String>,
+        /// Stop at the first error in a handler or timer
+        #[arg(long)]
+        fail_fast: bool,
+    },
+    /// Create a script from a template and open it
+    New {
+        /// The script's name, such as meeting-mode
+        name: String,
+    },
+    /// Open a script
+    Edit {
+        /// The script's name
+        name: String,
+    },
+    /// List the scripts
+    List,
+    /// Copy a script into the scripts folder
+    Add {
+        /// The .lua file to copy
+        path: std::path::PathBuf,
+    },
+    /// Open the scripts folder
+    Open,
 }
 
 #[derive(Subcommand)]
@@ -162,6 +200,18 @@ fn run(cx: &mut Context, command: Commands) -> Exit {
         Commands::Pause => commands::pause::pause(cx),
         Commands::Unpause => commands::pause::unpause(cx),
         Commands::Events { json, kinds } => commands::events::execute(cx, json, &kinds),
+        Commands::Script { action } => match action {
+            ScriptCommands::Run {
+                script,
+                args,
+                fail_fast,
+            } => commands::script::run::execute(cx, &script, &args, fail_fast),
+            ScriptCommands::New { name } => commands::script::files::new(cx, &name),
+            ScriptCommands::Edit { name } => commands::script::files::edit(cx, &name),
+            ScriptCommands::List => commands::script::files::list(cx),
+            ScriptCommands::Add { path } => commands::script::files::add(cx, &path),
+            ScriptCommands::Open => commands::script::files::open_folder(cx),
+        },
         Commands::Banner => commands::banner::execute(cx),
         Commands::Settings => commands::settings::execute(cx),
         Commands::Update { force } => commands::update::execute(cx, force),
