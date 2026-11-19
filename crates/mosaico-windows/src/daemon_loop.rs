@@ -178,12 +178,14 @@ fn warn_of_manage_rules(store: &ConfigStore, inputs: &Inputs) {
 }
 
 /// What the tray icon opens: the settings app beside the running
-/// executable, the config folder of `store` and the instance's log.
+/// executable, the config and scripts folders of `store` and the
+/// instance's log.
 fn tray_paths(store: &ConfigStore) -> TrayPaths {
     let exe = std::env::current_exe().unwrap_or_default();
     TrayPaths {
         settings: exe.with_file_name(RenameInstaller.settings_name()),
         config_dir: store.dir().to_path_buf(),
+        scripts_dir: store.dir().join("scripts"),
         log: Instance::current()
             .map(Instance::log_path)
             .unwrap_or_default(),

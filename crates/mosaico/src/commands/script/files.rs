@@ -88,7 +88,11 @@ pub fn list(cx: &mut Context) -> Exit {
         );
     }
     for name in names {
-        say!(cx, "{name}");
+        if cx.script_autostart.is_enabled(&name).unwrap_or(false) {
+            say!(cx, "{name} (starts when you sign in)");
+        } else {
+            say!(cx, "{name}");
+        }
     }
     Exit::Success
 }

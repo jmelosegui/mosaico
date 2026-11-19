@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 
 use mosaico_core::desktop_events::DesktopEvent;
 use mosaico_core::ipc::{Command, DesktopSnapshot, IpcError, Response};
-use mosaico_core::system::{Launcher, Opener};
+use mosaico_core::system::{LaunchCommand, Launcher, Opener, ScriptAutostart};
 use mosaico_script::{Clock, Daemon, Env, Inbox, Next, Ran, Runner};
 
 use super::{World, empty_desktop};
@@ -124,6 +124,24 @@ impl World {
 impl Opener for World {
     fn open(&self, path: &Path) -> mosaico_core::Result<()> {
         self.opened.borrow_mut().push(path.to_path_buf());
+        Ok(())
+    }
+}
+
+impl ScriptAutostart for World {
+    fn is_enabled(&self, name: &str) -> mosaico_core::Result<bool> {
+        Ok(self.script_logins.borrow().contains_key(name))
+    }
+
+    fn enable(&self, name: &str, command: &LaunchCommand) -> mosaico_core::Result<()> {
+        self.script_logins
+            .borrow_mut()
+            .insert(name.to_string(), command.clone());
+        Ok(())
+    }
+
+    fn disable(&self, name: &str) -> mosaico_core::Result<()> {
+        self.script_logins.borrow_mut().remove(name);
         Ok(())
     }
 }

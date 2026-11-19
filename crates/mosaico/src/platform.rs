@@ -54,6 +54,7 @@ pub fn run(command: impl FnOnce(&mut Context) -> Exit) -> Exit {
         daemon: &daemon,
         processes: &mosaico_windows::process::WindowsProcesses,
         autostart: &mosaico_windows::autostart::LogonTaskAutostart,
+        script_autostart: &mosaico_windows::autostart::LogonTaskScripts,
         windows: &mosaico_windows::window_control::Win32WindowControl::default(),
         desktop: &mosaico_windows::enumerate::WindowsEnumerator,
         tiler_desktop: &|| {
