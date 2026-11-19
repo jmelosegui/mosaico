@@ -145,6 +145,15 @@ pub(super) fn handle_command(
             ErrorCode::Failed,
             "subscriptions are answered by the daemon loop",
         )),
+        Command::Order { order } => {
+            let known = manager.order(order.clone());
+            bar_mgr.update(&manager.bar_states(&get_update(), *hotkeys_paused));
+            Some(if known {
+                Response::ok()
+            } else {
+                Response::error(ErrorCode::NotFound, "no such window, monitor or workspace")
+            })
+        }
         Command::PauseHotkeys => {
             if !*hotkeys_paused {
                 inputs.pause_hotkeys();

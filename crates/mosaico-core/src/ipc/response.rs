@@ -49,6 +49,9 @@ pub enum ErrorCode {
     /// nothing to act on, such as focusing left at the left edge, is not
     /// a failure: it does nothing and answers ok.
     Failed,
+    /// The command named a window, monitor or workspace the daemon does
+    /// not have, such as a window that closed.
+    NotFound,
     /// A code from a newer daemon that this build does not know.
     #[serde(other)]
     Other,
