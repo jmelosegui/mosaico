@@ -129,7 +129,7 @@ fn keybindings_in_the_file_replace_the_defaults() {
     // Assert
     assert_eq!(bindings.len(), 1);
     assert_eq!(bindings[0].action, Action::Retile);
-    assert_eq!(bindings[0].key, "F5");
+    assert_eq!(bindings[0].key.as_deref(), Some("F5"));
     assert_eq!(bindings[0].modifiers, [Modifier::Ctrl]);
 }
 

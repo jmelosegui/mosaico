@@ -8,7 +8,7 @@ use super::*;
 fn bind(action: Action, key: &str, modifiers: &[Modifier]) -> Keybinding {
     Keybinding {
         action,
-        key: key.into(),
+        key: Some(key.into()),
         modifiers: modifiers.to_vec(),
     }
 }
@@ -99,4 +99,20 @@ fn a_launch_binding_clashes_with_a_keybinding_and_with_another_launch() {
         (found[1].bindings.as_slice(), found[1].launches.as_slice()),
         (&[][..], &[0, 2][..])
     );
+}
+
+#[test]
+fn bindings_without_a_key_do_not_conflict() {
+    // Arrange
+    let bindings = [
+        Keybinding::unbound(Action::Retile),
+        bind(Action::ToggleMonocle, "T", &[Alt]),
+        Keybinding::unbound(Action::CycleLayout),
+    ];
+
+    // Act
+    let found = conflicts(&bindings);
+
+    // Assert
+    assert!(found.is_empty(), "{found:?}");
 }

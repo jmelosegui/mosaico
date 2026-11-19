@@ -45,8 +45,9 @@ impl<R: HotkeyRegistrar> Hotkeys<R> {
     /// Registers the hotkeys of `bindings` and then of `launches` through
     /// `registrar`.
     ///
-    /// A binding whose key name is unknown, or whose combination cannot
-    /// be registered, is left out and returned with the reason. The other
+    /// A binding without a key is left out, as it asks for no hotkey. A
+    /// binding whose key name is unknown, or whose combination cannot be
+    /// registered, is left out and returned with the reason. The other
     /// bindings work all the same, so of two bindings with the same
     /// combination, the first one wins.
     pub fn register(
@@ -59,9 +60,10 @@ impl<R: HotkeyRegistrar> Hotkeys<R> {
             hotkeys: Vec::new(),
             paused: false,
         };
-        let actions = bindings.iter().map(|binding| {
+        let actions = bindings.iter().filter_map(|binding| {
             let target = Target::Action(binding.action);
-            (target, binding.action.to_string(), binding.combo())
+            let combo = binding.combo().transpose()?;
+            Some((target, binding.action.to_string(), combo))
         });
         let launches = launches
             .iter()

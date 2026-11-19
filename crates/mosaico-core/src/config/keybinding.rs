@@ -5,21 +5,38 @@ use crate::hotkey::KeyCombo;
 use crate::{Action, Result};
 
 /// A user-configured keybinding that maps a key combination to an action.
+///
+/// A binding written without a `key` leaves its action on no key at all.
+/// It still counts as configured, so the defaults merged into the file
+/// never give that action a key back.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Keybinding {
     /// The action to trigger.
     pub action: Action,
-    /// Key name as written in the file (e.g. "J", "Enter", "Space", "F1").
+    /// Key name as written in the file (e.g. "J", "Enter", "Space", "F1"),
+    /// or `None` when the action is deliberately left without a key.
     ///
     /// Kept as text and checked by [`Keybinding::combo`], so an unknown
     /// name puts only its own binding out of action, not the whole file.
-    pub key: String,
-    /// Modifier keys (e.g. ["alt", "shift"]).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub key: Option<String>,
+    /// Modifier keys (e.g. ["alt", "shift"]). Ignored without a key.
+    #[serde(default)]
     pub modifiers: Vec<Modifier>,
 }
 
 impl Keybinding {
-    /// The key combination that triggers this binding.
+    /// A binding that leaves `action` on no key.
+    pub fn unbound(action: Action) -> Self {
+        Self {
+            action,
+            key: None,
+            modifiers: Vec::new(),
+        }
+    }
+
+    /// The key combination that triggers this binding, or `None` when it
+    /// has no key.
     ///
     /// This is where a binding's key name is checked, for the daemon and
     /// for `mosaico doctor` alike, so both accept the same names on every
@@ -29,8 +46,11 @@ impl Keybinding {
     ///
     /// Returns [`Error::Config`](crate::Error::Config) when the key name
     /// is not one mosaico knows.
-    pub fn combo(&self) -> Result<KeyCombo> {
-        combo_of(&self.key, &self.modifiers)
+    pub fn combo(&self) -> Result<Option<KeyCombo>> {
+        self.key
+            .as_deref()
+            .map(|key| combo_of(key, &self.modifiers))
+            .transpose()
     }
 }
 
@@ -119,7 +139,7 @@ pub fn defaults() -> Vec<Keybinding> {
 fn bind(action: Action, key: &str, modifiers: &[Modifier]) -> Keybinding {
     Keybinding {
         action,
-        key: key.into(),
+        key: Some(key.into()),
         modifiers: modifiers.to_vec(),
     }
 }

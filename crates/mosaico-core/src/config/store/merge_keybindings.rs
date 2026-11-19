@@ -71,8 +71,12 @@ impl ConfigStore {
     }
 }
 
-/// Formats a single keybinding as a `[[keybinding]]` TOML entry.
+/// Formats a single keybinding as a `[[keybinding]]` TOML entry, with
+/// only its action when it has no key.
 pub(super) fn keybinding_toml_entry(kb: &Keybinding) -> String {
+    let Some(key) = &kb.key else {
+        return format!("\n[[keybinding]]\naction = \"{}\"\n", kb.action);
+    };
     let modifiers: Vec<String> = kb
         .modifiers
         .iter()
@@ -89,7 +93,7 @@ pub(super) fn keybinding_toml_entry(kb: &Keybinding) -> String {
     format!(
         "\n[[keybinding]]\naction = \"{}\"\nkey = \"{}\"\nmodifiers = [{}]\n",
         kb.action,
-        kb.key,
+        key,
         modifiers.join(", ")
     )
 }

@@ -6,7 +6,7 @@ use crate::config::store::test_support::{contents, file_names, temp_store};
 use super::*;
 
 /// What a binding does and how it is pressed, for comparing lists.
-fn summary(bindings: &[Keybinding]) -> Vec<(Action, String, Vec<Modifier>)> {
+fn summary(bindings: &[Keybinding]) -> Vec<(Action, Option<String>, Vec<Modifier>)> {
     bindings
         .iter()
         .map(|kb| (kb.action, kb.key.clone(), kb.modifiers.clone()))
@@ -40,7 +40,7 @@ fn default_actions_the_file_lacks_are_appended_and_returned() {
     // Assert -- the user's binding stays first and is not added twice.
     let focus_down = Action::Focus(Direction::Down);
     assert_eq!(bindings.len(), keybinding::defaults().len());
-    assert_eq!(bindings[0].key, "Down");
+    assert_eq!(bindings[0].key.as_deref(), Some("Down"));
     assert_eq!(
         bindings.iter().filter(|kb| kb.action == focus_down).count(),
         1
@@ -99,4 +99,30 @@ fn launch_bindings_survive_the_merge() {
     assert_eq!(launches.len(), 1);
     assert_eq!(launches[0].command, "wt.exe");
     assert!(contents(&store.keybindings_path()).starts_with(original));
+}
+
+#[test]
+fn an_action_written_without_a_key_stays_unbound_and_is_not_given_its_default() {
+    // Arrange -- the user wants retile on no key at all.
+    let store = temp_store("merge-keys-unbound");
+    let original = "[[keybinding]]\naction = \"retile\"\n";
+    std::fs::write(store.keybindings_path(), original).unwrap();
+
+    // Act
+    let bindings = store.merge_missing_keybindings();
+
+    // Assert
+    let retile: Vec<_> = bindings
+        .iter()
+        .filter(|kb| kb.action == Action::Retile)
+        .collect();
+    assert_eq!(retile.len(), 1);
+    assert_eq!(retile[0].key, None);
+    assert!(matches!(retile[0].combo(), Ok(None)));
+    let on_disk = contents(&store.keybindings_path());
+    assert_eq!(
+        on_disk.matches("action = \"retile\"").count(),
+        1,
+        "{on_disk}"
+    );
 }
