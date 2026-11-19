@@ -16,6 +16,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::Action;
 use crate::desktop_events::EventKind;
+use crate::tiler::Order;
 
 pub use crate::snapshot::{DesktopSnapshot, MonitorSnapshot, WindowSnapshot, WorkspaceSnapshot};
 pub use error::IpcError;
@@ -36,7 +37,7 @@ pub use transport::{
 /// requests from another version, except [`Command::Stop`], so a mismatched
 /// daemon can always be stopped and restarted. Version 2 added the
 /// `goto-workspace-next` and `goto-workspace-prev` actions. Version 3
-/// added [`Command::State`] and [`Command::Subscribe`].
+/// added [`Command::State`], [`Command::Subscribe`] and [`Command::Order`].
 pub const PROTOCOL_VERSION: u32 = 3;
 
 /// The mosaico release this build belongs to, reported by the daemon so
@@ -75,6 +76,13 @@ pub enum Command {
         #[serde(default)]
         events: Vec<EventKind>,
     },
+    /// Do something to the window, monitor or workspace the order names.
+    /// Answered with [`ErrorCode::NotFound`] when it names one the daemon
+    /// does not have.
+    Order {
+        /// What to do.
+        order: Order,
+    },
 }
 
 /// The name of every [`Command`], as it travels in a request's `command`
@@ -93,4 +101,5 @@ const COMMAND_NAMES: &[&str] = &[
     "UnpauseHotkeys",
     "State",
     "Subscribe",
+    "Order",
 ];

@@ -8,7 +8,7 @@ use crate::config::{Config, WindowRule};
 use crate::{Action, HidingSupport, Result, WindowEvent};
 
 use super::applier::Applier;
-use super::{HiddenFile, Input, Platform, Settings, Tiler};
+use super::{HiddenFile, Input, Order, Platform, Settings, Tiler};
 
 #[path = "manager_bars.rs"]
 mod bars;
@@ -87,6 +87,17 @@ impl<P: Platform> TilingManager<P> {
         let desktop = self.applier.view(&self.platform, now);
         let effects = self.tiler.step(input, &desktop, now);
         self.applier.apply(effects, &mut self.platform, now);
+    }
+
+    /// Carries out `order`, and says whether what it names exists. An
+    /// order naming a window, monitor or workspace that does not is not
+    /// carried out.
+    pub fn order(&mut self, order: Order) -> bool {
+        if !self.tiler.knows(&order) {
+            return false;
+        }
+        self.step(Input::Order(order));
+        true
     }
 
     /// Executes a user-triggered action from a hotkey or the CLI.

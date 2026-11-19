@@ -107,6 +107,8 @@ mod monocle_stale_tests;
 mod move_monitor_tests;
 #[path = "tests/move_tests.rs"]
 mod move_tests;
+#[path = "tests/orders_tests.rs"]
+mod orders_tests;
 #[path = "tests/pipeline_tests.rs"]
 mod pipeline_tests;
 #[path = "tests/posted_move_tests.rs"]
