@@ -78,14 +78,13 @@ fn replacing_a_taken_combination_takes_it_from_the_other_binding() {
     click(&mut h, Role::Button, "Replace");
     click(&mut h, Role::Button, "Apply");
 
-    // Assert
-    assert!(
-        h.query_by_role_and_label(Role::Button, "Change Focus down")
-            .is_none()
-    );
+    // Assert -- focus-down is left on no key rather than removed, so the
+    // daemon does not put it back on Alt+J when it starts.
+    h.get_by_role_and_label(Role::Button, "Set Focus down");
     h.get_by_role_and_label(Role::Button, "Change Focus up");
     let saved = std::fs::read_to_string(path).unwrap();
-    assert!(!saved.contains("focus-down"));
+    assert!(saved.contains("action = \"focus-down\""), "{saved}");
+    assert_eq!(saved.matches("key = \"J\"").count(), 1, "{saved}");
     assert!(saved.contains("action = \"focus-up\""));
     h.get_by_label("Changes saved");
 }
