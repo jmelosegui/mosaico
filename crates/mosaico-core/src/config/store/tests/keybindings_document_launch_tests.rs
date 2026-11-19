@@ -17,6 +17,7 @@ fn app(command: &str, key: &str) -> LaunchBinding {
         key: key.into(),
         modifiers: vec![Alt],
         focus: false,
+        hidden: false,
         windows: WindowMatch::default(),
     }
 }
@@ -45,6 +46,7 @@ fn editing_a_launch_binding_keeps_its_comments_and_unknown_keys() {
     edited.command = "pwsh.exe".into();
     edited.args.clear();
     edited.focus = true;
+    edited.hidden = true;
     edited.windows.match_title = Some("PowerShell".into());
 
     // Act
@@ -60,8 +62,26 @@ fn editing_a_launch_binding_keeps_its_comments_and_unknown_keys() {
             "\"T\"\nmodifiers = [\"alt\"]",
             "\"P\"\nmodifiers = [\"alt\", \"shift\"]",
         )
-        + "focus = true\nmatch_title = \"PowerShell\"\n";
+        + "focus = true\nhidden = true\nmatch_title = \"PowerShell\"\n";
     assert_eq!(contents(&store.keybindings_path()), expected);
+}
+
+#[test]
+fn a_launch_binding_shown_again_drops_hidden_from_the_file() {
+    // Arrange
+    let text = FILE.replace("theme = \"dark\"\n", "hidden = true\ntheme = \"dark\"\n");
+    let store = store_with("kb-launch-shown", &text);
+    let mut doc = store.open_keybindings().unwrap();
+    let mut edited = doc.launches()[0].as_ref().unwrap().clone();
+    assert!(edited.hidden);
+    edited.hidden = false;
+
+    // Act
+    doc.set_launch(0, &edited).unwrap();
+    doc.save().unwrap();
+
+    // Assert
+    assert_eq!(contents(&store.keybindings_path()), FILE);
 }
 
 #[test]

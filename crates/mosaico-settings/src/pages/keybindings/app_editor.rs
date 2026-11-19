@@ -18,6 +18,7 @@ pub struct Editor {
     args: String,
     path: String,
     focus: bool,
+    hidden: bool,
 }
 
 impl Editor {
@@ -28,6 +29,7 @@ impl Editor {
             args: join_args(&binding.args),
             path: binding.windows.match_path.clone().unwrap_or_default(),
             focus: binding.focus,
+            hidden: binding.hidden,
         }
     }
 
@@ -40,6 +42,7 @@ impl Editor {
         let path = self.path.trim();
         edited.windows.match_path = (!path.is_empty()).then(|| path.to_owned());
         edited.focus = self.focus;
+        edited.hidden = self.hidden;
         edited
     }
 }
@@ -69,6 +72,8 @@ const PATH_HELP: &str = "Empty matches the command's name. Set it when the windo
     to another program, as WindowsTerminal.exe for wt.";
 const FOCUS_HELP: &str = "Off: every press starts a new one. On: a press brings an open \
     window forward, and the next press moves to another.";
+const HIDDEN_HELP: &str = "For a command-line program that does its work and exits, such \
+    as a script: no console opens for it, not even for a moment.";
 /// The space between two fields side by side.
 const GAP: f32 = 12.0;
 
@@ -100,6 +105,7 @@ pub fn show(
             }
             fields(ui, c, name, editor, was);
             focus(ui, c, name, editor, was);
+            hidden(ui, c, editor);
             let row = vec2(ui.available_width(), 26.0);
             ui.allocate_ui_with_layout(row, Layout::right_to_left(Align::Center), |ui| {
                 if outlined_button(ui, c, "Done").clicked() {
@@ -136,6 +142,22 @@ fn focus(ui: &mut Ui, c: &Colors, name: &str, editor: &mut Editor, was: Option<&
                     );
                     field(ui, c, (path, name, width), &mut editor.path, changed);
                 }
+            });
+    });
+}
+
+/// The checkbox that starts the program without a window.
+fn hidden(ui: &mut Ui, c: &Colors, editor: &mut Editor) {
+    ui.vertical(|ui| {
+        ui.spacing_mut().item_spacing.y = 4.0;
+        widgets::checkbox(ui, c, "Start it without a window", &mut editor.hidden);
+        Frame::new()
+            .inner_margin(Margin {
+                left: 24,
+                ..Margin::ZERO
+            })
+            .show(ui, |ui| {
+                ui.add(Label::new(help(c, HIDDEN_HELP)).wrap());
             });
     });
 }

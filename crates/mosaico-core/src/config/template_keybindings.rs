@@ -22,6 +22,8 @@ const LAUNCH_EXAMPLES: &str = r#"
 #   args      arguments, one string each (optional)
 #   focus     true focuses an open window of the application instead of
 #             starting another one (optional, default false)
+#   hidden    true starts it without a window, so a command-line program
+#             such as a script opens no console (optional, default false)
 #   match_path, match_class, match_title
 #             which windows count as the application's, as in window rules
 #             (optional; by default, windows of the program named by command)

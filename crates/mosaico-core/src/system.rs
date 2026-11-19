@@ -24,7 +24,7 @@ pub use autostart_status::AutostartStatus;
 pub use file_probe::FileProbe;
 pub use font_catalog::{FontCatalog, font_choices};
 pub use interrupt::Interrupts;
-pub use launcher::Launcher;
+pub use launcher::{Launcher, Visibility};
 pub use opener::Opener;
 pub use setup::ProcessSetup;
 pub use single_instance::{InstanceLock, SingleInstance};

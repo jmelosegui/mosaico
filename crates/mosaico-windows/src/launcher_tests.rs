@@ -113,7 +113,11 @@ fn a_command_that_does_not_exist_fails_without_a_message_box() {
     let launcher = ShellLauncher::current();
 
     // Act
-    let launched = launcher.launch("mosaico-launcher-no-such-program.exe", &[]);
+    let launched = launcher.launch(
+        "mosaico-launcher-no-such-program.exe",
+        &[],
+        Visibility::Shown,
+    );
 
     // Assert
     assert!(
@@ -126,4 +130,10 @@ fn a_command_that_does_not_exist_fails_without_a_message_box() {
         ),
         "{launched:?}"
     );
+}
+
+#[test]
+fn a_hidden_program_is_started_with_its_window_hidden() {
+    assert_eq!(show_command(Visibility::Hidden), SW_HIDE);
+    assert_eq!(show_command(Visibility::Shown), SW_SHOWNORMAL);
 }
