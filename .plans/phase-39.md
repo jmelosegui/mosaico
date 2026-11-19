@@ -240,9 +240,9 @@ Each task is one pull request, stacked on the one before, and closes its issue.
 
 ### 39.7 `mosaico script` commands (#248)
 
-- [ ] `run`, `new`, `edit`, `list`, `add`, `open`
-- [ ] Template, `lib\mosaico.lua` annotations, `.luarc.json`
-- [ ] Waiting for and resubscribing to the daemon
+- [x] `run`, `new`, `edit`, `list`, `add`, `open`
+- [x] Template, `lib\mosaico.lua` annotations, `.luarc.json`
+- [x] Waiting for and resubscribing to the daemon
 
 ### 39.8 Script autostart and tray (#249)
 

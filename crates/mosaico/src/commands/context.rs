@@ -18,7 +18,7 @@ use mosaico_core::desktop_events::EventKind;
 use mosaico_core::http::HttpClient;
 use mosaico_core::ipc::{Command, IpcClient, IpcError, Response, Subscribed};
 use mosaico_core::pid::PidFile;
-use mosaico_core::system::{Autostart, FileProbe, ProcessControl};
+use mosaico_core::system::{Autostart, FileProbe, Opener, ProcessControl};
 use mosaico_core::tiler::{Desktop, Enumerator};
 use mosaico_core::update::{Installer, RestartMarker};
 
@@ -123,6 +123,11 @@ pub struct Context<'a> {
     /// The note an installer hook leaves when it stops the daemon, so the
     /// hook that runs after the install starts it again.
     pub restart: RestartMarker,
+    /// Shows a folder in the file manager or opens a file with its program.
+    pub opener: &'a dyn Opener,
+    /// Makes what a script runs against: the daemon, time, programs and
+    /// this command's output.
+    pub scripts: &'a dyn Fn() -> mosaico_script::Env,
     /// Draws the mosaico logo over `version`, as in `0.12.1`.
     pub logo: &'a dyn Fn(&mut dyn Write, &str),
     /// Standard output.

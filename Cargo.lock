@@ -1778,6 +1778,7 @@ dependencies = [
  "clap",
  "embed-resource",
  "mosaico-core",
+ "mosaico-script",
  "mosaico-windows",
  "zip",
 ]
