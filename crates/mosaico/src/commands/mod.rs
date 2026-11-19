@@ -10,6 +10,7 @@ mod doctor_bar;
 mod doctor_launch;
 mod doctor_runtime;
 mod doctor_settings;
+pub mod events;
 pub mod init;
 pub mod installer_hook;
 pub mod pause;

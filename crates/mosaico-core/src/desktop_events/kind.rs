@@ -35,11 +35,13 @@ pub enum EventKind {
     Paused,
     /// `config_reloaded`
     ConfigReloaded,
+    /// `lagged`
+    Lagged,
 }
 
 impl EventKind {
     /// Every kind, in the order the documentation lists them.
-    pub const ALL: [Self; 12] = [
+    pub const ALL: [Self; 13] = [
         Self::WindowManaged,
         Self::WindowUnmanaged,
         Self::WindowMoved,
@@ -52,6 +54,7 @@ impl EventKind {
         Self::MonitorRemoved,
         Self::Paused,
         Self::ConfigReloaded,
+        Self::Lagged,
     ];
 
     /// The name clients know the kind by.
@@ -69,6 +72,7 @@ impl EventKind {
             Self::MonitorRemoved => "monitor_removed",
             Self::Paused => "paused",
             Self::ConfigReloaded => "config_reloaded",
+            Self::Lagged => "lagged",
         }
     }
 }

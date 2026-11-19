@@ -21,7 +21,11 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-use mosaico_core::ipc::{Command, IpcError, Response};
+use mosaico_core::desktop_events::{DesktopEvent, EventKind};
+use mosaico_core::ipc::{
+    Command, DesktopSnapshot, EventStream, IpcError, Response, ResponseStatus, Subscribed,
+    Subscription,
+};
 use mosaico_core::system::{LaunchCommand, ProcessControl};
 use mosaico_core::{Error, Rect, Result, WindowId};
 
@@ -67,6 +71,8 @@ pub struct World {
     pub replies: RefCell<VecDeque<Result<Response, IpcError>>>,
     /// Commands the daemon received.
     pub sent: RefCell<Vec<Command>>,
+    /// The events a subscription gets, after which the daemon closes it.
+    pub events: RefCell<Vec<DesktopEvent>>,
     /// Running processes.
     pub processes: RefCell<HashMap<u32, Lifetime>>,
     /// Whether killing a process works.
@@ -113,6 +119,7 @@ impl Default for World {
             looks_missing: Cell::new(false),
             replies: RefCell::default(),
             sent: RefCell::default(),
+            events: RefCell::default(),
             processes: RefCell::default(),
             can_kill: Cell::new(true),
             launch: RefCell::new(Launch::Answers(4321)),
@@ -168,6 +175,35 @@ impl Daemon for World {
             self.daemon_running.set(false);
         }
         reply
+    }
+
+    /// Accepted with an empty desktop unless a refusal is queued, then the
+    /// queued events.
+    fn subscribe(&self, kinds: Vec<EventKind>) -> Result<Subscribed, IpcError> {
+        let response = self.send(&Command::Subscribe { events: kinds })?;
+        if response.status != ResponseStatus::Ok {
+            return Ok(Subscribed::Refused(response));
+        }
+        let mut bytes = Vec::new();
+        for event in self.events.borrow().iter() {
+            mosaico_core::ipc::write_message(&mut bytes, event).map_err(|_| IpcError::Closed)?;
+        }
+        Ok(Subscribed::Accepted(Subscription {
+            snapshot: empty_desktop(),
+            events: EventStream::new(io::Cursor::new(bytes)),
+        }))
+    }
+}
+
+/// A desktop with no monitors.
+pub fn empty_desktop() -> DesktopSnapshot {
+    DesktopSnapshot {
+        monitors: Vec::new(),
+        disconnected: Vec::new(),
+        displaced_windows: 0,
+        daemon_elevated: false,
+        focused_monitor: 0,
+        focused_window: None,
     }
 }
 

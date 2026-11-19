@@ -8,6 +8,8 @@
 
 mod changes;
 mod kind;
+mod publisher;
+mod text;
 
 use serde::{Deserialize, Serialize};
 
@@ -16,6 +18,7 @@ use crate::{MonitorId, WindowId};
 
 pub use changes::changes;
 pub use kind::{EventKind, UnknownEvent};
+pub use publisher::Publisher;
 
 /// Something that changed on the desktop.
 ///
@@ -108,6 +111,10 @@ pub enum DesktopEvent {
     },
     /// The daemon loaded a changed configuration file.
     ConfigReloaded,
+    /// The subscriber fell too far behind and the daemon dropped it.
+    /// It is the last event on its connection, whatever kinds it asked
+    /// for; subscribe again to go on.
+    Lagged,
 }
 
 impl DesktopEvent {
@@ -126,6 +133,7 @@ impl DesktopEvent {
             Self::MonitorRemoved { .. } => EventKind::MonitorRemoved,
             Self::Paused { .. } => EventKind::Paused,
             Self::ConfigReloaded => EventKind::ConfigReloaded,
+            Self::Lagged => EventKind::Lagged,
         }
     }
 }
