@@ -51,6 +51,14 @@ enum Commands {
         #[command(subcommand)]
         action: ActionCommands,
     },
+    /// Print what changes on the desktop as it happens
+    Events {
+        /// Print each event as one JSON object per line
+        #[arg(long)]
+        json: bool,
+        /// Only these events, such as focus_changed or workspace_changed
+        kinds: Vec<String>,
+    },
     /// Show the animated mosaico banner
     Banner,
     /// Debugging and inspection tools
@@ -153,6 +161,7 @@ fn run(cx: &mut Context, command: Commands) -> Exit {
         },
         Commands::Pause => commands::pause::pause(cx),
         Commands::Unpause => commands::pause::unpause(cx),
+        Commands::Events { json, kinds } => commands::events::execute(cx, json, &kinds),
         Commands::Banner => commands::banner::execute(cx),
         Commands::Settings => commands::settings::execute(cx),
         Commands::Update { force } => commands::update::execute(cx, force),

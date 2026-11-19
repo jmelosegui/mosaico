@@ -3,6 +3,8 @@ use std::sync::mpsc;
 
 use mosaico_core::bar::BarManager;
 use mosaico_core::config::{ConfigStore, manage_deprecation};
+use mosaico_core::desktop_events::Publisher;
+use mosaico_core::ipc::Subscribers;
 use mosaico_core::tiler::{Enumerator, HiddenFile};
 use mosaico_core::tray::{TrayNotice, TrayPaths};
 use mosaico_core::update::Installer;
@@ -120,7 +122,9 @@ pub(super) fn daemon_loop(pipe_name: &str, store: &ConfigStore) -> Result<()> {
     let tray_bridge = daemon_threads::spawn_tray_bridge(tray_channel_rx, tx.clone());
 
     // Start the IPC listener on its own thread.
-    let ipc_thread = daemon_threads::spawn_ipc_listener(tx.clone(), pipe_name);
+    let subscribers = Subscribers::default();
+    let mut publisher = Publisher::new(subscribers.clone());
+    let ipc_thread = daemon_threads::spawn_ipc_listener(tx.clone(), pipe_name, subscribers);
 
     // Start the config file watcher on its own thread.
     let (watcher_stop, watcher_thread, reload_bridge) =
@@ -139,9 +143,11 @@ pub(super) fn daemon_loop(pipe_name: &str, store: &ConfigStore) -> Result<()> {
         &mut bar_mgr,
         &mut current_theme,
         &mut inputs,
+        &mut publisher,
         &frames,
         &get_update,
     );
+    publisher.close();
 
     drop(frames);
     manager.restore_all_windows();

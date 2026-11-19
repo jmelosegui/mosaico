@@ -50,3 +50,25 @@ fn an_unknown_name_is_refused_with_the_known_ones() {
     assert!(text.starts_with("unknown event `focus_change`"), "{text}");
     assert!(text.contains("focus_changed"), "{text}");
 }
+
+#[test]
+fn an_event_prints_as_its_name_and_fields() {
+    // Arrange
+    let event = DesktopEvent::WindowManaged {
+        window: wid(0x4014E),
+        monitor: mid(0x10001),
+        workspace: 1,
+        class: "Notepad".into(),
+        title: "a \"b\"".into(),
+    };
+
+    // Act
+    let text = event.to_string();
+
+    // Assert -- workspaces are counted from 1, as the bar shows them.
+    assert_eq!(
+        text,
+        r#"window_managed window=0x4014E monitor=0x10001 workspace=2 class="Notepad" title="a \"b\"""#
+    );
+    assert_eq!(DesktopEvent::ConfigReloaded.to_string(), "config_reloaded");
+}
