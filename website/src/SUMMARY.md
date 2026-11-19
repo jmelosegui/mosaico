@@ -19,5 +19,6 @@
 - [Workspaces](guide/workspaces.md)
 - [Multi-Monitor](guide/multi-monitor.md)
 - [Focus Borders](guide/focus-border.md)
+- [Scripting](guide/scripting.md)
 - [Logging](guide/logging.md)
 - [Debugging](guide/debug-tools.md)
