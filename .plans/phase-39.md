@@ -117,20 +117,25 @@ A new OS-agnostic crate the CLI depends on. It embeds Lua 5.4 through `mlua`
 
 ```lua
 mosaico.state()                         -- monitors, workspaces, windows, focus
-mosaico.windows{ class = "...", title = "...", workspace = 2 }
+mosaico.windows{ class = "Code", title = "part", workspace = 2, monitor = id, floating = true }
 mosaico.action("goto-workspace-3")      -- any action name the CLI accepts
-mosaico.focus(id) mosaico.send(id, { workspace = 3 }) mosaico.float(id, true)
-mosaico.close(id) mosaico.show(monitor, workspace)
-mosaico.layout{ monitor = m, workspace = w, layout = "bsp" }
-mosaico.monocle{ monitor = m, workspace = w, on = true }
-mosaico.on("focus_changed", function(ev) ... end)
-mosaico.wait("window_managed", { class = "..." }, 10)
-mosaico.after(5, fn) mosaico.every(60, fn) mosaico.stop(code)
+mosaico.focus(window) mosaico.send(window, workspace) mosaico.float(window [, on])
+mosaico.close(window) mosaico.show(monitor, workspace)
+mosaico.layout(monitor, workspace, "three-column") mosaico.monocle(monitor [, on])
+mosaico.on("focus_changed", function(event) ... end)
+mosaico.wait("window_managed" [, { class = "Code" }] [, seconds])
+mosaico.after(seconds, fn) mosaico.every(seconds, fn) mosaico.cancel(timer)
+mosaico.sleep(seconds) mosaico.stop([code])
 mosaico.launch{ "wt.exe", "-d", "C:/src" }
-mosaico.exec{ "git", "status", timeout = 5 }
-mosaico.log("info", "...") mosaico.json.encode(v) mosaico.json.decode(s)
+mosaico.exec{ "git", "status", timeout = 5 }  -- { ok, code, stdout, stderr, timed_out }
+mosaico.log([level,] text) mosaico.json.encode(v) mosaico.json.decode(s)
 mosaico.args                            -- key=value arguments from the command line
 ```
+
+Workspaces are counted from 1 in scripts, as the bar and the
+`goto-workspace-N` actions count them; the runtime converts to the daemon's
+0-based index and back. Window and monitor ids are the integers the daemon
+reports.
 
 - Calls that ask the daemon return `value` or `nil, err`; they never raise, so
   a script decides what a failure means.
@@ -229,9 +234,9 @@ Each task is one pull request, stacked on the one before, and closes its issue.
 
 ### 39.6 Script runtime (#247)
 
-- [ ] `mosaico-script` crate, `mlua` with Lua 5.4
-- [ ] The `mosaico` table, event loop, timers, sandbox, `require` from `lib\`
-- [ ] Tests against a fake daemon, clock, launcher and process runner
+- [x] `mosaico-script` crate, `mlua` with Lua 5.4
+- [x] The `mosaico` table, event loop, timers, sandbox, `require` from `lib\`
+- [x] Tests against a fake daemon, clock, launcher and process runner
 
 ### 39.7 `mosaico script` commands (#248)
 

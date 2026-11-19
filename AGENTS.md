@@ -6,7 +6,8 @@ Mosaico is a cross-platform tiling window manager written in Rust. It is a Cargo
 | --- | --- |
 | `crates/mosaico-core` | OS-agnostic traits, types and all decision logic (layouts, workspaces, config, matching) |
 | `crates/mosaico-windows` | Windows implementation of the core traits (Win32, DWM, WinHTTP, registry) |
-| `crates/mosaico` | CLI binary; depends on both |
+| `crates/mosaico-script` | Lua scripts run by `mosaico script run` as clients of the daemon; OS-agnostic, never loaded by the daemon |
+| `crates/mosaico` | CLI binary; depends on the crates above |
 | `crates/mosaico-metrics` | Metric reports and the committed baselines they are checked against (dev only) |
 | `xtask` | Development tasks, run with `cargo xtask` (dev only) |
 
