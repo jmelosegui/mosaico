@@ -1,5 +1,5 @@
 use super::super::command_line::Action;
-use super::definition;
+use super::{definition, described};
 
 const USER: &str = "S-1-5-21-1-2-3-1001";
 
@@ -78,5 +78,30 @@ fn characters_with_a_meaning_in_xml_are_escaped() {
     assert!(
         xml.contains("<Arguments>&quot;it&apos;s&quot; a&gt;b</Arguments>"),
         "{xml}"
+    );
+}
+
+#[test]
+fn a_task_can_say_what_it_starts() {
+    // Act
+    let xml = described(
+        USER,
+        &action(r"C:\apps\mosaico.exe", "script run dock --background"),
+        "Starts the mosaico script dock & more",
+    );
+    let own = definition(USER, &action(r"C:\apps\mosaico.exe", "start"));
+
+    // Assert
+    assert!(
+        xml.contains("<Description>Starts the mosaico script dock &amp; more</Description>"),
+        "{xml}"
+    );
+    assert!(
+        xml.contains("<Arguments>script run dock --background</Arguments>"),
+        "{xml}"
+    );
+    assert!(
+        own.contains("Set up by `mosaico autostart enable`."),
+        "{own}"
     );
 }

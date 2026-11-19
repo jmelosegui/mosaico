@@ -117,6 +117,17 @@ enum ScriptCommands {
         /// Stop at the first error in a handler or timer
         #[arg(long)]
         fail_fast: bool,
+        /// Run it detached, without a console, writing to its log
+        #[arg(long)]
+        background: bool,
+        /// Write what the script prints to this file
+        #[arg(long, hide = true)]
+        log: Option<std::path::PathBuf>,
+    },
+    /// Start a script when you sign in, or stop doing so
+    Autostart {
+        #[command(subcommand)]
+        action: ScriptAutostartCommands,
     },
     /// Create a script from a template and open it
     New {
@@ -137,6 +148,20 @@ enum ScriptCommands {
     },
     /// Open the scripts folder
     Open,
+}
+
+#[derive(Subcommand)]
+enum ScriptAutostartCommands {
+    /// Start the script in the background whenever you sign in
+    Enable {
+        /// The script's name
+        name: String,
+    },
+    /// Stop starting the script when you sign in
+    Disable {
+        /// The script's name
+        name: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -205,7 +230,26 @@ fn run(cx: &mut Context, command: Commands) -> Exit {
                 script,
                 args,
                 fail_fast,
-            } => commands::script::run::execute(cx, &script, &args, fail_fast),
+                background,
+                log,
+            } => {
+                let run = commands::script::run::Run {
+                    target: &script,
+                    args: &args,
+                    fail_fast,
+                    background,
+                    log: log.as_deref(),
+                };
+                commands::script::run::execute(cx, &run)
+            }
+            ScriptCommands::Autostart { action } => match action {
+                ScriptAutostartCommands::Enable { name } => {
+                    commands::script::autostart::enable(cx, &name)
+                }
+                ScriptAutostartCommands::Disable { name } => {
+                    commands::script::autostart::disable(cx, &name)
+                }
+            },
             ScriptCommands::New { name } => commands::script::files::new(cx, &name),
             ScriptCommands::Edit { name } => commands::script::files::edit(cx, &name),
             ScriptCommands::List => commands::script::files::list(cx),

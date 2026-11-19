@@ -170,6 +170,15 @@ impl ProcessControl for WindowsProcesses {
         spawn_detached(Command::new(program), "start the program")
     }
 
+    /// Re-runs the current executable with `args`, detached and with its
+    /// standard streams closed.
+    fn launch_self(&self, args: &[String]) -> Result<u32> {
+        let exe = std::env::current_exe().or_platform("find the mosaico executable")?;
+        let mut command = Command::new(exe);
+        command.args(args);
+        spawn_detached(command, "start mosaico in the background")
+    }
+
     fn is_alive(&self, pid: u32) -> bool {
         is_process_alive(pid)
     }
