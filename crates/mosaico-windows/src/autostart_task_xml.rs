@@ -16,6 +16,16 @@ use super::command_line::Action;
 /// a task that starts at anyone's logon. The task may run on battery,
 /// has no time limit, and a second start while it runs is dropped.
 pub fn definition(user: &str, action: &Action) -> String {
+    described(
+        user,
+        action,
+        "Starts mosaico when you sign in. Set up by `mosaico autostart enable`.",
+    )
+}
+
+/// [`definition`], with the `description` the Task Scheduler shows.
+pub fn described(user: &str, action: &Action, description: &str) -> String {
+    let description = escape(description);
     let user = escape(user);
     let program = escape(&action.program);
     let arguments = escape(&action.arguments);
@@ -23,7 +33,7 @@ pub fn definition(user: &str, action: &Action) -> String {
         r#"<?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <RegistrationInfo>
-    <Description>Starts mosaico when you sign in. Set up by `mosaico autostart enable`.</Description>
+    <Description>{description}</Description>
   </RegistrationInfo>
   <Triggers>
     <LogonTrigger>

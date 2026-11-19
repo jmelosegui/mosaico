@@ -24,6 +24,8 @@ pub enum TrayCommand {
     ReloadConfig,
     /// Opens the config folder in the file manager.
     OpenConfigFolder,
+    /// Opens the folder of the user's scripts in the file manager.
+    OpenScriptsFolder,
     /// Opens the log file.
     OpenLog,
     /// Stops the daemon, as the `stop` command does.
@@ -94,6 +96,7 @@ impl TrayState {
             item(TrayCommand::ReloadConfig, "Reload config"),
             TrayItem::Separator,
             item(TrayCommand::OpenConfigFolder, "Open config folder"),
+            item(TrayCommand::OpenScriptsFolder, "Open scripts folder"),
             item(TrayCommand::OpenLog, "Open log"),
             TrayItem::Separator,
             item(TrayCommand::Quit, "Quit mosaico"),

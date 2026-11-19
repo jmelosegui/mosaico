@@ -30,6 +30,7 @@ fn a_running_daemon_offers_to_pause_and_shows_its_version() {
             "Reload config",
             "-",
             "Open config folder",
+            "Open scripts folder",
             "Open log",
             "-",
             "Quit mosaico",

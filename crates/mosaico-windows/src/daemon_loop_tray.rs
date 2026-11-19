@@ -27,6 +27,7 @@ pub(super) fn handle(
     let done = match command {
         TrayCommand::OpenSettings => inputs.shortcuts().open_settings(),
         TrayCommand::OpenConfigFolder => inputs.shortcuts().open_config_folder(),
+        TrayCommand::OpenScriptsFolder => inputs.shortcuts().open_scripts_folder(),
         TrayCommand::OpenLog => inputs.shortcuts().open_log(),
         TrayCommand::TogglePause => {
             // carry_out has logged a failure, and the icon shows the state.

@@ -46,6 +46,13 @@ impl LogonTask {
         }
     }
 
+    /// The logon task called `name`.
+    pub fn named(name: &str) -> Self {
+        Self {
+            name: BSTR::from(name),
+        }
+    }
+
     /// Reads the task, or `None` when it is not registered.
     pub fn read(&self) -> Result<Option<Registered>> {
         const OPERATION: &str = "read the autostart task";

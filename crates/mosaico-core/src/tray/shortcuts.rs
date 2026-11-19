@@ -1,4 +1,5 @@
-//! What the icon opens: the settings app, the config folder and the log.
+//! What the icon opens: the settings app, the config and scripts
+//! folders and the log.
 
 use std::path::PathBuf;
 
@@ -13,6 +14,8 @@ pub struct TrayPaths {
     pub settings: PathBuf,
     /// The folder with the config files.
     pub config_dir: PathBuf,
+    /// The folder with the user's scripts.
+    pub scripts_dir: PathBuf,
     /// The log file, which exists once logging is on.
     pub log: PathBuf,
 }
@@ -60,6 +63,21 @@ impl Shortcuts<'_> {
         self.opener
             .open(&self.paths.config_dir)
             .map_err(|e| TrayNotice::new("Could not open the config folder", e.to_string()))
+    }
+
+    /// Opens the scripts folder in the file manager.
+    ///
+    /// # Errors
+    ///
+    /// The notice to show when it cannot be opened, as when there are no
+    /// scripts yet.
+    pub fn open_scripts_folder(&self) -> Result<(), TrayNotice> {
+        self.opener.open(&self.paths.scripts_dir).map_err(|e| {
+            TrayNotice::new(
+                "Could not open the scripts folder",
+                format!("{e}. Create a script with 'mosaico script new <name>' first."),
+            )
+        })
     }
 
     /// Opens the log file.
