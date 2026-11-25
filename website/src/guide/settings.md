@@ -80,6 +80,7 @@ it in view. Clicking it opens the settings window. Its menu has:
 | **Pause hotkeys** / **Resume hotkeys** | Same as `mosaico pause` and `mosaico unpause` |
 | **Reload config** | Loads `config.toml`, `user-rules.toml` and `bar.toml` again |
 | **Open config folder** | Opens the folder with the configuration files |
+| **Open scripts folder** | Opens the folder with your [scripts](scripting.md) |
 | **Open log** | Opens the log file, when logging is on |
 | **Quit mosaico** | Stops the daemon, as `mosaico stop` does |
 

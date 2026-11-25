@@ -173,6 +173,24 @@ workspace actions carry the number in their name instead:
 workspace also go by their key binding names, `goto-workspace-next` and
 `goto-workspace-prev`.
 
+## `mosaico events [--json] [kinds...]`
+
+Prints what changes on the desktop as it happens, one event per line, until
+the daemon stops or you press `Ctrl+C`: windows managed, unmanaged, moved,
+renamed or floated, focus, workspace and layout changes, monitors added and
+removed, pausing and config reloads. Name kinds, such as `focus_changed`, to
+print only those. With `--json`, each line is a JSON object whose `event`
+field names it, for programs to read. See [Scripting](scripting.md#events-and-timers)
+for every kind and its fields.
+
+Unlike `mosaico debug events`, which reads the system's raw window events, this
+shows what the daemon decided, and needs the daemon running.
+
+## `mosaico script <command>`
+
+Runs and manages Lua scripts that drive mosaico: `run`, `new`, `edit`, `list`,
+`add`, `open` and `autostart enable|disable`. See [Scripting](scripting.md).
+
 ## `mosaico pause` / `mosaico unpause`
 
 Temporarily suspends all mosaico global hotkeys so another application can use
