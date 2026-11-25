@@ -9,7 +9,7 @@ use std::os::windows::io::{AsRawHandle, FromRawHandle};
 use std::time::{Duration, Instant};
 
 use mosaico_core::Instance;
-use mosaico_core::ipc::{IpcClient, IpcConnection, IpcError, IpcServer, IpcStream};
+use mosaico_core::ipc::{IpcClient, IpcConnection, IpcError, IpcServer};
 use windows::Win32::Foundation::{
     ERROR_FILE_NOT_FOUND, ERROR_PIPE_BUSY, ERROR_PIPE_CONNECTED, GetLastError, HANDLE,
     INVALID_HANDLE_VALUE, WIN32_ERROR,
@@ -23,8 +23,11 @@ use windows::Win32::System::Pipes::{
 };
 use windows::core::HSTRING;
 
+pub use stream::PipeStream;
 use watchdog::with_deadline;
 
+#[path = "ipc_stream.rs"]
+mod stream;
 #[path = "ipc_watchdog.rs"]
 mod watchdog;
 
@@ -117,39 +120,6 @@ impl IpcClient for PipeClient {
             file,
             read_deadline: None,
         })
-    }
-}
-
-/// The CLI's end of one connection to the daemon.
-pub struct PipeStream {
-    file: File,
-    /// When reading the reply stops waiting for the daemon, if set.
-    read_deadline: Option<Instant>,
-}
-
-impl Read for PipeStream {
-    /// Reads the daemon's reply, failing with `TimedOut` once the
-    /// deadline set by `set_read_timeout` has passed.
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        let file = &mut self.file;
-        with_deadline(self.read_deadline, || file.read(buf))
-    }
-}
-
-impl Write for PipeStream {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.file.write(buf)
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        self.file.flush()
-    }
-}
-
-impl IpcStream for PipeStream {
-    fn set_read_timeout(&mut self, timeout: Duration) -> Result<(), IpcError> {
-        self.read_deadline = Some(Instant::now() + timeout);
-        Ok(())
     }
 }
 

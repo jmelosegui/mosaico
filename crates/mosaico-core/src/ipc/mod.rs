@@ -1,27 +1,32 @@
 //! The CLI to daemon protocol: messages, framing and transport.
 //!
 //! Every request is one JSON object holding the protocol version and the
-//! command, for example `{"version":2,"command":"Stop"}`. Every reply is
+//! command, for example `{"version":3,"command":"Stop"}`. Every reply is
 //! a [`Response`]. Both travel as one line each, see [`framing`].
 
 mod error;
 pub mod framing;
 mod request;
 mod response;
+mod subscribers;
+mod subscription;
 mod transport;
 
 use serde::{Deserialize, Serialize};
 
 use crate::Action;
+use crate::desktop_events::EventKind;
 
 pub use crate::snapshot::{DesktopSnapshot, MonitorSnapshot, WindowSnapshot, WorkspaceSnapshot};
 pub use error::IpcError;
 pub use framing::{MAX_MESSAGE_BYTES, read_message, write_message};
 pub use request::{Request, decode_request};
 pub use response::{DaemonStatus, ErrorCode, Response, ResponseStatus};
+pub use subscribers::{QUEUE_LENGTH, SUBSCRIBER_WRITE_TIMEOUT, Subscribers};
+pub use subscription::{EventStream, Subscribed, Subscription, subscribe};
 pub use transport::{
     IpcClient, IpcConnection, IpcServer, IpcStream, REPLY_TIMEOUT, REQUEST_TIMEOUT, Served, serve,
-    serve_with_timeout,
+    serve_with_subscriptions, serve_with_timeout,
 };
 
 /// Version of the request and reply format.
@@ -30,8 +35,9 @@ pub use transport::{
 /// new command, a renamed field, a different payload. The daemon refuses
 /// requests from another version, except [`Command::Stop`], so a mismatched
 /// daemon can always be stopped and restarted. Version 2 added the
-/// `goto-workspace-next` and `goto-workspace-prev` actions.
-pub const PROTOCOL_VERSION: u32 = 2;
+/// `goto-workspace-next` and `goto-workspace-prev` actions. Version 3
+/// added [`Command::State`] and [`Command::Subscribe`].
+pub const PROTOCOL_VERSION: u32 = 3;
 
 /// The mosaico release this build belongs to, reported by the daemon so
 /// the CLI can name the version that needs restarting.
@@ -58,6 +64,17 @@ pub enum Command {
     PauseHotkeys,
     /// Re-register all hotkeys that were paused.
     UnpauseHotkeys,
+    /// The desktop as data: a [`DesktopSnapshot`] in `data`.
+    State,
+    /// Keep the connection open and send desktop events on it. The reply
+    /// carries the desktop as a [`DesktopSnapshot`] in `data`; each line
+    /// after it is one [`DesktopEvent`](crate::desktop_events::DesktopEvent)
+    /// that changed it, until either side closes the connection.
+    Subscribe {
+        /// The kinds to send; every kind when empty.
+        #[serde(default)]
+        events: Vec<EventKind>,
+    },
 }
 
 /// The name of every [`Command`], as it travels in a request's `command`
@@ -74,4 +91,6 @@ const COMMAND_NAMES: &[&str] = &[
     "Inspect",
     "PauseHotkeys",
     "UnpauseHotkeys",
+    "State",
+    "Subscribe",
 ];

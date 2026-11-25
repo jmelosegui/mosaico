@@ -7,6 +7,7 @@ use std::thread;
 use mosaico_core::config::{ConfigReload, ConfigStore, ConfigWatch};
 use mosaico_core::hotkey::Target;
 use mosaico_core::http::HttpClient;
+use mosaico_core::ipc::Subscribers;
 use mosaico_core::tray::TrayCommand;
 use mosaico_core::{community_rules, update};
 
@@ -98,13 +99,15 @@ pub(super) fn spawn_tray_bridge(
     })
 }
 
-/// Spawns the IPC listener thread on `pipe_name`.
+/// Spawns the IPC listener thread on `pipe_name`, which hands the
+/// connections of subscriptions to `subscribers`.
 pub(super) fn spawn_ipc_listener(
     tx: mpsc::Sender<DaemonMsg>,
     pipe_name: &str,
+    subscribers: Subscribers,
 ) -> thread::JoinHandle<()> {
     let pipe_name = pipe_name.to_string();
-    thread::spawn(move || daemon_ipc::ipc_loop(tx, pipe_name))
+    thread::spawn(move || daemon_ipc::ipc_loop(tx, pipe_name, subscribers))
 }
 
 /// Spawns the watcher of the config files in `store` and a bridge into

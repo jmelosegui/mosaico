@@ -3,7 +3,9 @@
 
 use mosaico_core::action::Origin;
 use mosaico_core::bar::BarManager;
-use mosaico_core::ipc::{Command, DAEMON_VERSION, DaemonStatus, PROTOCOL_VERSION, Response};
+use mosaico_core::ipc::{
+    Command, DAEMON_VERSION, DaemonStatus, ErrorCode, PROTOCOL_VERSION, Response,
+};
 
 use crate::tiling::{TilingManager, TilingViews};
 
@@ -137,6 +139,12 @@ pub(super) fn handle_command(
             let snapshot = manager.snapshot();
             Some(Response::ok_with_message(snapshot.to_string()).with_data(&snapshot))
         }
+        Command::State => Some(Response::ok().with_data(&manager.snapshot())),
+        // The main loop answers subscriptions, where the publisher is.
+        Command::Subscribe { .. } => Some(Response::error(
+            ErrorCode::Failed,
+            "subscriptions are answered by the daemon loop",
+        )),
         Command::PauseHotkeys => {
             if !*hotkeys_paused {
                 inputs.pause_hotkeys();
