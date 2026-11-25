@@ -29,6 +29,7 @@ impl KeybindingsDocument {
             key: String::new(),
             modifiers: Vec::new(),
             focus: false,
+            hidden: false,
             windows: WindowMatch::default(),
         };
         let launches = self.launches().into_iter();
@@ -164,6 +165,7 @@ fn write(table: &mut Table, binding: &LaunchBinding, shortcut: bool) {
         replace(table, "modifiers", modifier_list(&binding.modifiers).into());
     }
     optional(table, "focus", binding.focus.then(|| true.into()));
+    optional(table, "hidden", binding.hidden.then(|| true.into()));
     let windows = &binding.windows;
     for (name, value) in [
         ("match_class", &windows.match_class),

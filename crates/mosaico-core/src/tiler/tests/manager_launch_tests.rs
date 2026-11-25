@@ -3,6 +3,7 @@
 use crate::Action;
 use crate::config::{LaunchBinding, Modifier, WindowMatch};
 use crate::id::wid;
+use crate::system::Visibility;
 use crate::tiler::Launched;
 
 use super::fake_launcher::RecordingLauncher;
@@ -16,8 +17,32 @@ fn binding(command: &str, args: &[&str]) -> LaunchBinding {
         key: "T".into(),
         modifiers: vec![Modifier::Alt],
         focus: false,
+        hidden: false,
         windows: WindowMatch::default(),
     }
+}
+
+#[test]
+fn a_hidden_binding_starts_the_program_without_a_window_and_others_with_one() {
+    // Arrange -- a console program bound to a key flashed a console
+    // window every time it was started.
+    let platform = FakePlatform::new(1, &[(1, 0)]);
+    let mut manager = start(&platform, None, &still());
+    let launcher = RecordingLauncher::default();
+    let hidden = LaunchBinding {
+        hidden: true,
+        ..binding("mosaico.exe", &["script", "run", "tidy"])
+    };
+
+    // Act
+    manager.launch(&hidden, &launcher).unwrap();
+    manager.launch(&binding("wt.exe", &[]), &launcher).unwrap();
+
+    // Assert
+    assert_eq!(
+        launcher.visibilities(),
+        [Visibility::Hidden, Visibility::Shown]
+    );
 }
 
 #[test]

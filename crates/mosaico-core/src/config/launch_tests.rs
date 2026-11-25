@@ -20,6 +20,7 @@ args = ["--new-window", "https://example.com"]
 key = "B"
 modifiers = ["alt", "shift"]
 focus = true
+hidden = true
 match_path = "msedge.exe"
 "#;
 
@@ -34,6 +35,7 @@ fn launch(command: &str) -> LaunchBinding {
         key: "B".into(),
         modifiers: vec![Alt],
         focus: true,
+        hidden: false,
         windows: WindowMatch::default(),
     }
 }
@@ -54,6 +56,7 @@ fn every_field_is_read_and_left_out_ones_take_their_defaults() {
                 key: "Enter".into(),
                 modifiers: vec![Alt],
                 focus: false,
+                hidden: false,
                 windows: WindowMatch::default(),
             },
             LaunchBinding {
@@ -62,6 +65,7 @@ fn every_field_is_read_and_left_out_ones_take_their_defaults() {
                 key: "B".into(),
                 modifiers: vec![Alt, Shift],
                 focus: true,
+                hidden: true,
                 windows: WindowMatch {
                     match_path: Some("msedge.exe".into()),
                     ..WindowMatch::default()

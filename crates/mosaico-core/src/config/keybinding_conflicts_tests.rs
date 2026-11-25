@@ -76,6 +76,7 @@ fn a_launch_binding_clashes_with_a_keybinding_and_with_another_launch() {
         key: key.into(),
         modifiers: modifiers.to_vec(),
         focus: false,
+        hidden: false,
         windows: Default::default(),
     };
     let launches = [

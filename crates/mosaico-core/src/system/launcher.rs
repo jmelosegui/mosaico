@@ -2,6 +2,16 @@
 
 use crate::Result;
 
+/// Whether a started program shows its windows.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Visibility {
+    /// It shows its windows as it normally would.
+    Shown,
+    /// It starts without a window: one that would open a console for a
+    /// command-line program opens none, so nothing flashes on screen.
+    Hidden,
+}
+
 /// Starts an application the way the system's own run box would.
 ///
 /// # Contract for platform implementations
@@ -18,12 +28,15 @@ use crate::Result;
 ///   caller: it shares no console or open handles with it, keeps running
 ///   after the caller exits, and `launch` returns without waiting for it
 ///   to show a window.
+/// - With [`Visibility::Hidden`], the program shows no window when it
+///   starts. A command-line program gets no visible console, not even for
+///   a moment, whichever terminal the system would otherwise open for it.
 /// - Nothing is shown to the user when the program cannot be started, and
 ///   a name that is found nowhere is not guessed into something else, such
 ///   as a web address. `launch` fails with
 ///   [`Error::Platform`](crate::Error::Platform) instead, and the caller
 ///   reports it.
 pub trait Launcher {
-    /// Starts `command` with `args`.
-    fn launch(&self, command: &str, args: &[String]) -> Result<()>;
+    /// Starts `command` with `args`, shown or hidden as `visibility` says.
+    fn launch(&self, command: &str, args: &[String], visibility: Visibility) -> Result<()>;
 }

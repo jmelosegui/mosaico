@@ -4,12 +4,12 @@ use std::ffi::OsString;
 use std::os::windows::ffi::OsStrExt;
 use std::path::PathBuf;
 
-use mosaico_core::system::Launcher;
+use mosaico_core::system::{Launcher, Visibility};
 use mosaico_core::{Error, Result};
 use windows::Win32::UI::Shell::{
     SEE_MASK_FLAG_NO_UI, SEE_MASK_NOASYNC, SHELLEXECUTEINFOW, ShellExecuteExW,
 };
-use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+use windows::Win32::UI::WindowsAndMessaging::{SHOW_WINDOW_CMD, SW_HIDE, SW_SHOWNORMAL};
 use windows::core::PCWSTR;
 
 use crate::apartment::Apartment;
@@ -40,7 +40,7 @@ impl ShellLauncher {
 }
 
 impl Launcher for ShellLauncher {
-    fn launch(&self, command: &str, args: &[String]) -> Result<()> {
+    fn launch(&self, command: &str, args: &[String], visibility: Visibility) -> Result<()> {
         let var = |name: &str| std::env::var_os(name);
         let command = expand_vars(command, var);
         let lookup = Lookup {
@@ -71,7 +71,7 @@ impl Launcher for ShellLauncher {
             lpDirectory: directory
                 .as_ref()
                 .map_or(PCWSTR::null(), |dir| PCWSTR(dir.as_ptr())),
-            nShow: SW_SHOWNORMAL.0,
+            nShow: show_command(visibility).0,
             ..Default::default()
         };
         // The shell may hand the program to a COM server, as it does for
@@ -81,6 +81,17 @@ impl Launcher for ShellLauncher {
         // points to is nul-terminated and outlives the call.
         unsafe { ShellExecuteExW(&mut info) }
             .map_err(|reason| Error::platform("start an application", reason))
+    }
+}
+
+/// How the shell is asked to show a program started with `visibility`.
+///
+/// A console program started hidden gets its console created hidden, and
+/// is not handed to Windows Terminal when that is the default terminal.
+fn show_command(visibility: Visibility) -> SHOW_WINDOW_CMD {
+    match visibility {
+        Visibility::Shown => SW_SHOWNORMAL,
+        Visibility::Hidden => SW_HIDE,
     }
 }
 

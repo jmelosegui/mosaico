@@ -155,6 +155,7 @@ fn launch(command: &str) -> LaunchBinding {
         key: "T".into(),
         modifiers: Vec::new(),
         focus: false,
+        hidden: false,
         windows: WindowMatch::default(),
     }
 }
