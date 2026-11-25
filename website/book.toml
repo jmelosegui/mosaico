@@ -9,10 +9,13 @@ src = "src"
 build-dir = "book"
 
 [output.html]
-site-url = "/mosaico/"
-default-theme = "coal"
+site-url = "/mosaico/docs/"
+default-theme = "light"
 preferred-dark-theme = "coal"
 git-repository-url = "https://github.com/jmelosegui/mosaico"
 edit-url-template = "https://github.com/jmelosegui/mosaico/edit/main/website/{path}"
-additional-css = ["src/theme.css"]
-additional-js = ["src/theme.js"]
+additional-css = ["landing/style.css", "src/theme.css"]
+
+[output.html.fold]
+enable = true
+level = 0

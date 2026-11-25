@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mosaico - a tiling window manager for Windows</title>
+  <meta name="description" content="Mosaico is a free, open source tiling window manager for Windows, written in Rust. It arranges your windows into a layout as they open, and you drive it from the keyboard.">
+  <meta property="og:title" content="Mosaico">
+  <meta property="og:description" content="A tiling window manager for Windows. Every window in its place.">
+  <meta property="og:image" content="assets/poster.jpg">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/mosaico-32.png">
+  <link rel="apple-touch-icon" href="assets/mosaico-256.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="nav">
+    <div class="wrap nav-in">
+      <a class="brand" href="./"><img src="assets/logo.svg" alt="" width="26" height="26"><span>Mosaico</span></a>
+      <nav>
+        <a href="#features">Features</a>
+        <a href="#themes">Themes</a>
+        <a href="#scripting">Scripting</a>
+        <a href="#shortcuts">Shortcuts</a>
+        <a href="docs/guide/getting-started.html">Docs</a>
+        <a href="https://github.com/jmelosegui/mosaico">GitHub</a>
+        <a class="nav-icon" href="docs/guide/getting-started.html#search" title="Search the docs" aria-label="Search the docs"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2" fill="none"/><path d="M20 20l-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></a>
+        <a class="btn btn-sm" href="#install">Install</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero wrap">
+      <p class="eyebrow">Tiling window manager for Windows</p>
+      <h1>Every window<br>in its place.</h1>
+      <p class="lede">Mosaico arranges your windows into a layout the moment they open, so you spend your time in them instead of dragging them around. Hold Alt and the keyboard does the rest.</p>
+      <div class="cta">
+        <a class="btn" href="#install">Install</a>
+        <button class="btn btn-ghost" id="play" type="button">
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M7 4.5v15l12.5-7.5z" fill="currentColor"/></svg>
+          See it in action <span class="pill">1 min</span>
+        </button>
+      </div>
+      <p class="fine">Version 0.13.1 &middot; Windows &middot; MIT licensed</p>
+
+      <button class="poster" id="poster" type="button" aria-label="Play the demo video">
+        <img src="assets/poster.jpg" alt="Mosaico tiling five windows on a Windows desktop" width="1920" height="1080">
+        <span class="play-big"><svg viewBox="0 0 24 24" width="34" height="34" aria-hidden="true"><path d="M7 4.5v15l12.5-7.5z" fill="currentColor"/></svg></span>
+      </button>
+    </section>
+
+    <section id="features" class="wrap section">
+      <h2>Room for everything.</h2>
+      <p class="intro">Open an app and Mosaico finds room for it. Close one and the rest close the gap. The layout is decided for you, and you can change it with one key.</p>
+
+      <div class="grid">
+        <article class="card">
+          <div class="art art-tiles" aria-hidden="true">
+            <div class="t t1"><b>1</b></div><div class="t t2"><b>2</b></div><div class="t t3"><b>3</b></div><div class="t t4"><b>4</b></div>
+          </div>
+          <h3>Tiling, automatically</h3>
+          <p>New windows split the space with the ones already there. No dragging, no snapping, no lining things up by hand.</p>
+        </article>
+
+        <article class="card">
+          <div class="art art-layouts" aria-hidden="true">
+            <div class="lay"><div class="m bsp"><i></i><i></i><i></i><i></i></div><span>BSP</span></div>
+            <div class="lay"><div class="m vs"><i></i><i></i><i></i><i></i></div><span>VerticalStack</span></div>
+            <div class="lay"><div class="m tc"><i></i><i></i><i></i><i></i><i></i></div><span>ThreeColumn</span></div>
+          </div>
+          <h3>Three layouts, one key</h3>
+          <p>Cycle between BSP, VerticalStack and ThreeColumn with <kbd>Alt</kbd> <kbd>N</kbd>. Each workspace keeps its own.</p>
+        </article>
+
+        <article class="card">
+          <div class="art art-ws" aria-hidden="true">
+            <div class="wsbar"><span class="on">1</span><span class="has">2</span><span class="has">3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span></div>
+            <div class="wsmon"><div></div><div></div><div></div></div>
+          </div>
+          <h3>Eight workspaces on every monitor</h3>
+          <p>Jump with <kbd>Alt</kbd> <kbd>1</kbd> to <kbd>8</kbd>, and send a window with <kbd>Shift</kbd>. Switch one monitor at a time, or all of them together like virtual desktops.</p>
+        </article>
+
+        <article class="card">
+          <div class="art art-rules" aria-hidden="true">
+            <table>
+              <thead><tr><th>Match</th><th>Value</th><th>Action</th></tr></thead>
+              <tbody>
+                <tr><td>title</td><td>Calculator</td><td><span class="tag fl">float</span></td></tr>
+                <tr><td>class</td><td>ApplicationFrame...</td><td><span class="tag ig">ignore</span></td></tr>
+                <tr><td>path</td><td>code.exe</td><td><span class="tag ti">tile</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <h3>Rules for the odd ones out</h3>
+          <p>Float the calculator, ignore the splash screen, tile the rest. Community rules download on startup and your own always win.</p>
+        </article>
+
+        <article class="card">
+          <div class="art art-mono" aria-hidden="true">
+            <div class="mono"><div class="a"></div><div class="b"></div><div class="c"></div></div>
+          </div>
+          <h3>Monocle when you need to focus</h3>
+          <p><kbd>Alt</kbd> <kbd>T</kbd> gives one window the whole screen and puts it back when you are done. The focus border turns green while monocle is on.</p>
+        </article>
+
+        <article class="card">
+          <div class="art art-bar" aria-hidden="true">
+            <div class="mbar">
+              <span class="p ws on">1</span><span class="p ws">2</span><span class="p ws">3</span><span class="p"><i class="app"></i></span><span class="p">BSP</span>
+            </div>
+            <div class="mbar mbar-r">
+              <span class="p">7%</span><span class="p">38%</span><span class="p">Mon 25 Nov</span><span class="p">09:41</span>
+            </div>
+          </div>
+          <h3>A status bar for the rest</h3>
+          <p>Workspaces, layout, clock, CPU and RAM at the top of each monitor. Themed, configurable, and reloaded the moment you save.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="themes" class="wrap section">
+      <h2>Pick a theme.</h2>
+      <p class="intro">Catppuccin, Rose Pine and Tokyo Night ship built in, in ten flavors. The bar, the focus border and the monocle border all follow, and named colors like <code>blue</code> work in every one of them.</p>
+
+      <div class="themer" id="themer" data-theme-name="mocha">
+        <div class="tabs" role="tablist">
+          <button type="button" role="tab" data-t="mocha" aria-selected="true">Catppuccin Mocha</button>
+          <button type="button" role="tab" data-t="latte">Catppuccin Latte</button>
+          <button type="button" role="tab" data-t="rose">Rose Pine</button>
+          <button type="button" role="tab" data-t="dawn">Rose Pine Dawn</button>
+          <button type="button" role="tab" data-t="tokyo">Tokyo Night</button>
+        </div>
+        <div class="screen" aria-hidden="true">
+          <div class="mbar big">
+            <span class="p ws on">1</span><span class="p ws">2</span><span class="p ws">3</span><span class="p ws">4</span><span class="p"><i class="app"></i></span><span class="p">BSP</span>
+            <span class="grow"></span>
+            <span class="p">7%</span><span class="p">38%</span><span class="p">09:41</span>
+          </div>
+          <div class="tiles">
+            <div class="tw focus"><div class="tt"></div><div class="tl"></div><div class="tl s"></div><div class="tl"></div></div>
+            <div class="tw"><div class="tt"></div><div class="tl s"></div><div class="tl"></div></div>
+            <div class="tw"><div class="tt"></div><div class="tl"></div></div>
+          </div>
+        </div>
+        <pre class="snippet"><code>[theme]
+name = <span class="str" id="theme-name">"catppuccin"</span>
+flavor = <span class="str" id="theme-flavor">"mocha"</span></code></pre>
+      </div>
+    </section>
+
+    <section id="settings" class="wrap section">
+      <h2>Or never open a config file.</h2>
+      <p class="intro">The settings window covers every option, from gaps and borders to bar widgets, keybindings and window rules. Search finds a setting on any page, and Apply reloads mosaico on the spot.</p>
+      <div class="setwin">
+        <div class="setframe">
+        <picture id="setpic">
+          <source id="setsrc" media="(prefers-color-scheme: dark)" srcset="assets/settings/general-mocha.webp">
+          <img id="setimg" src="assets/settings/general-latte.webp" alt="The mosaico settings window" width="1600" height="1184" loading="lazy">
+        </picture>
+          <button type="button" class="hot" data-s="general" style="top:16.98%" aria-label="Show the General page"></button>
+          <button type="button" class="hot" data-s="layout" style="top:21.25%" aria-label="Show the Layout page"></button>
+          <button type="button" class="hot" data-s="workspaces" style="top:25.52%" aria-label="Show the Workspaces page"></button>
+          <button type="button" class="hot" data-s="borders" style="top:29.80%" aria-label="Show the Borders page"></button>
+          <button type="button" class="hot" data-s="mouse" style="top:34.07%" aria-label="Show the Mouse page"></button>
+          <button type="button" class="hot" data-s="animations" style="top:38.34%" aria-label="Show the Animations page"></button>
+          <button type="button" class="hot" data-s="bar" style="top:42.62%" aria-label="Show the Bar page"></button>
+          <button type="button" class="hot" data-s="keybindings" style="top:46.89%" aria-label="Show the Keybindings page"></button>
+          <button type="button" class="hot" data-s="rules" style="top:51.17%" aria-label="Show the Rules page"></button>
+        </div>
+      </div>
+      <p class="more">Click the pages in the sidebar to look around. Open it from the tray icon, or run <code>mosaico settings</code>.</p>
+    </section>
+
+    <section id="scripting" class="wrap section">
+      <div class="split">
+        <div>
+          <h2>Script it. <span class="soon">Coming soon</span></h2>
+          <p class="intro">Lua scripts read the desktop, react to what happens on it and act on it. Float the meeting window, switch layouts when you dock, run a command every time you change workspace.</p>
+          <ul class="facts">
+            <li>A script runs in its own process, so one that fails only stops itself.</li>
+            <li>Events for windows, focus, workspaces, layouts and monitors.</li>
+            <li>Start scripts when you sign in with <code>mosaico script autostart</code>.</li>
+            <li>Not a Lua person? <code>mosaico events --json</code> streams the same events to any language.</li>
+          </ul>
+        </div>
+        <div class="cmd lua">
+          <div class="cmd-h"><span>scripts\meeting.lua</span></div>
+          <pre><code><span class="cm">-- Float meeting windows over the tiles</span>
+mosaico.<span class="fn">on</span>(<span class="st">"window_managed"</span>, <span class="kw">function</span>(e)
+  <span class="kw">if</span> e.title:<span class="fn">find</span>(<span class="st">"Meeting"</span>) <span class="kw">then</span>
+    mosaico.<span class="fn">float</span>(e.window)
+  <span class="kw">end</span>
+<span class="kw">end</span>)</code></pre>
+          <div class="cmd-h"><span>PowerShell</span></div>
+          <pre><code><span class="p">PS&gt;</span> mosaico script run meeting</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="shortcuts" class="wrap section">
+      <h2>Alt is all you need.</h2>
+      <p class="intro">The defaults follow Vim, so your hands stay on the home row. Change any binding in <code>keybindings.toml</code> or in the settings window.</p>
+      <dl class="keys">
+        <div><dt>Focus a window</dt><dd><kbd>Alt</kbd> <kbd>H</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd></dd></div>
+        <div><dt>Move a window</dt><dd><kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>H</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd></dd></div>
+        <div><dt>Switch workspace</dt><dd><kbd>Alt</kbd> <kbd>1</kbd> ... <kbd>8</kbd></dd></div>
+        <div><dt>Send to workspace</dt><dd><kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>1</kbd> ... <kbd>8</kbd></dd></div>
+        <div><dt>Cycle layout</dt><dd><kbd>Alt</kbd> <kbd>N</kbd></dd></div>
+        <div><dt>Monocle</dt><dd><kbd>Alt</kbd> <kbd>T</kbd></dd></div>
+        <div><dt>Float or tile</dt><dd><kbd>Alt</kbd> <kbd>F</kbd></dd></div>
+        <div><dt>Resize</dt><dd><kbd>Alt</kbd> <kbd>.</kbd> <kbd>,</kbd></dd></div>
+        <div><dt>Close window</dt><dd><kbd>Alt</kbd> <kbd>Q</kbd></dd></div>
+        <div><dt>Pause hotkeys</dt><dd><kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>P</kbd></dd></div>
+      </dl>
+      <p class="more"><a href="docs/guide/cheatsheet.html">The full cheatsheet</a></p>
+    </section>
+
+    <section id="install" class="wrap section install">
+      <img class="big-logo" src="assets/logo.svg" alt="" width="88" height="88">
+      <h2>Try it today.</h2>
+      <p class="intro">Free and open source. One command installs it for your user, with no dependencies and no admin rights, and <code>mosaico update</code> keeps it current.</p>
+
+      <div class="cmd">
+        <div class="cmd-h"><span>PowerShell</span><button type="button" data-copy="irm https://raw.githubusercontent.com/jmelosegui/mosaico/main/docs/install.ps1 | iex">Copy</button></div>
+        <pre><code><span class="p">PS&gt;</span> irm https://raw.githubusercontent.com/jmelosegui/mosaico/main/docs/install.ps1 | iex</code></pre>
+      </div>
+      <p class="or">Or with winget <span class="soon">Coming soon</span></p>
+      <div class="cmd cmd-soon">
+        <div class="cmd-h"><span>PowerShell</span></div>
+        <pre><code><span class="p">PS&gt;</span> winget install jmelosegui.mosaico</code></pre>
+      </div>
+      <p class="or">Then start it, and check your setup if anything looks off:</p>
+      <div class="cmd">
+        <div class="cmd-h"><span>PowerShell</span><button type="button" data-copy="mosaico start">Copy</button></div>
+        <pre><code><span class="p">PS&gt;</span> mosaico start
+<span class="p">PS&gt;</span> mosaico doctor</code></pre>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="wrap foot">
+    <div class="foot-l"><img src="assets/logo.svg" alt="" width="20" height="20"><span>Mosaico 0.13.1 &middot; MIT licensed, made with Rust</span></div>
+    <nav>
+      <a href="https://github.com/jmelosegui/mosaico">GitHub</a>
+      <a href="docs/guide/getting-started.html">Documentation</a>
+      <a href="https://github.com/jmelosegui/mosaico/releases">Releases</a>
+      <a href="https://github.com/jmelosegui/mosaico/blob/main/LICENSE">MIT License</a>
+    </nav>
+    <p class="copy">&copy;2026 Juan Elosegui</p>
+  </footer>
+
+  <dialog id="video">
+    <button class="close" type="button" aria-label="Close">&times;</button>
+    <video id="vid" controls playsinline preload="none" poster="assets/poster.jpg">
+      <source src="assets/mosaico-demo.mp4" type="video/mp4">
+      <track kind="captions" srclang="en" label="English" src="assets/mosaico-demo.en.vtt">
+    </video>
+  </dialog>
+
+  <script src="main.js"></script>
+</body>
+</html>

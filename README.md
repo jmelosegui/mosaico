@@ -2,9 +2,9 @@
 
 A fast, configurable tiling window manager for Windows, written in Rust.
 
-<img alt="image" src="https://github.com/user-attachments/assets/13b02a9c-cbd5-4fc7-9498-f3399556fc7d" />
+[![See Mosaico in action, a one-minute demo](website/landing/assets/readme-demo.jpg)](https://jmelosegui.com/mosaico/assets/mosaico-demo.mp4)
 
-**Documentation:** [jmelosegui.com/mosaico](https://jmelosegui.com/mosaico/)
+**Website:** [jmelosegui.com/mosaico](https://jmelosegui.com/mosaico/) | **Docs:** [jmelosegui.com/mosaico/docs](https://jmelosegui.com/mosaico/docs/)
 
 ## Features
 

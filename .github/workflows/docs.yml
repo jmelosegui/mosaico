@@ -22,13 +22,30 @@ jobs:
       - name: Setup mdBook
         uses: peaceiris/actions-mdbook@v2
         with:
-          mdbook-version: "latest"
+          # Pinned: website/theme/index.hbs is a copy of this version's template.
+          mdbook-version: "0.5.2"
 
       # Build on every event so a broken markdown change fails CI
       # before merge.
       - name: Build Documentation
         run: mdbook build
         working-directory: website
+
+      # The landing page is the site's root and the book lives under docs/.
+      # The guide used to be at the root, so each old guide page becomes a
+      # redirect. Relative URLs keep the redirects working behind the
+      # /mosaico/ prefix the site is served under.
+      - name: Assemble Site
+        run: |
+          mkdir -p site/guide
+          cp -r website/landing/. site/
+          rm -rf site/video
+          cp -r website/book site/docs
+          for page in website/book/guide/*.html; do
+            name=$(basename "$page")
+            printf '<!doctype html><meta charset="utf-8"><title>Moved</title><link rel="canonical" href="../docs/guide/%s"><meta http-equiv="refresh" content="0; url=../docs/guide/%s"><a href="../docs/guide/%s">This page moved.</a>\n' \
+              "$name" "$name" "$name" > "site/guide/$name"
+          done
 
       # Only deploy to Azure on a push to main. Skipping pull_request
       # events here means no per-PR preview environment is created.
@@ -40,5 +57,5 @@ jobs:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: "upload"
-          app_location: "website/book"
+          app_location: "site"
           skip_app_build: true
