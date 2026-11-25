@@ -11,7 +11,7 @@ use mosaico_core::ipc::{
     WorkspaceSnapshot,
 };
 use mosaico_core::monitor::MonitorKey;
-use mosaico_core::system::Launcher;
+use mosaico_core::system::{Launcher, Visibility};
 use mosaico_core::{MonitorId, Rect, WindowId};
 
 use crate::{Clock, Daemon, Env, Inbox, Next, Options, Outcome, Ran, Runner, Script};
@@ -102,7 +102,7 @@ impl Daemon for FakeDaemon {
 pub struct FakeLauncher(pub RefCell<Vec<Vec<String>>>);
 
 impl Launcher for FakeLauncher {
-    fn launch(&self, command: &str, args: &[String]) -> mosaico_core::Result<()> {
+    fn launch(&self, command: &str, args: &[String], _: Visibility) -> mosaico_core::Result<()> {
         let mut line = vec![command.to_string()];
         line.extend(args.iter().cloned());
         self.0.borrow_mut().push(line);

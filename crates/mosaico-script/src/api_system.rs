@@ -4,6 +4,7 @@
 use std::time::Duration;
 
 use mlua::{Lua, LuaSerdeExt, MultiValue, Table, Value, Variadic};
+use mosaico_core::system::Visibility;
 
 use super::{failure, success, to_lua};
 use crate::runtime::State;
@@ -23,7 +24,7 @@ pub(super) fn install(
                 return failure(lua, "expected the program to start");
             };
             let launcher = s.borrow().env.launcher.clone();
-            match launcher.launch(command, args) {
+            match launcher.launch(command, args, Visibility::Shown) {
                 Ok(()) => success(Value::Boolean(true)),
                 Err(e) => failure(lua, e.to_string()),
             }

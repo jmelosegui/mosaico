@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 
 use mosaico_core::desktop_events::DesktopEvent;
 use mosaico_core::ipc::{Command, DesktopSnapshot, IpcError, Response};
-use mosaico_core::system::{LaunchCommand, Launcher, Opener, ScriptAutostart};
+use mosaico_core::system::{LaunchCommand, Launcher, Opener, ScriptAutostart, Visibility};
 use mosaico_script::{Clock, Daemon, Env, Inbox, Next, Ran, Runner};
 
 use super::{World, empty_desktop};
@@ -73,7 +73,7 @@ impl Clock for ScriptClock {
 pub struct NoPrograms;
 
 impl Launcher for NoPrograms {
-    fn launch(&self, command: &str, _: &[String]) -> mosaico_core::Result<()> {
+    fn launch(&self, command: &str, _: &[String], _: Visibility) -> mosaico_core::Result<()> {
         Err(mosaico_core::Error::Platform {
             operation: "start a program",
             source: format!("{command} not started in a test").into(),
