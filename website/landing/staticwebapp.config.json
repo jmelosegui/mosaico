@@ -1,0 +1,6 @@
+{
+  "mimeTypes": {
+    ".mp4": "video/mp4",
+    ".vtt": "text/vtt"
+  }
+}
