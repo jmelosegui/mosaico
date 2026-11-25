@@ -5,6 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::layout::LayoutKind;
 use crate::{MonitorId, MonitorKey, Rect, WindowId};
 
 /// Every monitor, workspace and managed window, and what has focus.
@@ -50,6 +51,12 @@ pub struct WorkspaceSnapshot {
     /// The floating windows on the workspace, frontmost last.
     #[serde(default)]
     pub floating: Vec<WindowSnapshot>,
+    /// The layout that tiles the workspace.
+    #[serde(default)]
+    pub layout: LayoutKind,
+    /// Whether one window fills the workspace (monocle).
+    #[serde(default)]
+    pub monocle: bool,
 }
 
 /// One managed window, as the platform sees it.

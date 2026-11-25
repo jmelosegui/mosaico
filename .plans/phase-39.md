@@ -40,7 +40,7 @@ This phase adds three layers, each usable on its own:
 - **Old clients keep working where they can.** The protocol version is bumped
   once, for all new commands together.
 
-## Events (`mosaico-core/src/events/`)
+## Events (`mosaico-core/src/desktop_events/`)
 
 ```rust
 /// Something that changed on the desktop, as a subscriber sees it.
@@ -53,7 +53,7 @@ pub enum DesktopEvent {
     WindowFloatingChanged { window: WindowId, floating: bool },
     FocusChanged { window: Option<WindowId>, monitor: MonitorId },
     WorkspaceChanged { monitor: MonitorId, workspace: usize },
-    LayoutChanged { monitor: MonitorId, workspace: usize, layout: String, monocle: bool },
+    LayoutChanged { monitor: MonitorId, workspace: usize, layout: LayoutKind, monocle: bool },
     MonitorAdded { monitor: MonitorId },
     MonitorRemoved { monitor: MonitorId },
     Paused { paused: bool },
@@ -209,8 +209,8 @@ Each task is one pull request, stacked on the one before, and closes its issue.
 
 ### 39.3 Desktop events in core (#244)
 
-- [ ] `WorkspaceSnapshot` carries layout and monocle
-- [ ] `DesktopEvent`, `EventKind` and `changes(before, after)`, with a test per event
+- [x] `WorkspaceSnapshot` carries layout and monocle
+- [x] `DesktopEvent`, `EventKind` and `changes(before, after)`, with a test per event
 
 ### 39.4 Event subscription (#245)
 
