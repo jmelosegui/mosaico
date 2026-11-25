@@ -93,19 +93,22 @@ pub enum DesktopEvent {
 
 ## Targeted commands
 
-New `Command` variants, each acting on what it names instead of on focus:
+`Command::Order { order }` carries a `tiler::Order` that names what it acts
+on instead of the focused window or monitor. Workspaces are counted from 0,
+as in the snapshot and the events.
 
-| Command | Does |
+| Order | Does |
 | --- | --- |
-| `FocusWindow { window }` | Focuses the window, switching its monitor to its workspace if needed (`Tiler::raise`, from phase 38). |
-| `SendWindow { window, workspace, monitor? }` | Moves the window to a workspace, on its own monitor or the one named. |
-| `SetFloating { window, floating }` | Floats or tiles the window. |
-| `CloseWindow { window }` | Asks the window to close. |
-| `GotoWorkspace { monitor, workspace }` | Shows a workspace on a monitor. |
-| `SetLayout { monitor, workspace, layout }` | Picks a layout by name. |
-| `SetMonocle { monitor, workspace, on }` | Turns monocle on or off. |
+| `focus { window }` | Focuses the window and brings it into view (`Tiler::raise`, from phase 38). |
+| `send { window, workspace }` | Focuses a tiled window, sends it to a workspace of its monitor and follows it, as `send-to-workspace` does. |
+| `float { window, floating }` | Focuses the window, then floats or tiles it if it is not already. |
+| `close { window }` | Asks the window to close, without focusing it. |
+| `show { monitor, workspace }` | Shows a workspace on a monitor; focus stays where it is. In global mode every monitor switches. |
+| `layout { monitor, workspace, layout }` | Sets a workspace's layout, on screen or not. |
+| `monocle { monitor, on }` | Turns monocle on or off on the workspace a monitor shows, focusing that monitor. |
 
-An id that no longer exists is answered with `ErrorCode::NotFound`.
+An order naming a window, monitor or workspace the daemon does not have is
+answered with `ErrorCode::NotFound` and not carried out.
 
 ## Script runtime (`crates/mosaico-script`)
 
@@ -117,7 +120,7 @@ mosaico.state()                         -- monitors, workspaces, windows, focus
 mosaico.windows{ class = "...", title = "...", workspace = 2 }
 mosaico.action("goto-workspace-3")      -- any action name the CLI accepts
 mosaico.focus(id) mosaico.send(id, { workspace = 3 }) mosaico.float(id, true)
-mosaico.close(id) mosaico.workspace(monitor, workspace)
+mosaico.close(id) mosaico.show(monitor, workspace)
 mosaico.layout{ monitor = m, workspace = w, layout = "bsp" }
 mosaico.monocle{ monitor = m, workspace = w, on = true }
 mosaico.on("focus_changed", function(ev) ... end)
@@ -222,7 +225,7 @@ Each task is one pull request, stacked on the one before, and closes its issue.
 
 ### 39.5 Targeted commands (#246)
 
-- [ ] The commands in the table above, with tiler tests on the fake platform
+- [x] The orders in the table above, with tiler tests on the fake platform
 
 ### 39.6 Script runtime (#247)
 

@@ -28,7 +28,11 @@ impl Tiler {
         // and leaves the tiles it laid out live where they are.
         if matches!(
             input,
-            Input::Action(..) | Input::Raise(_) | Input::DisplayChanging | Input::Displays { .. }
+            Input::Action(..)
+                | Input::Raise(_)
+                | Input::Order(_)
+                | Input::DisplayChanging
+                | Input::Displays { .. }
         ) {
             self.interrupt_drag(&mut plan);
         } else if let Input::Shutdown = input {
@@ -41,6 +45,7 @@ impl Tiler {
                 self.handle_action(&mut plan, &action, origin);
             }
             Input::Raise(window) => self.raise(&mut plan, window),
+            Input::Order(order) => self.carry_out(&mut plan, &order),
             Input::Event(event) => self.handle_event(&mut plan, &event),
             Input::DisplayChanging => {}
             Input::Displays { monitors, bar } => {
