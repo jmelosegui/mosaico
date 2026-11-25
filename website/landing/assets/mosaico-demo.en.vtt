@@ -1,0 +1,37 @@
+WEBVTT
+
+00:00.600 --> 00:07.560
+For a long time, our windows have been buried. Stacked. Overlapping. Lost behind each other.
+
+00:08.200 --> 00:14.660
+We dragged. We resized. We pressed Alt Tab, again, and again. Enough.
+
+00:15.400 --> 00:20.780
+Introducing Mosaico. A tiling window manager for Windows, written in Rust.
+
+00:21.400 --> 00:26.970
+Every window gets its own tile. Side by side. Nothing on top of anything else.
+
+00:27.700 --> 00:31.200
+Three layouts. Change your mind with a single key.
+
+00:32.400 --> 00:37.200
+Eight workspaces, on every monitor. Your keyboard is back in charge.
+
+00:38.400 --> 00:44.020
+Monocle mode when you need to focus. The border turns green, so you always know.
+
+00:44.600 --> 00:49.280
+Support for multiple themes. The status bar and the borders follow.
+
+00:52.200 --> 00:57.890
+Prefer clicking? The settings window changes everything. No config files required.
+
+00:58.400 --> 01:03.850
+And when you want more, script it. Lua scripts react to your desktop, and act on it.
+
+01:04.500 --> 01:08.440
+Free. Open source. One line to install.
+
+01:09.600 --> 01:12.860
+Mosaico. Every window in its place.

@@ -1,0 +1,9 @@
+{
+  "name": "mosaico-demo-video",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "msedge-tts": "^2.1.1",
+    "puppeteer-core": "^25.19.0"
+  }
+}

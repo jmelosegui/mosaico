@@ -1,0 +1,451 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; background: #000; font-family: "Segoe UI Variable Display", "Segoe UI", sans-serif; }
+  :root { --base: #1e1e2e; --mantle: #181825; --surface: #313244; --text: #cdd6f4; --sub: #a6adc8; --focus: #89b4fa; --mono: #a6e3a1;
+          --bar-fg: #89b4fa; --bar-active: #435375; --bar-active-text: #cdd6f4; --bar-widget: #313244; --bar-border: #89b4fa; --accent2: #f38ba8; --accent3: #a6e3a1; }
+  #stage { position: absolute; inset: 0; overflow: hidden; }
+  #wins { position: absolute; inset: 0; z-index: 1; }
+  #bar { z-index: 20; } #barglow { z-index: 21; } #alttab { z-index: 30; } #cursor { z-index: 40; } #chip, #hint { z-index: 50; }
+  #settings, #editor, #meeting { z-index: 55; } #term { z-index: 60; } #black { z-index: 70; } #title { z-index: 80; } #end { z-index: 90; }
+  #desk { position: absolute; inset: 0; background:
+      radial-gradient(1200px 800px at 15% 20%, color-mix(in srgb, var(--focus) 35%, transparent) 0%, transparent 60%),
+      radial-gradient(900px 700px at 85% 85%, color-mix(in srgb, var(--accent2) 22%, transparent) 0%, transparent 60%),
+      linear-gradient(135deg, var(--mantle), var(--base) 50%, var(--mantle)); }
+  .win { position: absolute; border-radius: 8px; overflow: hidden; background: var(--base);
+         box-shadow: 0 18px 50px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.07); display: flex; flex-direction: column; transform-origin: center; }
+  .win.focus { box-shadow: 0 18px 50px rgba(0,0,0,.45), 0 0 0 4px var(--focus); }
+  .win.focus.mono { box-shadow: 0 18px 50px rgba(0,0,0,.45), 0 0 0 4px var(--mono); }
+  .tb { height: 34px; flex: none; display: flex; align-items: center; padding: 0 0 0 14px; gap: 10px; color: var(--sub); font-size: 14px;
+        background: var(--mantle); }
+  .tb .ic { width: 14px; height: 14px; border-radius: 3px; }
+  .tb .ttl { flex: 1; white-space: nowrap; overflow: hidden; }
+  .tb .ctl { display: flex; height: 100%; }
+  .tb .ctl span { width: 46px; display: grid; place-items: center; color: #7f849c; font-size: 13px; }
+  .body { flex: 1; position: relative; overflow: hidden; padding: 16px 18px; font-family: "Cascadia Code", Consolas, monospace; font-size: 15px; line-height: 1.6; color: var(--text); }
+  .ln { white-space: pre; }
+  .k { color: #cba6f7 } .s { color: #a6e3a1 } .f { color: #89b4fa } .c { color: #7f849c } .g { color: #a6e3a1 } .y { color: #f9e2af } .r { color: #f38ba8 }
+  .blk { border-radius: 6px; background: var(--surface); margin-bottom: 12px; }
+  .sans { font-family: "Segoe UI", sans-serif; }
+
+  /* the mosaico bar: transparent, outlined pills, Nerd Font */
+  #bar { position: absolute; left: 0; right: 0; top: 0; height: 60px; display: flex; align-items: center; padding: 0 10px; gap: 10px;
+         font: 700 20px "CaskaydiaCove Nerd Font", "Cascadia Code", monospace; color: var(--bar-fg); }
+  #bar .grp { display: flex; gap: 4px; }
+  #bar .pill { height: 40px; padding: 0 12px; display: flex; align-items: center; gap: 8px; border-radius: 4px; border: 2px solid var(--bar-border);
+               background: color-mix(in srgb, var(--bar-widget) 80%, transparent); white-space: nowrap; }
+  #bar .ws { min-width: 40px; justify-content: center; padding: 0 10px; }
+  #bar .ws.on { background: var(--bar-active); color: var(--bar-active-text); }
+  #bar .sp { flex: 1; }
+  #bar .appic { width: 20px; height: 20px; border-radius: 4px; }
+  #barglow { position: absolute; left: 4px; right: 4px; top: 4px; height: 52px; border-radius: 8px; box-shadow: 0 0 0 3px var(--focus), 0 0 36px var(--focus); opacity: 0; }
+
+  #cursor { position: absolute; width: 28px; height: 28px; pointer-events: none; }
+  #alttab { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); display: flex; gap: 18px; padding: 22px; border-radius: 14px;
+            background: rgba(30,34,44,.88); box-shadow: 0 30px 80px rgba(0,0,0,.6); }
+  #alttab .th { width: 210px; height: 140px; border-radius: 8px; background: #2a303c; border: 3px solid transparent; position: relative; overflow: hidden; }
+  #alttab .th.on { border-color: #fff; }
+  #alttab .th i { position: absolute; left: 10px; top: 10px; width: 20px; height: 20px; border-radius: 4px; }
+
+  #black { position: absolute; inset: 0; background: #05070c; display: grid; place-items: center; }
+  #enough { color: #fff; font-size: 150px; font-weight: 800; letter-spacing: -.03em; }
+
+  #title { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 34px; }
+  #title svg { width: 260px; height: 260px; }
+  #title svg path { transform-origin: center; transform-box: fill-box; }
+  #title .wm { color: #fff; font-size: 120px; font-weight: 700; letter-spacing: -.035em; line-height: 1; }
+  #title .sub { color: #a6adbb; font-size: 38px; font-weight: 400; }
+
+  #hint { position: absolute; left: 50%; bottom: 70px; transform: translateX(-50%); display: flex; gap: 12px; align-items: center; color: #fff; font-size: 30px; font-weight: 600; }
+  .key { min-width: 64px; padding: 10px 20px; border-radius: 12px; text-align: center; background: rgba(255,255,255,.95); color: #141518;
+         box-shadow: 0 6px 0 #9aa1b0, 0 14px 30px rgba(0,0,0,.4); }
+  #chip { position: absolute; left: 50%; top: 96px; transform: translateX(-50%); padding: 10px 26px; border-radius: 999px; background: var(--focus);
+          color: var(--mantle); font-size: 28px; font-weight: 700; letter-spacing: .01em; box-shadow: 0 10px 30px rgba(0,0,0,.4); white-space: nowrap; }
+
+  #settings { position: absolute; left: 50%; top: 53%; width: 1240px; height: 918px; transform: translate(-50%,-50%); }
+  #settings img { position: absolute; left: 0; top: 0; width: 1240px; }
+
+  #editor { position: absolute; left: 110px; top: 170px; width: 900px; height: 720px; border-radius: 10px; overflow: hidden; background: var(--base);
+            box-shadow: 0 40px 120px rgba(0,0,0,.7), 0 0 0 4px var(--focus); display: flex; flex-direction: column; }
+  #editor .body { font-size: 22px; line-height: 1.65; padding: 26px 30px; }
+  #editor .run { border-top: 1px solid var(--surface); background: var(--mantle); padding: 16px 30px; font: 21px "Cascadia Code", monospace; color: var(--text); height: 64px; }
+  #meeting { position: absolute; left: 1090px; top: 290px; width: 720px; height: 470px; border-radius: 10px; overflow: hidden; background: var(--base);
+             box-shadow: 0 40px 120px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.08); display: flex; flex-direction: column; }
+  #meeting .body { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 16px; }
+  #meeting .p { border-radius: 8px; background: var(--surface); display: grid; place-items: center; }
+  #meeting .p span { width: 70px; height: 70px; border-radius: 50%; }
+  #soon { position: absolute; right: 16px; top: 46px; padding: 6px 14px; border-radius: 999px; background: #f9e2af; color: #1e1e2e; font: 700 18px "Segoe UI", sans-serif; }
+  #floattag { position: absolute; right: 18px; top: 46px; padding: 6px 14px; border-radius: 999px; background: var(--focus); color: var(--mantle); font: 700 18px "Segoe UI", sans-serif; }
+
+  #term { position: absolute; left: 50%; top: 50%; width: 1520px; height: 470px; transform: translate(-50%,-50%); border-radius: 14px; overflow: hidden;
+          background: #0c0f16; box-shadow: 0 40px 120px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.1); display: flex; flex-direction: column; }
+  #term .tb { height: 44px; font-size: 16px; background: #151a24; }
+  #term .body { font-size: 22px; line-height: 1.75; padding: 30px 36px; color: #c8ccd4; }
+  .caret { display: inline-block; width: 11px; height: 24px; background: #c8ccd4; vertical-align: -5px; margin-left: 2px; }
+
+  #end { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 36px; background:
+      radial-gradient(900px 600px at 50% 40%, #16213a, #05070c 70%); }
+  #end svg { width: 220px; height: 220px; }
+  #end .wm { color: #fff; font-size: 120px; font-weight: 700; letter-spacing: -.035em; line-height: 1; }
+  #end .tag { color: #c9ced8; font-size: 52px; font-weight: 600; letter-spacing: -.02em; }
+  #end .url { color: #8a92a3; font-size: 30px; font-family: "Cascadia Code", Consolas, monospace; margin-top: 10px; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="desk"></div>
+  <div id="wins"></div>
+  <div id="bar"></div>
+  <div id="barglow"></div>
+  <div id="alttab"></div>
+  <svg id="cursor" viewBox="0 0 24 24"><path d="M3 2l7.5 19 2.6-7.6L21 11z" fill="#fff" stroke="#000" stroke-width="1.4" stroke-linejoin="round"/></svg>
+  <div id="chip"></div>
+  <div id="hint"></div>
+  <div id="settings"><img id="set-general" src="../../../design/settings/png/general-mocha.png"><img id="set-layout" src="../../../design/settings/png/layout-mocha.png"><img id="set-bar" src="../../../design/settings/png/bar-mocha.png"></div>
+  <div id="editor"><div class="tb"><i class="ic" style="background:#89b4fa"></i><span class="ttl">meeting.lua - Code</span><span class="ctl"><span>&#x2013;</span><span>&#x25A1;</span><span>&#x2715;</span></span></div><div id="soon">Coming soon</div><div class="body" id="luabody"></div><div class="run" id="luarun"></div></div>
+  <div id="meeting"><div class="tb"><i class="ic" style="background:#cba6f7"></i><span class="ttl">Weekly sync - Meeting</span><span class="ctl"><span>&#x2013;</span><span>&#x25A1;</span><span>&#x2715;</span></span></div>
+    <div class="body"><div class="p"><span style="background:#89b4fa"></span></div><div class="p"><span style="background:#f38ba8"></span></div><div class="p"><span style="background:#a6e3a1"></span></div><div class="p"><span style="background:#f9e2af"></span></div></div><div id="floattag">floating</div></div>
+  <div id="term"><div class="tb"><i class="ic" style="background:#4f8ff7"></i><span class="ttl">Windows PowerShell</span><span class="ctl"><span>&#x2013;</span><span>&#x25A1;</span><span>&#x2715;</span></span></div><div class="body" id="termbody"></div></div>
+  <div id="black"><div id="enough">Enough.</div></div>
+  <div id="title">
+    <svg viewBox="0 0 1024 1024">
+      <path id="p1" fill="#4f8ff7" d="M256 0H400A48 48 0 0 1 448 48V976A48 48 0 0 1 400 1024H256A256 256 0 0 1 0 768V256A256 256 0 0 1 256 0Z"/>
+      <path id="p2" fill="#f5537a" d="M624 0H768A256 256 0 0 1 1024 256V400A48 48 0 0 1 976 448H624A48 48 0 0 1 576 400V48A48 48 0 0 1 624 0Z"/>
+      <path id="p3" fill="#3ccf73" d="M624 576H976A48 48 0 0 1 1024 624V768A256 256 0 0 1 768 1024H624A48 48 0 0 1 576 976V624A48 48 0 0 1 624 576Z"/>
+    </svg>
+    <div class="wm">Mosaico</div>
+    <div class="sub">A tiling window manager for Windows. Written in Rust.</div>
+  </div>
+  <div id="end">
+    <svg viewBox="0 0 1024 1024" id="endlogo">
+      <path fill="#4f8ff7" d="M256 0H400A48 48 0 0 1 448 48V976A48 48 0 0 1 400 1024H256A256 256 0 0 1 0 768V256A256 256 0 0 1 256 0Z"/>
+      <path fill="#f5537a" d="M624 0H768A256 256 0 0 1 1024 256V400A48 48 0 0 1 976 448H624A48 48 0 0 1 576 400V48A48 48 0 0 1 624 0Z"/>
+      <path fill="#3ccf73" d="M624 576H976A48 48 0 0 1 1024 624V768A256 256 0 0 1 768 1024H624A48 48 0 0 1 576 976V624A48 48 0 0 1 624 576Z"/>
+    </svg>
+    <div class="wm" id="endwm">Mosaico</div>
+    <div class="tag" id="endtag">Every window in its place.</div>
+    <div class="url" id="endurl">jmelosegui.com/mosaico</div>
+  </div>
+</div>
+<script>
+const W = 1920, H = 1080, BAR = 60, GAP = 10;
+const WORK = { x: GAP, y: BAR + 4, w: W - 2 * GAP, h: H - BAR - 4 - GAP };
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const ease = p => p < .5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+const easeOut = p => 1 - Math.pow(1 - p, 3);
+const seg = (t, a, b, f = ease) => f(clamp((t - a) / (b - a)));
+const lerp = (a, b, p) => a + (b - a) * p;
+const lerpR = (a, b, p) => ({ x: lerp(a.x, b.x, p), y: lerp(a.y, b.y, p), w: lerp(a.w, b.w, p), h: lerp(a.h, b.h, p) });
+const $ = id => document.getElementById(id);
+const fade = (t, a, b, fi = .3, fo = .3) => Math.min(seg(t, a, a + fi), 1 - seg(t, b - fo, b));
+
+// Theme colors from mosaico's palettes (bar colors and border colors).
+const THEMES = {
+  mocha: { name: "Catppuccin Mocha", base: "#1e1e2e", mantle: "#181825", surface: "#313244", text: "#cdd6f4", sub: "#a6adc8", focus: "#89b4fa", mono: "#a6e3a1",
+           "bar-fg": "#89b4fa", "bar-active": "#435375", "bar-active-text": "#cdd6f4", "bar-widget": "#313244", "bar-border": "#89b4fa", accent2: "#f38ba8" },
+  rose:  { name: "Rose Pine", base: "#191724", mantle: "#1f1d2e", surface: "#26233a", text: "#e0def4", sub: "#908caa", focus: "#c4a7e7", mono: "#9ccfd8",
+           "bar-fg": "#c4a7e7", "bar-active": "#403d52", "bar-active-text": "#e0def4", "bar-widget": "#1f1d2e", "bar-border": "#c4a7e7", accent2: "#ebbcba" },
+  tokyo: { name: "Tokyo Night", base: "#1a1b26", mantle: "#16161e", surface: "#292e42", text: "#c0caf5", sub: "#a9b1d6", focus: "#7aa2f7", mono: "#9ece6a",
+           "bar-fg": "#7aa2f7", "bar-active": "#3b4261", "bar-active-text": "#c0caf5", "bar-widget": "#16161e", "bar-border": "#7aa2f7", accent2: "#bb9af7" },
+};
+let themeNow = null;
+function applyTheme(key) {
+  if (key === themeNow) return; themeNow = key;
+  for (const [k, v] of Object.entries(THEMES[key])) if (k !== "name") document.documentElement.style.setProperty("--" + k, v);
+}
+
+// ---------- window content ----------
+const code = (lines) => lines.map(l => `<div class="ln">${l}</div>`).join("");
+const APPS = [
+  { title: "Terminal", ic: "#a6e3a1", body: code([
+    `<span class="g">PS C:\\dev\\mosaico&gt;</span> cargo build --release`,
+    `<span class="c">   Compiling</span> mosaico-core v0.13.1`,
+    `<span class="c">   Compiling</span> mosaico-windows v0.13.1`,
+    `<span class="c">   Compiling</span> mosaico v0.13.1`,
+    `<span class="g">    Finished</span> release [optimized] in 41.2s`,
+    `<span class="g">PS C:\\dev\\mosaico&gt;</span> mosaico start`,
+    `<span class="f">mosaico</span> daemon started (pid 5700)`,
+    `<span class="g">PS C:\\dev\\mosaico&gt;</span> <span class="caret" style="height:18px;width:9px"></span>`]) },
+  { title: "layout.rs - Code", ic: "#89b4fa", body: code([
+    `<span class="k">pub fn</span> <span class="f">bsp</span>(area: Rect, n: <span class="k">usize</span>) -&gt; Vec&lt;Rect&gt; {`,
+    `    <span class="k">let mut</span> out = Vec::with_capacity(n);`,
+    `    <span class="k">let mut</span> rest = area;`,
+    `    <span class="k">for</span> i <span class="k">in</span> 0..n {`,
+    `        <span class="k">if</span> i + 1 == n { out.push(rest); <span class="k">break</span>; }`,
+    `        <span class="k">let</span> (a, b) = rest.split(i % 2 == 0);`,
+    `        out.push(a);`,
+    `        rest = b;`,
+    `    }`,
+    `    out`,
+    `}`]) },
+  { title: "Mosaico - Browser", ic: "#f38ba8", body: `<div class="sans"><div class="blk" style="height:30px;width:70%"></div>
+    <div class="blk" style="height:180px;background:linear-gradient(120deg,var(--focus),var(--accent2))"></div>
+    <div class="blk" style="height:16px;width:85%"></div><div class="blk" style="height:16px;width:65%"></div><div class="blk" style="height:16px;width:75%"></div>
+    <div style="display:flex;gap:12px"><div class="blk" style="height:120px;flex:1"></div><div class="blk" style="height:120px;flex:1"></div><div class="blk" style="height:120px;flex:1"></div></div></div>` },
+  { title: "Notes", ic: "#f9e2af", body: `<div class="sans" style="font-size:16px">
+    <div style="font-size:24px;font-weight:700;margin-bottom:10px">Monday</div>
+    <div>&#9745; Ship the release</div><div>&#9744; Answer issues</div><div>&#9744; Write the changelog</div><div>&#9744; Coffee</div></div>` },
+  { title: "Chat", ic: "#cba6f7", body: `<div class="sans" style="font-size:15px">
+    <div class="blk" style="padding:10px 14px;width:75%">Did you try the new layout?</div>
+    <div class="blk" style="padding:10px 14px;width:60%;margin-left:auto;background:var(--focus);color:var(--mantle)">Alt + N. Every time.</div>
+    <div class="blk" style="padding:10px 14px;width:70%">No more dragging windows around</div></div>` },
+  { title: "Inbox - Mail", ic: "#89b4fa", body: `<div class="sans">${[1,2,3,4,5,6].map(i => `<div class="blk" style="height:46px;opacity:${1 - i * .1}"></div>`).join("")}</div>` },
+  { title: "Calendar", ic: "#f38ba8", body: `<div class="sans" style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px">${Array.from({length:28},(_, i) => `<div class="blk" style="height:44px;margin:0;${i===10?'background:var(--accent2)':''}"></div>`).join("")}</div>` },
+  { title: "Design", ic: "#a6e3a1", body: `<div class="sans" style="display:flex;gap:14px;height:100%"><div class="blk" style="width:60px"></div><div class="blk" style="flex:1"></div></div>` },
+  { title: "Budget.xlsx", ic: "#a6e3a1", body: `<div style="display:grid;grid-template-columns:repeat(8,1fr);gap:2px">${Array.from({length:120},(_, i) => `<div style="height:26px;background:${i<8?'var(--surface)':'var(--mantle)'}"></div>`).join("")}</div>` },
+  { title: "Music", ic: "#f9e2af", body: `<div class="sans" style="display:flex;gap:18px;align-items:center"><div style="width:120px;height:120px;border-radius:10px;background:linear-gradient(135deg,#f38ba8,#f9e2af)"></div><div><div style="font-size:22px;font-weight:700">Focus Mode</div><div style="color:var(--sub)">Lo-fi tiles</div></div></div>` },
+];
+const wins = APPS.map((a) => {
+  const el = document.createElement("div");
+  el.className = "win";
+  el.innerHTML = `<div class="tb"><i class="ic" style="background:${a.ic}"></i><span class="ttl">${a.title}</span><span class="ctl"><span>&#x2013;</span><span>&#x25A1;</span><span>&#x2715;</span></span></div><div class="body">${a.body}</div>`;
+  $("wins").appendChild(el);
+  return el;
+});
+$("alttab").innerHTML = [0,1,2,3,4].map(i => `<div class="th"><i style="background:${APPS[i].ic}"></i></div>`).join("");
+
+// ---------- layouts ----------
+function split(r, vertical) {
+  if (vertical) { const w = (r.w - GAP) / 2; return [{ x: r.x, y: r.y, w, h: r.h }, { x: r.x + w + GAP, y: r.y, w, h: r.h }]; }
+  const h = (r.h - GAP) / 2; return [{ x: r.x, y: r.y, w: r.w, h }, { x: r.x, y: r.y + h + GAP, w: r.w, h }];
+}
+function bsp(n, area = WORK) {
+  const out = []; let rest = area;
+  for (let i = 0; i < n; i++) { if (i === n - 1) { out.push(rest); break; } const [a, b] = split(rest, i % 2 === 0); out.push(a); rest = b; }
+  return out;
+}
+function stack(r, n) { const h = (r.h - GAP * (n - 1)) / n; return Array.from({ length: n }, (_, i) => ({ x: r.x, y: r.y + i * (h + GAP), w: r.w, h })); }
+function vstack(n, area = WORK) { if (n === 1) return [area]; const [a, b] = split(area, true); return [a, ...stack(b, n - 1)]; }
+function three(n, area = WORK) {
+  if (n < 3) return vstack(n, area);
+  const side = (area.w - 2 * GAP) * .25, mid = area.w - 2 * GAP - 2 * side;
+  const L = { x: area.x, y: area.y, w: side, h: area.h }, M = { x: area.x + side + GAP, y: area.y, w: mid, h: area.h }, R = { x: M.x + mid + GAP, y: area.y, w: side, h: area.h };
+  const left = [], right = [];
+  for (let i = 1; i < n; i++) (i % 2 ? left : right).push(i);
+  const lr = stack(L, left.length), rr = stack(R, right.length);
+  const out = [M]; left.forEach((id, k) => out[id] = lr[k]); right.forEach((id, k) => out[id] = rr[k]);
+  return out;
+}
+const LAYOUTS = { bsp, vstack, three };
+const LNAME = { bsp: "BSP", vstack: "VStack", three: "3Col" };
+const WS = { 1: [0, 1, 2, 3, 4], 2: [5, 6, 7], 3: [8, 9] };
+
+const KF = [
+  { t: 21.3, ws: 1, n: 1, layout: "bsp", focus: 0 },
+  { t: 22.3, n: 2, focus: 1 },
+  { t: 23.3, n: 3, focus: 2 },
+  { t: 24.3, n: 4, focus: 3 },
+  { t: 25.3, n: 5, focus: 4 },
+  { t: 28.3, layout: "vstack" },
+  { t: 30.0, layout: "three" },
+  { t: 31.6, layout: "bsp" },
+  { t: 33.0, ws: 2, focus: 5 },
+  { t: 34.4, ws: 3, focus: 8 },
+  { t: 35.8, ws: 1, focus: 4 },
+  { t: 36.8, focus: 2 },
+  { t: 37.5, focus: 1 },
+  { t: 39.0, monocle: true },
+  { t: 44.0, monocle: false },
+].reduce((acc, k) => { acc.push({ ...(acc[acc.length - 1] || {}), ...k }); return acc; }, []);
+const HINTS = [
+  [27.9, "N"], [29.6, "N"], [31.2, "N"], [32.6, "2"], [34.0, "3"], [35.4, "1"], [36.4, "H"], [37.1, "K"], [38.6, "T"], [43.6, "T"],
+];
+const CHIPS = [[28.3, "VStack"], [30.0, "3Col"], [31.6, "BSP"], [33.0, "Workspace 2"], [34.4, "Workspace 3"], [35.8, "Workspace 1"], [39.0, "Monocle"],
+               [45.9, "Catppuccin Mocha"], [46.9, "Rose Pine"], [47.9, "Tokyo Night"], [50.9, "Catppuccin Mocha"]];
+
+function rectsFor(k) {
+  const ids = WS[k.ws], n = k.ws === 1 ? k.n : ids.length;
+  const rs = LAYOUTS[k.ws === 1 ? k.layout : "bsp"](n);
+  const m = {};
+  ids.slice(0, n).forEach((id, i) => m[id] = (k.monocle && id === k.focus) ? WORK : rs[i]);
+  return m;
+}
+
+const CHAOS = [
+  { x: 180, y: 140, w: 900, h: 560 }, { x: 520, y: 260, w: 1000, h: 640 }, { x: 860, y: 90, w: 880, h: 600 },
+  { x: 300, y: 480, w: 760, h: 500 }, { x: 1100, y: 420, w: 640, h: 560 },
+];
+
+function show(el, on, op = 1) { el.style.display = on ? "" : "none"; if (on) el.style.opacity = op; }
+
+const NF = { layout: "\uF009", clock: "\uF017", date: "\uF073", ram: "\uF2DB", cpu: "\uF085" };
+function barHtml(cur, t) {
+  const ws = [1,2,3,4,5,6,7,8].map(n => `<div class="pill ws ${n === cur.ws ? "on" : ""}">${n}</div>`).join("");
+  const app = APPS[cur.focus] || APPS[0];
+  const layout = cur.monocle ? "Monocle" : LNAME[cur.layout];
+  const secs = String(Math.floor(t) % 60).padStart(2, "0");
+  return `<div class="grp">${ws}</div><div class="pill"><i class="appic" style="background:${app.ic}"></i></div><div class="pill">${NF.layout} ${layout}</div>` +
+    `<div class="sp"></div><div class="pill">${NF.cpu} 7%</div><div class="pill">${NF.ram} 38%</div><div class="pill">${NF.date} Monday 25 November 2026</div><div class="pill">${NF.clock} 09:41:${secs}</div>`;
+}
+
+const LUA = [
+  `<span class="c">-- Float meeting windows over the tiles</span>`,
+  `mosaico.<span class="f">on</span>(<span class="s">"window_managed"</span>, <span class="k">function</span>(e)`,
+  `  <span class="k">if</span> e.title:<span class="f">find</span>(<span class="s">"Meeting"</span>) <span class="k">then</span>`,
+  `    mosaico.<span class="f">float</span>(e.window)`,
+  `  <span class="k">end</span>`,
+  `<span class="k">end</span>)`,
+];
+
+function render(t) {
+  // theme timeline
+  applyTheme(t >= 46.9 && t < 47.9 ? "rose" : t >= 47.9 && t < 50.9 ? "tokyo" : "mocha");
+
+  const states = wins.map(() => null);
+  // ---- Scene A: chaos ----
+  if (t < 13.85) {
+    let z = [0, 1, 2, 3, 4];
+    const rs = CHAOS.map(r => ({ ...r }));
+    const dp = seg(t, 8.5, 9.4);
+    if (t >= 8.4) { z = [1, 2, 3, 4, 0]; rs[0].x = lerp(180, 760, dp); rs[0].y = lerp(140, 330, dp); }
+    const rp = seg(t, 9.5, 10.4);
+    rs[0].w = lerp(900, 640, rp); rs[0].h = lerp(560, 420, rp);
+    const atOn = t >= 10.9 && t < 13.6;
+    const cyc = [4, 3, 2, 1, 4, 2, 3];
+    let sel = -1;
+    if (atOn) { sel = cyc[Math.min(cyc.length - 1, Math.floor((t - 10.9) / 0.38))]; z = z.filter(i => i !== sel).concat(sel); }
+    for (let i = 0; i < 5; i++) {
+      const a = 0.4 + i * 0.9; if (t < a) continue;
+      const p = seg(t, a, a + 0.35, easeOut);
+      states[i] = { r: rs[i], op: p, sc: lerp(.92, 1, p), z: z.indexOf(i), focus: false };
+    }
+    show($("alttab"), atOn);
+    if (atOn) [...$("alttab").children].forEach((th, k) => th.classList.toggle("on", k === sel));
+    let cx = 1500, cy = 900;
+    if (t > 6) { const p = seg(t, 6.5, 8.4); cx = lerp(1500, 500, p); cy = lerp(900, 157, p); }
+    if (t >= 8.4) { cx = rs[0].x + 320; cy = rs[0].y + 17; }
+    if (t >= 9.45) { cx = rs[0].x + rs[0].w - 4; cy = rs[0].y + rs[0].h - 4; }
+    show($("cursor"), t > 4.5 && !atOn); $("cursor").style.left = cx + "px"; $("cursor").style.top = cy + "px";
+    show($("bar"), false); show($("barglow"), false);
+  } else { show($("cursor"), false); show($("alttab"), false); }
+
+  // ---- tiled scenes ----
+  let monoNow = false;
+  if (t >= 21.0 && t < 69.0) {
+    let i = 0; while (i + 1 < KF.length && KF[i + 1].t <= t) i++;
+    const cur = KF[i], prev = KF[Math.max(0, i - 1)];
+    const p = t < KF[0].t ? 0 : seg(t, cur.t, cur.t + 0.45);
+    const A = i === 0 ? {} : rectsFor(prev), B = t < KF[0].t ? {} : rectsFor(cur);
+    const wsChange = i > 0 && prev.ws !== cur.ws;
+    const dir = cur.ws > prev.ws ? 1 : -1;
+    const all = new Set([...Object.keys(A), ...Object.keys(B)].map(Number));
+    monoNow = !!cur.monocle;
+    for (const id of all) {
+      let r, op = 1, sc = 1;
+      if (wsChange) {
+        if (A[id] && !B[id]) { r = { ...A[id], x: A[id].x - dir * p * W }; if (p >= 1) continue; }
+        else { r = { ...B[id], x: B[id].x + dir * (1 - p) * W }; }
+      } else if (A[id] && B[id]) r = lerpR(A[id], B[id], p);
+      else if (B[id]) { r = B[id]; op = p; sc = lerp(.85, 1, p); }
+      else continue;
+      const z = (cur.monocle || (prev.monocle && p < 1)) && id === cur.focus ? 10 : 1;
+      // while monocle is on, mosaico shows only the monocle window
+      if (cur.monocle && id !== cur.focus && p >= 1) continue;
+      states[id] = { r, op, sc, z, focus: id === cur.focus };
+    }
+    const bp = seg(t, 21.0, 21.5, easeOut);
+    show($("bar"), true); $("bar").style.transform = `translateY(${-64 * (1 - bp)}px)`;
+    $("bar").innerHTML = barHtml(cur, t);
+    show($("barglow"), t >= 46.9 && t < 49.3, fade(t, 46.9, 49.3));
+  } else if (t >= 13.85) { show($("bar"), false); show($("barglow"), false); }
+
+  wins.forEach((el, i) => {
+    const s = states[i];
+    if (!s) { el.style.display = "none"; return; }
+    el.style.display = "";
+    el.style.left = s.r.x + "px"; el.style.top = s.r.y + "px"; el.style.width = s.r.w + "px"; el.style.height = s.r.h + "px";
+    el.style.opacity = s.op; el.style.transform = `scale(${s.sc})`; el.style.zIndex = s.z;
+    el.classList.toggle("focus", !!s.focus && t >= 21);
+    el.classList.toggle("mono", !!s.focus && monoNow);
+  });
+
+  let chip = null;
+  for (const [a, txt] of CHIPS) if (t >= a && t < a + (a >= 45 && a < 50 ? 1.0 : 1.2)) chip = [a, txt];
+  show($("chip"), !!chip, chip ? fade(t, chip[0], chip[0] + (chip[0] >= 45 && chip[0] < 50 ? 1.0 : 1.2), .15, .15) : 0);
+  if (chip) { $("chip").textContent = chip[1]; $("chip").style.background = chip[1] === "Monocle" ? "var(--mono)" : "var(--focus)"; }
+
+  let hint = null;
+  for (const h of HINTS) if (t >= h[0] && t < h[0] + 0.9) hint = h;
+  show($("hint"), !!hint, hint ? fade(t, hint[0], hint[0] + .9, .12, .15) : 0);
+  if (hint) $("hint").innerHTML = `<span class="key">Alt</span><span>+</span><span class="key">${hint[1]}</span>`;
+
+  // ---- black and title ----
+  show($("black"), t >= 13.85 && t < 21.4, t < 20.9 ? 1 : 1 - seg(t, 20.9, 21.4));
+  $("enough").style.opacity = t < 14.75 ? 1 : 1 - seg(t, 14.75, 15.05);
+  const tOn = t >= 15.0 && t < 21.4;
+  show($("title"), tOn, t < 20.8 ? 1 : 1 - seg(t, 20.8, 21.3));
+  if (tOn) {
+    ["p1", "p2", "p3"].forEach((id, k) => { const p = seg(t, 15.2 + k * .18, 15.75 + k * .18, easeOut); $(id).style.transform = `scale(${lerp(.4, 1, p)})`; $(id).style.opacity = p; });
+    const wp = seg(t, 15.75, 16.3, easeOut); $("title").children[1].style.opacity = wp; $("title").children[1].style.transform = `translateY(${20 * (1 - wp)}px)`;
+    $("title").children[2].style.opacity = seg(t, 17.6, 18.1, easeOut);
+  }
+  show($("desk"), t < 13.85 || t >= 20.9);
+
+  // ---- settings window 52.3 - 58.0 ----
+  const sOn = t >= 52.3 && t < 58.1;
+  show($("settings"), sOn, fade(t, 52.3, 58.1, .35, .35));
+  if (sOn) {
+    const sp = seg(t, 52.3, 52.75, easeOut);
+    $("settings").style.transform = `translate(-50%,-50%) scale(${lerp(.94, 1, sp)})`;
+    $("set-general").style.opacity = 1;
+    $("set-layout").style.opacity = seg(t, 54.0, 54.3);
+    $("set-bar").style.opacity = seg(t, 55.6, 55.9);
+  }
+
+  // ---- Lua 58.3 - 64.3 ----
+  const lOn = t >= 58.3 && t < 64.4;
+  show($("editor"), lOn, fade(t, 58.3, 64.4));
+  if (lOn) {
+    const nl = Math.floor(clamp((t - 58.6) / 1.9) * LUA.length + .999);
+    $("luabody").innerHTML = LUA.slice(0, nl).map(l => `<div class="ln">${l}</div>`).join("");
+    const cmd = "mosaico script run meeting";
+    const nch = Math.floor(clamp((t - 60.7) / .9) * cmd.length);
+    $("luarun").innerHTML = t >= 60.6 ? `<span class="g">PS&gt;</span> ${cmd.slice(0, nch)}` : "";
+  }
+  const mOn = t >= 61.9 && t < 64.4;
+  show($("meeting"), mOn, fade(t, 61.9, 64.4, .25, .3));
+  if (mOn) { const mp = seg(t, 61.9, 62.3, easeOut); $("meeting").style.transform = `scale(${lerp(.85, 1, mp)})`; $("floattag").style.opacity = seg(t, 62.5, 62.8); }
+
+  // dim tiles behind overlays
+  const dim = Math.max(fade(t, 52.2, 58.2, .4, .4), fade(t, 58.2, 64.5, .4, .4), fade(t, 64.4, 69.3, .4, .5));
+  $("wins").style.filter = dim > 0.001 ? `blur(${dim * 8}px) brightness(${1 - dim * .5})` : "";
+  $("bar").style.filter = $("wins").style.filter;
+
+  // ---- terminal install 64.5 - 69.3 ----
+  const tm = t >= 64.5 && t < 69.4;
+  show($("term"), tm, fade(t, 64.5, 69.4, .35, .4));
+  if (tm) {
+    const cmd = "irm https://raw.githubusercontent.com/jmelosegui/mosaico/main/docs/install.ps1 | iex";
+    const nch = Math.floor(clamp((t - 64.9) / 1.5) * cmd.length);
+    let html = `<div class="ln"><span class="g">PS&gt;</span> ${cmd.slice(0, nch)}${t < 66.5 ? '<span class="caret"></span>' : ""}</div>`;
+    const out = [[66.6, '<span class="g">==&gt;</span> Installing mosaico...'], [66.9, '<span class="g">==&gt;</span> Latest version: v0.13.1'],
+      [67.2, '<span class="g">==&gt;</span> Downloading https://github.com/jmelosegui/mosaico/releases/download/v0.13.1/mosaico-windows-amd64.msi...'],
+      [67.55, '<span class="g">==&gt;</span> Running the installer...'], [67.9, '<span class="g">==&gt;</span> Successfully installed mosaico!'], [68.1, 'mosaico 0.13.1']];
+    for (const [at, line] of out) if (t >= at) html += `<div class="ln">${line}</div>`;
+    if (t >= 68.1) html += '<div class="ln"><span class="g">PS&gt;</span> <span class="caret"></span></div>';
+    $("termbody").innerHTML = html;
+  }
+
+  // ---- end card ----
+  const eOn = t >= 69.3;
+  show($("end"), eOn, seg(t, 69.3, 69.8));
+  if (eOn) {
+    const lp = seg(t, 69.6, 70.2, easeOut);
+    $("endlogo").style.opacity = lp; $("endlogo").style.transform = `scale(${lerp(.8, 1, lp)})`;
+    $("endwm").style.opacity = seg(t, 69.8, 70.3, easeOut);
+    const tg = seg(t, 70.95, 71.4, easeOut);
+    $("endtag").style.opacity = tg; $("endtag").style.transform = `translateY(${16 * (1 - tg)}px)`;
+    $("endurl").style.opacity = seg(t, 72.3, 72.9);
+  }
+}
+window.render = render;
+const q = new URLSearchParams(location.search).get("t");
+if (q !== null) render(parseFloat(q)); else {
+  const t0 = performance.now(); (function loop() { render(((performance.now() - t0) / 1000) % 75); requestAnimationFrame(loop); })();
+}
+</script>
+</body>
+</html>
