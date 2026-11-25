@@ -2,8 +2,8 @@
 //!
 //! - `metrics [--bless]` checks the committed metrics baselines, or
 //!   records new ones. See [`xtask::metrics`].
-//! - `size` builds the release binaries, checks `mosaico` against its size
-//!   ceiling and reports the settings app's size. See [`xtask::size`].
+//! - `size` builds the release binaries and reports their sizes.
+//!   See [`xtask::size`].
 //! - `msi [--version X.Y.Z] [--no-build]` builds the Windows installer.
 //!   See [`xtask::msi`].
 
