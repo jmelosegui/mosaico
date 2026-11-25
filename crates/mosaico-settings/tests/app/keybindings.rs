@@ -6,7 +6,8 @@ use crate::support::*;
 
 pub const FILE: &str = "# my keys\n\n[[keybinding]]\naction = \"focus-down\" # down\nkey = \"J\"\nmodifiers = [\"alt\"]\n\n[[keybinding]]\naction = \"focus-up\"\nkey = \"K\"\nmodifiers = [\"alt\"]\n";
 
-pub const PROMPT: &str = "Press the new shortcut";
+/// What an action row says while it waits for a key press.
+pub const PROMPT: &str = "Press the new shortcut, or Backspace for none";
 
 pub fn window_on(test: &str) -> (Harness<'static, SettingsApp>, PathBuf) {
     let store = folder(test);
@@ -63,6 +64,34 @@ fn escape_cancels_a_capture() {
     assert!(h.query_by_label(PROMPT).is_none());
     h.get_by_label("No unsaved changes");
     assert_eq!(std::fs::read_to_string(path).unwrap(), FILE);
+}
+
+#[test]
+fn backspace_leaves_the_action_on_no_key_and_it_can_be_set_again() {
+    // Arrange
+    let (mut h, path) = window_on("keys-clear");
+    click(&mut h, Role::Button, "Change Focus down");
+
+    // Act
+    press(&mut h, Modifiers::NONE, Key::Backspace);
+    click(&mut h, Role::Button, "Apply");
+
+    // Assert -- the action stays in the file, so the daemon does not
+    // give it its default key back.
+    assert!(h.query_by_label(PROMPT).is_none());
+    let saved = std::fs::read_to_string(&path).unwrap();
+    assert!(saved.contains("action = \"focus-down\" # down"), "{saved}");
+    assert!(!saved.contains("key = \"J\""), "{saved}");
+    h.get_by_label("Changes saved");
+
+    // Act -- set a key on it again.
+    click(&mut h, Role::Button, "Set Focus down");
+    press(&mut h, Modifiers::ALT, Key::Y);
+    click(&mut h, Role::Button, "Apply");
+
+    // Assert
+    let saved = std::fs::read_to_string(&path).unwrap();
+    assert!(saved.contains("key = \"Y\""), "{saved}");
 }
 
 #[test]
@@ -128,4 +157,26 @@ fn reopening_shows_the_saved_keys_and_search_finds_them() {
             .query_by_role_and_label(Role::Button, "Change Focus up")
             .is_none()
     );
+}
+
+#[test]
+fn backspace_does_not_leave_an_application_on_no_key() {
+    // Arrange
+    let store = folder("keys-clear-app");
+    let path = store.keybindings_path();
+    let file =
+        format!("{FILE}\n[[launch]]\ncommand = \"notepad\"\nkey = \"N\"\nmodifiers = [\"alt\"]\n");
+    std::fs::write(&path, &file).unwrap();
+    let mut h = window(store, DaemonState::Stopped, &SignIn::default());
+    open(&mut h, "Keybindings");
+    click(&mut h, Role::Tab, "Applications");
+    click(&mut h, Role::Button, "Change shortcut of notepad");
+
+    // Act
+    press(&mut h, Modifiers::NONE, Key::Backspace);
+
+    // Assert
+    h.get_by_label("An application needs a shortcut.");
+    h.get_by_label("No unsaved changes");
+    assert_eq!(std::fs::read_to_string(path).unwrap(), file);
 }

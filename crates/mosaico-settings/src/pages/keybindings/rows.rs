@@ -2,11 +2,20 @@
 
 use eframe::egui::{RichText, Ui};
 
+use mosaico_core::config::Keybinding;
+
 use super::banner::{self, Choice};
 use super::row::{self, Click, Prompt, RowView};
-use super::{KeybindingsPage, PROMPT, Row, combo_text, header, labels};
+use super::{KeybindingsPage, Row, combo_text, header, labels};
 use crate::theme::Colors;
 use crate::widgets;
+
+/// What a row says while it waits for a key press.
+const PROMPT: &str = "Press the new shortcut";
+
+/// What an action row says while it waits: an action, unlike an
+/// application, can be left on no key.
+const ACTION_PROMPT: &str = "Press the new shortcut, or Backspace for none";
 
 impl KeybindingsPage {
     /// Draws the tab: the filter over the keybindings matching both
@@ -73,7 +82,11 @@ impl KeybindingsPage {
         let unsaved = self.saved_of(binding.action).map(combo_text).as_ref() != Some(&own);
         let label = labels::label(binding.action);
         let id = binding.action.to_string();
-        let keys: Vec<String> = combo.split('+').map(str::to_owned).collect();
+        // No keys for an action left on none, so the row offers to set one.
+        let keys: Vec<String> = (combo.split('+'))
+            .filter(|k| !k.is_empty())
+            .map(str::to_owned)
+            .collect();
         let capturing = self.prompt(Row::Action(index));
         let view = RowView {
             label: &label,
@@ -97,7 +110,10 @@ impl KeybindingsPage {
                 refused: true,
             },
             None => Prompt {
-                text: PROMPT,
+                text: match row {
+                    Row::Action(_) => ACTION_PROMPT,
+                    Row::Launch(_) => PROMPT,
+                },
                 refused: false,
             },
         })
@@ -115,8 +131,13 @@ impl KeybindingsPage {
             Click::Reset => {
                 let Row::Action(index) = row else { return };
                 let default = self.default_of(self.current[index].action).cloned();
-                if let Some(d) = default {
-                    self.bind(row, &d.key, &d.modifiers);
+                if let Some(Keybinding {
+                    key: Some(key),
+                    modifiers,
+                    ..
+                }) = default
+                {
+                    self.bind(row, &key, &modifiers);
                 }
             }
             Click::Details => self.toggle_editor(row),

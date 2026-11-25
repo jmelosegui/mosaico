@@ -91,7 +91,7 @@ impl HotkeyRegistrar for FakeRegistrar {
 pub(super) fn bind(action: Action, key: &str, modifiers: &[Modifier]) -> Keybinding {
     Keybinding {
         action,
-        key: key.into(),
+        key: Some(key.into()),
         modifiers: modifiers.to_vec(),
     }
 }

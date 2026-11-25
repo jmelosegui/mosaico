@@ -9,7 +9,7 @@ fn a_keybinding_is_triggered_by_the_combo_it_names() {
     let binding = bind(Action::Retile, "r", &[Modifier::Alt, Modifier::Shift]);
 
     // Act
-    let combo = binding.combo().ok();
+    let combo = binding.combo().ok().flatten();
 
     // Assert
     let expected = KeyCombo {
@@ -39,10 +39,22 @@ fn every_default_keybinding_has_a_combo() {
     // Assert
     for binding in &bindings {
         assert!(
-            binding.combo().is_ok(),
-            "{} {}",
+            matches!(binding.combo(), Ok(Some(_))),
+            "{} {:?}",
             binding.action,
             binding.key
         );
     }
+}
+
+#[test]
+fn a_keybinding_without_a_key_is_unbound_and_has_no_combo() {
+    // Arrange
+    let binding = Keybinding::unbound(Action::Retile);
+
+    // Act
+    let combo = binding.combo();
+
+    // Assert
+    assert!(matches!(combo, Ok(None)), "{combo:?}");
 }

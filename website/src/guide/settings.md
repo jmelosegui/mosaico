@@ -224,12 +224,14 @@ every action back on its default shortcut, adding the ones the file lost.
 
 Click the pencil on a row, then press the new shortcut. Hold at least one of
 Ctrl, Alt or Shift (function keys can stand alone). The first key you press is
-taken; **Esc** cancels. A key mosaico has no name for is refused and the row
-keeps waiting. A binding that is not on its default shows a reset button.
+taken; **Esc** cancels, and **Backspace** or **Delete** leaves the action on no
+key, with **Set shortcut** to give it one again. A key mosaico has no name for
+is refused and the row keeps waiting. A binding that is not on its default
+shows a reset button.
 
 If the shortcut you press already belongs to another binding, a banner under the
 row says so and offers **Cancel** or **Replace**. Replace gives the shortcut to
-this row and removes the other binding until you restore it or revert. If two
+this row and leaves the other action on no key until you restore it or revert. If two
 bindings in the file share a combination, in any order or case of its
 modifiers, both rows are marked **Conflict** and name each other. **Apply**
 will not save until one of them is changed. Searching the window shows the

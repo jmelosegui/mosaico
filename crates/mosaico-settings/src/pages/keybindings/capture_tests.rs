@@ -75,3 +75,12 @@ fn releases_and_repeats_are_ignored() {
 
     assert_eq!(pressed(&[release]), None);
 }
+
+#[test]
+fn backspace_or_delete_on_its_own_clears_the_shortcut() {
+    let backspace = [press(Key::Backspace, None, Modifiers::NONE)];
+    let delete = [press(Key::Delete, None, Modifiers::NONE)];
+
+    assert_eq!(pressed(&backspace), Some(Pressed::Clear));
+    assert_eq!(pressed(&delete), Some(Pressed::Clear));
+}
