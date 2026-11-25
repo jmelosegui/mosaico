@@ -77,6 +77,10 @@ pub struct World {
     pub events: RefCell<Vec<DesktopEvent>>,
     /// What the opener was asked to open.
     pub opened: RefCell<Vec<std::path::PathBuf>>,
+    /// The arguments mosaico was started again with, in the background.
+    pub relaunched: RefCell<Vec<Vec<String>>>,
+    /// The scripts registered to start at login, and what runs them.
+    pub script_logins: RefCell<std::collections::BTreeMap<String, LaunchCommand>>,
     /// Running processes.
     pub processes: RefCell<HashMap<u32, Lifetime>>,
     /// Whether killing a process works.
@@ -125,6 +129,8 @@ impl Default for World {
             sent: RefCell::default(),
             events: RefCell::default(),
             opened: RefCell::default(),
+            relaunched: RefCell::default(),
+            script_logins: RefCell::default(),
             processes: RefCell::default(),
             can_kill: Cell::new(true),
             launch: RefCell::new(Launch::Answers(4321)),
@@ -234,6 +240,11 @@ impl ProcessControl for World {
         }
         self.launched.borrow_mut().push(program.to_path_buf());
         Ok(5678)
+    }
+
+    fn launch_self(&self, args: &[String]) -> Result<u32> {
+        self.relaunched.borrow_mut().push(args.to_vec());
+        Ok(6789)
     }
 
     fn is_alive(&self, pid: u32) -> bool {

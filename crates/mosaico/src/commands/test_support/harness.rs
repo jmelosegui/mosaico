@@ -48,6 +48,7 @@ impl Harness {
             daemon: &self.world,
             processes: &self.world,
             autostart: &self.world,
+            script_autostart: &self.world,
             windows: &self.world,
             desktop: &self.desktop,
             tiler_desktop: &|| &self.world,

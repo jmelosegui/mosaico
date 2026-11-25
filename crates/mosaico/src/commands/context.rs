@@ -18,7 +18,7 @@ use mosaico_core::desktop_events::EventKind;
 use mosaico_core::http::HttpClient;
 use mosaico_core::ipc::{Command, IpcClient, IpcError, Response, Subscribed};
 use mosaico_core::pid::PidFile;
-use mosaico_core::system::{Autostart, FileProbe, Opener, ProcessControl};
+use mosaico_core::system::{Autostart, FileProbe, Opener, ProcessControl, ScriptAutostart};
 use mosaico_core::tiler::{Desktop, Enumerator};
 use mosaico_core::update::{Installer, RestartMarker};
 
@@ -85,6 +85,8 @@ pub struct Context<'a> {
     pub processes: &'a dyn ProcessControl,
     /// Start at login.
     pub autostart: &'a dyn Autostart,
+    /// Starting scripts at login.
+    pub script_autostart: &'a dyn ScriptAutostart,
     /// Moving windows on the desktop.
     ///
     /// Positions and sizes are in the coordinates the daemon works in,

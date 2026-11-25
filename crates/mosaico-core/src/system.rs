@@ -11,6 +11,7 @@ mod font_catalog;
 mod interrupt;
 mod launcher;
 mod opener;
+mod script_autostart;
 mod setup;
 mod single_instance;
 mod single_window;
@@ -26,6 +27,7 @@ pub use font_catalog::{FontCatalog, font_choices};
 pub use interrupt::Interrupts;
 pub use launcher::Launcher;
 pub use opener::Opener;
+pub use script_autostart::ScriptAutostart;
 pub use setup::ProcessSetup;
 pub use single_instance::{InstanceLock, SingleInstance};
 pub use single_window::{SingleWindow, Summoned};
@@ -50,6 +52,11 @@ pub use single_window::{SingleWindow, Summoned};
 ///   environment, so a program of the mosaico family belongs to the same
 ///   instance. It fails with [`Error::Platform`](crate::Error::Platform)
 ///   when the program cannot be started.
+/// - `launch_self` starts the executable the caller runs from with `args`,
+///   detached as `launch_daemon` starts a daemon: no console of its own or
+///   of the caller, standard streams closed, the caller's environment. It
+///   fails with [`Error::Platform`](crate::Error::Platform) when it cannot
+///   be started.
 /// - `kill` ends the process without giving it a chance to clean up. It
 ///   fails with [`Error::Platform`](crate::Error::Platform) when the
 ///   process could not be ended, for example because the caller is not
@@ -65,6 +72,11 @@ pub trait ProcessControl {
     /// Starts the program at `program` in the background and returns its
     /// process id.
     fn launch(&self, program: &Path) -> Result<u32>;
+
+    /// Starts the executable this process runs from again, with `args`,
+    /// in the background and without a console, and returns its process
+    /// id.
+    fn launch_self(&self, args: &[String]) -> Result<u32>;
 
     /// Whether a process with this id is running.
     fn is_alive(&self, pid: u32) -> bool;

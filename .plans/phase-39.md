@@ -159,7 +159,7 @@ reports.
 | `mosaico script list` | Lists the scripts in `scripts\`. |
 | `mosaico script add <path>` | Copies a script into `scripts\`. |
 | `mosaico script open` | Opens the scripts folder in the file manager. |
-| `mosaico script autostart enable|disable <name>` | Runs a script at logon. |
+| `mosaico script autostart enable|disable <name>` | Runs a script at logon, in the background. |
 
 Files live in the config folder (`%USERPROFILE%\.config\mosaico`, or
 `MOSAICO_CONFIG_DIR`):
@@ -177,8 +177,11 @@ editor offers completion for the API from the first script.
 ### Autostart
 
 A script registered with `script autostart enable` gets its own logon task,
-`Mosaico script <name> for <user>`, that runs `mosaico script run <name>`. The
-`Autostart` contract gains named entries. A script started before the daemon
+`Mosaico script <name> for <user>`, that runs `mosaico script run <name>
+--background`. That starts the script again detached, without a console, writing
+to `logsscripts<name>.log` in the config folder, and returns. A new
+`ScriptAutostart` contract sits beside `Autostart`, which keeps its single
+registration for mosaico itself. A script started before the daemon
 waits for it; when the daemon stops, `script run` waits for it to come back and
 subscribes again, so a restart does not stop autostarted scripts.
 
@@ -246,8 +249,8 @@ Each task is one pull request, stacked on the one before, and closes its issue.
 
 ### 39.8 Script autostart and tray (#249)
 
-- [ ] Named entries in the `Autostart` contract; `script autostart`
-- [ ] Tray "Open scripts folder"
+- [x] A `ScriptAutostart` contract beside `Autostart`; `script autostart`
+- [x] Tray "Open scripts folder"
 
 ### 39.9 Documentation and verification (#250)
 

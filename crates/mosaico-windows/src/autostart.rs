@@ -20,6 +20,8 @@
 mod command_line;
 #[path = "autostart_registry.rs"]
 pub(crate) mod registry;
+#[path = "autostart_scripts.rs"]
+mod scripts;
 #[path = "autostart_switch.rs"]
 mod switch;
 #[path = "autostart_task.rs"]
@@ -35,6 +37,7 @@ use mosaico_core::Result;
 use mosaico_core::system::{Autostart, FileProbe, LaunchCommand};
 
 use self::registry::Value;
+pub use self::scripts::LogonTaskScripts;
 use self::task::LogonTask;
 use crate::files::WindowsFiles;
 

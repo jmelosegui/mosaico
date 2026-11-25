@@ -52,6 +52,10 @@ impl ProcessControl for World {
     fn kill(&self, _: u32) -> Result<()> {
         unreachable!("the tray kills nothing")
     }
+
+    fn launch_self(&self, _: &[String]) -> Result<u32> {
+        unreachable!("the tray starts no mosaico")
+    }
 }
 
 impl Opener for World {
@@ -65,6 +69,7 @@ fn paths() -> TrayPaths {
     TrayPaths {
         settings: PathBuf::from("bin/mosaico-settings"),
         config_dir: PathBuf::from("config"),
+        scripts_dir: PathBuf::from("config/scripts"),
         log: PathBuf::from("logs/mosaico.log"),
     }
 }
@@ -183,4 +188,42 @@ fn a_folder_that_cannot_be_opened_gives_the_reason() {
     // Assert
     assert_eq!(notice.title, "Could not open the config folder");
     assert!(notice.body.contains("access denied"));
+}
+
+#[test]
+fn the_scripts_folder_is_opened_or_says_how_to_make_one() {
+    // Arrange
+    let paths = paths();
+    let world = World::default();
+
+    // Act
+    let opened = shortcuts(&paths, &world).open_scripts_folder();
+
+    // Assert
+    assert_eq!(opened, Ok(()));
+    assert_eq!(
+        *world.opened.borrow(),
+        std::slice::from_ref(&paths.scripts_dir)
+    );
+}
+
+#[test]
+fn a_scripts_folder_that_cannot_be_opened_says_how_to_make_one() {
+    // Arrange
+    let paths = paths();
+    let world = World {
+        fails: true,
+        ..World::default()
+    };
+
+    // Act
+    let notice = shortcuts(&paths, &world).open_scripts_folder().unwrap_err();
+
+    // Assert
+    assert_eq!(notice.title, "Could not open the scripts folder");
+    assert!(
+        notice.body.contains("mosaico script new"),
+        "{}",
+        notice.body
+    );
 }
