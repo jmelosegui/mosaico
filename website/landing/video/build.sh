@@ -22,7 +22,15 @@ for i in "${!starts[@]}"; do
 done
 ffmpeg -y -v error -i out/visuals.mp4 -i out/music.wav "${inputs[@]}" -filter_complex \
   "${filters}${mix}amix=inputs=${#starts[@]}:normalize=0,atrim=0:75,volume=1.6,asplit=2[vo][sc];[1:a]volume=0.55[mu];[mu][sc]sidechaincompress=threshold=0.03:ratio=6:attack=20:release=400[duck];[duck][vo]amix=inputs=2:normalize=0,loudnorm=I=-16:TP=-1.5:LRA=11[a]" \
-  -map 0:v -map "[a]" -c:v copy -c:a aac -b:a 160k -ar 48000 -shortest -movflags +faststart ../assets/mosaico-demo.mp4
+  -map 0:v -map "[a]" -c:v copy -c:a aac -b:a 160k -ar 48000 -shortest out/body.mp4
+
+# The end card opens the video too, so players that show the first frame
+# before it plays (GitHub's among them) show the logo. It fades into the
+# first scene, and the sound starts INTRO seconds later to match.
+INTRO=0.6
+ffmpeg -y -v error -loop 1 -framerate 30 -t 1 -i out/frames/f02249.jpg -i out/body.mp4 -filter_complex \
+  "[0:v]format=yuv420p,setsar=1,fps=30,settb=1/30[i];[1:v]setsar=1,fps=30,settb=1/30[b];[i][b]xfade=transition=fade:duration=0.4:offset=$INTRO[v];[1:a]adelay=$(node -e "console.log($INTRO * 1000)"):all=1[a]" \
+  -map "[v]" -map "[a]" -c:v libx264 -pix_fmt yuv420p -crf 18 -preset slow -c:a aac -b:a 160k -ar 48000 -movflags +faststart ../assets/mosaico-demo.mp4
 
 ffmpeg -y -v error -i out/frames/f00810.jpg -q:v 3 ../assets/poster.jpg
-node captions.mjs > ../assets/mosaico-demo.en.vtt
+INTRO=$INTRO node captions.mjs > ../assets/mosaico-demo.en.vtt
