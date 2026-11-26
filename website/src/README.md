@@ -33,6 +33,9 @@ via global keyboard shortcuts.
   `user-rules.toml` and `keybindings.toml` are applied without restarting.
 - **Window rules** -- community-maintained rules plus user overrides to
   exclude specific applications from tiling.
+- **Lua scripting** -- scripts that react to desktop events and drive
+  Mosaico, such as floating a meeting window or switching layouts when you
+  dock. See [Scripting](guide/scripting.md).
 
 ## Quick Start
 
