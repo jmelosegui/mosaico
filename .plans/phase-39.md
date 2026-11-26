@@ -255,7 +255,7 @@ Each task is one pull request, stacked on the one before, and closes its issue.
 ### 39.9 Documentation and verification (#250)
 
 - [x] `website/src/guide/scripting.md` with examples, `cli.md` updated
-- [ ] Manual check against a separate instance: `mosaico events` while
+- [x] Manual check against a separate instance: `mosaico events` while
       switching workspaces and opening windows; a handler script; each order
       from a script; `script run --background` and `script autostart
       enable` surviving a daemon restart and a sign-in; the tray item
