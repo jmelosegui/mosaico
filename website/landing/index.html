@@ -181,11 +181,13 @@ flavor = <span class="str" id="theme-flavor">"mocha"</span></code></pre>
           <h2>Script it.</h2>
           <p class="intro">Lua scripts read the desktop, react to what happens on it and act on it. Float the meeting window, switch layouts when you dock, run a command every time you change workspace.</p>
           <ul class="facts">
-            <li>A script runs in its own process, so one that fails only stops itself.</li>
-            <li>Events for windows, focus, workspaces, layouts and monitors.</li>
-            <li>Start a script when you sign in with <code>mosaico script autostart enable</code>.</li>
+            <li>Each script runs in its own process, so one that fails, loops or crashes only stops itself.</li>
+            <li>Events for windows opening, moving and closing, focus, workspaces, layouts, monitors and config reloads.</li>
+            <li><code>mosaico script new</code> starts one from a template, and your editor completes the whole API.</li>
+            <li>Run a script when you sign in with <code>mosaico script autostart enable</code>, or bind it to a key.</li>
             <li>Not a Lua person? <code>mosaico events --json</code> streams the same events to any language.</li>
           </ul>
+          <p class="more"><a href="docs/guide/scripting.html">Read the scripting guide</a></p>
         </div>
         <div class="cmd lua">
           <div class="cmd-h"><span>scripts\meeting.lua</span></div>
