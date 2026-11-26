@@ -1,6 +1,6 @@
 [package]
 name = "mosaico-script"
-version = "0.13.1"
+version = "0.14.0"
 edition = "2024"
 description = "Lua scripts that drive Mosaico as a client of its daemon"
 license = "MIT"
