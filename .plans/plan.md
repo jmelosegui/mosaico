@@ -54,7 +54,7 @@ Mosaico is structured as a Cargo workspace with multiple crates:
 | [35](phase-35.md) | Mouse Interaction | In Progress |
 | [37](phase-37.md) | Tray Icon & Settings App | Complete |
 | [38](phase-38.md) | Launch Applications from Keybindings | Complete |
-| [39](phase-39.md) | Lua Scripting and Events | In progress |
+| [39](phase-39.md) | Lua Scripting and Events | Complete |
 
 ## Design Principles
 
