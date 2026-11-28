@@ -32,5 +32,5 @@ ffmpeg -y -v error -loop 1 -framerate 30 -t 1 -i out/frames/f02249.jpg -i out/bo
   "[0:v]format=yuv420p,setsar=1,fps=30,settb=1/30[i];[1:v]setsar=1,fps=30,settb=1/30[b];[i][b]xfade=transition=fade:duration=0.4:offset=$INTRO[v];[1:a]adelay=$(node -e "console.log($INTRO * 1000)"):all=1[a]" \
   -map "[v]" -map "[a]" -c:v libx264 -pix_fmt yuv420p -crf 18 -preset slow -c:a aac -b:a 160k -ar 48000 -movflags +faststart ../assets/mosaico-demo.mp4
 
-ffmpeg -y -v error -i out/frames/f00810.jpg -q:v 3 ../assets/poster.jpg
+ffmpeg -y -v error -i ../assets/mosaico-demo.mp4 -frames:v 1 -q:v 3 ../assets/first-frame.jpg
 INTRO=$INTRO node captions.mjs > ../assets/mosaico-demo.en.vtt
